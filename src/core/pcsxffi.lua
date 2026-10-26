@@ -117,6 +117,8 @@ void unloadGPUDumpPlayer();
 bool stepGPUDumpPlayer();
 void rewindGPUDumpPlayer();
 uint64_t getGPUDumpPlayerFrame();
+uint64_t getGPUDumpPlayerFrameCount();
+bool seekGPUDumpPlayer(uint64_t frame);
 void setGPUDumpPlayerLogging(bool enabled);
 uint32_t getGPUDumpPlayerLoggedCount();
 LuaSlice* getGPUDumpPlayerVRAM();
@@ -374,6 +376,9 @@ PCSX = {
             step = function() return C.stepGPUDumpPlayer() end,
             rewind = function() C.rewindGPUDumpPlayer() end,
             getFrame = function() return tonumber(C.getGPUDumpPlayerFrame()) end,
+            getFrameCount = function() return tonumber(C.getGPUDumpPlayerFrameCount()) end,
+            -- Ends up where rewind() then that many step() calls would. False past the last frame.
+            seek = function(frame) return C.seekGPUDumpPlayer(frame) end,
             -- The player's own GPU logger, holding the commands of the last frame played.
             setLogging = function(enabled) C.setGPUDumpPlayerLogging(enabled) end,
             getLoggedCount = function() return C.getGPUDumpPlayerLoggedCount() end,

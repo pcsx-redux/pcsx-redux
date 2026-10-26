@@ -207,6 +207,8 @@ void unloadGPUDumpPlayer() { PCSX::g_emulator->m_gpuDumpPlayer->unload(); }
 bool stepGPUDumpPlayer() { return PCSX::g_emulator->m_gpuDumpPlayer->step(); }
 void rewindGPUDumpPlayer() { PCSX::g_emulator->m_gpuDumpPlayer->rewind(); }
 uint64_t getGPUDumpPlayerFrame() { return PCSX::g_emulator->m_gpuDumpPlayer->frame(); }
+uint64_t getGPUDumpPlayerFrameCount() { return PCSX::g_emulator->m_gpuDumpPlayer->frameCount(); }
+bool seekGPUDumpPlayer(uint64_t frame) { return PCSX::g_emulator->m_gpuDumpPlayer->seek(frame); }
 void setGPUDumpPlayerLogging(bool enabled) { PCSX::g_emulator->m_gpuDumpPlayer->logger()->setLogging(enabled); }
 uint32_t getGPUDumpPlayerLoggedCount() { return PCSX::g_emulator->m_gpuDumpPlayer->logger()->loggedCount(); }
 PCSX::Slice* getGPUDumpPlayerVRAM() {
@@ -357,6 +359,8 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, stepGPUDumpPlayer);
     REGISTER(L, rewindGPUDumpPlayer);
     REGISTER(L, getGPUDumpPlayerFrame);
+    REGISTER(L, getGPUDumpPlayerFrameCount);
+    REGISTER(L, seekGPUDumpPlayer);
     REGISTER(L, setGPUDumpPlayerLogging);
     REGISTER(L, getGPUDumpPlayerLoggedCount);
     REGISTER(L, getGPUDumpPlayerVRAM);

@@ -164,7 +164,18 @@ class GPU {
     void deserialize(const SaveStateWrapper *);
     void restoreEnvironment(const uint8_t *env, uint32_t status);
 
+    // The GPU half of a save state, kept in memory: what serialize() writes, without the protobuf.
+    struct Snapshot {
+        uint32_t status;
+        uint32_t control[256];
+        uint8_t env[24];
+        std::vector<uint16_t> vram;
+    };
+    void snapshot(Snapshot &);
+    void restore(const Snapshot &);
+
   private:
+    void restoreState(uint32_t status, const uint16_t *vram, unsigned vramRows, const uint8_t *env);
     uint32_t s_usedAddr[3];
     bool CheckForEndlessLoop(uint32_t laddr);
     uint32_t gpuDmaChainSize(uint32_t addr);
