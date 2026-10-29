@@ -94,6 +94,7 @@ void PCSX::CpuTrace::capture(uint32_t pc, uint32_t code) {
     e.hilo = 0;
     e.cop = 0;
     e.memValue = 0;
+    e.cycle = regs.cycle;
     // Opcode-dependent slots (hi/lo, coprocessor reg, memory word) come from the
     // disassembly traversal, which is the single source of truth for which of
     // those an instruction touches.
@@ -120,7 +121,10 @@ void PCSX::CpuTrace::clear() {
 
 namespace {
 constexpr char kMagic[8] = {'P', 'C', 'S', 'X', 'T', 'R', 'C', 0};
-constexpr uint32_t kVersion = 1;
+constexpr uint32_t kVersion = 2;
+
+// Version 1 records: the current layout without the trailing cycle.
+constexpr uint32_t kV1RecordSize = 32;
 }  // namespace
 
 bool PCSX::CpuTrace::exportText(IO<File> file, size_t start, size_t count) const {
@@ -167,8 +171,10 @@ bool PCSX::CpuTrace::load(IO<File> file) {
     char magic[sizeof(kMagic)];
     if (file->read(magic, sizeof(magic)) != sizeof(magic)) return false;
     if (memcmp(magic, kMagic, sizeof(kMagic)) != 0) return false;
-    if (file->read<uint32_t>() != kVersion) return false;
-    if (file->read<uint32_t>() != sizeof(TraceEntry)) return false;
+    uint32_t version = file->read<uint32_t>();
+    uint32_t recordSize = file->read<uint32_t>();
+    if (version == 1 && recordSize == kV1RecordSize) return loadV1(file);
+    if (version != kVersion || recordSize != sizeof(TraceEntry)) return false;
     uint64_t count = file->read<uint64_t>();
     while (m_count < count) {
         size_t n = std::min<uint64_t>(count - m_count, kRecordsPerChunk);
@@ -179,6 +185,21 @@ bool PCSX::CpuTrace::load(IO<File> file) {
             return false;
         }
         m_count += n;
+    }
+    return true;
+}
+
+bool PCSX::CpuTrace::loadV1(IO<File> file) {
+    uint64_t count = file->read<uint64_t>();
+    uint32_t record[kV1RecordSize / sizeof(uint32_t)];
+    while (m_count < count) {
+        if (file->read(record, sizeof(record)) != sizeof(record)) {
+            clear();
+            return false;
+        }
+        TraceEntry& e = alloc();
+        memcpy(&e, record, sizeof(record));
+        e.cycle = kUnknownCycle;
     }
     return true;
 }

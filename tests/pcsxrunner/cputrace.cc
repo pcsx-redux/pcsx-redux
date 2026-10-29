@@ -28,6 +28,7 @@
 
 #include "core/disr3000a.h"
 #include "core/psxemulator.h"
+#include "core/r3000a.h"
 #include "gtest/gtest.h"
 #include "main/main.h"
 
@@ -323,6 +324,44 @@ void roundTripObserver(const PCSX::TraceEntry& e) {
     }
 }
 
+struct Cycles {
+    uint64_t first = PCSX::kUnknownCycle;
+    uint64_t last = 0;
+    size_t records = 0;
+    size_t unknown = 0;
+    size_t backwards = 0;
+    size_t mismatched = 0;
+};
+Cycles* s_cycles = nullptr;
+
+void cycleObserver(const PCSX::TraceEntry& e) {
+    Cycles& c = *s_cycles;
+    if (c.records >= 100'000) {
+        PCSX::g_emulator->settings.get<PCSX::Emulator::SettingDebugSettings>()
+            .get<PCSX::Emulator::DebugSettings::Trace>()
+            .value = false;
+        return;
+    }
+    if (e.cycle == PCSX::kUnknownCycle) c.unknown++;
+    if (e.cycle != PCSX::g_emulator->m_cpu->m_regs.cycle) c.mismatched++;
+    if (c.records > 0 && e.cycle < c.last) c.backwards++;
+    if (c.records == 0) c.first = e.cycle;
+    c.last = e.cycle;
+    c.records++;
+}
+
+template <typename T>
+void put(PCSX::IO<PCSX::BufferFile>& file, T value) {
+    file->write(&value, sizeof(value));
+}
+
+template <typename T>
+T get(PCSX::IO<PCSX::BufferFile>& file) {
+    T value = 0;
+    file->read(&value, sizeof(value));
+    return value;
+}
+
 size_t s_limitCalls = 0;
 void limitObserver(const PCSX::TraceEntry&) {
     if (s_limitCalls++ == 0) PCSX::g_emulator->m_cpuTrace->setLimit(1000);
@@ -368,4 +407,73 @@ TEST(CpuTrace, CaptureStopsAtLimit) {
     PCSX::CpuTrace::s_captureObserver = nullptr;
     EXPECT_EQ(ret, 0);
     EXPECT_EQ(s_limitCalls, 1000u);
+}
+
+TEST(CpuTrace, RecordsCarryTheCycleCounter) {
+    Cycles c;
+    s_cycles = &c;
+    PCSX::CpuTrace::s_captureObserver = cycleObserver;
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-trace", "-loadexe", "src/mips/tests/cpu/cpu.ps-exe");
+    int ret = invoker.invoke();
+    PCSX::CpuTrace::s_captureObserver = nullptr;
+    s_cycles = nullptr;
+    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(c.records, 100'000u);
+    EXPECT_EQ(c.unknown, 0u);
+    EXPECT_EQ(c.mismatched, 0u);
+    EXPECT_EQ(c.backwards, 0u);
+    // At least one cycle per instruction.
+    EXPECT_GE(c.last - c.first, c.records - 1);
+    fprintf(stderr, "[cputrace] cycles: %zu records spanning %llu cycles\n", c.records,
+            static_cast<unsigned long long>(c.last - c.first));
+}
+
+TEST(CpuTrace, LoadsVersion1Files) {
+    const uint32_t records[2][8] = {
+        {0xbfc00000, 0x3c080013, 1, 2, 3, 4, 5, 6},
+        {0xbfc00004, 0x3508243f, 7, 8, 9, 10, 11, 12},
+    };
+    PCSX::IO<PCSX::BufferFile> v1 = new PCSX::BufferFile(PCSX::FileOps::READWRITE);
+    v1->write("PCSXTRC", 8);
+    put<uint32_t>(v1, 1);
+    put<uint32_t>(v1, 32);
+    put<uint64_t>(v1, 2);
+    v1->write(records, sizeof(records));
+    v1->rSeek(0, SEEK_SET);
+    PCSX::CpuTrace trace;
+    ASSERT_TRUE(trace.load(v1));
+    ASSERT_EQ(trace.size(), 2u);
+    for (size_t i = 0; i < 2; i++) {
+        const PCSX::TraceEntry& e = trace[i];
+        EXPECT_EQ(e.pc, records[i][0]);
+        EXPECT_EQ(e.code, records[i][1]);
+        EXPECT_EQ(e.regRs, records[i][2]);
+        EXPECT_EQ(e.memValue, records[i][7]);
+        EXPECT_EQ(e.cycle, PCSX::kUnknownCycle);
+    }
+
+    // Saving writes the current version, which loads back unchanged.
+    PCSX::IO<PCSX::BufferFile> v2 = new PCSX::BufferFile(PCSX::FileOps::READWRITE);
+    ASSERT_TRUE(trace.save(v2));
+    v2->rSeek(8, SEEK_SET);
+    EXPECT_EQ(get<uint32_t>(v2), 2u);
+    EXPECT_EQ(get<uint32_t>(v2), sizeof(PCSX::TraceEntry));
+    v2->rSeek(0, SEEK_SET);
+    PCSX::CpuTrace again;
+    ASSERT_TRUE(again.load(v2));
+    ASSERT_EQ(again.size(), 2u);
+    EXPECT_EQ(again[1].pc, records[1][0]);
+    EXPECT_EQ(again[1].cycle, PCSX::kUnknownCycle);
+
+    // A truncated version 1 file is refused and leaves the store empty.
+    PCSX::IO<PCSX::BufferFile> cut = new PCSX::BufferFile(PCSX::FileOps::READWRITE);
+    cut->write("PCSXTRC", 8);
+    put<uint32_t>(cut, 1);
+    put<uint32_t>(cut, 32);
+    put<uint64_t>(cut, 2);
+    cut->write(records, sizeof(records[0]));
+    cut->rSeek(0, SEEK_SET);
+    EXPECT_FALSE(again.load(cut));
+    EXPECT_EQ(again.size(), 0u);
 }

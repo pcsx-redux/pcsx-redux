@@ -29,13 +29,16 @@
 
 namespace PCSX {
 
-// One captured instruction. Fixed 32 bytes so the trace store is a flat,
+// One captured instruction. Fixed 40 bytes so the trace store is a flat,
 // index-addressable array of records: no per-record length and no offset table.
 // `code` is the schema - re-disassembling it tells the viewer which of the
 // sparse value slots are meaningful and what each one means. The values are the
 // PRE-execution operand snapshot: destination registers still hold their old
 // value, and no writeback / post-execution state is captured (the post value is
-// almost always just the next instruction's input).
+// almost always just the next instruction's input). `cycle` is the emulated CPU
+// cycle counter when the instruction was captured, the same clock hardware
+// events are stamped with; records loaded from a version 1 file carry
+// kUnknownCycle there.
 struct TraceEntry {
     uint32_t pc;        // program counter of this instruction
     uint32_t code;      // raw instruction word - the rendering schema
@@ -45,8 +48,10 @@ struct TraceEntry {
     uint32_t hilo;      // hi or lo (mfhi/mflo) - never both in one instruction
     uint32_t cop;       // CP0 / CP2D / CP2C register value - mutually exclusive
     uint32_t memValue;  // value read at the effective address (loads/stores)
+    uint64_t cycle;     // m_regs.cycle at capture, or kUnknownCycle
 };
-static_assert(sizeof(TraceEntry) == 32, "TraceEntry must stay a fixed 32 bytes");
+static_assert(sizeof(TraceEntry) == 40, "TraceEntry must stay a fixed 40 bytes");
+inline constexpr uint64_t kUnknownCycle = UINT64_MAX;
 
 // Feeds a captured entry's sparse values back into the disassembler so the exact
 // same "with values" traversal renders an identical annotated line from recorded
@@ -79,7 +84,7 @@ struct PlaybackValueSource : public Disasm::ValueSource {
 // storage plus the per-instruction capture step.
 class CpuTrace {
   public:
-    static constexpr size_t kRecordsPerChunk = 64 * 1024;  // 2 MiB per chunk
+    static constexpr size_t kRecordsPerChunk = 64 * 1024;  // 2.5 MiB per chunk
 
     // Capture one instruction's pre-execution operand snapshot. Hot path.
     void capture(uint32_t pc, uint32_t code);
@@ -110,13 +115,14 @@ class CpuTrace {
 
   private:
     TraceEntry& alloc();
+    bool loadV1(IO<File> file);
     std::vector<std::unique_ptr<TraceEntry[]>> m_chunks;
     size_t m_count = 0;
     size_t m_limit = kDefaultLimit;
 
   public:
     // 1 GiB of records.
-    static constexpr size_t kDefaultLimit = 32 * 1024 * 1024;
+    static constexpr size_t kDefaultLimit = 1024 * 1024 * 1024 / sizeof(TraceEntry);
 };
 
 }  // namespace PCSX
