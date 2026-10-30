@@ -135,6 +135,27 @@ bool readHeaderField(PCSX::IO<PCSX::File>& file, T& value) {
     if constexpr (std::endian::native != std::endian::little) value = PCSX::PolyFill::byteSwap(value);
     return true;
 }
+
+template <PCSX::PolyFill::IntegralConcept T>
+T toLittle(T value) {
+    if constexpr (std::endian::native != std::endian::little) value = PCSX::PolyFill::byteSwap(value);
+    return value;
+}
+
+// Converts a record between host order and the file's little-endian order, in either direction.
+void swapToLittle(PCSX::TraceEntry& e) {
+    if constexpr (std::endian::native != std::endian::little) {
+        e.pc = toLittle(e.pc);
+        e.code = toLittle(e.code);
+        e.regRs = toLittle(e.regRs);
+        e.regRt = toLittle(e.regRt);
+        e.regRd = toLittle(e.regRd);
+        e.hilo = toLittle(e.hilo);
+        e.cop = toLittle(e.cop);
+        e.memValue = toLittle(e.memValue);
+        e.cycle = toLittle(e.cycle);
+    }
+}
 }  // namespace
 
 bool PCSX::CpuTrace::exportText(IO<File> file, size_t start, size_t count) const {
@@ -159,9 +180,9 @@ bool PCSX::CpuTrace::exportText(IO<File> file, size_t start, size_t count) const
 
 bool PCSX::CpuTrace::save(IO<File> file) const {
     auto put = [&file](const void* data, size_t size) { return file->write(data, size) == static_cast<ssize_t>(size); };
-    uint32_t version = kVersion;
-    uint32_t recordSize = sizeof(TraceEntry);
-    uint64_t count = m_count;
+    uint32_t version = toLittle(kVersion);
+    uint32_t recordSize = toLittle(static_cast<uint32_t>(sizeof(TraceEntry)));
+    uint64_t count = toLittle(static_cast<uint64_t>(m_count));
     if (!put(kMagic, sizeof(kMagic)) || !put(&version, sizeof(version)) || !put(&recordSize, sizeof(recordSize)) ||
         !put(&count, sizeof(count))) {
         return false;
@@ -170,7 +191,15 @@ bool PCSX::CpuTrace::save(IO<File> file) const {
     for (auto& chunk : m_chunks) {
         if (left == 0) break;
         size_t n = std::min(left, kRecordsPerChunk);
-        if (!put(chunk.get(), n * sizeof(TraceEntry))) return false;
+        if constexpr (std::endian::native == std::endian::little) {
+            if (!put(chunk.get(), n * sizeof(TraceEntry))) return false;
+        } else {
+            for (size_t i = 0; i < n; i++) {
+                TraceEntry e = chunk[i];
+                swapToLittle(e);
+                if (!put(&e, sizeof(e))) return false;
+            }
+        }
         left -= n;
     }
     return true;
@@ -206,6 +235,9 @@ bool PCSX::CpuTrace::loadRecords(IO<File> file) {
             clear();
             return false;
         }
+        if constexpr (std::endian::native != std::endian::little) {
+            for (size_t i = 0; i < n; i++) swapToLittle(m_chunks.back()[i]);
+        }
         m_count += n;
     }
     return true;
@@ -222,6 +254,8 @@ bool PCSX::CpuTrace::loadV1(IO<File> file) {
         }
         TraceEntry& e = alloc();
         memcpy(&e, record, sizeof(record));
+        e.cycle = 0;
+        swapToLittle(e);
         e.cycle = kUnknownCycle;
     }
     return true;
