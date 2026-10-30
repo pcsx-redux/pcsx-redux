@@ -477,3 +477,17 @@ TEST(CpuTrace, LoadsVersion1Files) {
     EXPECT_FALSE(again.load(cut));
     EXPECT_EQ(again.size(), 0u);
 }
+
+TEST(CpuTrace, LoadRefusesATruncatedHeader) {
+    // Both versions, cut right after the record size: there is no record count to read.
+    for (uint32_t version : {1u, 2u}) {
+        PCSX::IO<PCSX::BufferFile> cut = new PCSX::BufferFile(PCSX::FileOps::READWRITE);
+        cut->write("PCSXTRC", 8);
+        put<uint32_t>(cut, version);
+        put<uint32_t>(cut, version == 1 ? 32 : sizeof(PCSX::TraceEntry));
+        cut->rSeek(0, SEEK_SET);
+        PCSX::CpuTrace trace;
+        EXPECT_FALSE(trace.load(cut)) << "version " << version;
+        EXPECT_EQ(trace.size(), 0u);
+    }
+}

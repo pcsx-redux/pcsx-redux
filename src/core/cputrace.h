@@ -115,6 +115,7 @@ class CpuTrace {
 
   private:
     TraceEntry& alloc();
+    bool loadRecords(IO<File> file);
     bool loadV1(IO<File> file);
     std::vector<std::unique_ptr<TraceEntry[]>> m_chunks;
     size_t m_count = 0;

@@ -22,6 +22,8 @@
 #include <string.h>
 
 #include <algorithm>
+#include <bit>
+#include <new>
 #include <string>
 
 #include "core/psxemulator.h"
@@ -125,6 +127,14 @@ constexpr uint32_t kVersion = 2;
 
 // Version 1 records: the current layout without the trailing cycle.
 constexpr uint32_t kV1RecordSize = 32;
+
+// A little-endian header field, failing on a short read where File::read<T>() would return 0.
+template <PCSX::PolyFill::IntegralConcept T>
+bool readHeaderField(PCSX::IO<PCSX::File>& file, T& value) {
+    if (file->read(&value, sizeof(T)) != static_cast<ssize_t>(sizeof(T))) return false;
+    if constexpr (std::endian::native != std::endian::little) value = PCSX::PolyFill::byteSwap(value);
+    return true;
+}
 }  // namespace
 
 bool PCSX::CpuTrace::exportText(IO<File> file, size_t start, size_t count) const {
@@ -168,14 +178,26 @@ bool PCSX::CpuTrace::save(IO<File> file) const {
 
 bool PCSX::CpuTrace::load(IO<File> file) {
     clear();
+    // A large capture may not fit, and a v1 one grows by a quarter as it is expanded: a failed
+    // allocation is a failed load, not an exception out of the loader.
+    try {
+        if (loadRecords(file)) return true;
+    } catch (const std::bad_alloc&) {
+    }
+    clear();
+    return false;
+}
+
+bool PCSX::CpuTrace::loadRecords(IO<File> file) {
     char magic[sizeof(kMagic)];
     if (file->read(magic, sizeof(magic)) != sizeof(magic)) return false;
     if (memcmp(magic, kMagic, sizeof(kMagic)) != 0) return false;
-    uint32_t version = file->read<uint32_t>();
-    uint32_t recordSize = file->read<uint32_t>();
+    uint32_t version, recordSize;
+    uint64_t count;
+    if (!readHeaderField(file, version) || !readHeaderField(file, recordSize)) return false;
     if (version == 1 && recordSize == kV1RecordSize) return loadV1(file);
     if (version != kVersion || recordSize != sizeof(TraceEntry)) return false;
-    uint64_t count = file->read<uint64_t>();
+    if (!readHeaderField(file, count)) return false;
     while (m_count < count) {
         size_t n = std::min<uint64_t>(count - m_count, kRecordsPerChunk);
         m_chunks.emplace_back(std::make_unique<TraceEntry[]>(kRecordsPerChunk));
@@ -190,7 +212,8 @@ bool PCSX::CpuTrace::load(IO<File> file) {
 }
 
 bool PCSX::CpuTrace::loadV1(IO<File> file) {
-    uint64_t count = file->read<uint64_t>();
+    uint64_t count;
+    if (!readHeaderField(file, count)) return false;
     uint32_t record[kV1RecordSize / sizeof(uint32_t)];
     while (m_count < count) {
         if (file->read(record, sizeof(record)) != sizeof(record)) {
