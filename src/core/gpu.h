@@ -145,6 +145,8 @@ class GPU {
     void setDumper(GPUDumper *dumper) { m_dumper = dumper; }
     // True when no GP0 command is partially received, so a dump can start cleanly.
     bool isIdle() const { return m_processor == &m_defaultProcessor; }
+    // True while VRAM-to-CPU words are queued for readData(). Not part of a save state.
+    bool hasPendingReadback() { return m_readFifo->size() != 0; }
     // The last word written for a given GP1 command.
     uint32_t getStatusControl(uint8_t cmd) const { return m_statusControl[cmd]; }
     // The last GP0(E3h), GP0(E4h) and GP0(E5h) words, low 24 bits.

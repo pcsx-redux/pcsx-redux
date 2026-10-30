@@ -142,8 +142,11 @@ class GPUDumpPlayer {
   private:
     void execute(const GPUDumpReader::Packet& packet);
     void cacheSnapshot();
-    // One snapshot every this many frames, taken as step() reaches them. A snapshot holds 2MB of VRAM.
+    // One snapshot every m_snapshotInterval frames, taken as step() reaches them. A snapshot holds
+    // 2MB of VRAM, so past c_maxSnapshots every other one is dropped and the interval doubles.
     static constexpr uint64_t c_snapshotInterval = 30;
+    static constexpr size_t c_maxSnapshots = 128;
+    uint64_t m_snapshotInterval = c_snapshotInterval;
     struct Snapshot {
         size_t position;
         GPU::Snapshot gpu;

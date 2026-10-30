@@ -207,6 +207,7 @@ void PCSX::GPUDumpPlayer::unload() {
     m_logger.setOwner(nullptr);
     m_gpu.reset();
     m_snapshots.clear();
+    m_snapshotInterval = c_snapshotInterval;
     m_frame = 0;
     m_frameCount = 0;
     m_gameID.clear();
@@ -279,10 +280,16 @@ bool PCSX::GPUDumpPlayer::step() {
 }
 
 void PCSX::GPUDumpPlayer::cacheSnapshot() {
-    if (m_frame % c_snapshotInterval != 0) return;
-    // A command cut by the vsync would be lost: the snapshot only holds what a save state holds.
-    if (!m_gpu->isIdle()) return;
+    if (m_frame % m_snapshotInterval != 0) return;
+    // A command cut by the vsync, or readback words still queued, would be lost: the snapshot only
+    // holds what a save state holds.
+    if (!m_gpu->isIdle() || m_gpu->hasPendingReadback()) return;
     if (m_snapshots.contains(m_frame)) return;
+    if (m_snapshots.size() >= c_maxSnapshots) {
+        m_snapshotInterval *= 2;
+        std::erase_if(m_snapshots, [this](const auto& entry) { return entry.first % m_snapshotInterval != 0; });
+        if (m_frame % m_snapshotInterval != 0) return;
+    }
     auto& snapshot = m_snapshots[m_frame];
     snapshot.position = m_reader.position();
     m_gpu->snapshot(snapshot.gpu);
