@@ -289,6 +289,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-irq.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-dfe-480i.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat10.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat26.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat-480i.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-polyline.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-vram-move.cc" />

@@ -756,9 +756,9 @@ void PCSX::GPU::deserialize(const SaveStateWrapper* w) {
     // The GP1 and environment replays above rebuild the status word from commands, which loses
     // whatever was set since by other paths (the texpage of the last textured primitive, the
     // interlace field). The saved word is what the cpu read; that is what it has to read again,
-    // except for the bits readStatus() ORs in live (IRQ1, DMA request, ready-for-VRAM): those
-    // stay as the replay derived them.
-    constexpr uint32_t derived = 0x1b000000;
+    // except for the bits readStatus() sets live (IRQ1, DMA request, ready for a command,
+    // ready-for-VRAM): those stay as the replay derived them.
+    constexpr uint32_t derived = 0x1f000000;
     restoreStatus((gpu.get<GPUStatus>().value & ~derived) | (readStatusInternal() & derived));
     // The replayed GP1(00h)/GP1(02h) above clear the IRQ1 flag; put back the saved one.
     m_irq1Flag = gpu.get<GPUStatus>().value & 0x01000000;

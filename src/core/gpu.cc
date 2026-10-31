@@ -383,6 +383,9 @@ uint32_t PCSX::GPU::readStatus() {
     if ((ret & GPUSTATUS_IDLE) == 0) ret &= ~GPUSTATUS_READYFORVRAM;
 #endif
     if (m_readFifo->size() != 0) ret |= GPUSTATUS_READYFORVRAM;
+    // Bit 26 stays clear from a multi-word command's first word until its last one, and for
+    // GP0(C0h) until the last word of the readout has been read.
+    if (!isIdle() || (m_readFifo->size() != 0)) ret &= ~GPUSTATUS_IDLE;
     if (m_irq1Flag) ret |= GPUSTATUS_IRQ1;
     // Let's pretend our input fifo is always ready for more data.
     if ((ret & 0x60000000) == 0x20000000) ret |= 0x02000000;
