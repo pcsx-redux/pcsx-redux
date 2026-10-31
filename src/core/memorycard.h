@@ -60,7 +60,9 @@ class MemoryCard {
     void disablePocketstation() { m_pocketstationEnabled = false; };
     void enablePocketstation() { m_pocketstationEnabled = true; };
     char *getMcdData() { return m_mcdData; }
-    void loadMcd(PCSX::u8string mcd);
+    // Reads the card from mcd, creating a formatted file first if it does not exist and createIfMissing is
+    // set. Returns false, logging why and leaving the card's data as it was, when the file cannot be read.
+    [[nodiscard]] bool loadMcd(PCSX::u8string mcd, bool createIfMissing = true);
     void saveMcd(PCSX::u8string mcd, const char *data, uint32_t adr, size_t size);
     void saveMcd(PCSX::u8string mcd) { saveMcd(mcd, m_mcdData, 0, c_cardSize); }
 
