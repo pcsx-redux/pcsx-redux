@@ -47,7 +47,7 @@ All native builds are 64-bit only, and need a GPU and driver that can create at 
 
 The browser build is highly experimental and not really functional yet: expect missing features and breakage. It is redeployed from each push to main whose wasm build succeeds. It runs the CPU interpreter only and boots OpenBIOS, and it needs WebGL2 and SharedArrayBuffer. The first visit reloads the page once to enable SharedArrayBuffer.
 
-The Linux AppImages are built on Ubuntu 24.04 and need a distribution at least that recent. On older ones, the Windows build runs under Wine 11: replace `pcsx-redux.exe`, the launcher that checks for the Visual C++ runtime, with `pcsx-redux.main` renamed to `pcsx-redux.exe`.
+The Linux AppImages are built on Ubuntu 24.04 and need a distribution at least that recent. On older ones, the Windows build runs under Wine 11: replace `pcsx-redux.exe`, the launcher that checks for the Visual C++ runtime, with `pcsx-redux.main` renamed to `pcsx-redux.exe`. The Windows build is x86-64, so on an ARM64 host Wine needs an x86-64 emulation layer such as Box64 or FEX under it.
 
 ### Note:
 The macOS version of PCSX-Redux is not currently signed with a developer certificate so you may see a security warning when opening the application.
