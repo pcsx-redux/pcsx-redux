@@ -113,12 +113,19 @@ class SIO {
     void getMcdBlockInfo(int mcd, int block, McdBlock &info);
     char *getMcdData(int mcd);
     char *getMcdData(const McdBlock &block) { return getMcdData(block.mcd); }
-    void loadMcd(const PCSX::u8string &path, int mcd) {
-        if (mcd > 0 && mcd <= c_cardCount) m_memoryCard[mcd - 1].loadMcd(path);
+    // Imports the file at path into card mcd (1 or 2). Nothing is created; on failure the card keeps its data.
+    // A card that had failed to load holds the imported data from then on, so it answers the console again.
+    [[nodiscard]] bool loadMcd(const PCSX::u8string &path, int mcd) {
+        if (mcd < 1 || mcd > c_cardCount) return false;
+        if (!m_memoryCard[mcd - 1].loadMcd(path, false)) return false;
+        m_memoryCardFailed[mcd - 1] = false;
+        return true;
     }
+    // Reads cards 1 and 2 from their files. A card whose file cannot be read stays pulled out: the console
+    // gets no ACK from it, as from a slot whose card is not inserted.
     void loadMcds(const PCSX::u8string &mcd1, const PCSX::u8string &mcd2) {
-        m_memoryCard[0].loadMcd(mcd1);
-        m_memoryCard[1].loadMcd(mcd2);
+        m_memoryCardFailed[0] = !m_memoryCard[0].loadMcd(mcd1);
+        m_memoryCardFailed[1] = !m_memoryCard[1].loadMcd(mcd2);
     }
     void saveMcd(int mcd);
     static constexpr int otherMcd(int mcd) {
@@ -268,11 +275,15 @@ class SIO {
     uint32_t m_padState;
 
     MemoryCard m_memoryCard[c_cardCount] = {this, this};
+    // Set when a card's file could not be read: the slot then behaves as if no card were inserted.
+    bool m_memoryCardFailed[c_cardCount] = {};
     // The cards in a multitap's slots B to D: 0 to 2 on port 1, 3 to 5 on port 2. Slot A is card 1 or 2.
     // Each is read from its file the first time it is selected while inserted, so no file is created for a
     // slot nobody uses.
     MemoryCard m_tapMemoryCard[c_tapCardCount] = {this, this, this, this, this, this};
     bool m_tapMemoryCardLoaded[c_tapCardCount] = {};
+    // Read attempted and failed: as with cards 1 and 2, the slot behaves as if empty.
+    bool m_tapMemoryCardFailed[c_tapCardCount] = {};
 
     FIFO<uint8_t, 8> m_rxFIFO;
 };

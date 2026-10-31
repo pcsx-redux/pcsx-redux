@@ -21,6 +21,12 @@
 
 #include <sys/stat.h>
 
+#include <cerrno>
+#include <cstring>
+#include <filesystem>
+#include <memory>
+#include <system_error>
+
 #include "core/sio.h"
 #include "support/sjis_conv.h"
 
@@ -335,60 +341,51 @@ uint8_t PCSX::MemoryCard::tickPS_GetVersion(uint8_t value) {
 }
 
 // To-do: "All the code starting here is terrible and needs to be rewritten"
-void PCSX::MemoryCard::loadMcd(PCSX::u8string mcd) {
-    char *data = m_mcdData;
+// Reads the card from its file. A file that does not exist is first created formatted when createIfMissing
+// is set, as it always was; an existing file is never replaced. On failure the card's data is left as it
+// was, the error names the file, and false is returned.
+bool PCSX::MemoryCard::loadMcd(PCSX::u8string mcd, bool createIfMissing) {
     if (std::filesystem::path(mcd).is_relative()) {
         mcd = (g_system->getPersistentDir() / mcd).u8string();
     }
     const char *fname = reinterpret_cast<const char *>(mcd.c_str());
-    size_t bytesRead;
 
-    m_directoryFlag = Flags::DirectoryUnread;
+    std::error_code ec;
+    if (createIfMissing && !std::filesystem::exists(std::filesystem::path(mcd), ec) && !ec) {
+        PCSX::g_system->printf(_("The memory card %s doesn't exist - creating it\n"), fname);
+        createMcd(mcd);
+    }
 
     FILE *f = fopen(fname, "rb");
     if (f == nullptr) {
-        PCSX::g_system->printf(_("The memory card %s doesn't exist - creating it\n"), fname);
-        createMcd(mcd);
-        f = fopen(fname, "rb");
-        if (f != nullptr) {
-            struct stat buf;
+        const int error = errno;
+        PCSX::g_system->message(_("Memory card %s failed to load: %s\n"), fname, strerror(error));
+        return false;
+    }
 
-            if (stat(fname, &buf) != -1) {
-                // Check if the file is a VGS memory card, skip the header if it is
-                if (buf.st_size == c_cardSize + 64) {
-                    fseek(f, 64, SEEK_SET);
-                }
-                // Check if the file is a Dexdrive memory card, skip the header if it is
-                else if (buf.st_size == c_cardSize + 3904) {
-                    fseek(f, 3904, SEEK_SET);
-                }
-            }
-            bytesRead = fread(data, 1, c_cardSize, f);
-            fclose(f);
-            if (bytesRead != c_cardSize) {
-                throw std::runtime_error(_("Error reading memory card."));
-            }
-        } else {
-            PCSX::g_system->message(_("Memory card %s failed to load!\n"), fname);
-        }
-    } else {
-        struct stat buf;
-        PCSX::g_system->printf(_("Loading memory card %s\n"), fname);
-        if (stat(fname, &buf) != -1) {
-            if (buf.st_size == c_cardSize + 64) {
-                fseek(f, 64, SEEK_SET);
-            } else if (buf.st_size == c_cardSize + 3904) {
-                fseek(f, 3904, SEEK_SET);
-            }
-        }
-        bytesRead = fread(data, 1, c_cardSize, f);
-        fclose(f);
-        if (bytesRead != c_cardSize) {
-            throw std::runtime_error(_("Error reading memory card."));
-        } else {
-            m_savedToDisk = true;
+    struct stat buf;
+    PCSX::g_system->printf(_("Loading memory card %s\n"), fname);
+    if (stat(fname, &buf) != -1) {
+        // Skip the header of a VGS or a DexDrive memory card.
+        if (buf.st_size == c_cardSize + 64) {
+            fseek(f, 64, SEEK_SET);
+        } else if (buf.st_size == c_cardSize + 3904) {
+            fseek(f, 3904, SEEK_SET);
         }
     }
+    auto data = std::make_unique<char[]>(c_cardSize);
+    const size_t bytesRead = fread(data.get(), 1, c_cardSize, f);
+    fclose(f);
+    if (bytesRead != c_cardSize) {
+        PCSX::g_system->message(_("Memory card %s failed to load: short read (%zu of %zu bytes)\n"), fname, bytesRead,
+                                c_cardSize);
+        return false;
+    }
+
+    memcpy(m_mcdData, data.get(), c_cardSize);
+    m_directoryFlag = Flags::DirectoryUnread;
+    m_savedToDisk = true;
+    return true;
 }
 
 void PCSX::MemoryCard::saveMcd(PCSX::u8string mcd, const char *data, uint32_t adr, size_t size) {

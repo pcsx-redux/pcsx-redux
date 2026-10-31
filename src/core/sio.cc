@@ -237,7 +237,9 @@ void PCSX::SIO::transmitData() {
         case DeviceType::MemoryCard:
             switch (m_regs.control & ControlFlags::WHICH_PORT) {
                 case SelectedPort::Port1:
-                    if (PCSX::g_emulator->settings.get<PCSX::Emulator::SettingMcd1Inserted>()) {
+                    // A card whose file failed to load answers like a slot with no card in it.
+                    if (PCSX::g_emulator->settings.get<PCSX::Emulator::SettingMcd1Inserted>() &&
+                        !m_memoryCardFailed[0]) {
                         m_rxBuffer = m_memoryCard[0].transceive(m_regs.data);
                         if (m_memoryCard[0].dataChanged()) {
                             m_memoryCard[0].commit(
@@ -251,7 +253,9 @@ void PCSX::SIO::transmitData() {
                     break;
 
                 case SelectedPort::Port2:
-                    if (PCSX::g_emulator->settings.get<PCSX::Emulator::SettingMcd2Inserted>()) {
+                    // A card whose file failed to load answers like a slot with no card in it.
+                    if (PCSX::g_emulator->settings.get<PCSX::Emulator::SettingMcd2Inserted>() &&
+                        !m_memoryCardFailed[1]) {
                         m_rxBuffer = m_memoryCard[1].transceive(m_regs.data);
                         if (m_memoryCard[1].dataChanged()) {
                             m_memoryCard[1].commit(
@@ -275,18 +279,20 @@ void PCSX::SIO::transmitData() {
             const auto port = portIndex ? Pads::Port::Port2 : Pads::Port::Port1;
             const auto [inserted, path] = tapMcdSettings(index);
             auto &card = m_tapMemoryCard[index];
-            if (!PCSX::g_emulator->m_pads->hasMultitap(port) || !inserted) {
+            const bool tap = PCSX::g_emulator->m_pads->hasMultitap(port);
+            if (tap && inserted && !m_tapMemoryCardLoaded[index]) {
+                // loadMcd resets the directory flag; keep the one a save state may have restored.
+                const uint8_t directoryFlag = card.m_directoryFlag;
+                m_tapMemoryCardFailed[index] = !card.loadMcd(path);
+                card.m_directoryFlag = directoryFlag;
+                m_tapMemoryCardLoaded[index] = true;
+            }
+            // A card whose file failed to load answers like an empty slot. It is not read again.
+            if (!tap || !inserted || m_tapMemoryCardFailed[index]) {
                 card.m_directoryFlag = MemoryCard::Flags::DirectoryUnread;
                 m_currentDevice = DeviceType::Ignore;
                 card.deselect();
                 break;
-            }
-            if (!m_tapMemoryCardLoaded[index]) {
-                // loadMcd resets the directory flag; keep the one a save state may have restored.
-                const uint8_t directoryFlag = card.m_directoryFlag;
-                card.loadMcd(path);
-                card.m_directoryFlag = directoryFlag;
-                m_tapMemoryCardLoaded[index] = true;
             }
             // The card itself only knows 81h.
             m_rxBuffer = card.transceive(select ? DeviceType::MemoryCard : m_regs.data);
