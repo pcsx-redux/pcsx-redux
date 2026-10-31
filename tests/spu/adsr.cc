@@ -134,13 +134,14 @@ TEST(SPUAdsr, VoicesShareTheStepGrid) {
             }
             if (s < offset) continue;
             const int vb = b.step(false, onB, s);
-            if (vb != lastB) {
-                EXPECT_TRUE(stepA) << "offset " << offset << " sample " << s;
-                stepsB++;
-            }
+            const bool stepB = vb != lastB;
             lastB = vb;
+            EXPECT_EQ(stepA, stepB) << "offset " << offset << " sample " << s;
+            if (stepB) stepsB++;
         }
-        EXPECT_GT(stepsB, 32) << "offset " << offset;
+        // 64 * 32 samples hold 64 grid steps and voice B is keyed on inside the first period, so it
+        // takes every step after its key-on: 63 or 64 depending on where the first one falls.
+        EXPECT_GE(stepsB, 63) << "offset " << offset;
     }
 }
 
