@@ -187,9 +187,22 @@ typedef Protobuf::Message<TYPESTRING("EnvelopeCheckpoint"), ECPKeyOnCycle, ECPSe
     EnvelopeCheckpoint;
 typedef Protobuf::RepeatedField<EnvelopeCheckpoint, 24, TYPESTRING("envelopeCheckpoint"), 21> EnvelopeCheckpoints;
 
+// The reverb resampling FIR (SPU::ReverbUnit): the 39-tap input history, the 20-tap output
+// history, and the L/R parity. A state saved without them loads all zeroes, a reset filter.
+typedef Protobuf::RepeatedField<Protobuf::Int32, 39, TYPESTRING("reverbFirInL"), 22> SPUReverbFirInL;
+typedef Protobuf::RepeatedField<Protobuf::Int32, 39, TYPESTRING("reverbFirInR"), 23> SPUReverbFirInR;
+typedef Protobuf::RepeatedField<Protobuf::Int32, 20, TYPESTRING("reverbFirOutL"), 24> SPUReverbFirOutL;
+typedef Protobuf::RepeatedField<Protobuf::Int32, 20, TYPESTRING("reverbFirOutR"), 25> SPUReverbFirOutR;
+typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("reverbAltLeftTick"), 26> SPUReverbAltLeftTick;
+typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("reverbCallCount"), 27> SPUReverbCallCount;
+// The reverb work-area address (REVERBInfo::CurrAddr), in samples. Zero in a state saved without it.
+typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("reverbCurrAddr"), 28> SPUReverbCurrAddr;
+
 typedef Protobuf::Message<TYPESTRING("SPU"), SPURam, SPUPorts, XAField, SPUIrq, SPUIrqPtr, Channels, SPUAddr, SPUCtrl,
                           SPUStat, CBStartIndex, CBCurrIndex, CBEndIndex, CBVoiceIndex, CBCDLeft, CBCDRight,
-                          SPUNoiseClock, SPUNoiseCount, SPUNoiseVal, SPUEndx, SPUMainVolWritten, EnvelopeCheckpoints>
+                          SPUNoiseClock, SPUNoiseCount, SPUNoiseVal, SPUEndx, SPUMainVolWritten, EnvelopeCheckpoints,
+                          SPUReverbFirInL, SPUReverbFirInR, SPUReverbFirOutL, SPUReverbFirOutR, SPUReverbAltLeftTick,
+                          SPUReverbCallCount, SPUReverbCurrAddr>
     SPU;
 typedef Protobuf::MessageField<SPU, TYPESTRING("spu"), 6> SPUField;
 

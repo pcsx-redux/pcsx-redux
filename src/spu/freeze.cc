@@ -84,6 +84,11 @@ void PCSX::SPU::impl::save(SaveStates::SPU &spu) {
 
     saveEnvelopeCheckpoints(spu.get<SaveStates::EnvelopeCheckpoints>());
 
+    m_reverb.saveTo(spu.get<SaveStates::SPUReverbFirInL>(), spu.get<SaveStates::SPUReverbFirInR>(),
+                    spu.get<SaveStates::SPUReverbFirOutL>(), spu.get<SaveStates::SPUReverbFirOutR>(),
+                    spu.get<SaveStates::SPUReverbAltLeftTick>(), spu.get<SaveStates::SPUReverbCallCount>());
+    spu.get<SaveStates::SPUReverbCurrAddr>().value = m_reverb.rvb.CurrAddr;
+
     if (running) SetupThread();
 }
 
@@ -147,9 +152,13 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
     m_noise.loadFrom(spu.get<SaveStates::SPUNoiseClock>(), spu.get<SaveStates::SPUNoiseCount>(),
                      spu.get<SaveStates::SPUNoiseVal>());
 
-    // Repair some globals. The reverb unit is reset first so no filter history or L/R parity from
-    // before the load survives; the register replay below rebuilds its configuration.
+    // Repair some globals. The reverb unit is reset first so nothing from before the load
+    // survives; the filter history and L/R parity come from the state (zero, a reset filter, when
+    // it predates them) and the register replay below rebuilds its configuration.
     m_reverb.reset();
+    m_reverb.loadFrom(spu.get<SaveStates::SPUReverbFirInL>(), spu.get<SaveStates::SPUReverbFirInR>(),
+                      spu.get<SaveStates::SPUReverbFirOutL>(), spu.get<SaveStates::SPUReverbFirOutR>(),
+                      spu.get<SaveStates::SPUReverbAltLeftTick>(), spu.get<SaveStates::SPUReverbCallCount>());
     for (unsigned i = 0; i <= 62; i += 2) writeRegister(H_Reverb + i, regArea[(H_Reverb + i - 0xc00) >> 1]);
     writeRegister(H_SPUReverbAddr, regArea[(H_SPUReverbAddr - 0xc00) >> 1]);
     writeRegister(H_SPUrvolL, regArea[(H_SPUrvolL - 0xc00) >> 1]);
@@ -171,6 +180,13 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
 
     // The replays above were queued: apply them now, with the mixer stopped.
     drainEventsNow();
+    // The reverb address replay moved the work-area address back to the start of the area. A
+    // state that saved the address puts it back; one from before that field carries zero, never
+    // a valid address while reverb is on, and keeps the start.
+    const int currAddr = spu.get<SaveStates::SPUReverbCurrAddr>().value;
+    if (m_reverb.rvb.StartAddr && currAddr >= m_reverb.rvb.StartAddr && currAddr <= 0x3ffff) {
+        m_reverb.rvb.CurrAddr = currAddr;
+    }
     rebuildShadows();
     loadEnvelopeCheckpoints(spu.get<SaveStates::EnvelopeCheckpoints>());
 
