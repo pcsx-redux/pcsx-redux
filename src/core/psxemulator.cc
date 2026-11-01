@@ -232,6 +232,7 @@ void PCSX::Emulator::reset() {
     m_sio1->reset();
     m_rewindRing->clear();
     m_rewindCapturePending = false;
+    m_rewindRestartPending = false;
     m_vsyncPending = 0;
 }
 
@@ -283,14 +284,17 @@ void PCSX::Emulator::createRewindState() {
 
 void PCSX::Emulator::flushRewindCapture() {
     if (!m_rewindCapturePending) return;
+    const bool restarting = m_rewindRestartPending;
     m_rewindCapturePending = false;
-    captureRewindState();
+    m_rewindRestartPending = false;
+    captureRewindState(restarting);
 }
 
-void PCSX::Emulator::captureRewindState() {
+void PCSX::Emulator::captureRewindState(bool restarting) {
     // A queued rewind is about to throw this state away, and would land on this very snapshot
-    // rather than the one it was asked for.
-    if (g_system->pendingRewinds()) return;
+    // rather than the one it was asked for. Unless the ring was just restarted: then this snapshot
+    // is the oldest one that can still be replayed, and the right place for that rewind to land.
+    if (g_system->pendingRewinds() && !restarting) return;
     if (m_rewindCaptureSuppressed) return;
     auto& ring = *m_rewindRing;
     auto state = ring.acquire();
@@ -345,6 +349,29 @@ size_t PCSX::Emulator::rewindStateCount() const {
     return size > pending ? size - pending : 0;
 }
 
+bool PCSX::Emulator::clearRewindRing() {
+    const bool hadSnapshots = !m_rewindRing->m_states.empty();
+    m_rewindRing->clear();
+    m_rewindCapturePending = false;
+    m_rewindRestartPending = false;
+    return hadSnapshots;
+}
+
+void PCSX::Emulator::restartRewind(bool inUse) {
+    if (clearRewindRing()) inUse = true;
+    if (settings.get<SettingRewindInterval>().value > 0) inUse = true;
+    if (!inUse) return;
+    // The interpreter signals ShellReached from hasToRun(), after the branchTest() of the block
+    // that got there. The recompilers signal it from the start of the next block and then run
+    // a branchTest(), so the snapshot waits for the end of that one, see flushRewindCapture().
+    if (g_system->inExecute() && m_cpu->isDynarec()) {
+        m_rewindCapturePending = true;
+        m_rewindRestartPending = true;
+        return;
+    }
+    captureRewindState(true);
+}
+
 size_t PCSX::Emulator::rewindSnapshotCount() const { return m_rewindRing->m_states.size(); }
 
 uint64_t PCSX::Emulator::rewindSnapshotCycle(size_t index) const { return m_rewindRing->m_states[index].cycle; }
@@ -352,6 +379,7 @@ uint64_t PCSX::Emulator::rewindSnapshotCycle(size_t index) const { return m_rewi
 void PCSX::Emulator::restoreRewindSnapshot(size_t index) {
     // A capture queued before the restore asked for a state that no longer exists.
     m_rewindCapturePending = false;
+    m_rewindRestartPending = false;
     SaveStates::restore(*m_rewindRing->m_states[index].state);
 }
 

@@ -17,7 +17,12 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <random>
 #include <stdexcept>
+#include <string>
 
 #include "gtest/gtest.h"
 #include "main/main.h"
@@ -80,6 +85,57 @@ TEST(LuaRewind, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.rewind"), 0); }
 TEST(LuaGdbReverse, Interpreter) {
     EXPECT_EQ(runLuaInt("-gdb", "-gdb-port", "3462", "-exec", "require 'tests.lua.gdb-reverse'"), 0);
 }
+static int runGdbReverseShell(bool dynarec, const char* mode, const char* exe = nullptr) {
+    std::string select = "GDB_REVERSE_SHELL = '";
+    select += mode;
+    select += "'";
+    auto run = [dynarec](auto... args) { return dynarec ? runLuaDyn(args...) : runLuaInt(args...); };
+    if (!exe) {
+        return run("-gdb", "-gdb-port", "3463", "-exec", select.c_str(), "-exec",
+                   "require 'tests.lua.gdb-reverse-shell'");
+    }
+    // -run, or the binary is loaded with the emulator paused and stays paused after the load.
+    return run("-gdb", "-gdb-port", "3463", "-run", "-loadexe", exe, "-exec", select.c_str(), "-exec",
+               "require 'tests.lua.gdb-reverse-shell'");
+}
+// Named per run, so concurrent test processes don't share it. Entry and load address 0x80010000:
+// li $t2, 0x1234 once, then addiu $t0, $t0, 1 in a loop.
+static std::filesystem::path writeGdbReverseShellExe() {
+    std::random_device random;
+    auto exe = std::filesystem::temp_directory_path() /
+               ("pcsx-gdb-reverse-shell-" + std::to_string(random()) + "-" + std::to_string(random()) + ".ps-exe");
+    std::string image(4096, '\0');
+    auto put32 = [&image](size_t offset, uint32_t value) {
+        for (unsigned i = 0; i < 4; i++) image[offset + i] = char((value >> (i * 8)) & 0xff);
+    };
+    image.replace(0, 8, "PS-X EXE");
+    put32(0x10, 0x80010000);
+    put32(0x18, 0x80010000);
+    put32(0x1c, 2048);
+    put32(0x30, 0x801ffff0);
+    const uint32_t code[] = {0x240a1234, 0x25080001, 0x1000fffe, 0x00000000};
+    for (unsigned i = 0; i < 4; i++) put32(2048 + i * 4, code[i]);
+    std::ofstream out(exe, std::ios::binary);
+    out.write(image.data(), image.size());
+    if (!out.good()) return {};
+    return exe;
+}
+// -loadexe wants the file to exist already.
+static int runGdbReverseShellExe(bool dynarec) {
+    auto exe = writeGdbReverseShellExe();
+    if (exe.empty()) return -1;
+    int ret = runGdbReverseShell(dynarec, "exe", exe.string().c_str());
+    std::filesystem::remove(exe);
+    return ret;
+}
+TEST(LuaGdbReverseShell, FastBoot) { EXPECT_EQ(runGdbReverseShell(false, "fastboot"), 0); }
+TEST(LuaGdbReverseShell, FastBootDynarec) { EXPECT_EQ(runGdbReverseShell(true, "fastboot"), 0); }
+TEST(LuaGdbReverseShell, HandMade) { EXPECT_EQ(runGdbReverseShell(false, "handmade"), 0); }
+TEST(LuaGdbReverseShell, HandMadeDynarec) { EXPECT_EQ(runGdbReverseShell(true, "handmade"), 0); }
+TEST(LuaGdbReverseShell, LoadExe) { EXPECT_EQ(runGdbReverseShellExe(false), 0); }
+TEST(LuaGdbReverseShell, LoadExeDynarec) { EXPECT_EQ(runGdbReverseShellExe(true), 0); }
+TEST(LuaGdbReverseShell, ShellHalt) { EXPECT_EQ(runGdbReverseShell(false, "shellhalt"), 0); }
+TEST(LuaGdbReverseShell, ShellHaltLeave) { EXPECT_EQ(runGdbReverseShell(false, "shellhalt-leave"), 0); }
 TEST(LuaPCdrv, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.pcdrv"), 0); }
 TEST(LuaPCWrite, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.pcwrite"), 0); }
 TEST(LuaSaveStateBranchSlot, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sstate-branchslot"), 0); }

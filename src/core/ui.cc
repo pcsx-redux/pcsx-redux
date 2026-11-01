@@ -102,14 +102,21 @@ void PCSX::UI::tick() {
 void PCSX::UI::shellReached() {
     auto& regs = g_emulator->m_cpu->m_regs;
     uint32_t oldPC = regs.pc;
-    if (g_emulator->settings.get<Emulator::SettingFastBoot>()) {
+    // The shell is only reached once per boot: m_shellStarted isn't part of a save state, so a
+    // replay from a rewind snapshot taken before now would run straight into the shell, without
+    // the hijack. When there is one, the older snapshots go and the ring starts again from here.
+    const bool fastBoot = g_emulator->settings.get<Emulator::SettingFastBoot>();
+    if (fastBoot) {
         g_emulator->m_cpu->setPC(regs.GPR.n.ra);
         // Enables display as some games like SaGa Frontier (USA)
         // rely on the side effect of the shell to do that for them.
         g_emulator->m_gpu->writeStatus(0x03000000);
     }
 
-    if (m_exeToLoad.empty()) return;
+    if (m_exeToLoad.empty()) {
+        if (fastBoot) g_emulator->restartRewind();
+        return;
+    }
     PCSX::u8string filename = m_exeToLoad.get();
     std::filesystem::path p = filename;
 
@@ -160,4 +167,5 @@ void PCSX::UI::shellReached() {
         g_emulator->m_callStacks->potentialRA(regs.pc, regs.GPR.n.sp);
         g_emulator->m_debug->updatedPC(regs.pc);
     }
+    g_emulator->restartRewind();
 }

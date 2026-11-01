@@ -269,7 +269,9 @@ class Emulator {
     std::unique_ptr<RewindRing> m_rewindRing;
     bool m_rewindCaptureSuppressed = false;
     bool m_rewindCapturePending = false;
-    void captureRewindState();
+    // The pending capture comes from restartRewind(), see captureRewindState().
+    bool m_rewindRestartPending = false;
+    void captureRewindState(bool restarting = false);
 
     // Used for overclocking
     // Make the timing events trigger faster as we are currently assuming everything
@@ -327,6 +329,14 @@ class Emulator {
     void restoreRewindSnapshot(size_t index);
     void dropRewindSnapshotsAfter(uint64_t cycle);
     void suppressRewindCapture(bool suppress) { m_rewindCaptureSuppressed = suppress; }
+
+    // For a point in the emulation that a replay from an earlier snapshot can't reproduce, such as
+    // the shell being hijacked. clearRewindRing() drops every snapshot and returns whether there
+    // were any. restartRewind() does the same, then takes a snapshot if the ring was in use, or if
+    // it is capturing on its own. Called from Execute(), it has to be between two blocks, where the
+    // ShellReached event is signalled.
+    bool clearRewindRing();
+    void restartRewind(bool inUse = false);
 
     void setLua();
 
