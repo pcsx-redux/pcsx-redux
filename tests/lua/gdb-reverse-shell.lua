@@ -19,7 +19,8 @@
 -- Boots through the BIOS with the rewind ring capturing every frame, lets the shell be hijacked,
 -- and reverse-continues (rewinds, on the dynarec) back onto the first instruction run after the hijack. A replay from a
 -- snapshot taken before the hijack can't get there: the hijack only happens once per boot.
--- GDB_REVERSE_SHELL selects how the shell is hijacked: 'fastboot', 'exe' (side-loaded with
+-- GDB_REVERSE_SHELL selects how the shell is hijacked: 'fastboot', 'handmade' (fastboot, with
+-- automatic captures off and one snapshot taken by hand before the boot), 'exe' (side-loaded with
 -- -loadexe, see tests/pcsxrunner/lua.cc), or 'shellhalt' (gdb writes the binary while paused at the shell).
 
 local lu = require 'luaunit'
@@ -158,6 +159,13 @@ end
 
 -- Boots past the shell with fastboot or a side-loaded binary, and returns the pc the hijack set.
 local function bootPastHijack(mode)
+    if mode == 'handmade' then
+        -- No automatic captures, only a snapshot taken by hand before the boot: the ring is in use,
+        -- so it still has to start again from the hijack.
+        PCSX.settings.emulator.RewindInterval = 0
+        PCSX.createRewindState()
+        mode = 'fastboot'
+    end
     if mode == 'fastboot' then
         PCSX.settings.emulator.FastBoot = true
         local ra
@@ -183,13 +191,13 @@ function TestGdbReverseShell:test_back_onto_the_hijack()
         if mode == 'shellhalt' then lu.skip('needs reverse execution') end
         local target = bootPastHijack(mode)
         lu.assertNotNil(target)
-        lu.assertTrue(PCSX.getRewindStateCount() > 1)
+        lu.assertTrue(PCSX.getRewindStateCount() > (mode == 'handmade' and 0 or 1))
         while PCSX.getRewindStateCount() > 0 do lu.assertTrue(PCSX.rewindState()) end
         lu.assertEquals(PCSX.getRegisters().pc, target)
         return
     end
     local target
-    if mode == 'fastboot' or mode == 'exe' then
+    if mode == 'fastboot' or mode == 'handmade' or mode == 'exe' then
         target = bootPastHijack(mode)
         connect()
     elseif mode == 'shellhalt' then

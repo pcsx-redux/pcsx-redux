@@ -130,6 +130,8 @@ static int runGdbReverseShellExe(bool dynarec) {
 }
 TEST(LuaGdbReverseShell, FastBoot) { EXPECT_EQ(runGdbReverseShell(false, "fastboot"), 0); }
 TEST(LuaGdbReverseShell, FastBootDynarec) { EXPECT_EQ(runGdbReverseShell(true, "fastboot"), 0); }
+TEST(LuaGdbReverseShell, HandMade) { EXPECT_EQ(runGdbReverseShell(false, "handmade"), 0); }
+TEST(LuaGdbReverseShell, HandMadeDynarec) { EXPECT_EQ(runGdbReverseShell(true, "handmade"), 0); }
 TEST(LuaGdbReverseShell, LoadExe) { EXPECT_EQ(runGdbReverseShellExe(false), 0); }
 TEST(LuaGdbReverseShell, LoadExeDynarec) { EXPECT_EQ(runGdbReverseShellExe(true), 0); }
 TEST(LuaGdbReverseShell, ShellHalt) { EXPECT_EQ(runGdbReverseShell(false, "shellhalt"), 0); }
