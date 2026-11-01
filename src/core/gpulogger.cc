@@ -114,9 +114,16 @@ PCSX::GPULogger::GPULogger(bool followEmulator) : m_listener(g_system->m_eventBu
     m_listener.listen<Events::GPU::VSync>([this](auto event) {
         setFrame(m_frameCounter + 1);
         const unsigned rate = g_emulator->settings.get<Emulator::SettingVideo>() == Emulator::PSX_TYPE_PAL ? 50 : 60;
+        if (m_drawEnvFrameThisVSync) {
+            m_drawEnvFrameThisVSync = false;
+            m_drawEnvFrames++;
+        }
         if (++m_fpsVSyncs >= rate) {
-            m_guestFPS = float(m_displayStartChanges) * rate / m_fpsVSyncs;
+            const bool sameBuffer = m_displayStartChanges == 0 && m_interlaced480;
+            const unsigned frames = sameBuffer ? m_drawEnvFrames : m_displayStartChanges;
+            m_guestFPS = float(frames) * rate / m_fpsVSyncs;
             m_displayStartChanges = 0;
+            m_drawEnvFrames = 0;
             m_fpsVSyncs = 0;
         }
         if (m_breakOnVSync) {
