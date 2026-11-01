@@ -135,6 +135,7 @@ TEST(LuaGdbReverseShell, HandMadeDynarec) { EXPECT_EQ(runGdbReverseShell(true, "
 TEST(LuaGdbReverseShell, LoadExe) { EXPECT_EQ(runGdbReverseShellExe(false), 0); }
 TEST(LuaGdbReverseShell, LoadExeDynarec) { EXPECT_EQ(runGdbReverseShellExe(true), 0); }
 TEST(LuaGdbReverseShell, ShellHalt) { EXPECT_EQ(runGdbReverseShell(false, "shellhalt"), 0); }
+TEST(LuaGdbReverseShell, ShellHaltLeave) { EXPECT_EQ(runGdbReverseShell(false, "shellhalt-leave"), 0); }
 TEST(LuaPCdrv, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.pcdrv"), 0); }
 TEST(LuaPCWrite, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.pcwrite"), 0); }
 TEST(LuaSaveStateBranchSlot, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sstate-branchslot"), 0); }

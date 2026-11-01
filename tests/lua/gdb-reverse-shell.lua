@@ -17,11 +17,14 @@
 
 
 -- Boots through the BIOS with the rewind ring capturing every frame, lets the shell be hijacked,
--- and reverse-continues (rewinds, on the dynarec) back onto the first instruction run after the hijack. A replay from a
--- snapshot taken before the hijack can't get there: the hijack only happens once per boot.
--- GDB_REVERSE_SHELL selects how the shell is hijacked: 'fastboot', 'handmade' (fastboot, with
--- automatic captures off and one snapshot taken by hand before the boot), 'exe' (side-loaded with
--- -loadexe, see tests/pcsxrunner/lua.cc), or 'shellhalt' (gdb writes the binary while paused at the shell).
+-- and reverse-continues (rewinds, on the dynarec) back onto the first instruction run after the
+-- hijack. A replay from a snapshot taken before the hijack can't get there: the hijack only
+-- happens once per boot. GDB_REVERSE_SHELL selects how the shell is hijacked:
+--   'fastboot'
+--   'handmade': fastboot, with automatic captures off and one snapshot taken by hand before
+--   'exe': side-loaded with -loadexe, see tests/pcsxrunner/lua.cc
+--   'shellhalt': gdb writes the binary while paused at the shell
+--   'shellhalt-leave': same, but the gdb client disconnects before the emulation resumes
 
 local lu = require 'luaunit'
 
@@ -117,6 +120,36 @@ local function resumeFromMainLoop(c)
     end)
 end
 
+-- Lets the main loop go round a few times, for the deferred deletion of a closed client.
+local function waitTicks(n)
+    local c = coroutine.running()
+    local timer = luv.new_timer()
+    local ticks = 0
+    timer:start(0, 1, function()
+        ticks = ticks + 1
+        if ticks < n then return end
+        timer:stop()
+        timer:close()
+        coroutine.resume(c)
+    end)
+    coroutine.yield()
+end
+
+-- Resumes the emulation for a few frames and pauses.
+local function runFrames()
+    local c = coroutine.running()
+    local frames, vsync = 0
+    vsync = PCSX.Events.createEventListener('GPU::Vsync', function()
+        frames = frames + 1
+        if frames < FRAMES_AFTER_SHELL then return end
+        vsync:remove()
+        PCSX.pauseEmulator()
+        resumeFromMainLoop(c)
+    end)
+    PCSX.resumeEmulator()
+    coroutine.yield()
+end
+
 -- Runs a few frames past the shell and pauses there.
 local function runPastShell()
     local c = coroutine.running()
@@ -188,7 +221,7 @@ function TestGdbReverseShell:test_back_onto_the_hijack()
     if PCSX.settings.emulator.Dynarec then
         -- Reverse execution needs the interpreter, but a plain rewind doesn't: walking the ring
         -- all the way back ends on the hijack.
-        if mode == 'shellhalt' then lu.skip('needs reverse execution') end
+        if mode:match('^shellhalt') then lu.skip('needs reverse execution') end
         local target = bootPastHijack(mode)
         lu.assertNotNil(target)
         lu.assertTrue(PCSX.getRewindStateCount() > (mode == 'handmade' and 0 or 1))
@@ -200,7 +233,7 @@ function TestGdbReverseShell:test_back_onto_the_hijack()
     if mode == 'fastboot' or mode == 'handmade' or mode == 'exe' then
         target = bootPastHijack(mode)
         connect()
-    elseif mode == 'shellhalt' then
+    elseif mode == 'shellhalt' or mode == 'shellhalt-leave' then
         PCSX.settings.emulator.FastBoot = false
         connect()
         lu.assertEquals(monitor('reset shellhalt'), 'OK')
@@ -208,6 +241,18 @@ function TestGdbReverseShell:test_back_onto_the_hijack()
             lu.assertEquals(command(string.format('M%08x,4:', ENTRY + (i - 1) * 4) .. le32(w)), 'OK')
         end
         lu.assertEquals(command('P25=' .. le32(ENTRY)), 'OK')
+    else
+        lu.fail('unknown GDB_REVERSE_SHELL mode ' .. tostring(mode))
+    end
+    if mode == 'shellhalt-leave' then
+        -- The client goes away while stopped at the shell, and the emulation resumes without it.
+        client:close()
+        client = nil
+        waitTicks(4)
+        runFrames()
+        connect()
+        target = ENTRY
+    elseif mode == 'shellhalt' then
         -- Leave the shell behind by a few frames, with a breakpoint that will not hit.
         lu.assertEquals(command('Z0,1f000100,4'), 'OK')
         local frames, vsync = 0
@@ -220,8 +265,6 @@ function TestGdbReverseShell:test_back_onto_the_hijack()
         lu.assertEquals(command('c'), 'T05')
         lu.assertEquals(command('z0,1f000100,4'), 'OK')
         target = ENTRY
-    else
-        lu.fail('unknown GDB_REVERSE_SHELL mode ' .. tostring(mode))
     end
     lu.assertNotNil(target)
     lu.assertNotEquals(pc(), le32(target), 'still sitting on the hijacked pc')
