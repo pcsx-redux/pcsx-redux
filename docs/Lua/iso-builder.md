@@ -104,7 +104,7 @@ Flags:
 ```lua
 :isHidden()     :setHidden(bool)
 :shouldSkip()   :setSkip(bool)
-:hasXA()        :setXA(bool)
+:hasXA()        :setXA(fields)
 ```
 
 `setHidden` sets the ISO9660 hidden bit on the directory entry. The file is still fully present and readable by anything that ignores the bit.
@@ -114,12 +114,25 @@ Flags:
 Sector mode and XA:
 
 ```lua
-:setSectorMode(mode)   -- 'RAW', 'M1', 'M2_RAW', 'M2_FORM1', 'M2_FORM2'
+:getSectorMode()       :setSectorMode(mode)   -- 'RAW', 'M1', 'M2_RAW', 'M2_FORM1', 'M2_FORM2'
 :getXAAttribs()        :setXAAttribs(value)
 :getXAFileNum()        :setXAFileNum(value)
 ```
 
 Files default to `M2_FORM1`, which is what ordinary data on a PlayStation disc uses. `M2_FORM2` is for streaming data such as XA audio and STR video, where the sector carries 2324 bytes and no error correction. `M2_RAW` hands the builder full 2336-byte sectors including the subheader, for content that has to be reproduced byte for byte.
+
+`setXA` takes a table of fields and works out the XA attribute word from the node, so the usual values never need spelling out:
+
+```lua
+root:setXA {}                        -- directory: 0x8d55
+file:setXA {}                        -- M2_FORM1 file: 0x0d55
+movie:setSectorMode('M2_FORM2')
+movie:setXA { interleaved = true }   -- 0x3555, or 0x1555 without interleaved
+```
+
+Each field overrides only its own bits: `ownerRead`, `ownerExecute`, `groupRead`, `groupExecute`, `worldRead` and `worldExecute` (bits 0, 2, 4, 6, 8 and 10, all set unless you pass `false`), `form` (1 for bit 11, 2 for bit 12), `interleaved` (bit 13), `cdda` (bit 14) and `directory` (bit 15, which defaults to whether the node is a directory). Directories are form 1. A file's form comes from its sector mode and keeps following it, so `setSectorMode` can be called before or after `setXA`; an explicit `form`, or a later `setXAAttribs`, stops that. `RAW` and `M2_RAW` files carry their form in each sector's subheader, so `setXA` on one of them needs `form` spelled out. `cdda = true` leaves both form bits clear unless `form` is given, but the builder does not lay out audio tracks, so pointing such an entry at one is still up to you.
+
+`setXA(true)` is the same as `setXA {}`, and `setXA(false)` drops the XA record from the entry. `setXAAttribs` writes the raw 16-bit value. A node nobody calls any of these on inherits the XA flag from its parent, with an attribute word of 0.
 
 Dates:
 
