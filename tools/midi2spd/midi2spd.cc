@@ -1215,14 +1215,20 @@ static void writeSampleDir(FilePtr& f, const std::vector<SpuSample>& samples) {
     }
 }
 
+// The SPU DMA moves whole 64-byte blocks, so the sample data payload is padded to a multiple of 64.
+static uint32_t paddedSampleBytes(const std::vector<SpuSample>& samples) {
+    uint32_t total = 0;
+    for (auto& s : samples) total += s.adpcmSize;
+    return (total + 63) & ~63u;
+}
+
 static void writeSamplePackets(FilePtr& f, const std::vector<SpuSample>& samples) {
     if (samples.empty()) return;
 
     uint32_t totalAdpcm = 0;
     for (auto& s : samples) totalAdpcm += s.adpcmSize;
 
-    // The SPU DMA moves whole 64-byte blocks, so the payload is padded to a multiple of 64.
-    uint32_t paddedAdpcm = (totalAdpcm + 63) & ~63u;
+    uint32_t paddedAdpcm = paddedSampleBytes(samples);
     uint32_t baseAddr8 = SPU_RAM_BASE >> 3;
     uint32_t totalWords = 1 + paddedAdpcm / 4;
     f->write<uint32_t>((totalWords & 0x00FFFFFF) | (SPD_PKT_SAMPLE_DATA << 24));
@@ -1447,6 +1453,12 @@ Usage: {} input.mid -s soundfont.sf2 -o output.spd [-i output.smp] [-v maxvoices
         fmt::print(stderr, "Warning: {} samples exceeds the player's 128-sample limit; samples past "
                            "128 will not load. Reduce layering (-l) or simplify the SoundFont.\n",
                    ctx.samples.size());
+    }
+    // The zero fill after the last sample is uploaded too, so it has to fit below the reverb area.
+    const uint32_t paddedEnd = SPU_RAM_BASE + paddedSampleBytes(ctx.samples);
+    if (ctx.nextSpuAddr <= ctx.maxSpuAddr && paddedEnd > ctx.maxSpuAddr) {
+        fmt::print(stderr, "Warning: sample data padded to 64 bytes ends at {}, past the {} available\n", paddedEnd,
+                   ctx.maxSpuAddr);
     }
     fmt::print("Macros: {}\n", ctx.macroDefs.size());
     fmt::print("Peak voices: {} / {}\n", ctx.allocator.peakVoices, maxVoices);
