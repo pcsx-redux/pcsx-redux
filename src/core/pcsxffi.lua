@@ -77,6 +77,7 @@ void invalidateCache();
 
 typedef struct {
     uint32_t pc, code, regRs, regRt, regRd, hilo, cop, memValue;
+    uint64_t cycle;
 } PCSX_TraceEntry;
 
 uint64_t getCpuTraceSize();
@@ -270,6 +271,8 @@ PCSX = {
         -- chunked, so read() flattens a range into a fresh FFI array
         -- you can inspect, ffi.string(), or write to a File. getLine() renders the
         -- same annotated disassembly the viewer shows, reconstructed from the record.
+        -- A record's cycle is the emulated cycle counter at capture; records loaded
+        -- from a version 1 trace file carry 0xffffffffffffffffULL there.
         Trace = {
             size = function() return tonumber(C.getCpuTraceSize()) end,
             clear = function() C.clearCpuTrace() end,
