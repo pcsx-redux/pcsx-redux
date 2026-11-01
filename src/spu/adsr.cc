@@ -86,6 +86,17 @@ constexpr int kMaxRateIndex = 127;
 // attack and sustain and 0x1f for release, tested on the register value before the knee.
 constexpr int kFrozenRate = 0x7f;
 constexpr int kFrozenCoarseRate = 0x1f;
+
+// A rate with a period of P samples steps on the samples where the low bits of a free-running
+// counter shared by all voices read P/2. Key-on does not reset it, so two voices on the same rate
+// step on the same samples whenever they were keyed on. On silicon the counter's phase against the
+// capture position (SPUSTAT bit 11) changes from one power-on to the next; this value puts a
+// 256-sample period's steps 49 samples after a bit 11 edge, as on one SCPH-1001 run.
+constexpr uint64_t kStepCounterPhase = 79;
+bool stepLands(int rateIndex, uint64_t sample) {
+    const uint64_t period = EnvelopeTables::denominator.data[rateIndex];
+    return ((sample + kStepCounterPhase) & (period - 1)) == (period >> 1);
+}
 }  // namespace
 
 // Write the freshly computed envelope state back and return the full 15-bit
@@ -94,29 +105,26 @@ constexpr int kFrozenCoarseRate = 0x1f;
 // still maintained for the voice register / debugger, but it is no longer the
 // value handed to the mixer (that lossy 10-bit gain + /1023 divide ran enveloped
 // samples ~0.1% high and discarded the envelope's low 5 bits).
-int PCSX::SPU::AdsrEnvelope::commit(int32_t envelopeVol, int32_t envelopeVolFraction) {
+int PCSX::SPU::AdsrEnvelope::commit(int32_t envelopeVol) {
     const int level = envelopeVol >> kEnvelopeToLevelShift;
     m_adsrx.get<exEnvelopeVol>().value = envelopeVol;
-    m_adsrx.get<exEnvelopeVolF>().value = envelopeVolFraction;
     m_adsrx.get<exVolume>().value = level;
     return envelopeVol;
 }
 
-int PCSX::SPU::AdsrEnvelope::Attack() {
+int PCSX::SPU::AdsrEnvelope::Attack(uint64_t sample) {
     int rateIndex = m_adsrx.get<exAttackRate>().value;
     int32_t envelopeVol = m_adsrx.get<exEnvelopeVol>().value;
-    int32_t envelopeVolFraction = m_adsrx.get<exEnvelopeVolF>().value;
     const bool exponential = m_adsrx.get<exAttackModeExp>().value != 0;
 
-    if (rateIndex == kFrozenRate) return commit(envelopeVol, envelopeVolFraction);
+    if (rateIndex == kFrozenRate) return commit(envelopeVol);
 
     // Past the knee the exponential attack curve flattens to a slower rate.
     if (exponential && envelopeVol >= kExponentialKnee) {
         rateIndex = std::min(rateIndex + kExponentialKneeRateStep, kMaxRateIndex);
     }
 
-    if (++envelopeVolFraction >= EnvelopeTables::denominator.data[rateIndex]) {
-        envelopeVolFraction = 0;
+    if (stepLands(rateIndex, sample)) {
         envelopeVol += EnvelopeTables::numerator_increase.data[rateIndex];
     }
 
@@ -125,21 +133,19 @@ int PCSX::SPU::AdsrEnvelope::Attack() {
         m_adsrx.get<exState>().value = ADSRState::Decay;
     }
 
-    return commit(envelopeVol, envelopeVolFraction);
+    return commit(envelopeVol);
 }
 
-int PCSX::SPU::AdsrEnvelope::Decay() {
+int PCSX::SPU::AdsrEnvelope::Decay(uint64_t sample) {
     const int rateIndex = m_adsrx.get<exDecayRate>().value * kCoarseRateScale;
     int32_t envelopeVol = m_adsrx.get<exEnvelopeVol>().value;
-    int32_t envelopeVolFraction = m_adsrx.get<exEnvelopeVolF>().value;
 
     // Decay has no mode bit of its own: psx-spx lists it as "Fixed, always Exponential".
     // The release mode bit only governs Release.
     // The sustain level is only checked on samples where a step lands: on silicon a slow
     // decay with sustain level 15 holds 0x7fff until its first step, takes it (0x7ff7),
     // and only then moves to Sustain.
-    if (++envelopeVolFraction >= EnvelopeTables::denominator.data[rateIndex]) {
-        envelopeVolFraction = 0;
+    if (stepLands(rateIndex, sample)) {
         envelopeVol += (EnvelopeTables::numerator_decrease.data[rateIndex] * envelopeVol) >> kExponentialDecreaseShift;
         envelopeVol = std::max(envelopeVol, 0);
 
@@ -148,17 +154,16 @@ int PCSX::SPU::AdsrEnvelope::Decay() {
         }
     }
 
-    return commit(envelopeVol, envelopeVolFraction);
+    return commit(envelopeVol);
 }
 
-int PCSX::SPU::AdsrEnvelope::Sustain() {
+int PCSX::SPU::AdsrEnvelope::Sustain(uint64_t sample) {
     int rateIndex = m_adsrx.get<exSustainRate>().value;
     int32_t envelopeVol = m_adsrx.get<exEnvelopeVol>().value;
-    int32_t envelopeVolFraction = m_adsrx.get<exEnvelopeVolF>().value;
     const bool exponential = m_adsrx.get<exSustainModeExp>().value != 0;
     const bool increase = m_adsrx.get<exSustainIncrease>().value != 0;
 
-    if (rateIndex == kFrozenRate) return commit(envelopeVol, envelopeVolFraction);
+    if (rateIndex == kFrozenRate) return commit(envelopeVol);
 
     if (increase) {
         // Past the knee the exponential rise flattens to a slower rate.
@@ -166,15 +171,13 @@ int PCSX::SPU::AdsrEnvelope::Sustain() {
             rateIndex = std::min(rateIndex + kExponentialKneeRateStep, kMaxRateIndex);
         }
 
-        if (++envelopeVolFraction >= EnvelopeTables::denominator.data[rateIndex]) {
-            envelopeVolFraction = 0;
+        if (stepLands(rateIndex, sample)) {
             envelopeVol += EnvelopeTables::numerator_increase.data[rateIndex];
         }
 
         envelopeVol = std::min(envelopeVol, kEnvelopeMax);
     } else {
-        if (++envelopeVolFraction >= EnvelopeTables::denominator.data[rateIndex]) {
-            envelopeVolFraction = 0;
+        if (stepLands(rateIndex, sample)) {
             envelopeVol += exponential ? (EnvelopeTables::numerator_decrease.data[rateIndex] * envelopeVol) >>
                                              kExponentialDecreaseShift
                                        : EnvelopeTables::numerator_decrease.data[rateIndex];
@@ -183,19 +186,17 @@ int PCSX::SPU::AdsrEnvelope::Sustain() {
         envelopeVol = std::max(envelopeVol, 0);
     }
 
-    return commit(envelopeVol, envelopeVolFraction);
+    return commit(envelopeVol);
 }
 
-int PCSX::SPU::AdsrEnvelope::Release(bool &channelOn) {
+int PCSX::SPU::AdsrEnvelope::Release(bool &channelOn, uint64_t sample) {
     const int rateIndex = m_adsrx.get<exReleaseRate>().value * kCoarseRateScale;
     int32_t envelopeVol = m_adsrx.get<exEnvelopeVol>().value;
-    int32_t envelopeVolFraction = m_adsrx.get<exEnvelopeVolF>().value;
     const bool exponential = m_adsrx.get<exReleaseModeExp>().value != 0;
 
-    if (m_adsrx.get<exReleaseRate>().value == kFrozenCoarseRate) return commit(envelopeVol, envelopeVolFraction);
+    if (m_adsrx.get<exReleaseRate>().value == kFrozenCoarseRate) return commit(envelopeVol);
 
-    if (++envelopeVolFraction >= EnvelopeTables::denominator.data[rateIndex]) {
-        envelopeVolFraction = 0;
+    if (stepLands(rateIndex, sample)) {
         envelopeVol += exponential ? (EnvelopeTables::numerator_decrease.data[rateIndex] * envelopeVol) >>
                                          kExponentialDecreaseShift
                                    : EnvelopeTables::numerator_decrease.data[rateIndex];
@@ -207,7 +208,7 @@ int PCSX::SPU::AdsrEnvelope::Release(bool &channelOn) {
         channelOn = false;
     }
 
-    return commit(envelopeVol, envelopeVolFraction);
+    return commit(envelopeVol);
 }
 
 void PCSX::SPU::AdsrEnvelope::keyOn() {
@@ -216,23 +217,22 @@ void PCSX::SPU::AdsrEnvelope::keyOn() {
     m_adsrx.get<exVolume>().value = 0;
     m_adsrx.get<exState>().value = ADSRState::Attack;
     m_adsrx.get<exEnvelopeVol>().value = 0;
-    m_adsrx.get<exEnvelopeVolF>().value = 0;
 }
 
-int PCSX::SPU::AdsrEnvelope::step(bool stopRequested, bool &channelOn) {
+int PCSX::SPU::AdsrEnvelope::step(bool stopRequested, bool &channelOn, uint64_t sample) {
     if (stopRequested) {
         m_adsrx.get<exState>().value = ADSRState::Release;
     }
 
     switch (m_adsrx.get<exState>().value) {
         case ADSRState::Attack:
-            return Attack();
+            return Attack(sample);
         case ADSRState::Decay:
-            return Decay();
+            return Decay(sample);
         case ADSRState::Sustain:
-            return Sustain();
+            return Sustain(sample);
         case ADSRState::Release:
-            return Release(channelOn);
+            return Release(channelOn, sample);
     }
 
     return 0;

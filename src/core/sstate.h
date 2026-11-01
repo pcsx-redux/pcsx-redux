@@ -167,6 +167,7 @@ typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("keyedOn"), 4> ECPKeyedOn;
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cachedSample"), 5> ECPCachedSample;
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("cachedState"), 6> ECPCachedState;
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("cachedVol"), 7> ECPCachedVol;
+// Unused since envelope steps follow the SPU-wide sample count; kept so older savestates load.
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("cachedFraction"), 8> ECPCachedFraction;
 typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("cachedOn"), 9> ECPCachedOn;
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("block"), 10> ECPBlock;

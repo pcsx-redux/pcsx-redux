@@ -192,7 +192,6 @@ void PCSX::SPU::impl::loadEnvelopeCheckpoints(const SaveStates::EnvelopeCheckpoi
             cp.cachedSample = in.get<SaveStates::ECPCachedSample>().value;
             cp.cachedState = in.get<SaveStates::ECPCachedState>().value;
             cp.cachedVol = in.get<SaveStates::ECPCachedVol>().value;
-            cp.cachedFraction = in.get<SaveStates::ECPCachedFraction>().value;
             cp.cachedOn = in.get<SaveStates::ECPCachedOn>().value;
             cp.block = in.get<SaveStates::ECPBlock>().value;
             cp.loop = in.get<SaveStates::ECPLoop>().value;
@@ -216,7 +215,6 @@ void PCSX::SPU::impl::loadEnvelopeCheckpoints(const SaveStates::EnvelopeCheckpoi
         cp.cachedSample = 1;
         cp.cachedState = ex.get<exState>().value;
         cp.cachedVol = ex.get<exEnvelopeVol>().value;
-        cp.cachedFraction = ex.get<exEnvelopeVolF>().value;
         cp.cachedOn = true;
         cp.untracked = true;
     }
@@ -233,7 +231,6 @@ void PCSX::SPU::impl::saveEnvelopeCheckpoints(SaveStates::EnvelopeCheckpoints &c
         out.get<SaveStates::ECPCachedSample>().value = cp.cachedSample;
         out.get<SaveStates::ECPCachedState>().value = cp.cachedState;
         out.get<SaveStates::ECPCachedVol>().value = cp.cachedVol;
-        out.get<SaveStates::ECPCachedFraction>().value = cp.cachedFraction;
         out.get<SaveStates::ECPCachedOn>().value = cp.cachedOn;
         out.get<SaveStates::ECPBlock>().value = cp.block;
         out.get<SaveStates::ECPLoop>().value = cp.loop;

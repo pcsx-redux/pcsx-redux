@@ -386,7 +386,7 @@ void PCSX::SPU::impl::synthesizeVoice(int ch, SPUCHAN *voice, int32_t &capVoice1
         }
 
         // Apply the ADSR envelope (hardware: sample*env>>15).
-        const int32_t envelope = voice->adsr.step(stop, on);
+        const int32_t envelope = voice->adsr.step(stop, on, m_mixPos + ns);
         int32_t mixedSample = (envelope * rawSample) >> kAdsrEnvelopeShift;
         sval = mixedSample;
 

@@ -528,7 +528,6 @@ class impl final : public SPUInterface {
         uint64_t cachedSample = 0;
         int32_t cachedState = 0;
         int32_t cachedVol = 0;
-        int32_t cachedFraction = 0;
         bool cachedOn = true;
         // The ADPCM cursor, walked alongside the envelope so the walk knows the sample
         // where an end block without repeat stops the voice. Offsets into SPU RAM.

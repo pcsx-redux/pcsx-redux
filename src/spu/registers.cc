@@ -76,7 +76,6 @@ uint16_t PCSX::SPU::impl::reconstructEnvelope(int ch, uint64_t cycle) {
         cp.cachedSample = 0;
         cp.cachedState = walk.ex().get<exState>().value;
         cp.cachedVol = 0;
-        cp.cachedFraction = 0;
         cp.cachedOn = true;
         resetAdpcmWalk(ch);
     }
@@ -90,7 +89,6 @@ uint16_t PCSX::SPU::impl::reconstructEnvelope(int ch, uint64_t cycle) {
 
     walk.ex().get<exState>().value = cp.cachedState;
     walk.ex().get<exEnvelopeVol>().value = cp.cachedVol;
-    walk.ex().get<exEnvelopeVolF>().value = cp.cachedFraction;
 
     // Key-off is a state transition at a known cycle, so the walk can cross it.
     // Expressed in STEPS, not samples, so it stays aligned with the frozen prefix.
@@ -115,14 +113,13 @@ uint16_t PCSX::SPU::impl::reconstructEnvelope(int ch, uint64_t cycle) {
             cp.cachedSample = steps;
             return 0;
         }
-        walk.step(s >= releaseAt, on);
+        walk.step(s >= releaseAt, on, firstStep + s);
         if (walkAdpcm) cp.pos += cp.pitchStep;
     }
 
     cp.cachedSample = steps;
     cp.cachedState = walk.ex().get<exState>().value;
     cp.cachedVol = walk.ex().get<exEnvelopeVol>().value;
-    cp.cachedFraction = walk.ex().get<exEnvelopeVolF>().value;
     cp.cachedOn = on;
     return (uint16_t)cp.cachedVol;
 }
@@ -870,7 +867,6 @@ void PCSX::SPU::impl::SoundOn(int start, int end, uint16_t val, uint64_t cycle) 
             cp.cachedSample = 0;
             cp.cachedState = 0;  // AdsrEnvelope's Attack
             cp.cachedVol = 0;
-            cp.cachedFraction = 0;
             cp.cachedOn = true;
             resetAdpcmWalk(ch);
             // One entry per voice actually keyed, carrying the address it is about to decode
