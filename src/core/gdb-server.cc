@@ -264,7 +264,14 @@ PCSX::GdbClient::GdbClient(IO<File> connection, uv_loop_t* loop) : m_listener(g_
     m_connection = connection;
     m_asyncContext = new AsyncContext{{}, this};
     m_connection.asA<UvFifo>()->setNotifier(loop, &m_asyncContext->m_async, [this]() { onReadable(); });
-    m_listener.listen<Events::ExecutionFlow::Run>([this](const auto& event) { m_exception = false; });
+    m_listener.listen<Events::ExecutionFlow::Run>([this](const auto& event) {
+        m_exception = false;
+        // gdb is done writing what it wanted to the machine we stopped at the shell for.
+        if (m_restartRewindOnResume && !m_reverse) {
+            m_restartRewindOnResume = false;
+            g_emulator->restartRewind(m_rewindWasInUse);
+        }
+    });
     m_listener.listen<Events::ExecutionFlow::Pause>([this](const auto& event) {
         m_exception = event.exception;
         if (m_reverse) {
@@ -288,6 +295,10 @@ PCSX::GdbClient::GdbClient(IO<File> connection, uv_loop_t* loop) : m_listener(g_
         if (!m_waitingForShell) return;
         g_system->log(LogClass::GDB, "Shell reached in gdb-server, pausing execution now.\n");
         m_waitingForShell = false;
+        // gdb is about to load a binary into the paused machine, which no replay from an earlier
+        // snapshot can do. The ring starts again once it lets the emulation run.
+        m_rewindWasInUse = g_emulator->clearRewindRing();
+        m_restartRewindOnResume = true;
         g_system->pause();
         write("OK");
     });

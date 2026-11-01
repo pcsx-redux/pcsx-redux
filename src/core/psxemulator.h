@@ -328,6 +328,14 @@ class Emulator {
     void dropRewindSnapshotsAfter(uint64_t cycle);
     void suppressRewindCapture(bool suppress) { m_rewindCaptureSuppressed = suppress; }
 
+    // For a point in the emulation that a replay from an earlier snapshot can't reproduce, such as
+    // the shell being hijacked. clearRewindRing() drops every snapshot and returns whether there
+    // were any. restartRewind() does the same, then takes a snapshot right away if the ring was in
+    // use, or if it is capturing on its own: it has to be called from outside of the emulation, or
+    // from Execute() between two blocks, where the state is complete.
+    bool clearRewindRing();
+    void restartRewind(bool inUse = false);
+
     void setLua();
 
     PcsxConfig& config() { return m_config; }

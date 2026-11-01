@@ -345,6 +345,19 @@ size_t PCSX::Emulator::rewindStateCount() const {
     return size > pending ? size - pending : 0;
 }
 
+bool PCSX::Emulator::clearRewindRing() {
+    const bool hadSnapshots = !m_rewindRing->m_states.empty();
+    m_rewindRing->clear();
+    m_rewindCapturePending = false;
+    return hadSnapshots;
+}
+
+void PCSX::Emulator::restartRewind(bool inUse) {
+    if (clearRewindRing()) inUse = true;
+    if (settings.get<SettingRewindInterval>().value > 0) inUse = true;
+    if (inUse) captureRewindState();
+}
+
 size_t PCSX::Emulator::rewindSnapshotCount() const { return m_rewindRing->m_states.size(); }
 
 uint64_t PCSX::Emulator::rewindSnapshotCycle(size_t index) const { return m_rewindRing->m_states[index].cycle; }
