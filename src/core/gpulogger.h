@@ -119,6 +119,7 @@ class GPULogger {
         } else if constexpr (std::is_same_v<T, GPU::CtrlReset>) {
             m_drawingAreaX0 = m_drawingAreaY0 = m_drawingAreaX1 = m_drawingAreaY1 = 0;
             m_interlaced480 = false;
+            m_primitivesSinceDrawEnv = false;
         }
         if (m_enabled) {
             // Only primitives are clipped to the drawing area; fills and blits ignore it.
