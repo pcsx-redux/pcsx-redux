@@ -17,7 +17,7 @@
 
 
 -- Boots through the BIOS with the rewind ring capturing every frame, lets the shell be hijacked,
--- and reverse-continues back onto the first instruction run after the hijack. A replay from a
+-- and reverse-continues (rewinds, on the dynarec) back onto the first instruction run after the hijack. A replay from a
 -- snapshot taken before the hijack can't get there: the hijack only happens once per boot.
 -- GDB_REVERSE_SHELL selects how the shell is hijacked: 'fastboot', 'exe' (side-loaded with
 -- -loadexe, see tests/pcsxrunner/lua.cc), or 'shellhalt' (gdb writes the binary while paused at the shell).
@@ -156,10 +156,8 @@ function TestGdbReverseShell:tearDown()
     emu.Debug.Debug, emu.RewindInterval, emu.RewindCount, emu.FastBoot = saved[1], saved[2], saved[3], saved[4]
 end
 
-function TestGdbReverseShell:test_reverse_continue_onto_the_hijack()
-    if PCSX.settings.emulator.Dynarec then lu.skip('reverse execution needs the interpreter') end
-    local mode = GDB_REVERSE_SHELL
-    local target
+-- Boots past the shell with fastboot or a side-loaded binary, and returns the pc the hijack set.
+local function bootPastHijack(mode)
     if mode == 'fastboot' then
         PCSX.settings.emulator.FastBoot = true
         local ra
@@ -169,12 +167,30 @@ function TestGdbReverseShell:test_reverse_continue_onto_the_hijack()
             ra = PCSX.getRegisters().GPR.n.ra
         end)
         runPastShell()
-        target = ra
-        connect()
-    elseif mode == 'exe' then
-        PCSX.settings.emulator.FastBoot = false
-        runPastShell()
-        target = ENTRY
+        return ra
+    end
+    PCSX.settings.emulator.FastBoot = false
+    runPastShell()
+    return ENTRY
+end
+
+-- The machine boots once per process, so there is one test, and it depends on the core.
+function TestGdbReverseShell:test_back_onto_the_hijack()
+    local mode = GDB_REVERSE_SHELL
+    if PCSX.settings.emulator.Dynarec then
+        -- Reverse execution needs the interpreter, but a plain rewind doesn't: walking the ring
+        -- all the way back ends on the hijack.
+        if mode == 'shellhalt' then lu.skip('needs reverse execution') end
+        local target = bootPastHijack(mode)
+        lu.assertNotNil(target)
+        lu.assertTrue(PCSX.getRewindStateCount() > 1)
+        while PCSX.getRewindStateCount() > 0 do lu.assertTrue(PCSX.rewindState()) end
+        lu.assertEquals(PCSX.getRegisters().pc, target)
+        return
+    end
+    local target
+    if mode == 'fastboot' or mode == 'exe' then
+        target = bootPastHijack(mode)
         connect()
     elseif mode == 'shellhalt' then
         PCSX.settings.emulator.FastBoot = false

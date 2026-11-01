@@ -143,6 +143,8 @@ void PCSX::GdbClient::close() {
 }
 
 PCSX::GdbClient::~GdbClient() {
+    // Leaving while stopped at the shell: the emulation can only resume from here.
+    if (m_restartRewindOnResume) g_emulator->restartRewind(m_rewindWasInUse);
     if (m_reverse) {
         g_emulator->m_debug->stopReplay();
         g_emulator->suppressRewindCapture(false);
