@@ -220,8 +220,10 @@ vec4 outlineColor(in sampler2D sampler, in vec4 color, in vec2 pos) {
 
 // Number of times a pixel was written (or read) during the last frame. Touched once is the normal
 // case and shows as a faint blue; every further touch is overdraw, going green, yellow, then red.
+// The view spans 1024 rows; the heatmaps cover the first 512, so the upper bank stays empty.
 vec4 heatmapColor(in vec2 pos) {
-    if (any(lessThan(pos, vec2(0.0))) || any(greaterThan(pos, vec2(1.0)))) return vec4(0.0);
+    if (any(lessThan(pos, vec2(0.0))) || any(greaterThan(pos, vec2(1.0, 0.5)))) return vec4(0.0);
+    pos.y *= 2.0;
     float count = u_heatmapMode == 1 ? texture(u_writtenHeatmap, pos).r : texture(u_readHeatmap, pos).r;
     if (count < 0.5) return vec4(0.0);
     if (count < 1.5) return vec4(0.0, 0.2, 1.0, 0.35);
