@@ -801,7 +801,8 @@ void PCSX::SPU::impl::writeCaptureBufferCD(int numbSamples) {
 }
 
 // Takes this chunk's CD audio off the queue, one frame per sample, and adds it to the voice mix
-// through CD volume and SPUCNT bit 0. The frames are taken whether or not the input is enabled.
+// through CD volume and SPUCNT bit 0, and to the reverb input as well when SPUCNT bit 2 is set.
+// The frames are taken whether or not the input is enabled.
 void PCSX::SPU::impl::mixCdInput(int n) {
     int cdLeft[NSSIZE];
     int cdRight[NSSIZE];
@@ -817,10 +818,19 @@ void PCSX::SPU::impl::mixCdInput(int n) {
             q.popped += due ? 1 : 0;
         }
     }
+    // Bit 0 gates the CD input for the dry mix and the reverb send alike: with bit 0 clear and
+    // bit 2 set, silicon plays nothing and leaves no reverb tail (SCPH-9002, XA).
     if (!(spuCtrl & ControlFlags::CDAudioEnable)) return;
+    const bool toReverb = (spuCtrl & ControlFlags::CDReverbEnable) != 0;
     for (int ns = 0; ns < n; ns++) {
-        SSumL[ns] += cdLeft[ns] * m_cdVolumeLeft / kCdVolumeUnity;
-        SSumR[ns] += cdRight[ns] * m_cdVolumeRight / kCdVolumeUnity;
+        const int left = cdLeft[ns] * m_cdVolumeLeft / kCdVolumeUnity;
+        const int right = cdRight[ns] * m_cdVolumeRight / kCdVolumeUnity;
+        SSumL[ns] += left;
+        SSumR[ns] += right;
+        if (toReverb) {
+            m_reverb.mixStart[ns << 1] += left;
+            m_reverb.mixStart[(ns << 1) + 1] += right;
+        }
     }
 }
 
