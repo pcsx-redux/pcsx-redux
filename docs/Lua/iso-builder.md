@@ -115,6 +115,7 @@ Sector mode and XA:
 
 ```lua
 :setSectorMode(mode)   -- 'RAW', 'M1', 'M2_RAW', 'M2_FORM1', 'M2_FORM2'
+:getSectorMode()       -- returns the node's mode, as one of the above or 'GUESS'
 :getXAAttribs()        :setXAAttribs(value)
 :getXAFileNum()        :setXAFileNum(value)
 ```
