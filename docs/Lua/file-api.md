@@ -179,6 +179,8 @@ The following methods are available on the `Iso` object:
 :open(lba[, size[, mode]]) -- Returns a File object off the specified span of sectors.
 :clearPPF()     -- Clears out all of the currently applied patches.
 :savePPF()      -- Saves the currently applied patches to a PPF file named after the ISO file.
+:getTN()        -- Returns the number of tracks. An image without a track table reports 1.
+:getTD(track)   -- Returns the start of the track as an MSF struct with m, s and f fields, as plain numbers. Track 0 returns the position past the last track, and a single track image or an out of range track returns 00:02:00.
 ```
 
 The `:open` method has some magic built-in. The size argument is optional, and if missing, the code will attempt to guess the size of the underlying file within the Iso. It will represent the size of the virtual file in bytes. The size guessing mechanism can only work on MODE2 FORM1 or FORM2 sectors, and will result in a failed File object otherwise. The mode argument is optional, and can be one of the following:
