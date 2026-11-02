@@ -463,6 +463,9 @@ void PCSX::SaveStates::restore(SaveState& state) {
         g_emulator->m_cpu->restorePCdrvFile(filename, fd, create, readPosition, writePosition);
     }
     g_emulator->m_callStacks->deserialize(&wrapper);
+    // Stack bounds are not saved: a guest that uses them sets them again on
+    // its next context switch, and until then nothing is checked.
+    g_emulator->m_cpu->clearStackBounds();
 
     g_system->m_eventBus->signal(Events::ExecutionFlow::SaveStateLoaded{});
 }
@@ -638,6 +641,9 @@ bool PCSX::SaveStates::load(std::string_view data) {
         g_emulator->m_cpu->restorePCdrvFile(filename, fd, create, readPosition, writePosition);
     }
     g_emulator->m_callStacks->deserialize(&wrapper);
+    // Stack bounds are not saved: a guest that uses them sets them again on
+    // its next context switch, and until then nothing is checked.
+    g_emulator->m_cpu->clearStackBounds();
 
     g_system->m_eventBus->signal(Events::ExecutionFlow::SaveStateLoaded{});
 

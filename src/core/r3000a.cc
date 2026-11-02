@@ -60,12 +60,28 @@ int PCSX::R3000Acpu::psxInit() {
     return g_emulator->m_cpu->Init();
 }
 
+void PCSX::R3000Acpu::stackBoundsViolation(uint32_t pc, uint32_t sp) {
+    const auto& bounds = m_stackBounds;
+    g_system->printf(_("Stack %s: instruction at 0x%08x moved $sp to 0x%08x, outside [0x%08x, 0x%08x]\n"),
+                     sp < bounds.low ? _("overflow") : _("underflow"), pc, sp, bounds.low, bounds.high);
+    if (g_system->getArgs().isTestModeEnabled()) {
+        // Nobody is there to look at a paused emulator. Stop checking so the
+        // instructions that run before the quit is seen do not print again.
+        clearStackBounds();
+        g_system->quit(c_stackBoundsExitCode);
+        return;
+    }
+    g_system->pause();
+    g_system->m_eventBus->signal(Events::GUI::JumpToPC{pc});
+}
+
 void PCSX::R3000Acpu::psxReset() {
     Reset();
 
     memset(&m_regs, 0, sizeof(m_regs));
     m_shellStarted = false;
     m_inISR = false;
+    clearStackBounds();
     m_delayedLoadInfo[0].active = false;
     m_delayedLoadInfo[1].active = false;
     m_currentDelayedLoad = false;
