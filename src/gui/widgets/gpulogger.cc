@@ -337,9 +337,33 @@ void PCSX::Widgets::GPULogger::drawNode(PCSX::GPULogger* logger, GPU::Logged& lo
         m_endHighlight = n;
     }
     ImGui::SameLine();
+    if (logged.editable()) {
+        if (ImGui::SmallButton(_("Edit"))) ImGui::OpenPopup("edit");
+        if (ImGui::BeginPopup("edit")) {
+            // The overlay is only created once a field is edited.
+            GPU::Logged::Overlay scratch;
+            logged.drawEditor(logged.overlay ? *logged.overlay : scratch);
+            if (!logged.overlay && !scratch.empty()) {
+                logged.overlay = std::make_unique<GPU::Logged::Overlay>(scratch);
+            }
+            ImGui::Separator();
+            if (ImGui::Button(_("Revert"))) {
+                logged.overlay.reset();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+        ImGui::SameLine();
+    } else {
+        // Keep the node names in one column whether the row has an Edit button or not.
+        const float width = ImGui::CalcTextSize(_("Edit")).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        ImGui::Dummy(ImVec2(width, ImGui::GetTextLineHeight()));
+        ImGui::SameLine();
+    }
     if (flags.collapseAll || m_collapseAll) ImGui::SetNextItemOpen(false);
     if (flags.expandAll || m_expandAll) ImGui::SetNextItemOpen(true);
-    std::string label = fmt::format("{}##node{}", logged.getName(), n);
+    const bool edited = logged.overlay && !logged.overlay->empty();
+    std::string label = fmt::format("{}{}##node{}", edited ? "* " : "", logged.getName(), n);
     if (ImGui::TreeNode(label.c_str())) {
         logged.drawLogNode(n, m_settings);
         ImGui::TreePop();

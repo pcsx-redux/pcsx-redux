@@ -415,7 +415,12 @@ void PCSX::GPULogger::startNewFrame() { m_vram = gpu()->getVRAM(GPU::Ownership::
 void PCSX::GPULogger::replay(GPU* gpu) {
     if (m_vram.data()) gpu->partialUpdateVRAM(0, 0, 1024, 512, m_vram.data<uint16_t>());
     for (auto& node : m_list) {
-        if (node.enabled) node.execute(gpu);
+        if (!node.enabled) continue;
+        if (node.overlay && !node.overlay->empty()) {
+            node.executeEdited(gpu, *node.overlay);
+        } else {
+            node.execute(gpu);
+        }
     }
     gpu->vblank(true);
 }
