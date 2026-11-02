@@ -217,31 +217,37 @@ void PCSX::GPULogger::checkVramBreakpoints(GPU::Logged* node) {
     if (!watchingReads && !watchingWrites) return;
 
     unsigned hit = m_vramBreakpoints.size();
-    auto scan = [this, node, &hit](GPU::Logged::PixelOp op) {
-        node->getVertices(
-            [this, &hit, op](auto v1, auto v2, auto v3) {
-                if (hit != m_vramBreakpoints.size()) return;
-                for (unsigned i = 0; i < m_vramBreakpoints.size(); i++) {
-                    auto& bp = m_vramBreakpoints[i];
-                    if (!bp.enabled) continue;
-                    if (!(op == GPU::Logged::PixelOp::READ ? bp.onRead : bp.onWrite)) continue;
-                    if (triangleIntersectsRect(v1, v2, v3, bp.area.x, bp.area.y, bp.area.w, bp.area.h)) {
-                        hit = i;
-                        return;
-                    }
-                }
-            },
-            op);
-    };
-
     const char* what = _("write");
-    if (watchingWrites) scan(GPU::Logged::PixelOp::WRITE);
+    if (watchingWrites) hit = scanVramBreakpoints(node, GPU::Logged::PixelOp::WRITE);
     if ((hit == m_vramBreakpoints.size()) && watchingReads) {
         what = _("read");
-        scan(GPU::Logged::PixelOp::READ);
+        hit = scanVramBreakpoints(node, GPU::Logged::PixelOp::READ);
     }
     if (hit == m_vramBreakpoints.size()) return;
 
+    triggerVramBreakpoint(node, hit, what);
+}
+
+unsigned PCSX::GPULogger::scanVramBreakpoints(GPU::Logged* node, GPU::Logged::PixelOp op) {
+    unsigned hit = m_vramBreakpoints.size();
+    node->getVertices(
+        [this, &hit, op](auto v1, auto v2, auto v3) {
+            if (hit != m_vramBreakpoints.size()) return;
+            for (unsigned i = 0; i < m_vramBreakpoints.size(); i++) {
+                auto& bp = m_vramBreakpoints[i];
+                if (!bp.enabled) continue;
+                if (!(op == GPU::Logged::PixelOp::READ ? bp.onRead : bp.onWrite)) continue;
+                if (triangleIntersectsRect(v1, v2, v3, bp.area.x, bp.area.y, bp.area.w, bp.area.h)) {
+                    hit = i;
+                    return;
+                }
+            }
+        },
+        op);
+    return hit;
+}
+
+void PCSX::GPULogger::triggerVramBreakpoint(GPU::Logged* node, unsigned hit, const char* what) {
     const auto& bp = m_vramBreakpoints[hit];
     const auto name = node->getName();
     node->highlight = true;
@@ -322,23 +328,32 @@ void PCSX::GPULogger::addNodeInternal(GPU::Logged* node, GPU::Logged::Origin ori
     OpenGL::disableScissor();
 
     // The heatmaps count how many times each pixel is touched during the current frame.
-    if (gotNewFrame) {
-        GLint oldReadFBO;
-        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &oldReadFBO);
-        m_writtenAccumFB.bind(OpenGL::ReadFramebuffer);
-        m_writtenHeatmapFB.bind(OpenGL::DrawFramebuffer);
-        glBlitFramebuffer(0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        m_readAccumFB.bind(OpenGL::ReadFramebuffer);
-        m_readHeatmapFB.bind(OpenGL::DrawFramebuffer);
-        glBlitFramebuffer(0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, oldReadFBO);
-        OpenGL::setClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        m_writtenAccumFB.bind(OpenGL::DrawFramebuffer);
-        OpenGL::clearColor();
-        m_readAccumFB.bind(OpenGL::DrawFramebuffer);
-        OpenGL::clearColor();
-    }
+    if (gotNewFrame) publishHeatmaps();
 
+    accumulateOverdraw(node, clipped);
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, oldFBO);
+    g_emulator->m_gpu->setOpenGLContext();
+}
+
+void PCSX::GPULogger::publishHeatmaps() {
+    GLint oldReadFBO;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &oldReadFBO);
+    m_writtenAccumFB.bind(OpenGL::ReadFramebuffer);
+    m_writtenHeatmapFB.bind(OpenGL::DrawFramebuffer);
+    glBlitFramebuffer(0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    m_readAccumFB.bind(OpenGL::ReadFramebuffer);
+    m_readHeatmapFB.bind(OpenGL::DrawFramebuffer);
+    glBlitFramebuffer(0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, oldReadFBO);
+    OpenGL::setClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    m_writtenAccumFB.bind(OpenGL::DrawFramebuffer);
+    OpenGL::clearColor();
+    m_readAccumFB.bind(OpenGL::DrawFramebuffer);
+    OpenGL::clearColor();
+}
+
+void PCSX::GPULogger::accumulateOverdraw(GPU::Logged* node, bool clipped) {
     const bool blendWasEnabled = glIsEnabled(GL_BLEND);
     glEnable(GL_BLEND);
     glBlendEquation(GL_FUNC_ADD);
@@ -362,8 +377,6 @@ void PCSX::GPULogger::addNodeInternal(GPU::Logged* node, GPU::Logged::Origin ori
     flush();
 
     if (!blendWasEnabled) glDisable(GL_BLEND);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, oldFBO);
-    g_emulator->m_gpu->setOpenGLContext();
 }
 
 void PCSX::GPULogger::readOverdraw(OpenGL::Framebuffer& fb, OverdrawStats& stats, std::vector<float>& pixels) {
