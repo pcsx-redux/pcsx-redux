@@ -177,7 +177,9 @@ PCSX::GUI::GUI(std::vector<std::string>& favorites)
           settings.get<ShowIsoBrowser>().value, favorites, [this]() { useMonoFont(); },
           [this](const std::string& name, IO<File> file) { m_dalos.addSource(name, file); }),
       m_pioCart(settings.get<ShowPIOCartConfig>().value, favorites),
-      m_gpuDump(settings.get<ShowGPUDump>().value, favorites) {
+      m_gpuDump(settings.get<ShowGPUDump>().value, favorites),
+      m_spuLoggerWidget(settings.get<ShowSPULogger>().value, settings.get<SPULoggerEnabled>().value, favorites),
+      m_spuSamplesWidget(settings.get<ShowSPUSamples>().value, favorites) {
     assert(g_gui == nullptr);
     g_gui = this;
 }
@@ -249,39 +251,7 @@ void PCSX::GUI::setRawMouseMotion() {
 
 void LoadImguiBindings(lua_State* lState);
 
-ImFont* PCSX::GUI::loadFont(const PCSX::u8string& name, int size, ImGuiIO& io, const ImWchar* ranges, bool combine,
-                            bool isSymbolsFont) {
-    if (!ranges) ranges = io.Fonts->GetGlyphRangesDefault();
-
-    const System::Range knownRange = System::Range(reinterpret_cast<uintptr_t>(ranges));
-    if (knownRange == System::Range::KOREAN) ranges = io.Fonts->GetGlyphRangesKorean();
-    if (knownRange == System::Range::JAPANESE) ranges = io.Fonts->GetGlyphRangesJapanese();
-    if (knownRange == System::Range::CHINESE_FULL) ranges = io.Fonts->GetGlyphRangesChineseFull();
-    if (knownRange == System::Range::CHINESE_SIMPLIFIED) ranges = io.Fonts->GetGlyphRangesChineseSimplifiedCommon();
-    if (knownRange == System::Range::CYRILLIC) ranges = io.Fonts->GetGlyphRangesCyrillic();
-    if (knownRange == System::Range::THAI) ranges = io.Fonts->GetGlyphRangesThai();
-    if (knownRange == System::Range::VIETNAMESE) ranges = io.Fonts->GetGlyphRangesVietnamese();
-
-    if (isSymbolsFont) {
-        for (unsigned i = 0; ranges[i] != 0; i++) {
-            m_baseFontRanges.push_back(ranges[i]);
-        }
-
-        m_baseFontRanges.push_back(0x2190);  // ←: U+2190   ↑: U+2191
-        m_baseFontRanges.push_back(0x2193);  // →: U+2192   ↓: U+2193
-        m_baseFontRanges.push_back(0x2573);  // ╳: U+2573
-        m_baseFontRanges.push_back(0x2573);
-        m_baseFontRanges.push_back(0x25a1);  // □: U+25A1
-        m_baseFontRanges.push_back(0x25a1);
-        m_baseFontRanges.push_back(0x25b3);  // △: U+25B3
-        m_baseFontRanges.push_back(0x25b3);
-        m_baseFontRanges.push_back(0x25ef);  // ◯: U+25EF
-        m_baseFontRanges.push_back(0x25ef);
-
-        m_baseFontRanges.push_back(0);
-        ranges = m_baseFontRanges.data();
-    }
-
+ImFont* PCSX::GUI::loadFont(const PCSX::u8string& name, int size, ImGuiIO& io, bool combine) {
     decltype(s_imguiUserErrorFunctor) backup = [](const char*) {};
     std::swap(backup, s_imguiUserErrorFunctor);
     ImFontConfig cfg;
@@ -290,9 +260,8 @@ ImFont* PCSX::GUI::loadFont(const PCSX::u8string& name, int size, ImGuiIO& io, c
     ImFont* ret = nullptr;
     std::filesystem::path path = name;
     g_system->findResource(
-        [&ret, fonts = io.Fonts, size, &cfg, ranges](const std::filesystem::path& filename) mutable {
-            ret = fonts->AddFontFromFileTTF(reinterpret_cast<const char*>(filename.u8string().c_str()), size, &cfg,
-                                            ranges);
+        [&ret, fonts = io.Fonts, size, &cfg](const std::filesystem::path& filename) mutable {
+            ret = fonts->AddFontFromFileTTF(reinterpret_cast<const char*>(filename.u8string().c_str()), size, &cfg);
             return ret != nullptr;
         },
         path, "fonts", std::filesystem::path("third_party") / "noto");
@@ -1087,7 +1056,6 @@ void PCSX::GUI::startFrame() {
 
     if (m_reloadFonts) {
         m_reloadFonts = false;
-        m_baseFontRanges.clear();
         auto scales = m_allScales;
         if (scales.empty()) scales.emplace(1.0f);
 
@@ -1105,15 +1073,17 @@ void PCSX::GUI::startFrame() {
         io.Fonts->AddFontDefault();
         for (auto& scale : scales) {
             m_mainFonts[scale] = loadFont(MAKEU8("NotoSans-Regular.ttf"), settings.get<MainFontSize>().value * scale,
-                                          io, g_system->getLocaleRanges(), false, false);
-            for (auto e : g_system->getLocaleExtra()) {
-                loadFont(e.first, settings.get<MainFontSize>().value * scale, io, e.second, true, false);
+                                          io, false);
+            for (auto& e : g_system->getLocaleExtra()) {
+                loadFont(e, settings.get<MainFontSize>().value * scale, io, true);
             }
             // try loading the japanese font for memory card manager
             m_hasJapanese = loadFont(MAKEU8("NotoSansCJKjp-Regular.otf"), settings.get<MainFontSize>().value * scale,
-                                     io, reinterpret_cast<const ImWchar*>(PCSX::System::Range::JAPANESE), true, true);
+                                     io, true);
             m_monoFonts[scale] = loadFont(MAKEU8("NotoMono-Regular.ttf"), settings.get<MonoFontSize>().value * scale,
-                                          io, nullptr, false, false);
+                                          io, false);
+            // NotoMono has no U+2713 (cester's pass mark) and no CJK; merge them in from the japanese font.
+            loadFont(MAKEU8("NotoSansCJKjp-Regular.otf"), settings.get<MonoFontSize>().value * scale, io, true);
         }
         // Pick the font matching the current DPI scale as the default; in
         // v1.92 ImGui draws frames at Style.FontSizeBase unless overridden by
@@ -1950,7 +1920,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
     if (m_gpuLogger.m_show) m_gpuLogger.draw(g_emulator->m_gpuLogger.get(), _("GPU Logger"), !g_system->running());
     if (m_gpuDump.m_show) m_gpuDump.draw(_("GPU Dump"));
     // Pushed unconditionally: capture follows the setting, not whether the window is open.
-    g_emulator->m_spuLogger->enabled() = m_spuLoggerWidget.m_enabled;
+    m_spuLoggerWidget.syncEnabled(g_emulator->m_spuLogger.get());
     if (m_spuLoggerWidget.m_show) m_spuLoggerWidget.draw(g_emulator->m_spuLogger.get(), _("SPU Logger"));
     if (m_spuSamplesWidget.m_show) {
         m_spuSamplesWidget.draw(g_emulator->m_spuLogger.get(), g_emulator->m_spu->getSpuRam(), _("SPU Samples"));

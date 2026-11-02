@@ -358,21 +358,20 @@ void PCSX::SoftGPU::impl::debugDisplayArea() {
     ImGui::Text(_("Start (GP1(05h)): %u, %u"), start & 0x3ff, (start >> 10) & 0x3ff);
     ImGui::Text(_("Horizontal range (GP1(06h)): %d - %d"), m_display.x1, m_display.x2);
     ImGui::Text(_("Vertical range (GP1(07h)): %d - %d"), m_display.y1, m_display.y2);
-    ImGui::Text(_("Shown rectangle: %d, %d, %d x %d"), m_display.start.x(), m_display.start.y(),
-                m_display.size.x(), m_display.size.y());
+    ImGui::Text(_("Shown rectangle: %d, %d, %d x %d"), m_display.start.x(), m_display.start.y(), m_display.size.x(),
+                m_display.size.y());
 }
 
 void PCSX::SoftGPU::impl::debugDrawing(uint32_t stat) {
     ImGui::SeparatorText(_("Drawing"));
     ImGui::Text(_("Draw to display area (E1h.10): %s"), (stat & 0x400) ? _("on") : _("off"));
     ImGui::Text(_("Dither (E1h.9): %s"), (stat & 0x200) ? _("on") : _("off"));
-    ImGui::Text(_("Mask: set %s, check %s"), (stat & 0x800) ? _("on") : _("off"),
-                (stat & 0x1000) ? _("on") : _("off"));
+    ImGui::Text(_("Mask: set %s, check %s"), (stat & 0x800) ? _("on") : _("off"), (stat & 0x1000) ? _("on") : _("off"));
     const uint32_t areaStart = getDrawingStartRaw();
     const uint32_t areaEnd = getDrawingEndRaw();
     const uint32_t offset = getDrawingOffsetRaw();
-    ImGui::Text(_("Drawing area: %u, %u - %u, %u"), areaStart & 0x3ff, (areaStart >> 10) & 0x3ff,
-                areaEnd & 0x3ff, (areaEnd >> 10) & 0x3ff);
+    ImGui::Text(_("Drawing area: %u, %u - %u, %u"), areaStart & 0x3ff, (areaStart >> 10) & 0x3ff, areaEnd & 0x3ff,
+                (areaEnd >> 10) & 0x3ff);
     // GP0(E5h) offsets are 11-bit signed.
     const int offsetX = int32_t(offset << 21) >> 21;
     const int offsetY = int32_t((offset >> 11) << 21) >> 21;

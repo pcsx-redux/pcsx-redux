@@ -128,7 +128,8 @@ bool loadPSEXE(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<
 
     const auto pcInFile = file->read<uint32_t>();
     if (!overlay) info.pc = pcInFile;
-    file->read<uint32_t>();
+    const auto gpInFile = file->read<uint32_t>();
+    if (!overlay && gpInFile != 0) info.gp = gpInFile;
     uint32_t addr = file->read<uint32_t>();
     uint32_t size = file->read<uint32_t>();
     file->read<uint32_t>();

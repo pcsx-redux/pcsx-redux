@@ -20,7 +20,9 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <string>
+#include <utility>
 
 #include "core/psxemulator.h"
 #include "core/system.h"
@@ -124,6 +126,27 @@ class Debug {
     }
     void stepOut();
 
+    // Replay from a rewind snapshot, for reverse execution in the gdb server. Instruction
+    // boundaries are named by m_regs.cycle as process() sees them. While a replay runs,
+    // process() keeps what changes the guest, the COP0 hardware breakpoints, and records the
+    // user breakpoints it would have triggered instead of running them, then pauses at the
+    // first boundary at or past stopAt. startReplay() is called right after restoring the
+    // snapshot, and checks the boundary the snapshot sits on, which process() saw before the
+    // capture. It returns false when that boundary is already at or past stopAt, in which
+    // case there is nothing to run.
+    struct Replay {
+        uint64_t stopAt = 0;
+        // The boundary the replay paused at.
+        std::optional<uint64_t> reached;
+        // The last boundary before stopAt, and the last one of those with a breakpoint hit.
+        uint64_t lastBoundary = 0;
+        std::optional<uint64_t> lastHit;
+        bool hitPending = false;
+    };
+    bool startReplay(uint64_t stopAt);
+    std::optional<Replay> stopReplay() { return std::exchange(m_replay, std::nullopt); }
+    bool replaying() const { return m_replay.has_value(); }
+
     bool m_mapping_e = false;
     bool m_mapping_r8 = false, m_mapping_r16 = false, m_mapping_r32 = false;
     bool m_mapping_w8 = false, m_mapping_w16 = false, m_mapping_w32 = false;
@@ -175,6 +198,10 @@ class Debug {
 
   private:
     bool triggerBP(Breakpoint* bp, uint32_t address, unsigned width, const char* reason = "");
+    void replayBoundary(uint32_t pc, uint32_t code);
+    void replayCheckAccess(uint32_t code);
+    void noteReplayHit(uint32_t normalizedAddress, BreakpointType type, uint32_t width);
+    std::optional<Replay> m_replay;
     BreakpointTreeType m_breakpoints;
 
     uint8_t m_mainMemoryMap[0x00800000] = {0};

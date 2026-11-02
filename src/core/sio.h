@@ -79,6 +79,7 @@ class SIO {
     static constexpr size_t c_blockSize = c_sectorSize * 64;  // 40h sectors per block
     static constexpr size_t c_cardSize = c_blockSize * 16;    // 16 blocks per frame(directory+15 saves)
     static constexpr size_t c_cardCount = 2;
+    static constexpr size_t c_tapCardCount = 6;
 
     SIO() { reset(); }
 
@@ -175,11 +176,14 @@ class SIO {
     };
     struct DeviceType {
         enum : uint8_t {
-            None = 0x00,        // No device selected yet
-            PAD = 0x01,         // Pad Select
-            NetYaroze = 0x21,   // Net Yaroze Select
-            MemoryCard = 0x81,  // Memory Card Select
-            Ignore = 0xFF,      // Ignore incoming commands
+            None = 0x00,            // No device selected yet
+            PAD = 0x01,             // Pad Select
+            NetYaroze = 0x21,       // Net Yaroze Select
+            MemoryCard = 0x81,      // Memory Card Select
+            TapMemoryCardB = 0x82,  // Multitap slot B Memory Card Select
+            TapMemoryCardC = 0x83,  // Multitap slot C Memory Card Select
+            TapMemoryCardD = 0x84,  // Multitap slot D Memory Card Select
+            Ignore = 0xFF,          // Ignore incoming commands
         };
     };
     struct SelectedPort {
@@ -247,6 +251,7 @@ class SIO {
     void transmitData();
     void updateFIFOStatus();
     void writePad(uint8_t value);
+    void deselectCards();
 
     SIORegisters m_regs = {
         .status = StatusFlags::TX_DATACLEAR | StatusFlags::TX_FINISHED,  // Transfer Ready and the Buffer is Empty
@@ -263,6 +268,11 @@ class SIO {
     uint32_t m_padState;
 
     MemoryCard m_memoryCard[c_cardCount] = {this, this};
+    // The cards in a multitap's slots B to D: 0 to 2 on port 1, 3 to 5 on port 2. Slot A is card 1 or 2.
+    // Each is read from its file the first time it is selected while inserted, so no file is created for a
+    // slot nobody uses.
+    MemoryCard m_tapMemoryCard[c_tapCardCount] = {this, this, this, this, this, this};
+    bool m_tapMemoryCardLoaded[c_tapCardCount] = {};
 
     FIFO<uint8_t, 8> m_rxFIFO;
 };

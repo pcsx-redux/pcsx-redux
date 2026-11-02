@@ -151,6 +151,8 @@
     <ClCompile Include="..\..\src\supportpsx\iso9660-builder.cc" />
     <ClCompile Include="..\..\src\supportpsx\ps1-packer.cc" />
     <ClCompile Include="..\..\src\supportpsx\psyq-obj.cc" />
+    <ClCompile Include="..\..\src\supportpsx\sf2.cc" />
+    <ClCompile Include="..\..\src\supportpsx\spusample.cc" />
     <ClCompile Include="..\..\src\supportpsx\ucl-glue.c" />
     <ClCompile Include="..\..\src\supportpsx\ucl-utils.cc" />
     <ClCompile Include="..\..\third_party\iec-60908b\edcecc.c" />
@@ -186,6 +188,8 @@
     <ClInclude Include="..\..\src\supportpsx\memory.h" />
     <ClInclude Include="..\..\src\supportpsx\ps1-packer.h" />
     <ClInclude Include="..\..\src\supportpsx\psyq-obj.h" />
+    <ClInclude Include="..\..\src\supportpsx\sf2.h" />
+    <ClInclude Include="..\..\src\supportpsx\spusample.h" />
     <ClInclude Include="..\..\src\supportpsx\ucl-utils.h" />
     <ClInclude Include="..\..\third_party\iec-60908b\edcecc.h" />
     <ClInclude Include="..\..\third_party\iec-60908b\tables.h" />

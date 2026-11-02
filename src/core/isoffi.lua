@@ -127,6 +127,7 @@ void dirTreeSetDeclaredSize(IsoDirTree* node, uint32_t size);
 void dirTreeClearDeclaredSize(IsoDirTree* node);
 bool dirTreeHasXA(IsoDirTree* node);
 void dirTreeSetHasXA(IsoDirTree* node, bool val);
+enum SectorMode dirTreeGetSectorMode(IsoDirTree* node);
 void dirTreeSetSectorMode(IsoDirTree* node, enum SectorMode mode);
 uint16_t dirTreeGetXAAttribs(IsoDirTree* node);
 void dirTreeSetXAAttribs(IsoDirTree* node, uint16_t val);
@@ -207,10 +208,84 @@ end
 -- High-level ISO builder (filesystem-aware)
 local pvdBuf = ffi.new('char[?]', 513) -- max CString size (512 for ApplicationUse) + 1
 
-local function createDirTreeWrapper(node)
+-- XA attribute bits of a directory record. The low bits pair up as read/execute for owner, group and world; the
+-- odd bits in between are reserved.
+local xaPermissionBits = {
+    ownerRead = 0x0001,
+    ownerExecute = 0x0004,
+    groupRead = 0x0010,
+    groupExecute = 0x0040,
+    worldRead = 0x0100,
+    worldExecute = 0x0400,
+}
+local xaFlagBits = { interleaved = 0x2000, cdda = 0x4000, directory = 0x8000 }
+local xaFormBits = { 0x0800, 0x1000 } -- form 1 = bit 11, form 2 = bit 12
+local xaFormMask = 0x1800
+
+local function sectorModeValue(mode) return tonumber(ffi.cast('enum SectorMode', mode)) end
+local sectorModeNames = { 'GUESS', 'RAW', 'M1', 'M2_RAW', 'M2_FORM1', 'M2_FORM2' }
+-- M1 file contents are written as Mode 2 Form 1 sectors.
+local formOfSectorMode = {
+    [sectorModeValue('M1')] = 1,
+    [sectorModeValue('M2_FORM1')] = 1,
+    [sectorModeValue('M2_FORM2')] = 2,
+}
+
+-- The XA form a file written in this sector mode carries. Raw modes hand over whole sectors whose subheaders say
+-- it per sector, so the directory record can't be derived from them.
+local function xaFormForMode(mode)
+    local value = sectorModeValue(mode)
+    local form = formOfSectorMode[value]
+    if form == nil then
+        error('the XA form of a ' .. (sectorModeNames[value + 1] or tostring(mode)) ..
+                  ' file cannot be derived from its sector mode, pass form = 1 or 2 to setXA')
+    end
+    return form
+end
+
+-- Computes the XA attributes for a setXA{} field table. Returns the attributes, and whether the form bits were
+-- derived from the node's sector mode and should keep following it.
+local function xaAttribsFromFields(node, fields)
+    for name, value in pairs(fields) do
+        if name == 'form' then
+            if value ~= 1 and value ~= 2 then error('setXA: form must be 1 or 2, got ' .. tostring(value)) end
+        elseif xaPermissionBits[name] or xaFlagBits[name] then
+            if type(value) ~= 'boolean' then error('setXA: field ' .. name .. ' must be a boolean') end
+        else
+            error('setXA: unknown field ' .. tostring(name))
+        end
+    end
+    local isDir = C.dirTreeIsDir(node)
+    local attribs = 0
+    for name, mask in pairs(xaPermissionBits) do
+        if fields[name] ~= false then attribs = bit.bor(attribs, mask) end
+    end
+    local flags = { interleaved = false, cdda = false, directory = isDir }
+    for name, mask in pairs(xaFlagBits) do
+        local value = fields[name]
+        if value == nil then value = flags[name] end
+        if value then attribs = bit.bor(attribs, mask) end
+    end
+    local form, following = fields.form, false
+    if form == nil then
+        if isDir then
+            form = 1
+        elseif not fields.cdda then
+            form = xaFormForMode(C.dirTreeGetSectorMode(node))
+            following = true
+        end
+    end
+    if form then attribs = bit.bor(attribs, xaFormBits[form]) end
+    return attribs, following
+end
+
+local function nodeKey(node) return tonumber(ffi.cast('uintptr_t', node)) end
+
+local function createDirTreeWrapper(node, xaFollowing)
     if node == nil then return nil end
     local wrapper = {
         _node = node,
+        _xaFollowing = xaFollowing,
         getName = function(self) return ffi.string(C.dirTreeGetName(self._node)) end,
         getSize = function(self) return C.dirTreeGetSize(self._node) end,
         getLBA = function(self) return C.dirTreeGetLBA(self._node) end,
@@ -228,15 +303,39 @@ local function createDirTreeWrapper(node)
         setDeclaredSize = function(self, size) C.dirTreeSetDeclaredSize(self._node, size) end,
         clearDeclaredSize = function(self) C.dirTreeClearDeclaredSize(self._node) end,
         hasXA = function(self) return C.dirTreeHasXA(self._node) end,
-        setXA = function(self, val) C.dirTreeSetHasXA(self._node, val) end,
-        setSectorMode = function(self, mode) C.dirTreeSetSectorMode(self._node, mode) end,
+        setXA = function(self, fields)
+            local key = nodeKey(self._node)
+            if fields == false then
+                self._xaFollowing[key] = nil
+                C.dirTreeSetHasXA(self._node, false)
+                return
+            end
+            if fields == true then fields = {} end
+            if type(fields) ~= 'table' then error('setXA expects a boolean or a table of fields') end
+            local attribs, following = xaAttribsFromFields(self._node, fields)
+            C.dirTreeSetHasXA(self._node, true)
+            C.dirTreeSetXAAttribs(self._node, attribs)
+            self._xaFollowing[key] = following or nil
+        end,
+        getSectorMode = function(self) return sectorModeNames[tonumber(C.dirTreeGetSectorMode(self._node)) + 1] end,
+        setSectorMode = function(self, mode)
+            if self._xaFollowing[nodeKey(self._node)] then
+                local form = xaFormForMode(mode)
+                local attribs = C.dirTreeGetXAAttribs(self._node)
+                C.dirTreeSetXAAttribs(self._node, bit.bor(bit.band(attribs, bit.bnot(xaFormMask)), xaFormBits[form]))
+            end
+            C.dirTreeSetSectorMode(self._node, mode)
+        end,
         getXAAttribs = function(self) return C.dirTreeGetXAAttribs(self._node) end,
-        setXAAttribs = function(self, val) C.dirTreeSetXAAttribs(self._node, val) end,
+        setXAAttribs = function(self, val)
+            self._xaFollowing[nodeKey(self._node)] = nil
+            C.dirTreeSetXAAttribs(self._node, val)
+        end,
         getXAFileNum = function(self) return C.dirTreeGetXAFileNum(self._node) end,
         setXAFileNum = function(self, val) C.dirTreeSetXAFileNum(self._node, val) end,
-        parent = function(self) return createDirTreeWrapper(C.dirTreeParent(self._node)) end,
-        firstChild = function(self) return createDirTreeWrapper(C.dirTreeFirstChild(self._node)) end,
-        nextSibling = function(self) return createDirTreeWrapper(C.dirTreeNextSibling(self._node)) end,
+        parent = function(self) return createDirTreeWrapper(C.dirTreeParent(self._node), self._xaFollowing) end,
+        firstChild = function(self) return createDirTreeWrapper(C.dirTreeFirstChild(self._node), self._xaFollowing) end,
+        nextSibling = function(self) return createDirTreeWrapper(C.dirTreeNextSibling(self._node), self._xaFollowing) end,
         setDate = function(self, year, month, day, hour, minute, second, offset)
             C.dirTreeSetDate(self._node, year or 0, month or 0, day or 0, hour or 0, minute or 0, second or 0,
                              offset or 0)
@@ -270,6 +369,8 @@ local function createIsoBuilderWrapper(wrapper)
     end
     local builder = {
         _wrapper = ffi.gc(wrapper, C.deleteIsoBuilder),
+        -- Nodes whose XA form bits were derived by setXA and follow their sector mode, keyed by node address.
+        _xaFollowing = {},
         failed = function(self) return C.isoBuilderFailed(self._wrapper) end,
         getCurrentLBA = function(self) return C.isoBuilderGetCurrentLBA(self._wrapper) end,
         writeSector = function(self, data, a, b)
@@ -323,13 +424,15 @@ local function createIsoBuilderWrapper(wrapper)
         setBibliographicFileIdent = function(self, val) C.hlPvdSetBibliographicFileIdent(self._wrapper, val) end,
         -- Tree building
         createRoot = function(self, sectorCount)
-            return createDirTreeWrapper(C.hlCreateRoot(self._wrapper, sectorCount or 1))
+            return createDirTreeWrapper(C.hlCreateRoot(self._wrapper, sectorCount or 1), self._xaFollowing)
         end,
         createDir = function(self, parent, name, sectorCount)
-            return createDirTreeWrapper(C.hlCreateDir(self._wrapper, parent._node, name, sectorCount or 1))
+            return createDirTreeWrapper(C.hlCreateDir(self._wrapper, parent._node, name, sectorCount or 1),
+                                        self._xaFollowing)
         end,
         createFile = function(self, parent, name, fileHandle)
-            return createDirTreeWrapper(C.hlCreateFile(self._wrapper, parent._node, name, fileHandle._wrapper))
+            return createDirTreeWrapper(C.hlCreateFile(self._wrapper, parent._node, name, fileHandle._wrapper),
+                                        self._xaFollowing)
         end,
         close = function(self, threadCount)
             local err = C.isoBuilderClose(self._wrapper, threadCount or 0)

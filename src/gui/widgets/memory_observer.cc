@@ -95,8 +95,7 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
                                                       ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV;
 
         if (ImGui::BeginTabItem(_("Plain search"))) {
-            bool gotEnter = ImGui::InputText(
-                _("Pattern"), &m_plainSearchString, ImGuiInputTextFlags_EnterReturnsTrue);
+            bool gotEnter = ImGui::InputText(_("Pattern"), &m_plainSearchString, ImGuiInputTextFlags_EnterReturnsTrue);
             ImGui::Checkbox(_("Hex"), &m_plainHex);
             auto needleSize = 0;
             std::string needle;

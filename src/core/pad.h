@@ -56,6 +56,22 @@ class Pads {
 
     virtual void reset() = 0;
 
+    // The part of a pad's protocol state that has to follow a save state: where it is in
+    // the current transfer, the reply it is clocking out, and the config/analog modes.
+    struct TransferState {
+        uint8_t cmd = 0;
+        bool configMode = false;
+        bool analogMode = false;
+        uint32_t bufferLen = 0;
+        uint32_t currentByte = 0;
+        uint8_t buf[256] = {};
+        uint8_t motorMapping[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+        bool configCommandsUsed = false;
+        uint8_t oldMethodLatch = 0;
+    };
+    virtual void getTransferState(Port port, TransferState& state) = 0;
+    virtual void setTransferState(Port port, const TransferState& state) = 0;
+
     virtual void setLua(PCSX::Lua L) = 0;
 
     virtual bool isPadConnected(int pad) = 0;

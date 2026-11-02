@@ -109,7 +109,13 @@ void PCSX::Widgets::GPUDump::drawPlayer() {
 
     if (!player->gameID().empty()) ImGui::Text(_("Game ID: %s"), player->gameID().c_str());
     if (!player->comment().empty()) ImGui::Text(_("Comment: %s"), player->comment().c_str());
-    ImGui::Text(_("Frame %llu"), static_cast<unsigned long long>(player->frame()));
+    uint64_t frame = player->frame();
+    const uint64_t first = 0, last = player->frameCount();
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::SliderScalar("##frame", ImGuiDataType_U64, &frame, &first, &last, _("Frame %llu"))) {
+        m_playing = false;
+        player->seek(frame);
+    }
 
     if (ImGui::Button(m_playing ? C_("Playback", "Pause") : C_("Playback", "Play"))) m_playing = !m_playing;
     ImGui::SameLine();

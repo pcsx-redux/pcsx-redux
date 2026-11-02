@@ -322,6 +322,25 @@ void PCSX::SIO1::writeStat32(uint32_t v) {
     g_emulator->m_mem->writeHardwareRegister<0x1054>(m_regs.status);
 }
 
+void PCSX::SIO1::writeGuizmo(uint16_t v) {
+    unsigned charWidth = ((m_regs.mode >> 2) & 0x3) + 5;
+    uint8_t highByte = (v >> 8) & 0xff;
+    uint8_t lowByte = v & 0xff;
+    auto mangle = [charWidth](uint8_t byte) -> uint8_t {
+        if (charWidth == 5) {
+            return (byte & 0x1f) | 0xc0;
+        } else if (charWidth == 6) {
+            return (byte & 0x3f) | 0x80;
+        } else if (charWidth == 7) {
+            return (byte & 0x7f);
+        } else {
+            return byte;
+        }
+    };
+    m_regs.guizmo = (mangle(lowByte) << 8) | mangle(highByte);
+    g_emulator->m_mem->writeHardwareRegister<0x105c, uint16_t>(m_regs.guizmo);
+}
+
 void PCSX::SIO1::calcCycleCount() {
     int reload = m_reloadFactor[m_regs.mode & 0x3];
     if (m_regs.baud * reload <= 0) return;

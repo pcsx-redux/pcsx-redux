@@ -21,6 +21,9 @@
     <ClCompile Include="..\..\src\lua\luawrapper.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\lua\compressionffi.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\lua\zlibffi.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -71,6 +74,12 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include="..\..\third_party\ffi-reflect\reflect.lua">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="..\..\src\lua\compressionffi-cdef.lua">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="..\..\src\lua\compressionffi.lua">
       <Filter>Source Files</Filter>
     </None>
     <None Include="..\..\third_party\zlibffi\zlibffi.lua">

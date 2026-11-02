@@ -22,9 +22,12 @@
 #include <stdint.h>
 
 #include <map>
+#include <string>
 #include <vector>
 
 #include "core/spulogger.h"
+#include "gui/widgets/filedialog.h"
+#include "supportpsx/spusample.h"
 
 namespace PCSX {
 
@@ -33,29 +36,27 @@ namespace Widgets {
 // Sample map of sound RAM, and a waveform view of the selected sample. Start addresses come
 // from the SPU logger's key-on entries, which are the only ground truth for where a sample
 // begins. Everything else is derived from sound RAM: each sample is walked a block at a time
-// until a block carries the loop-end flag, noting the loop-start flag on the way.
+// until a block carries the loop-end flag, noting the loop-start flag on the way. Each sample
+// carries a content signature, and the map can be exported as a SoundFont.
 class SPUSamples {
   public:
-    SPUSamples(bool& show) : m_show(show) {}
+    SPUSamples(bool& show, std::vector<std::string>& favorites);
     void draw(PCSX::SPULogger* logger, const uint8_t* spuRam, const char* title);
 
     bool& m_show;
 
-    struct Sample {
-        uint32_t start = 0;
-        uint32_t end = 0;        // one past the block carrying the loop-end flag
-        uint32_t loop = 0;       // last block before the end with the loop-start flag
-        bool hasLoop = false;    // a loop-start flag was seen
-        bool repeats = false;    // the end block has the repeat flag
-        bool truncated = false;  // ran off the end of sound RAM with no end flag
+    struct Sample : SPUSample::Extent {
+        uint64_t signature = 0;
         uint32_t keyOns = 0;
         uint32_t voiceMask = 0;  // voices seen keying it on
     };
 
-    // Walks sound RAM from `start`. A pure function of sound RAM.
-    static Sample walk(const uint8_t* spuRam, uint32_t start);
     // Decodes a sample from its start, with the filter history cleared as key-on does.
     static void decode(const uint8_t* spuRam, const Sample& sample, std::vector<float>& out);
+    // Every sample that ends in sound RAM, decoded, as one preset each. The SPU has no notion
+    // of a root key, so each sample plays at its stored rate on MIDI note 60 (pitch 1000h,
+    // 44100 Hz), and the bank comment says so.
+    static std::vector<uint8_t> exportSF2(const uint8_t* spuRam, const std::map<uint32_t, Sample>& samples);
 
   private:
     void rebuild(PCSX::SPULogger* logger, const uint8_t* spuRam);
@@ -67,6 +68,10 @@ class SPUSamples {
     bool m_selected = false;
     uint32_t m_selectedStart = 0;
     std::vector<float> m_waveform;
+    FileDialog<FileDialogMode::Save> m_exportDialog;
+    FileDialog<FileDialogMode::Open> m_overlayDialog;
+    std::string m_exportStatus;
+    std::string m_overlayStatus;
 };
 
 }  // namespace Widgets

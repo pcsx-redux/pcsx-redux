@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cstdlib>
 
+#include "core/pad.h"
 #include "core/system.h"
 #include "fmt/format.h"
 #include "gui/gui.h"
@@ -165,6 +166,30 @@ bool PCSX::Widgets::MemcardManager::draw(GUI* gui, const char* title) {
     if (ImGui::Checkbox(_("Memory Card 2 inserted"),
                         &g_emulator->settings.get<Emulator::SettingMcd2Inserted>().value)) {
         changed = true;
+    }
+
+    // The cards in a multitap's slots B to D, for games only: the blocks below are cards 1 and 2.
+    const auto drawTapCard = [&changed](const char* label, auto& inserted, auto& path) {
+        if (ImGui::Checkbox(label, &inserted.value)) changed = true;
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", reinterpret_cast<const char*>(path.string().c_str()));
+    };
+    auto& settings = g_emulator->settings;
+    if (g_emulator->m_pads->hasMultitap(Pads::Port::Port1)) {
+        drawTapCard(_("Port 1 tap slot B inserted"), settings.get<Emulator::SettingMcd1BInserted>(),
+                    settings.get<Emulator::SettingMcd1B>());
+        drawTapCard(_("Port 1 tap slot C inserted"), settings.get<Emulator::SettingMcd1CInserted>(),
+                    settings.get<Emulator::SettingMcd1C>());
+        drawTapCard(_("Port 1 tap slot D inserted"), settings.get<Emulator::SettingMcd1DInserted>(),
+                    settings.get<Emulator::SettingMcd1D>());
+    }
+    if (g_emulator->m_pads->hasMultitap(Pads::Port::Port2)) {
+        drawTapCard(_("Port 2 tap slot B inserted"), settings.get<Emulator::SettingMcd2BInserted>(),
+                    settings.get<Emulator::SettingMcd2B>());
+        drawTapCard(_("Port 2 tap slot C inserted"), settings.get<Emulator::SettingMcd2CInserted>(),
+                    settings.get<Emulator::SettingMcd2C>());
+        drawTapCard(_("Port 2 tap slot D inserted"), settings.get<Emulator::SettingMcd2DInserted>(),
+                    settings.get<Emulator::SettingMcd2D>());
     }
 
     if (ImGui::Checkbox(_("Card 1 Pocketstation"),

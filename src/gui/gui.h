@@ -370,7 +370,6 @@ class GUI final : public UI {
     TvgViewport *getTvgViewport(unsigned viewportId);
     void renderTvgViewport(ImGuiViewport *viewport, SDL_Window *window);
     void destroyTvgViewport(unsigned viewportId, SDL_Window *window);
-    std::vector<ImWchar> m_baseFontRanges;
 
     unsigned int m_offscreenFrameBuffer = 0;
     unsigned int m_offscreenTextures[2] = {0, 0};
@@ -501,8 +500,8 @@ class GUI final : public UI {
     Widgets::SIO1 m_sio1 = {settings.get<ShowSIO1>().value};
 
     Widgets::GPULogger m_gpuLogger{settings.get<ShowGPULogger>().value};
-    Widgets::SPULogger m_spuLoggerWidget{settings.get<ShowSPULogger>().value, settings.get<SPULoggerEnabled>().value};
-    Widgets::SPUSamples m_spuSamplesWidget{settings.get<ShowSPUSamples>().value};
+    Widgets::SPULogger m_spuLoggerWidget;
+    Widgets::SPUSamples m_spuSamplesWidget;
     Widgets::HeapViewer m_heapViewer{settings.get<ShowHeapViewer>().value};
     Widgets::AllocTrackerViewer m_allocTrackerViewer{settings.get<ShowAllocTracker>().value};
     Widgets::HWRegs m_hwRegs{settings.get<ShowHWRegs>().value};
@@ -549,8 +548,7 @@ class GUI final : public UI {
     bool m_hasJapanese = false;
     float m_currentScale = 1.0f;
 
-    ImFont *loadFont(const PCSX::u8string &name, int size, ImGuiIO &io, const ImWchar *ranges, bool combine,
-                     bool isSymbolsFont);
+    ImFont *loadFont(const PCSX::u8string &name, int size, ImGuiIO &io, bool combine);
 
     bool m_reloadFonts = true;
     Widgets::ShaderEditor m_outputShaderEditor = {"output"};

@@ -27,12 +27,65 @@
 #include "core/cdrom.h"
 #include "core/gpu.h"
 #include "core/mdec.h"
+#include "core/pad.h"
 #include "core/psxcounters.h"
 #include "core/psxemulator.h"
 #include "core/psxmem.h"
 #include "core/r3000a.h"
 #include "core/sio.h"
 #include "spu/interface.h"
+
+namespace {
+
+void serializePad(PCSX::SaveStates::PadTransfer& dst, PCSX::Pads::Port port) {
+    using namespace PCSX::SaveStates;
+    PCSX::Pads::TransferState pad;
+    PCSX::g_emulator->m_pads->getTransferState(port, pad);
+    dst.get<PadPresent>().value = true;
+    dst.get<PadCmd>().value = pad.cmd;
+    dst.get<PadConfigMode>().value = pad.configMode;
+    dst.get<PadAnalogMode>().value = pad.analogMode;
+    dst.get<PadBufferLen>().value = pad.bufferLen;
+    dst.get<PadCurrentByte>().value = pad.currentByte;
+    dst.get<PadBuffer>().copyFrom(pad.buf);
+    dst.get<PadMotorMapping>().copyFrom(pad.motorMapping);
+    dst.get<PadConfigCommandsUsed>().value = pad.configCommandsUsed;
+    dst.get<PadOldMethodLatch>().value = pad.oldMethodLatch;
+}
+
+// A state from before the pads were serialised has no pad message at all, and the pads then keep
+// whatever they had, as they always did.
+void deserializePad(const PCSX::SaveStates::PadTransfer& src, PCSX::Pads::Port port) {
+    using namespace PCSX::SaveStates;
+    if (!src.get<PadPresent>().value) return;
+    PCSX::Pads::TransferState pad;
+    pad.cmd = src.get<PadCmd>().value;
+    pad.configMode = src.get<PadConfigMode>().value;
+    pad.analogMode = src.get<PadAnalogMode>().value;
+    pad.bufferLen = src.get<PadBufferLen>().value;
+    pad.currentByte = src.get<PadCurrentByte>().value;
+    src.get<PadBuffer>().copyTo(pad.buf);
+    src.get<PadMotorMapping>().copyTo(pad.motorMapping);
+    pad.configCommandsUsed = src.get<PadConfigCommandsUsed>().value;
+    pad.oldMethodLatch = src.get<PadOldMethodLatch>().value;
+    PCSX::g_emulator->m_pads->setTransferState(port, pad);
+}
+
+void serializePads(PCSX::SaveStates::SaveState& state) {
+    using namespace PCSX::SaveStates;
+    auto& sio = state.get<SIOField>();
+    serializePad(sio.get<SIOPad1>(), PCSX::Pads::Port::Port1);
+    serializePad(sio.get<SIOPad2>(), PCSX::Pads::Port::Port2);
+}
+
+void deserializePads(const PCSX::SaveStates::SaveState& state) {
+    using namespace PCSX::SaveStates;
+    const auto& sio = state.get<SIOField>();
+    deserializePad(sio.get<SIOPad1>(), PCSX::Pads::Port::Port1);
+    deserializePad(sio.get<SIOPad2>(), PCSX::Pads::Port::Port2);
+}
+
+}  // namespace
 
 PCSX::SaveStates::SaveState PCSX::SaveStates::constructSaveState() { return Access::constructSaveState(); }
 
@@ -139,6 +192,56 @@ PCSX::SaveStates::SaveState PCSX::SaveStates::Access::constructSaveState() {
             SIOMCD2CurrentCommand{g_emulator->m_sio->m_memoryCard[1].m_currentCommand},
             SIOMCD2Sector{g_emulator->m_sio->m_memoryCard[1].m_sector},
             SIOMCD2DataOffset{g_emulator->m_sio->m_memoryCard[1].m_dataOffset},
+            SIOMCD1BTempBuffer{g_emulator->m_sio->m_tapMemoryCard[0].m_tempBuffer},
+            SIOMCD1BDirectoryFlag{g_emulator->m_sio->m_tapMemoryCard[0].m_directoryFlag},
+            SIOMCD1BChecksumIn{g_emulator->m_sio->m_tapMemoryCard[0].m_checksumIn},
+            SIOMCD1BChecksumOut{g_emulator->m_sio->m_tapMemoryCard[0].m_checksumOut},
+            SIOMCD1BCommandTicks{g_emulator->m_sio->m_tapMemoryCard[0].m_commandTicks},
+            SIOMCD1BCurrentCommand{g_emulator->m_sio->m_tapMemoryCard[0].m_currentCommand},
+            SIOMCD1BSector{g_emulator->m_sio->m_tapMemoryCard[0].m_sector},
+            SIOMCD1BDataOffset{g_emulator->m_sio->m_tapMemoryCard[0].m_dataOffset},
+            SIOMCD1CTempBuffer{g_emulator->m_sio->m_tapMemoryCard[1].m_tempBuffer},
+            SIOMCD1CDirectoryFlag{g_emulator->m_sio->m_tapMemoryCard[1].m_directoryFlag},
+            SIOMCD1CChecksumIn{g_emulator->m_sio->m_tapMemoryCard[1].m_checksumIn},
+            SIOMCD1CChecksumOut{g_emulator->m_sio->m_tapMemoryCard[1].m_checksumOut},
+            SIOMCD1CCommandTicks{g_emulator->m_sio->m_tapMemoryCard[1].m_commandTicks},
+            SIOMCD1CCurrentCommand{g_emulator->m_sio->m_tapMemoryCard[1].m_currentCommand},
+            SIOMCD1CSector{g_emulator->m_sio->m_tapMemoryCard[1].m_sector},
+            SIOMCD1CDataOffset{g_emulator->m_sio->m_tapMemoryCard[1].m_dataOffset},
+            SIOMCD1DTempBuffer{g_emulator->m_sio->m_tapMemoryCard[2].m_tempBuffer},
+            SIOMCD1DDirectoryFlag{g_emulator->m_sio->m_tapMemoryCard[2].m_directoryFlag},
+            SIOMCD1DChecksumIn{g_emulator->m_sio->m_tapMemoryCard[2].m_checksumIn},
+            SIOMCD1DChecksumOut{g_emulator->m_sio->m_tapMemoryCard[2].m_checksumOut},
+            SIOMCD1DCommandTicks{g_emulator->m_sio->m_tapMemoryCard[2].m_commandTicks},
+            SIOMCD1DCurrentCommand{g_emulator->m_sio->m_tapMemoryCard[2].m_currentCommand},
+            SIOMCD1DSector{g_emulator->m_sio->m_tapMemoryCard[2].m_sector},
+            SIOMCD1DDataOffset{g_emulator->m_sio->m_tapMemoryCard[2].m_dataOffset},
+            SIOMCD2BTempBuffer{g_emulator->m_sio->m_tapMemoryCard[3].m_tempBuffer},
+            SIOMCD2BDirectoryFlag{g_emulator->m_sio->m_tapMemoryCard[3].m_directoryFlag},
+            SIOMCD2BChecksumIn{g_emulator->m_sio->m_tapMemoryCard[3].m_checksumIn},
+            SIOMCD2BChecksumOut{g_emulator->m_sio->m_tapMemoryCard[3].m_checksumOut},
+            SIOMCD2BCommandTicks{g_emulator->m_sio->m_tapMemoryCard[3].m_commandTicks},
+            SIOMCD2BCurrentCommand{g_emulator->m_sio->m_tapMemoryCard[3].m_currentCommand},
+            SIOMCD2BSector{g_emulator->m_sio->m_tapMemoryCard[3].m_sector},
+            SIOMCD2BDataOffset{g_emulator->m_sio->m_tapMemoryCard[3].m_dataOffset},
+            SIOMCD2CTempBuffer{g_emulator->m_sio->m_tapMemoryCard[4].m_tempBuffer},
+            SIOMCD2CDirectoryFlag{g_emulator->m_sio->m_tapMemoryCard[4].m_directoryFlag},
+            SIOMCD2CChecksumIn{g_emulator->m_sio->m_tapMemoryCard[4].m_checksumIn},
+            SIOMCD2CChecksumOut{g_emulator->m_sio->m_tapMemoryCard[4].m_checksumOut},
+            SIOMCD2CCommandTicks{g_emulator->m_sio->m_tapMemoryCard[4].m_commandTicks},
+            SIOMCD2CCurrentCommand{g_emulator->m_sio->m_tapMemoryCard[4].m_currentCommand},
+            SIOMCD2CSector{g_emulator->m_sio->m_tapMemoryCard[4].m_sector},
+            SIOMCD2CDataOffset{g_emulator->m_sio->m_tapMemoryCard[4].m_dataOffset},
+            SIOMCD2DTempBuffer{g_emulator->m_sio->m_tapMemoryCard[5].m_tempBuffer},
+            SIOMCD2DDirectoryFlag{g_emulator->m_sio->m_tapMemoryCard[5].m_directoryFlag},
+            SIOMCD2DChecksumIn{g_emulator->m_sio->m_tapMemoryCard[5].m_checksumIn},
+            SIOMCD2DChecksumOut{g_emulator->m_sio->m_tapMemoryCard[5].m_checksumOut},
+            SIOMCD2DCommandTicks{g_emulator->m_sio->m_tapMemoryCard[5].m_commandTicks},
+            SIOMCD2DCurrentCommand{g_emulator->m_sio->m_tapMemoryCard[5].m_currentCommand},
+            SIOMCD2DSector{g_emulator->m_sio->m_tapMemoryCard[5].m_sector},
+            SIOMCD2DDataOffset{g_emulator->m_sio->m_tapMemoryCard[5].m_dataOffset},
+            SIOPad1{},
+            SIOPad2{},
         },
         Hardware{},
         Counters{},
@@ -264,6 +367,7 @@ std::string PCSX::SaveStates::save() {
         });
 
     g_emulator->m_callStacks->serialize(&wrapper);
+    serializePads(state);
 
     Protobuf::OutSlice slice;
     state.serialize(&slice);
@@ -296,6 +400,8 @@ void PCSX::SaveStates::capture(SaveState& state) {
 
     g_emulator->m_callStacks->serialize(&wrapper);
 
+    serializePads(state);
+
     /* And this is the half that never existed: the flat live -> copy for the ref/ptr fields. */
     state.capture();
 }
@@ -314,7 +420,8 @@ void PCSX::SaveStates::restore(SaveState& state) {
     g_emulator->m_cpu->m_regs.lowestTarget = g_emulator->m_cpu->m_regs.cycle;
     g_emulator->m_cpu->m_regs.previousCycles = g_emulator->m_cpu->m_regs.cycle;
     g_emulator->m_cpu->m_regs.pc.raw() &= ~3;
-    if (state.get<MemoryField>().get<HasBIU>().value) g_emulator->m_mem->setBIU(state.get<MemoryField>().get<BIU>().value);
+    if (state.get<MemoryField>().get<HasBIU>().value)
+        g_emulator->m_mem->setBIU(state.get<MemoryField>().get<BIU>().value);
     g_emulator->m_gpu->deserialize(&wrapper);
     g_emulator->m_spu->load(state.get<SPUField>());
 #if 0
@@ -323,6 +430,7 @@ void PCSX::SaveStates::restore(SaveState& state) {
 
     g_emulator->m_counters->deserialize(&wrapper);
     g_emulator->m_mdec->deserialize(&wrapper);
+    deserializePads(state);
 
     auto& xa = state.get<SPUField>().get<SaveStates::XAField>();
 
@@ -490,7 +598,8 @@ bool PCSX::SaveStates::load(std::string_view data) {
     // So we just force-align it here, since it's never meant to be misaligned
     g_emulator->m_cpu->m_regs.pc.raw() &= ~3;
     if (g_emulator->m_cpu->m_gtePendingCount > 3) g_emulator->m_cpu->m_gtePendingCount = 0;
-    if (state.get<MemoryField>().get<HasBIU>().value) g_emulator->m_mem->setBIU(state.get<MemoryField>().get<BIU>().value);
+    if (state.get<MemoryField>().get<HasBIU>().value)
+        g_emulator->m_mem->setBIU(state.get<MemoryField>().get<BIU>().value);
     g_emulator->m_gpu->deserialize(&wrapper);
     g_emulator->m_spu->load(state.get<SPUField>());
 #if 0
@@ -499,6 +608,7 @@ bool PCSX::SaveStates::load(std::string_view data) {
 
     g_emulator->m_counters->deserialize(&wrapper);
     g_emulator->m_mdec->deserialize(&wrapper);
+    deserializePads(state);
 
     auto& xa = state.get<SPUField>().get<SaveStates::XAField>();
 
@@ -617,20 +727,40 @@ void PCSX::GPU::deserialize(const SaveStateWrapper* w) {
         m_statusControl[i] = getU32(control + i * 4);
     }
 
+    // A v4 state only carries 1MB of VRAM. Restore it into the lower bank and leave
+    // the upper one as clearVRAM() sets it on a fresh console of this fitment.
+    const bool vram1MB = w->state.get<SaveStateInfoField>().get<Version>().value == 4;
+    restoreState(gpu.get<GPUStatus>().value, reinterpret_cast<const uint16_t*>(gpu.get<GPUVRam>().value),
+                 vram1MB ? 512 : 1024, gpu.get<GPUEnvironment>().value);
+}
+
+void PCSX::GPU::snapshot(Snapshot& s) {
+    s.status = readStatus();
+    for (unsigned i = 0; i < 256; i++) s.control[i] = m_statusControl[i];
+    for (unsigned i = 0; i < 6; i++) setU32(s.env + i * 4, m_envRaw[i + 1]);
+    Slice vram = getVRAM();
+    const uint16_t* src = vram.data<uint16_t>();
+    s.vram.assign(src, src + 1024 * 1024);
+}
+
+void PCSX::GPU::restore(const Snapshot& s) {
+    reset();
+    restoreStatus(s.status);
+    for (unsigned i = 0; i < 256; i++) m_statusControl[i] = s.control[i];
+    restoreState(s.status, s.vram.data(), 1024, s.env);
+}
+
+void PCSX::GPU::restoreState(uint32_t status, const uint16_t* vram, unsigned vramRows, const uint8_t* env) {
     // GP1(09h) is not replayed through writeStatus below: an unwritten slot
     // reads 0, which would decode as GP1(00h). Restore the bank gate directly.
     drainRenderer();
     m_vram2MBGateOpen = m_statusControl[9] & 1;
-    m_dmaDirection = (gpu.get<GPUStatus>().value >> 29) & 3;
+    m_dmaDirection = (status >> 29) & 3;
     vramConfigChanged();
 
-    // A v4 state only carries 1MB of VRAM. Restore it into the lower bank and leave
-    // the upper one as clearVRAM() sets it on a fresh console of this fitment.
-    const bool vram1MB = w->state.get<SaveStateInfoField>().get<Version>().value == 4;
-    if (gpu.get<GPUVRam>().value) {
-        if (vram1MB) clearVRAM();
-        partialUpdateVRAM(0, 0, 1024, vram1MB ? 512 : 1024,
-                          reinterpret_cast<const uint16_t*>(gpu.get<GPUVRam>().value));
+    if (vram) {
+        if (vramRows < 1024) clearVRAM();
+        partialUpdateVRAM(0, 0, 1024, vramRows, vram);
     } else {
         clearVRAM();
     }
@@ -648,16 +778,16 @@ void PCSX::GPU::deserialize(const SaveStateWrapper* w) {
     writeStatus(saved[5]);
     writeStatus(saved[4]);
 
-    restoreEnvironment(gpu.get<GPUEnvironment>().value, gpu.get<GPUStatus>().value);
+    restoreEnvironment(env, status);
     // The GP1 and environment replays above rebuild the status word from commands, which loses
     // whatever was set since by other paths (the texpage of the last textured primitive, the
     // interlace field). The saved word is what the cpu read; that is what it has to read again,
-    // except for the bits readStatus() ORs in live (IRQ1, DMA request, ready-for-VRAM): those
-    // stay as the replay derived them.
-    constexpr uint32_t derived = 0x1b000000;
-    restoreStatus((gpu.get<GPUStatus>().value & ~derived) | (readStatusInternal() & derived));
+    // except for the bits readStatus() sets live (IRQ1, DMA request, ready for a command,
+    // ready-for-VRAM): those stay as the replay derived them.
+    constexpr uint32_t derived = 0x1f000000;
+    restoreStatus((status & ~derived) | (readStatusInternal() & derived));
     // The replayed GP1(00h)/GP1(02h) above clear the IRQ1 flag; put back the saved one.
-    m_irq1Flag = gpu.get<GPUStatus>().value & 0x01000000;
+    m_irq1Flag = status & 0x01000000;
 }
 
 void PCSX::MDEC::deserialize(const SaveStateWrapper* w) {

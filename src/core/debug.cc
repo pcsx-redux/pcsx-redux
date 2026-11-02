@@ -114,6 +114,10 @@ bool PCSX::Debug::isMapMarked(uint32_t address, int mask) {
 }
 
 void PCSX::Debug::process(uint32_t oldPC, uint32_t newPC, uint32_t oldCode, uint32_t newCode, bool linked) {
+    if (m_replay) [[unlikely]] {
+        replayBoundary(newPC, newCode);
+        return;
+    }
     const auto& regs = g_emulator->m_cpu->m_regs;
     const uint32_t basic = newCode >> 26;
     const bool isAnyLoadOrStore = (basic >= 0x20) && (basic < 0x3b);
@@ -293,6 +297,82 @@ void PCSX::Debug::process(uint32_t oldPC, uint32_t newPC, uint32_t oldCode, uint
     }
 }
 
+bool PCSX::Debug::startReplay(uint64_t stopAt) {
+    m_replay.emplace();
+    m_replay->stopAt = stopAt;
+    // A COP0 break scheduled before the restore belongs to the timeline that was thrown away.
+    m_scheduledCop0.reset();
+    auto& cpu = g_emulator->m_cpu;
+    const uint32_t pc = cpu->m_regs.pc;
+    replayBoundary(pc, cpu->readICache(pc));
+    return !m_replay->reached.has_value();
+}
+
+void PCSX::Debug::replayCheckAccess(uint32_t code) {
+    const auto& regs = g_emulator->m_cpu->m_regs;
+    const uint32_t basic = code >> 26;
+    unsigned width = 0;
+    BreakpointType type = BreakpointType::Read;
+    switch (basic) {
+        case 0x20:  // lb
+        case 0x24:  // lbu
+            width = 1;
+            break;
+        case 0x21:  // lh
+        case 0x25:  // lhu
+            width = 2;
+            break;
+        case 0x22:  // lwl
+        case 0x23:  // lw
+        case 0x26:  // lwr
+        case 0x32:  // lwc2
+            width = 4;
+            break;
+        case 0x28:  // sb
+            width = 1;
+            type = BreakpointType::Write;
+            break;
+        case 0x29:  // sh
+            width = 2;
+            type = BreakpointType::Write;
+            break;
+        case 0x2a:  // swl
+        case 0x2b:  // sw
+        case 0x2e:  // swr
+        case 0x3a:  // swc2
+            width = 4;
+            type = BreakpointType::Write;
+            break;
+    }
+    if (width) {
+        uint32_t offset = regs.GPR.r[(code >> 21) & 0x1f] + int16_t(code);
+        if ((basic == 0x22) || (basic == 0x26) || (basic == 0x2a) || (basic == 0x2e)) offset &= ~3;
+        checkBP(offset, type, width);
+    }
+}
+
+void PCSX::Debug::replayBoundary(uint32_t pc, uint32_t code) {
+    const auto& regs = g_emulator->m_cpu->m_regs;
+    // Same breakpoint checks as process(), minus the maps, the loggers, the kernel checker
+    // and the stepping, none of which the guest can see.
+    checkBP(pc, BreakpointType::Exec, 4);
+    replayCheckAccess(code);
+
+    // A breakpoint on the boundary the replay stops at is not a hit before it. startReplay()
+    // runs this with the emulation stopped, and has nothing to pause.
+    const uint64_t cycle = regs.cycle;
+    if (cycle >= m_replay->stopAt) {
+        m_replay->reached = cycle;
+        m_replay->hitPending = false;
+        if (g_system->running()) g_system->pause();
+        return;
+    }
+    // A hit from DMA, which checks breakpoints outside of process(), lands on the next boundary.
+    if (m_replay->hitPending) m_replay->lastHit = cycle;
+    m_replay->hitPending = false;
+    m_replay->lastBoundary = cycle;
+}
+
 void PCSX::Debug::startStepping() {
     if (PCSX::g_system->running()) return;
     m_wasInISR = g_emulator->m_cpu->m_inISR;
@@ -328,6 +408,17 @@ void PCSX::Debug::logDMAAccess(uint32_t address, uint32_t len, bool isWrite) {
     ramLogger->recordAccess(addr.physical, len, type, cycle);
 }
 
+void PCSX::Debug::noteReplayHit(uint32_t normalizedAddress, BreakpointType type, uint32_t width) {
+    // Invokers can pause, print, or run Lua, so a replay only notes that one would have run.
+    auto end = m_breakpoints.end();
+    for (auto it = m_breakpoints.find(normalizedAddress, normalizedAddress + width - 1); it != end; it++) {
+        if ((it->type() == type) && it->m_enabled) {
+            m_replay->hitPending = true;
+            return;
+        }
+    }
+}
+
 void PCSX::Debug::checkBP(uint32_t address, BreakpointType type, uint32_t width, const char* cause) {
     auto& cpu = g_emulator->m_cpu;
     auto& regs = cpu->m_regs;
@@ -357,6 +448,11 @@ void PCSX::Debug::checkBP(uint32_t address, BreakpointType type, uint32_t width,
 
     auto end = m_breakpoints.end();
     uint32_t normalizedAddress = normalizeAddress(address & ~0xe0000000);
+
+    if (m_replay) {
+        noteReplayHit(normalizedAddress, type, width);
+        return;
+    }
 
     BreakpointTemporaryListType torun;
     for (auto it = m_breakpoints.find(normalizedAddress, normalizedAddress + width - 1); it != end; it++) {

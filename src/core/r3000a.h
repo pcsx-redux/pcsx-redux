@@ -333,7 +333,6 @@ class R3000Acpu {
     void branchTestEvents();
 
   public:
-
     void psxSetPGXPMode(uint32_t pgxpMode);
 
     void schedule(Schedule s_, uint32_t eCycle) {

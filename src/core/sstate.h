@@ -167,6 +167,7 @@ typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("keyedOn"), 4> ECPKeyedOn;
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cachedSample"), 5> ECPCachedSample;
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("cachedState"), 6> ECPCachedState;
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("cachedVol"), 7> ECPCachedVol;
+// Unused since envelope steps follow the SPU-wide sample count; kept so older savestates load.
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("cachedFraction"), 8> ECPCachedFraction;
 typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("cachedOn"), 9> ECPCachedOn;
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("block"), 10> ECPBlock;
@@ -224,13 +225,90 @@ typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd2_commandticks"), 28
 typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2_currentcommand"), 29> SIOMCD2CurrentCommand;
 typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd2_sector"), 30> SIOMCD2Sector;
 typedef Protobuf::FieldRef<Protobuf::UInt32, TYPESTRING("mcd2_dataoffset"), 31> SIOMCD2DataOffset;
+// The memory cards in a multitap's slots B to D, SIO::m_tapMemoryCard[0] to [5].
+typedef Protobuf::FieldPtr<Protobuf::FixedBytes<128>, TYPESTRING("mcd1b_tempbuffer"), 33> SIOMCD1BTempBuffer;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd1b_directoryflag"), 34> SIOMCD1BDirectoryFlag;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd1b_checksumin"), 35> SIOMCD1BChecksumIn;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd1b_checksumout"), 36> SIOMCD1BChecksumOut;
+typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd1b_commandticks"), 37> SIOMCD1BCommandTicks;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd1b_currentcommand"), 38> SIOMCD1BCurrentCommand;
+typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd1b_sector"), 39> SIOMCD1BSector;
+typedef Protobuf::FieldRef<Protobuf::UInt32, TYPESTRING("mcd1b_dataoffset"), 40> SIOMCD1BDataOffset;
+typedef Protobuf::FieldPtr<Protobuf::FixedBytes<128>, TYPESTRING("mcd1c_tempbuffer"), 41> SIOMCD1CTempBuffer;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd1c_directoryflag"), 42> SIOMCD1CDirectoryFlag;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd1c_checksumin"), 43> SIOMCD1CChecksumIn;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd1c_checksumout"), 44> SIOMCD1CChecksumOut;
+typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd1c_commandticks"), 45> SIOMCD1CCommandTicks;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd1c_currentcommand"), 46> SIOMCD1CCurrentCommand;
+typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd1c_sector"), 47> SIOMCD1CSector;
+typedef Protobuf::FieldRef<Protobuf::UInt32, TYPESTRING("mcd1c_dataoffset"), 48> SIOMCD1CDataOffset;
+typedef Protobuf::FieldPtr<Protobuf::FixedBytes<128>, TYPESTRING("mcd1d_tempbuffer"), 49> SIOMCD1DTempBuffer;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd1d_directoryflag"), 50> SIOMCD1DDirectoryFlag;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd1d_checksumin"), 51> SIOMCD1DChecksumIn;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd1d_checksumout"), 52> SIOMCD1DChecksumOut;
+typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd1d_commandticks"), 53> SIOMCD1DCommandTicks;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd1d_currentcommand"), 54> SIOMCD1DCurrentCommand;
+typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd1d_sector"), 55> SIOMCD1DSector;
+typedef Protobuf::FieldRef<Protobuf::UInt32, TYPESTRING("mcd1d_dataoffset"), 56> SIOMCD1DDataOffset;
+typedef Protobuf::FieldPtr<Protobuf::FixedBytes<128>, TYPESTRING("mcd2b_tempbuffer"), 57> SIOMCD2BTempBuffer;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2b_directoryflag"), 58> SIOMCD2BDirectoryFlag;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2b_checksumin"), 59> SIOMCD2BChecksumIn;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2b_checksumout"), 60> SIOMCD2BChecksumOut;
+typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd2b_commandticks"), 61> SIOMCD2BCommandTicks;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2b_currentcommand"), 62> SIOMCD2BCurrentCommand;
+typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd2b_sector"), 63> SIOMCD2BSector;
+typedef Protobuf::FieldRef<Protobuf::UInt32, TYPESTRING("mcd2b_dataoffset"), 64> SIOMCD2BDataOffset;
+typedef Protobuf::FieldPtr<Protobuf::FixedBytes<128>, TYPESTRING("mcd2c_tempbuffer"), 65> SIOMCD2CTempBuffer;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2c_directoryflag"), 66> SIOMCD2CDirectoryFlag;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2c_checksumin"), 67> SIOMCD2CChecksumIn;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2c_checksumout"), 68> SIOMCD2CChecksumOut;
+typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd2c_commandticks"), 69> SIOMCD2CCommandTicks;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2c_currentcommand"), 70> SIOMCD2CCurrentCommand;
+typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd2c_sector"), 71> SIOMCD2CSector;
+typedef Protobuf::FieldRef<Protobuf::UInt32, TYPESTRING("mcd2c_dataoffset"), 72> SIOMCD2CDataOffset;
+typedef Protobuf::FieldPtr<Protobuf::FixedBytes<128>, TYPESTRING("mcd2d_tempbuffer"), 73> SIOMCD2DTempBuffer;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2d_directoryflag"), 74> SIOMCD2DDirectoryFlag;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2d_checksumin"), 75> SIOMCD2DChecksumIn;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2d_checksumout"), 76> SIOMCD2DChecksumOut;
+typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd2d_commandticks"), 77> SIOMCD2DCommandTicks;
+typedef Protobuf::FieldRef<Protobuf::UInt8, TYPESTRING("mcd2d_currentcommand"), 78> SIOMCD2DCurrentCommand;
+typedef Protobuf::FieldRef<Protobuf::UInt16, TYPESTRING("mcd2d_sector"), 79> SIOMCD2DSector;
+typedef Protobuf::FieldRef<Protobuf::UInt32, TYPESTRING("mcd2d_dataoffset"), 80> SIOMCD2DDataOffset;
 
-typedef Protobuf::Message<TYPESTRING("SIO"), SIOBuffer, SIOStatusReg, SIOModeReg, SIOCtrlReg, SIOBaudReg,
-                          SIOBufferMaxIndex, SIOBufferIndex, SIOPadState, SIOCurrentDevice, SIOPadAddress,
-                          SIOMCD1TempBuffer, SIOMCD1DirectoryFlag, SIOMCD1ChecksumIn, SIOMCD1ChecksumOut,
-                          SIOMCD1CommandTicks, SIOMCD1CurrentCommand, SIOMCD1Sector, SIOMCD1DataOffset,
-                          SIOMCD2TempBuffer, SIOMCD2DirectoryFlag, SIOMCD2ChecksumIn, SIOMCD2ChecksumOut,
-                          SIOMCD2CommandTicks, SIOMCD2CurrentCommand, SIOMCD2Sector, SIOMCD2DataOffset>
+// The pad's own side of a transfer, one per port. Absent from states made before this existed;
+// "present" tells a real all-defaults pad from a state that never carried one.
+typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("present"), 1> PadPresent;
+typedef Protobuf::Field<Protobuf::UInt8, TYPESTRING("cmd"), 2> PadCmd;
+typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("config_mode"), 3> PadConfigMode;
+typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("analog_mode"), 4> PadAnalogMode;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("buffer_len"), 5> PadBufferLen;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("current_byte"), 6> PadCurrentByte;
+typedef Protobuf::Field<Protobuf::FixedBytes<256>, TYPESTRING("buffer"), 7> PadBuffer;
+typedef Protobuf::Field<Protobuf::FixedBytes<6>, TYPESTRING("motor_mapping"), 8> PadMotorMapping;
+typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("config_commands_used"), 9> PadConfigCommandsUsed;
+typedef Protobuf::Field<Protobuf::UInt8, TYPESTRING("old_method_latch"), 10> PadOldMethodLatch;
+typedef Protobuf::Message<TYPESTRING("PadTransfer"), PadPresent, PadCmd, PadConfigMode, PadAnalogMode, PadBufferLen,
+                          PadCurrentByte, PadBuffer, PadMotorMapping, PadConfigCommandsUsed, PadOldMethodLatch>
+    PadTransfer;
+typedef Protobuf::MessageField<PadTransfer, TYPESTRING("pad1"), 81> SIOPad1;
+typedef Protobuf::MessageField<PadTransfer, TYPESTRING("pad2"), 82> SIOPad2;
+
+typedef Protobuf::Message<
+    TYPESTRING("SIO"), SIOBuffer, SIOStatusReg, SIOModeReg, SIOCtrlReg, SIOBaudReg, SIOBufferMaxIndex, SIOBufferIndex,
+    SIOPadState, SIOCurrentDevice, SIOPadAddress, SIOMCD1TempBuffer, SIOMCD1DirectoryFlag, SIOMCD1ChecksumIn,
+    SIOMCD1ChecksumOut, SIOMCD1CommandTicks, SIOMCD1CurrentCommand, SIOMCD1Sector, SIOMCD1DataOffset, SIOMCD2TempBuffer,
+    SIOMCD2DirectoryFlag, SIOMCD2ChecksumIn, SIOMCD2ChecksumOut, SIOMCD2CommandTicks, SIOMCD2CurrentCommand,
+    SIOMCD2Sector, SIOMCD2DataOffset, SIOMCD1BTempBuffer, SIOMCD1BDirectoryFlag, SIOMCD1BChecksumIn,
+    SIOMCD1BChecksumOut, SIOMCD1BCommandTicks, SIOMCD1BCurrentCommand, SIOMCD1BSector, SIOMCD1BDataOffset,
+    SIOMCD1CTempBuffer, SIOMCD1CDirectoryFlag, SIOMCD1CChecksumIn, SIOMCD1CChecksumOut, SIOMCD1CCommandTicks,
+    SIOMCD1CCurrentCommand, SIOMCD1CSector, SIOMCD1CDataOffset, SIOMCD1DTempBuffer, SIOMCD1DDirectoryFlag,
+    SIOMCD1DChecksumIn, SIOMCD1DChecksumOut, SIOMCD1DCommandTicks, SIOMCD1DCurrentCommand, SIOMCD1DSector,
+    SIOMCD1DDataOffset, SIOMCD2BTempBuffer, SIOMCD2BDirectoryFlag, SIOMCD2BChecksumIn, SIOMCD2BChecksumOut,
+    SIOMCD2BCommandTicks, SIOMCD2BCurrentCommand, SIOMCD2BSector, SIOMCD2BDataOffset, SIOMCD2CTempBuffer,
+    SIOMCD2CDirectoryFlag, SIOMCD2CChecksumIn, SIOMCD2CChecksumOut, SIOMCD2CCommandTicks, SIOMCD2CCurrentCommand,
+    SIOMCD2CSector, SIOMCD2CDataOffset, SIOMCD2DTempBuffer, SIOMCD2DDirectoryFlag, SIOMCD2DChecksumIn,
+    SIOMCD2DChecksumOut, SIOMCD2DCommandTicks, SIOMCD2DCurrentCommand, SIOMCD2DSector, SIOMCD2DDataOffset, SIOPad1,
+    SIOPad2>
     SIO;
 typedef Protobuf::MessageField<SIO, TYPESTRING("sio"), 7> SIOField;
 // skip id 8
@@ -404,8 +482,8 @@ typedef Protobuf::Message<TYPESTRING("SaveState"), SaveStateInfoField, Thumbnail
 
 typedef Protobuf::ProtoFile<SaveStateInfo, Thumbnail, Memory, DelaySlotInfo, GtePendingWriteInfo, Registers, GPU,
                             ADPCMDecode, XA, ::PCSX::SPU::Chan::Data, ::PCSX::SPU::ADSRInfo, ::PCSX::SPU::ADSRInfoEx,
-                            Channel, EnvelopeCheckpoint, SPU, SIO, CDQueueElement, CDMSF, CDADPCM, CDRom, Hardware,
-                            Rcnt, Counters, MDEC, PCdrvFile, Call, CallStack, CallStacks, SaveState>
+                            Channel, EnvelopeCheckpoint, SPU, PadTransfer, SIO, CDQueueElement, CDMSF, CDADPCM, CDRom,
+                            Hardware, Rcnt, Counters, MDEC, PCdrvFile, Call, CallStack, CallStacks, SaveState>
     ProtoFile;
 
 SaveState constructSaveState();

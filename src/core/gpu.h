@@ -145,6 +145,8 @@ class GPU {
     void setDumper(GPUDumper *dumper) { m_dumper = dumper; }
     // True when no GP0 command is partially received, so a dump can start cleanly.
     bool isIdle() const { return m_processor == &m_defaultProcessor; }
+    // True while VRAM-to-CPU words are queued for readData(). Not part of a save state.
+    bool hasPendingReadback() { return m_readFifo->size() != 0; }
     // The last word written for a given GP1 command.
     uint32_t getStatusControl(uint8_t cmd) const { return m_statusControl[cmd]; }
     // The last GP0(E3h), GP0(E4h) and GP0(E5h) words, low 24 bits.
@@ -164,7 +166,18 @@ class GPU {
     void deserialize(const SaveStateWrapper *);
     void restoreEnvironment(const uint8_t *env, uint32_t status);
 
+    // The GPU half of a save state, kept in memory: what serialize() writes, without the protobuf.
+    struct Snapshot {
+        uint32_t status;
+        uint32_t control[256];
+        uint8_t env[24];
+        std::vector<uint16_t> vram;
+    };
+    void snapshot(Snapshot &);
+    void restore(const Snapshot &);
+
   private:
+    void restoreState(uint32_t status, const uint16_t *vram, unsigned vramRows, const uint8_t *env);
     uint32_t s_usedAddr[3];
     bool CheckForEndlessLoop(uint32_t laddr);
     uint32_t gpuDmaChainSize(uint32_t addr);
@@ -287,6 +300,13 @@ class GPU {
       protected:
         static bool isInsideTriangle(int x, int y, int x1, int y1, int x2, int y2, int x3, int y3);
         static bool isInsideLine(int x, int y, int x1, int y1, int x2, int y2);
+        // The pixel address wraps modulo 2048 on both axes, and vertex plus offset sums range over
+        // -2048..2046, so VRAM pixel x, y is also reached by a primitive covering x - 2048 or y - 2048.
+        template <typename Test>
+        static bool isInsideWrapped(unsigned x, unsigned y, Test &&test) {
+            const int ix = int(x), iy = int(y);
+            return test(ix, iy) || test(ix - 2048, iy) || test(ix, iy - 2048) || test(ix - 2048, iy - 2048);
+        }
     };
 
   private:
@@ -654,15 +674,17 @@ class GPU {
             m_count = 0;
         }
         bool isInside(unsigned x, unsigned y) override {
-            if constexpr (shape == Shape::Tri) {
-                return isInsideTriangle(x, y, this->x[0] + offset.x, this->y[0] + offset.y, this->x[1] + offset.x,
-                                        this->y[1] + offset.y, this->x[2] + offset.x, this->y[2] + offset.y);
-            } else {
-                return isInsideTriangle(x, y, this->x[0] + offset.x, this->y[0] + offset.y, this->x[1] + offset.x,
-                                        this->y[1] + offset.y, this->x[2] + offset.x, this->y[2] + offset.y) ||
-                       isInsideTriangle(x, y, this->x[0] + offset.x, this->y[0] + offset.y, this->x[2] + offset.x,
-                                        this->y[2] + offset.y, this->x[3] + offset.x, this->y[3] + offset.y);
-            }
+            return isInsideWrapped(x, y, [this](int x, int y) {
+                if (isInsideTriangle(x, y, this->x[0] + offset.x, this->y[0] + offset.y, this->x[1] + offset.x,
+                                     this->y[1] + offset.y, this->x[2] + offset.x, this->y[2] + offset.y)) {
+                    return true;
+                }
+                if constexpr (shape == Shape::Quad) {
+                    return isInsideTriangle(x, y, this->x[1] + offset.x, this->y[1] + offset.y, this->x[2] + offset.x,
+                                            this->y[2] + offset.y, this->x[3] + offset.x, this->y[3] + offset.y);
+                }
+                return false;
+            });
         }
         uint32_t colors[count];
         int x[count], y[count];
@@ -727,18 +749,15 @@ class GPU {
             }
         }
         bool isInside(unsigned x, unsigned y) override {
-            if constexpr (lineType == LineType::Simple) {
-                return isInsideLine(x, y, this->x[0] + offset.x, this->y[0] + offset.y, this->x[1] + offset.x,
-                                    this->y[1] + offset.y);
-            } else {
-                for (unsigned i = 0; i < this->x.size(); i++) {
-                    if (isInsideLine(x, y, this->x[i] + offset.x, this->y[i] + offset.y,
-                                     this->x[(i + 1) % this->x.size()] + offset.x,
-                                     this->y[(i + 1) % this->y.size()] + offset.y))
+            return isInsideWrapped(x, y, [this](int x, int y) {
+                for (unsigned i = 1; i < this->x.size(); i++) {
+                    if (isInsideLine(x, y, this->x[i - 1] + offset.x, this->y[i - 1] + offset.y,
+                                     this->x[i] + offset.x, this->y[i] + offset.y)) {
                         return true;
+                    }
                 }
                 return false;
-            }
+            });
         }
 
         template <typename T>
@@ -768,8 +787,10 @@ class GPU {
         void processWrite(Buffer &, Logged::Origin, uint32_t value, uint32_t length) override;
         void reset() override { m_state = READ_COLOR; }
         bool isInside(unsigned x, unsigned y) override {
-            return (x >= (this->x + offset.x)) && (y >= (this->y + offset.y)) && (x < (this->x + offset.x) + this->w) &&
-                   (y < (this->y + offset.y) + this->h);
+            return isInsideWrapped(x, y, [this](int x, int y) {
+                const int left = this->x + offset.x, top = this->y + offset.y;
+                return (x >= left) && (y >= top) && (x < left + this->w) && (y < top + this->h);
+            });
         }
 
         int x, y, w, h;

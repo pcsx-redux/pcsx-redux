@@ -142,14 +142,144 @@ void PCSX::GdbClient::close() {
     });
 }
 
+PCSX::GdbClient::~GdbClient() {
+    // Leaving while stopped at the shell: the emulation can only resume from here.
+    if (m_restartRewindOnResume) g_emulator->restartRewind(m_rewindWasInUse);
+    if (m_reverse) {
+        g_emulator->m_debug->stopReplay();
+        g_emulator->suppressRewindCapture(false);
+    }
+    m_breakpoints.destroyAll();
+}
+
+void PCSX::GdbClient::startReverse(bool isContinue) {
+    auto& emuSettings = g_emulator->settings;
+    if (!emuSettings.get<Emulator::SettingDebugSettings>().get<Emulator::DebugSettings::Debug>()) {
+        g_system->printf(_("GDB server: reverse execution needs the debugger (use -debugger)\n"));
+        write("E02");
+        return;
+    }
+    if (g_emulator->m_cpu->isDynarec()) {
+        g_system->printf(_("GDB server: reverse execution needs the interpreter (use -interpreter)\n"));
+        write("E02");
+        return;
+    }
+    if (g_system->running()) g_system->pause();
+    const uint64_t now = g_emulator->m_cpu->m_regs.cycle;
+    size_t snapshot = g_emulator->rewindSnapshotCount();
+    while ((snapshot > 0) && (g_emulator->rewindSnapshotCycle(snapshot - 1) >= now)) snapshot--;
+    if (snapshot == 0) {
+        // Snapshots taken by hand (Lua's createRewindState()) are enough; with an empty ring that
+        // isn't capturing, there will never be a past to go back to.
+        if ((g_emulator->rewindSnapshotCount() == 0) &&
+            (emuSettings.get<Emulator::SettingRewindInterval>().value == 0)) {
+            g_system->printf(
+                _("GDB server: reverse execution replays from the rewind ring, which is off (RewindInterval is 0)\n"));
+            write("E01");
+        } else {
+            write("T05replaylog:begin;");
+        }
+        return;
+    }
+    snapshot--;
+    m_reverse = ReverseJob{.isContinue = isContinue, .now = now, .snapshot = snapshot};
+    g_emulator->suppressRewindCapture(true);
+    replayFrom(snapshot, now);
+}
+
+void PCSX::GdbClient::replayFrom(size_t snapshot, uint64_t stopAt) {
+    std::weak_ptr<GdbClient*> self = m_self;
+    // The Pause that ends a replay is signalled from inside the emulation, so the restore has
+    // to wait for the main loop.
+    g_system->scheduleRestore([self, snapshot, stopAt]() {
+        auto client = self.lock();
+        if (!client) return;
+        g_emulator->restoreRewindSnapshot(snapshot);
+        if (g_emulator->m_debug->startReplay(stopAt)) {
+            g_system->resume();
+        } else {
+            (*client)->onReplayPaused();
+        }
+    });
+}
+
+void PCSX::GdbClient::land(uint64_t target) {
+    m_reverse->landing = true;
+    m_reverse->target = target;
+    replayFrom(m_reverse->snapshot, target);
+}
+
+void PCSX::GdbClient::onReplayPaused() {
+    auto replay = g_emulator->m_debug->stopReplay();
+    auto& job = *m_reverse;
+    if (!replay || !replay->reached) {
+        // Interrupted, or an exception paused it. Wherever it is, it is a point of the past.
+        g_system->printf(_("GDB server: replay from snapshot %zu (cycle %llu) paused early at pc %08x\n"), job.snapshot,
+                         static_cast<unsigned long long>(g_emulator->rewindSnapshotCycle(job.snapshot)),
+                         static_cast<uint32_t>(g_emulator->m_cpu->m_regs.pc));
+        finishReverse("T05");
+        return;
+    }
+    const uint64_t reached = *replay->reached;
+    // The first replay ends on the boundary the command was issued at, and a landing on a
+    // boundary the scan saw. Anything else means the replay is not following the same path.
+    const bool firstScan = !job.landing && !job.scanned;
+    if ((job.landing && (reached != job.target)) || (firstScan && (reached != job.now))) {
+        g_system->printf(_("GDB server: replay diverged, expected to stop at cycle %llu, stopped at %llu\n"),
+                         static_cast<unsigned long long>(job.landing ? job.target : job.now),
+                         static_cast<unsigned long long>(reached));
+        finishReverse("E03");
+        return;
+    }
+    if (job.landing) {
+        finishReverse(job.atEdge ? "T05replaylog:begin;" : "T05");
+        return;
+    }
+    job.scanned = true;
+    if (!job.isContinue) {
+        land(replay->lastBoundary);
+        return;
+    }
+    if (replay->lastHit) {
+        land(*replay->lastHit);
+        return;
+    }
+    if (job.snapshot == 0) {
+        job.atEdge = true;
+        land(g_emulator->rewindSnapshotCycle(0));
+        return;
+    }
+    job.snapshot--;
+    replayFrom(job.snapshot, g_emulator->rewindSnapshotCycle(job.snapshot + 1));
+}
+
+void PCSX::GdbClient::finishReverse(const char* reply) {
+    m_reverse.reset();
+    g_emulator->suppressRewindCapture(false);
+    // The snapshots past this point belong to a future that is going to be executed again.
+    g_emulator->dropRewindSnapshotsAfter(g_emulator->m_cpu->m_regs.cycle);
+    write(std::string(reply));
+}
+
 PCSX::GdbClient::GdbClient(IO<File> connection, uv_loop_t* loop) : m_listener(g_system->m_eventBus) {
     m_loop = loop;
     m_connection = connection;
     m_asyncContext = new AsyncContext{{}, this};
     m_connection.asA<UvFifo>()->setNotifier(loop, &m_asyncContext->m_async, [this]() { onReadable(); });
-    m_listener.listen<Events::ExecutionFlow::Run>([this](const auto& event) { m_exception = false; });
+    m_listener.listen<Events::ExecutionFlow::Run>([this](const auto& event) {
+        m_exception = false;
+        // gdb is done writing what it wanted to the machine we stopped at the shell for.
+        if (m_restartRewindOnResume && !m_reverse) {
+            m_restartRewindOnResume = false;
+            g_emulator->restartRewind(m_rewindWasInUse);
+        }
+    });
     m_listener.listen<Events::ExecutionFlow::Pause>([this](const auto& event) {
         m_exception = event.exception;
+        if (m_reverse) {
+            onReplayPaused();
+            return;
+        }
         if (m_waitingForShell) {
             // This is a bit of a problem. If there's any remaining
             // breakpoint, we just blow past them. I'm not sure
@@ -167,6 +297,10 @@ PCSX::GdbClient::GdbClient(IO<File> connection, uv_loop_t* loop) : m_listener(g_
         if (!m_waitingForShell) return;
         g_system->log(LogClass::GDB, "Shell reached in gdb-server, pausing execution now.\n");
         m_waitingForShell = false;
+        // gdb is about to load a binary into the paused machine, which no replay from an earlier
+        // snapshot can do. The ring starts again once it lets the emulation run.
+        m_rewindWasInUse = g_emulator->clearRewindRing();
+        m_restartRewindOnResume = true;
         g_system->pause();
         write("OK");
     });
@@ -716,6 +850,10 @@ void PCSX::GdbClient::processCommand() {
         if (g_system->running()) g_system->pause();
         m_waitingForTrap = true;
         g_emulator->m_debug->stepIn();
+    } else if (m_cmd == "bs") {
+        startReverse(false);
+    } else if (m_cmd == "bc") {
+        startReverse(true);
     } else if (m_cmd == "Hc0") {
         // thread stuff
         write("OK");
@@ -733,7 +871,7 @@ void PCSX::GdbClient::processCommand() {
                 m_multiprocess = true;
             }
         }
-        std::string answer = "PacketSize=47ff;qXfer:threads:read+;QStartNoAckMode+";
+        std::string answer = "PacketSize=47ff;qXfer:threads:read+;QStartNoAckMode+;ReverseStep+;ReverseContinue+";
         if (m_multiprocess) {
             answer += ";multiprocess+";
         }
