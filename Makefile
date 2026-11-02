@@ -216,7 +216,7 @@ ifeq ($(UNAME_M),arm64)
         CPPFLAGS += -Ithird_party/vixl/src -Ithird_party/vixl/src/aarch64
 endif
 SUPPORT_SRCS := src/support/container-file.cc src/support/cpu-features.cc src/support/file.cc src/support/md5.cc src/support/mem4g.cc src/support/zfile.cc
-SUPPORT_SRCS += src/supportpsx/adpcm.cc src/supportpsx/binloader.cc src/supportpsx/dct.cc src/supportpsx/iec-60908b.cc src/supportpsx/iso9660-builder.cc src/supportpsx/ps1-packer.cc src/supportpsx/psyq-obj.cc src/supportpsx/sf2.cc src/supportpsx/spu-sample-layout.cc src/supportpsx/spusample.cc src/supportpsx/ucl-utils.cc
+SUPPORT_SRCS += src/supportpsx/adpcm.cc src/supportpsx/binloader.cc src/supportpsx/dct.cc src/supportpsx/iec-60908b.cc src/supportpsx/iso9660-builder.cc src/supportpsx/ps1-packer.cc src/supportpsx/psyq-obj.cc src/supportpsx/sf2.cc src/supportpsx/spu-sample-layout.cc src/supportpsx/spusample.cc src/supportpsx/str.cc src/supportpsx/ucl-utils.cc
 SUPPORT_SRCS += third_party/fmt/src/os.cc third_party/fmt/src/format.cc
 SUPPORT_SRCS += third_party/ucl/src/n2e_99.c third_party/ucl/src/alloc.c third_party/ucl/src/n2e_ds.c
 SUPPORT_SRCS += $(wildcard third_party/iec-60908b/*.c)
@@ -225,6 +225,10 @@ LIBS := third_party/luajit/src/libluajit.a
 # tools/mdec decodes with the emulator's MDEC decoder, which is GPLv2+ and so
 # lives in src/core; it is linked in on its own, without the rest of core.
 TOOL_EXTRA_OBJECTS_mdec := objs/$(BUILD)/src/core/mdec-decoder.o
+
+# tools/authoring reads movie entries through ffmpeg. The distribution's ffmpeg
+# does not link statically, so this tool links it, and only it, dynamically.
+TOOL_LIBS_authoring := $(shell pkg-config --libs libavformat libavcodec libavutil libswresample)
 
 TOOLS = authoring exe2elf exe2exe exe2iso exe2sys573 mdec midi2psm midi2spd modconv ps1-packer psyq-obj-parser xmconv
 
@@ -426,7 +430,7 @@ runtests: pcsx-redux-tests
 define TOOLDEF
 bins/$(BUILD)/$(1): $(SUPPORT_OBJECTS) $(TOOL_EXTRA_OBJECTS_$(1)) objs/$(BUILD)/tools/$(1)/$(1).o
 	@$(MKDIRP) $(dir bins/$(BUILD)/$(1))
-	$(LD) -o bins/$(BUILD)/$(1) $(CPPFLAGS) $(CXXFLAGS) $(SUPPORT_OBJECTS) $(TOOL_EXTRA_OBJECTS_$(1)) objs/$(BUILD)/tools/$(1)/$(1).o -static -lz
+	$(LD) -o bins/$(BUILD)/$(1) $(CPPFLAGS) $(CXXFLAGS) $(SUPPORT_OBJECTS) $(TOOL_EXTRA_OBJECTS_$(1)) objs/$(BUILD)/tools/$(1)/$(1).o $(if $(TOOL_LIBS_$(1)),$(TOOL_LIBS_$(1)),-static) -lz
 
 $(1): check_submodules bins/$(BUILD)/$(1)
 	$(CP) bins/$(BUILD)/$(1) $(1)

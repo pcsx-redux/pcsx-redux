@@ -111,6 +111,9 @@
     <ClCompile Include="..\..\tools\authoring\authoring.cc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\fmt\fmt.vcxproj">
       <Project>{71772007-5110-418d-be9c-fb102b6eaabf}</Project>
     </ProjectReference>
@@ -126,5 +129,12 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\packages\libFFmpeg-lite.lgpl2.native.9.0.2\build\native\libffmpeg-lite.lgpl2.native.targets" Condition="Exists('..\packages\libFFmpeg-lite.lgpl2.native.9.0.2\build\native\libffmpeg-lite.lgpl2.native.targets')" />
   </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\libFFmpeg-lite.lgpl2.native.9.0.2\build\native\libffmpeg-lite.lgpl2.native.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\libFFmpeg-lite.lgpl2.native.9.0.2\build\native\libffmpeg-lite.lgpl2.native.targets'))" />
+  </Target>
 </Project>
