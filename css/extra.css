@@ -1,0 +1,21 @@
+@media print {
+  .md-typeset {
+    font-size: 1rem !important;
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+  }
+  .md-typeset code {
+    font-size: 1em !important;
+    font-family: Menlo, Monaco, Consolas, "Courier New", monospace !important;
+  }
+}
+
+.md-grid {
+    max-width: 65rem;
+}
+.md-typeset table:not([class]) th {
+  background-color: var(--md-default-fg-color--lightest);
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset table:not([class]) {
+  background-color: var(--md-default-fg-color--lightest);
+}

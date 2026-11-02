@@ -1,0 +1,1550 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://pcsx-redux.consoledev.net/Lua/playbook-scripted-session/">
+      
+      
+        <link rel="prev" href="../case-studies/">
+      
+      
+        <link rel="next" href="../playbook-localizing-bugs/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Playbook: scripting a game session - PCSX-Redux</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#playbook-scripting-a-game-session" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PCSX-Redux" class="md-header__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PCSX-Redux
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Playbook: scripting a game session
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PCSX-Redux" class="md-nav__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    PCSX-Redux
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../menus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PCSX-Redux menus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../compiling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compiling PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli_flags/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Command Line Flags
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Debugging
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Debugging
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Debugging with PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gdb-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GDB server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/ghidra/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting Ghidra to PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/misc-features/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Misc Features
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/vram-viewer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    VRAM viewer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gpu-logger/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GPU Logger
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mips_api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Mips API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../web_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Web server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sio1_networking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SIO1 networking
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Lua
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Lua
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../libraries/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Loaded libraries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../redux-basics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Redux basic API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rendering/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Rendering
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../file-api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    File API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../iso-builder/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Building ISO images
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ppf/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PPF patches
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Webserver Lua API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory-and-registers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Memory and registers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../expansion-carts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Expansion carts in Lua
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Events
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../breakpoints/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Breakpoints
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../assembler/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Inline assembler
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../binary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Handling of PSX binaries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compression/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compression formats
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guest-calls/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Calling guest code
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../implot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Plots
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../case-studies/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Case studies
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Playbook: scripting a game session
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: scripting a game session
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-clock-counting-vsyncs" class="md-nav__link">
+    <span class="md-ellipsis">
+      The clock: counting vsyncs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      A schedule
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running it
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#savestates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Savestates
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#driving-it-from-outside-through-the-web-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      Driving it from outside, through the web server
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playbook-localizing-bugs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: finding where a bug lives
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../openbios/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Openbios
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-clock-counting-vsyncs" class="md-nav__link">
+    <span class="md-ellipsis">
+      The clock: counting vsyncs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      A schedule
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running it
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#savestates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Savestates
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#driving-it-from-outside-through-the-web-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      Driving it from outside, through the web server
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="playbook-scripting-a-game-session">Playbook: scripting a game session</h1>
+<p>Most reverse engineering work ends up needing the same thing over and over: get the game to a given screen, poke at it, look at the result, and do it all again after changing something. Doing this by hand is slow, and it's never quite the same run twice. This page shows how to turn it into a script, using nothing but the Lua API, so the emulator boots the game, presses the buttons, takes the screenshots and dumps the memory by itself, on the same frames every time.</p>
+<p>The example uses Crash Bandicoot (USA), which reaches its title menu after about 3600 frames with no input at all, but nothing here is specific to that game.</p>
+<h2 id="the-clock-counting-vsyncs">The clock: counting vsyncs</h2>
+<p>A script needs a notion of time that doesn't depend on how fast the host is. The <code>GPU::Vsync</code> <a href="../events/">event</a> fires once per emulated vertical blank, so counting those gives a frame number that means the same thing on every machine:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">frame</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">vsyncListener</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">Events</span><span class="p">.</span><span class="n">createEventListener</span><span class="p">(</span><span class="s1">&#39;GPU::Vsync&#39;</span><span class="p">,</span> <span class="kr">function</span><span class="p">()</span>
+    <span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="kr">end</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<p>The listener is stored in a global on purpose: if it gets garbage collected, it stops firing.</p>
+<h2 id="a-schedule">A schedule</h2>
+<p>With a frame counter, the rest is a table of things to do at given frames. Here's a complete script, <code>session.lua</code>, which takes a screenshot and a RAM dump of the title menu, presses Start, then takes another screenshot once the game has moved on, and quits:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span>
+<span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span>
+<span class="normal">40</span>
+<span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span>
+<span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span>
+<span class="normal">65</span>
+<span class="normal">66</span>
+<span class="normal">67</span>
+<span class="normal">68</span>
+<span class="normal">69</span>
+<span class="normal">70</span>
+<span class="normal">71</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">outdir</span> <span class="o">=</span> <span class="nb">os.getenv</span><span class="p">(</span><span class="s1">&#39;SESSION_OUT&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="s1">&#39;.&#39;</span>
+<span class="kd">local</span> <span class="n">pad</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">SIO0</span><span class="p">.</span><span class="n">slots</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">pads</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="kd">local</span> <span class="n">B</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">CONSTS</span><span class="p">.</span><span class="n">PAD</span><span class="p">.</span><span class="n">BUTTON</span>
+
+<span class="kd">local</span> <span class="n">frame</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="kd">local</span> <span class="n">schedule</span> <span class="o">=</span> <span class="p">{}</span>
+
+<span class="kd">local</span> <span class="kr">function</span> <span class="nf">at</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>
+    <span class="n">schedule</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="o">=</span> <span class="n">schedule</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="nb">table.insert</span><span class="p">(</span><span class="n">schedule</span><span class="p">[</span><span class="n">f</span><span class="p">],</span> <span class="n">action</span><span class="p">)</span>
+<span class="kr">end</span>
+
+<span class="c1">-- Press a button, and release it 6 frames later. A press lasting a single</span>
+<span class="c1">-- frame can fall between two reads of the pad by the game.</span>
+<span class="kd">local</span> <span class="kr">function</span> <span class="nf">tap</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">button</span><span class="p">)</span>
+    <span class="n">at</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="kr">function</span><span class="p">()</span> <span class="n">pad</span><span class="p">.</span><span class="n">setOverride</span><span class="p">(</span><span class="n">button</span><span class="p">)</span> <span class="kr">end</span><span class="p">)</span>
+    <span class="n">at</span><span class="p">(</span><span class="n">f</span> <span class="o">+</span> <span class="mi">6</span><span class="p">,</span> <span class="kr">function</span><span class="p">()</span> <span class="n">pad</span><span class="p">.</span><span class="n">clearOverride</span><span class="p">(</span><span class="n">button</span><span class="p">)</span> <span class="kr">end</span><span class="p">)</span>
+<span class="kr">end</span>
+
+<span class="c1">-- Save the current display as a binary PPM file, which most image tools</span>
+<span class="c1">-- can open or convert. This handles the usual 16bpp display mode; the</span>
+<span class="c1">-- 24bpp mode used by movies needs a different conversion.</span>
+<span class="kd">local</span> <span class="kr">function</span> <span class="nf">shot</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+    <span class="n">at</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="kr">function</span><span class="p">()</span>
+        <span class="kd">local</span> <span class="n">ss</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">GPU</span><span class="p">.</span><span class="n">takeScreenShot</span><span class="p">()</span>
+        <span class="kd">local</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">ss</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">ss</span><span class="p">.</span><span class="n">height</span>
+        <span class="kr">if</span> <span class="n">ss</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">size</span> <span class="o">~=</span> <span class="n">w</span> <span class="o">*</span> <span class="n">h</span> <span class="o">*</span> <span class="mi">2</span> <span class="kr">then</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;shot &#39;</span> <span class="o">..</span> <span class="n">name</span> <span class="o">..</span> <span class="s1">&#39;: not a 16bpp display, skipped&#39;</span><span class="p">)</span>
+            <span class="kr">return</span>
+        <span class="kr">end</span>
+        <span class="c1">-- 5 bits per component, red in the low bits.</span>
+        <span class="kd">local</span> <span class="n">p</span> <span class="o">=</span> <span class="n">ffi</span><span class="p">.</span><span class="n">cast</span><span class="p">(</span><span class="s1">&#39;const uint16_t*&#39;</span><span class="p">,</span> <span class="n">ss</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="kd">local</span> <span class="n">px</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="kr">for</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">w</span> <span class="o">*</span> <span class="n">h</span> <span class="o">-</span> <span class="mi">1</span> <span class="kr">do</span>
+            <span class="kd">local</span> <span class="n">c</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="kd">local</span> <span class="n">r</span> <span class="o">=</span> <span class="n">bit</span><span class="p">.</span><span class="n">band</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="mi">31</span><span class="p">)</span> <span class="o">*</span> <span class="mi">8</span>
+            <span class="kd">local</span> <span class="n">g</span> <span class="o">=</span> <span class="n">bit</span><span class="p">.</span><span class="n">band</span><span class="p">(</span><span class="n">bit</span><span class="p">.</span><span class="n">rshift</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="mi">31</span><span class="p">)</span> <span class="o">*</span> <span class="mi">8</span>
+            <span class="kd">local</span> <span class="n">b</span> <span class="o">=</span> <span class="n">bit</span><span class="p">.</span><span class="n">band</span><span class="p">(</span><span class="n">bit</span><span class="p">.</span><span class="n">rshift</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="mi">31</span><span class="p">)</span> <span class="o">*</span> <span class="mi">8</span>
+            <span class="n">px</span><span class="p">[</span><span class="o">#</span><span class="n">px</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">string.char</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="kr">end</span>
+        <span class="kd">local</span> <span class="n">f</span> <span class="o">=</span> <span class="nb">io.open</span><span class="p">(</span><span class="n">outdir</span> <span class="o">..</span> <span class="s1">&#39;/&#39;</span> <span class="o">..</span> <span class="n">name</span> <span class="o">..</span> <span class="s1">&#39;.ppm&#39;</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="p">:</span><span class="n">write</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s1">&#39;P6</span><span class="se">\n</span><span class="s1">%d %d</span><span class="se">\n</span><span class="s1">255</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">))</span>
+        <span class="n">f</span><span class="p">:</span><span class="n">write</span><span class="p">(</span><span class="nb">table.concat</span><span class="p">(</span><span class="n">px</span><span class="p">))</span>
+        <span class="n">f</span><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s1">&#39;shot %s %dx%d at frame %d&#39;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">frame</span><span class="p">))</span>
+    <span class="kr">end</span><span class="p">)</span>
+<span class="kr">end</span>
+
+<span class="c1">-- Write the 2MB of main RAM to a file.</span>
+<span class="kd">local</span> <span class="kr">function</span> <span class="nf">dumpRAM</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+    <span class="n">at</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="kr">function</span><span class="p">()</span>
+        <span class="kd">local</span> <span class="n">f</span> <span class="o">=</span> <span class="nb">io.open</span><span class="p">(</span><span class="n">outdir</span> <span class="o">..</span> <span class="s1">&#39;/&#39;</span> <span class="o">..</span> <span class="n">name</span> <span class="o">..</span> <span class="s1">&#39;.bin&#39;</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="p">:</span><span class="n">write</span><span class="p">(</span><span class="n">ffi</span><span class="p">.</span><span class="n">string</span><span class="p">(</span><span class="n">PCSX</span><span class="p">.</span><span class="n">getMemPtr</span><span class="p">(),</span> <span class="mh">0x200000</span><span class="p">))</span>
+        <span class="n">f</span><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s1">&#39;ram %s at frame %d&#39;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">frame</span><span class="p">))</span>
+    <span class="kr">end</span><span class="p">)</span>
+<span class="kr">end</span>
+
+<span class="n">shot</span><span class="p">(</span><span class="mi">3600</span><span class="p">,</span> <span class="s1">&#39;title&#39;</span><span class="p">)</span>
+<span class="n">dumpRAM</span><span class="p">(</span><span class="mi">3600</span><span class="p">,</span> <span class="s1">&#39;title&#39;</span><span class="p">)</span>
+<span class="n">tap</span><span class="p">(</span><span class="mi">3700</span><span class="p">,</span> <span class="n">B</span><span class="p">.</span><span class="n">START</span><span class="p">)</span>
+<span class="n">shot</span><span class="p">(</span><span class="mi">4300</span><span class="p">,</span> <span class="s1">&#39;after-start&#39;</span><span class="p">)</span>
+<span class="n">at</span><span class="p">(</span><span class="mi">4310</span><span class="p">,</span> <span class="kr">function</span><span class="p">()</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">quit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="kr">end</span><span class="p">)</span>
+
+<span class="n">vsyncListener</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">Events</span><span class="p">.</span><span class="n">createEventListener</span><span class="p">(</span><span class="s1">&#39;GPU::Vsync&#39;</span><span class="p">,</span> <span class="kr">function</span><span class="p">()</span>
+    <span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="kd">local</span> <span class="n">actions</span> <span class="o">=</span> <span class="n">schedule</span><span class="p">[</span><span class="n">frame</span><span class="p">]</span>
+    <span class="kr">if</span> <span class="n">actions</span> <span class="kr">then</span>
+        <span class="kr">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">action</span> <span class="kr">in</span> <span class="nb">ipairs</span><span class="p">(</span><span class="n">actions</span><span class="p">)</span> <span class="kr">do</span> <span class="n">action</span><span class="p">()</span> <span class="kr">end</span>
+    <span class="kr">end</span>
+<span class="kr">end</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<p>A few notes about the pieces:</p>
+<ul>
+<li>The screenshot is the display area as the GPU sees it, so its width is the one the game programmed (512 pixels here), without any aspect ratio correction. See <a href="../redux-basics/#gpu">the GPU section</a> for the structure it returns.</li>
+<li><code>setOverride</code> holds a button down until <code>clearOverride</code> releases it, regardless of what the keyboard or a gamepad are doing. The button names are in <code>PCSX.CONSTS.PAD.BUTTON</code>, see <a href="../redux-basics/#pads">Pads</a>.</li>
+<li>The RAM dump is a plain 2MB file, where offset <code>n</code> is address <code>0x80000000 + n</code>. Two of them taken a few frames apart are the cheapest way to find a variable: diff them, and look for the words that changed the way you expect. For instance, a word that goes up by exactly one on every frame is a frame counter.</li>
+</ul>
+<h2 id="running-it">Running it</h2>
+<p>The script is loaded with <code>-dofile</code>, and the run is made independent from your own settings with <code>-testmode</code>, which neither loads nor saves them:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>pcsx-redux -testmode -stdout -lua_stdout -bios scph5501.bin -iso &quot;Crash Bandicoot (USA).cue&quot; -run -dofile session.lua
+</code></pre></div></td></tr></table></div>
+<p><code>-stdout</code> and <code>-lua_stdout</code> send the logs and the output of <code>print</code> to the terminal, which is where the <code>shot</code> and <code>ram</code> lines above end up. Passing <code>-bios</code> explicitly is a good habit for scripted runs, so they don't depend on whichever BIOS the settings happen to point at.</p>
+<p>On a machine without a display, such as a build server, the same command runs under a virtual X server:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>xvfb-run -a pcsx-redux -testmode -stdout -lua_stdout -bios scph5501.bin -iso &quot;Crash Bandicoot (USA).cue&quot; -run -dofile session.lua
+</code></pre></div></td></tr></table></div>
+<p>Since the schedule is keyed to emulated frames, the same build, BIOS and command line give the same frames on every run: two runs of a script like this one produce byte-identical RAM dumps at frame 3600. This is what makes a script a good regression test: once a screenshot shows the problem at frame N, it shows it at frame N every time, and a fix can be checked the same way.</p>
+<h2 id="savestates">Savestates</h2>
+<p>Booting the game every time is fine when the interesting part is near the start. When it's an hour in, play there once, save a state, and start the script from it instead:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">state</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">createSaveState</span><span class="p">()</span>        <span class="c1">-- a Slice holding the state</span>
+<span class="c1">-- ...</span>
+<span class="n">PCSX</span><span class="p">.</span><span class="n">loadSaveState</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<p>A state can also be written to a file and loaded back in a later run:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span>
+<span class="normal">8</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">out</span> <span class="o">=</span> <span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;/path/to/level3.state&#39;</span><span class="p">,</span> <span class="s1">&#39;TRUNCATE&#39;</span><span class="p">)</span>
+<span class="n">out</span><span class="p">:</span><span class="n">writeMoveSlice</span><span class="p">(</span><span class="n">PCSX</span><span class="p">.</span><span class="n">createSaveState</span><span class="p">())</span>
+<span class="n">out</span><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+
+<span class="c1">-- later, in another session</span>
+<span class="kd">local</span> <span class="n">file</span> <span class="o">=</span> <span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;/path/to/level3.state&#39;</span><span class="p">)</span>
+<span class="n">PCSX</span><span class="p">.</span><span class="n">loadSaveState</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+<span class="n">file</span><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div>
+<p>Savestates made from the UI are gzip-compressed, while these aren't. See <a href="../redux-basics/#execution-flow">Execution flow</a> for the details, including what happens when loading a state from a vsync listener.</p>
+<h2 id="driving-it-from-outside-through-the-web-server">Driving it from outside, through the web server</h2>
+<p>Sometimes the schedule isn't known in advance, and something outside the emulator decides what to do next by looking at the screen: a test harness, a script in another language, a person at a terminal. The <a href="../../web_server/">web server</a> already covers screenshots, pausing and resuming, and anything else can be added as a Lua endpoint. Here's a script that adds two of them: one returning the frame counter, and one tapping a button.</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span>
+<span class="normal">30</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">pad</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">SIO0</span><span class="p">.</span><span class="n">slots</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">pads</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="kd">local</span> <span class="n">frame</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="kd">local</span> <span class="n">releases</span> <span class="o">=</span> <span class="p">{}</span>
+
+<span class="n">vsyncListener</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">Events</span><span class="p">.</span><span class="n">createEventListener</span><span class="p">(</span><span class="s1">&#39;GPU::Vsync&#39;</span><span class="p">,</span> <span class="kr">function</span><span class="p">()</span>
+    <span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="kd">local</span> <span class="n">buttons</span> <span class="o">=</span> <span class="n">releases</span><span class="p">[</span><span class="n">frame</span><span class="p">]</span>
+    <span class="kr">if</span> <span class="n">buttons</span> <span class="kr">then</span>
+        <span class="kr">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">button</span> <span class="kr">in</span> <span class="nb">ipairs</span><span class="p">(</span><span class="n">buttons</span><span class="p">)</span> <span class="kr">do</span> <span class="n">pad</span><span class="p">.</span><span class="n">clearOverride</span><span class="p">(</span><span class="n">button</span><span class="p">)</span> <span class="kr">end</span>
+        <span class="n">releases</span><span class="p">[</span><span class="n">frame</span><span class="p">]</span> <span class="o">=</span> <span class="kc">nil</span>
+    <span class="kr">end</span>
+<span class="kr">end</span><span class="p">)</span>
+
+<span class="n">PCSX</span><span class="p">.</span><span class="n">WebServer</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">WebServer</span> <span class="ow">or</span> <span class="p">{}</span>
+<span class="n">PCSX</span><span class="p">.</span><span class="n">WebServer</span><span class="p">.</span><span class="n">Handlers</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">WebServer</span><span class="p">.</span><span class="n">Handlers</span> <span class="ow">or</span> <span class="p">{}</span>
+
+<span class="n">PCSX</span><span class="p">.</span><span class="n">WebServer</span><span class="p">.</span><span class="n">Handlers</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="kr">function</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+    <span class="kr">return</span> <span class="nb">tostring</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+<span class="kr">end</span>
+
+<span class="n">PCSX</span><span class="p">.</span><span class="n">WebServer</span><span class="p">.</span><span class="n">Handlers</span><span class="p">.</span><span class="n">tap</span> <span class="o">=</span> <span class="kr">function</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+    <span class="kd">local</span> <span class="n">name</span> <span class="o">=</span> <span class="nb">string.match</span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="n">urlData</span><span class="p">.</span><span class="n">query</span> <span class="ow">or</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="s1">&#39;button=(%w+)&#39;</span><span class="p">)</span>
+    <span class="kd">local</span> <span class="n">button</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">and</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">CONSTS</span><span class="p">.</span><span class="n">PAD</span><span class="p">.</span><span class="n">BUTTON</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+    <span class="kr">if</span> <span class="ow">not</span> <span class="n">button</span> <span class="kr">then</span> <span class="kr">return</span> <span class="s1">&#39;HTTP/1.1 400 Bad Request</span><span class="se">\r\n</span><span class="s1">Content-Length: 0</span><span class="se">\r\n\r\n</span><span class="s1">&#39;</span> <span class="kr">end</span>
+    <span class="n">pad</span><span class="p">.</span><span class="n">setOverride</span><span class="p">(</span><span class="n">button</span><span class="p">)</span>
+    <span class="kd">local</span> <span class="n">release</span> <span class="o">=</span> <span class="n">frame</span> <span class="o">+</span> <span class="mi">6</span>
+    <span class="n">releases</span><span class="p">[</span><span class="n">release</span><span class="p">]</span> <span class="o">=</span> <span class="n">releases</span><span class="p">[</span><span class="n">release</span><span class="p">]</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="nb">table.insert</span><span class="p">(</span><span class="n">releases</span><span class="p">[</span><span class="n">release</span><span class="p">],</span> <span class="n">button</span><span class="p">)</span>
+    <span class="kr">return</span> <span class="s1">&#39;pressed &#39;</span> <span class="o">..</span> <span class="n">name</span> <span class="o">..</span> <span class="s1">&#39; at frame &#39;</span> <span class="o">..</span> <span class="n">frame</span>
+<span class="kr">end</span>
+</code></pre></div></td></tr></table></div>
+<p>Start the emulator with <code>-webserver -webserver-port 8080 -dofile remote.lua</code>, and the session can be driven with nothing more than <code>curl</code>:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span>
+<span class="normal">8</span></pre></div></td><td class="code"><div><pre><span></span><code>$ curl http://localhost:8080/api/v1/lua/frame
+3720
+$ curl -o title.png http://localhost:8080/api/v1/screen/still
+$ curl &quot;http://localhost:8080/api/v1/lua/tap?button=START&quot;
+pressed START at frame 3726
+$ curl -X POST &quot;http://localhost:8080/api/v1/execution-flow?function=pause&quot;
+$ curl -o paused.png http://localhost:8080/api/v1/screen/still
+$ curl -X POST &quot;http://localhost:8080/api/v1/execution-flow?function=resume&quot;
+</code></pre></div></td></tr></table></div>
+<p>While paused, the frame counter stays put, so a screenshot taken then is exactly the frame the counter says. Keep in mind the web server listens on all network interfaces, so anything that can reach the machine can reach these endpoints too.</p>
+<p>The <a href="../playbook-localizing-bugs/">next playbook</a> builds on this to find out where a bug lives.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,1536 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://pcsx-redux.consoledev.net/Lua/file-api/">
+      
+      
+        <link rel="prev" href="../rendering/">
+      
+      
+        <link rel="next" href="../iso-builder/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>File API - PCSX-Redux</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#file-api" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PCSX-Redux" class="md-header__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PCSX-Redux
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              File API
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PCSX-Redux" class="md-nav__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    PCSX-Redux
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../menus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PCSX-Redux menus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../compiling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compiling PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli_flags/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Command Line Flags
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Debugging
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Debugging
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Debugging with PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gdb-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GDB server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/ghidra/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting Ghidra to PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/misc-features/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Misc Features
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/vram-viewer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    VRAM viewer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gpu-logger/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GPU Logger
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mips_api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Mips API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../web_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Web server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sio1_networking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SIO1 networking
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Lua
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Lua
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../libraries/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Loaded libraries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../redux-basics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Redux basic API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rendering/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Rendering
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    File API
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    File API
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction-rationale" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction &amp; Rationale
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-api-for-all-file-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common API for all File objects
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-file-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating File objects
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Creating File objects">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buffers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Buffers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#network-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      Network streams
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compressed-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compressed streams
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#iso-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Iso files
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../iso-builder/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Building ISO images
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ppf/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PPF patches
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Webserver Lua API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory-and-registers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Memory and registers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../expansion-carts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Expansion carts in Lua
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Events
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../breakpoints/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Breakpoints
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../assembler/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Inline assembler
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../binary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Handling of PSX binaries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compression/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compression formats
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guest-calls/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Calling guest code
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../implot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Plots
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../case-studies/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Case studies
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playbook-scripted-session/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: scripting a game session
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playbook-localizing-bugs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: finding where a bug lives
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../openbios/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Openbios
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction-rationale" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction &amp; Rationale
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-api-for-all-file-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common API for all File objects
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-file-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating File objects
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Creating File objects">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buffers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Buffers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#network-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      Network streams
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compressed-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compressed streams
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#iso-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Iso files
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="file-api">File API</h1>
+<h2 id="introduction-rationale">Introduction &amp; Rationale</h2>
+<p>While the normal Lua io API is loaded, there's a more powerful API that's more tightly integrated with the rest of the PCSX-Redux File handling code. It's an abstraction class that allows seamless manipulation of various objects using a common API.</p>
+<p>The File objects have different properties depending on how they are created and their intention. But generally speaking, the following rules apply:</p>
+<ul>
+<li>Files are reference counted. They will be deleted when the reference count reaches zero. The Lua garbage collector will only decrease the reference count.</li>
+<li>Whenever possible, writes are deferred to an asynchronous thread, making writes return basically instantly. This speed up comes at the trade off of data integrity, which means writes aren't guaranteed to be flushed to the disk yet when the function returns. Data will always have integrity internally within PCSX-Redux however, and when exiting normally, all data will be flushed to the disk.</li>
+<li>Some File objects can be cached. When caching, reads and writes will be done transparently, and the cache will be used instead of the actual file. This will make reads return basically instantly too.</li>
+<li>The Read and Write APIs can haul LuaBuffer objects. These are Lua objects that can be used to read and write data to the file. You can construct one using the <code>Support.NewLuaBuffer(size)</code> function. They can be cast to strings, and can be used as a table for reading and writing bytes off of it, in a 0-based fashion. The length operator will return the size of the buffer. The methods <code>:maxsize()</code> and <code>:resize(size)</code> are available. They also have a <code>.pbSlice</code> property that implicitly converts them to a Lua-Protobuf's <code>pb.slice</code>, which can then be passed to <code>pb.decode</code>.</li>
+<li>The Read and Write APIs can also function using Lua-Protobuf's buffers and slices respectively.</li>
+<li>If the file isn't closed when the file object is destroyed, it'll be closed then, but letting the garbage collector do the closing is not recommended. This is because the garbage collector will only run when the memory pressure is high enough, and the file handle will be held for a long time.</li>
+<li>When using streamed functions, unlike POSIX files handles, there's two distinct seeking pointers: one for reading and one for writing.</li>
+</ul>
+<h2 id="common-api-for-all-file-objects">Common API for all File objects</h2>
+<p>All File objects have the following API attached to them as methods:</p>
+<p>Closes and frees any associated resources. Better to call this manually than letting the garbage collector do it:
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div></p>
+<p>Reads from the File object and advances the read pointer accordingly. The return value depends on the variant used.
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">read</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>            <span class="c1">-- returns a LuaBuffer</span>
+<span class="p">:</span><span class="n">read</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>       <span class="c1">-- returns the number of bytes read, ptr has to be a cdata of pointer type</span>
+<span class="p">:</span><span class="n">read</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>          <span class="c1">-- returns the number of bytes read, and adjusts the buffer&#39;s size</span>
+<span class="p">:</span><span class="n">read</span><span class="p">(</span><span class="n">pb_buffer</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span> <span class="c1">-- returns the number of bytes read, while appending to the pb_buffer&#39;s existing data</span>
+<span class="p">:</span><span class="n">gets</span><span class="p">()</span>                <span class="c1">-- returns a string, up to the next newline character</span>
+</code></pre></div></td></tr></table></div></p>
+<p>Reads from the File object at the specified position. No pointers are modified. The return value depends on the variant used, just like the non-At variants above.
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">readAt</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>
+<span class="p">:</span><span class="n">readAt</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>
+<span class="p">:</span><span class="n">readAt</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>
+<span class="p">:</span><span class="n">readAt</span><span class="p">(</span><span class="n">pb_buffer</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div></p>
+<p>Writes to the File object. The non-At variants will advances the write pointer accordingly. The At variants will not modify the write pointer, and simply write at the requested location. Returns the number of bytes written. The <code>string</code> variants will in fact take any object that can be transformed to a string using <code>tostring()</code>.
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">write</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+<span class="p">:</span><span class="n">write</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>
+<span class="p">:</span><span class="n">write</span><span class="p">(</span><span class="n">slice</span><span class="p">)</span>
+<span class="p">:</span><span class="n">write</span><span class="p">(</span><span class="n">pb_slice</span><span class="p">)</span>
+<span class="p">:</span><span class="n">write</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>
+<span class="p">:</span><span class="n">writeAt</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>
+<span class="p">:</span><span class="n">writeAt</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>
+<span class="p">:</span><span class="n">writeAt</span><span class="p">(</span><span class="n">slice</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>
+<span class="p">:</span><span class="n">writeAt</span><span class="p">(</span><span class="n">pb_slice</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>
+<span class="p">:</span><span class="n">writeAt</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div></p>
+<p>Note that in this context, <code>pb_slice</code> and <code>pb_buffer</code> refer to Lua-Protobuf's <code>pb.slice</code> and <code>pb.buffer</code> objects respectively.</p>
+<p>Some APIs may return a <code>Slice</code> object, which is an opaque buffer coming from C++. The <code>write</code> and <code>writeAt</code> methods can take a <code>Slice</code>. It is possible to write a slice to a file in a zero-copy manner, which will be more efficient:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">writeMoveSlice</span><span class="p">(</span><span class="n">slice</span><span class="p">)</span>
+<span class="p">:</span><span class="n">writeAtMoveSlice</span><span class="p">(</span><span class="n">slice</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<p>After which, the slice will be consumed and not reusable. The <code>Slice</code> object is convertible to a string using <code>tostring()</code>, and also has, among others, the members <code>data</code>, which is a <code>const void*</code>, and <code>size</code>. Once consumed by the <code>MoveSlice</code> variants, the size of a slice will go down to zero.</p>
+<p>Finally, it is possible to convert a <code>Slice</code> object to a <code>pb.slice</code> one using the <code>Support.sliceToPBSlice</code> function. However, the same caveats as for normal <code>pb.slice</code> objects apply: it is fragile, and will be invalidated if the underlying Slice is moved or destroyed, so it is recommended to use it as a temporary object, such as an argument to <code>pb.decode</code>. Still, it is a much faster alternative to calling <code>tostring()</code> which will make a copy of the underlying slice.</p>
+<p>The following methods manipulate the read and write pointers. All of them return their corresponding pointer. The <code>wheel</code> argument can be of the values <code>'SEEK_SET'</code>, <code>'SEEK_CUR'</code>, and <code>'SEEK_END'</code>, and will default to <code>'SEEK_SET'</code>.
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">rSeek</span><span class="p">(</span><span class="n">pos</span><span class="p">[,</span> <span class="n">wheel</span><span class="p">])</span>
+<span class="p">:</span><span class="n">rTell</span><span class="p">()</span>
+<span class="p">:</span><span class="n">wSeek</span><span class="p">(</span><span class="n">pos</span><span class="p">[,</span> <span class="n">wheel</span><span class="p">])</span>
+<span class="p">:</span><span class="n">wTell</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div></p>
+<p>These will query the corresponding File object.
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span>
+<span class="normal">8</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">size</span><span class="p">()</span>      <span class="c1">-- Returns the size in bytes, if possible. If the file is not seekable, will throw an error.</span>
+<span class="p">:</span><span class="n">seekable</span><span class="p">()</span>  <span class="c1">-- Returns true if the file is seekable.</span>
+<span class="p">:</span><span class="n">writable</span><span class="p">()</span>  <span class="c1">-- Returns true if the file is writable.</span>
+<span class="p">:</span><span class="n">eof</span><span class="p">()</span>       <span class="c1">-- Returns true if the read pointer is at the end of file.</span>
+<span class="p">:</span><span class="n">failed</span><span class="p">()</span>    <span class="c1">-- Returns true if the file failed in some ways. The File object is defunct if this is true.</span>
+<span class="p">:</span><span class="n">cacheable</span><span class="p">()</span> <span class="c1">-- Returns true if the file is cacheable.</span>
+<span class="p">:</span><span class="n">caching</span><span class="p">()</span>   <span class="c1">-- Returns true if caching is in progress or completed.</span>
+<span class="p">:</span><span class="n">cacheProgress</span><span class="p">()</span> <span class="c1">-- Returns a value between 0 and 1 indicating the progress of the caching operation.</span>
+</code></pre></div></td></tr></table></div></p>
+<p>If applicable, this will start caching the corresponding file in memory.
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">startCaching</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div></p>
+<p>Same as above, but will suspend the current coroutine until the caching is done. Cannot be used with the main thread.
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">startCachingAndWait</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div></p>
+<p>Duplicates the File object. This will re-open the file, and possibly duplicate all ressources associated with it.
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">dup</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div></p>
+<p>Creates a read-only view of the file starting at the specified position, spanning the specified length. The view will be a new File object, and will be a view of the same underlying file. The default values of start and length are 0 and -1 respectively, which will effectively create a view of the entire file. The view may have less features than the underlying file, but will always be seekable, and keep its seeking position independent of the underlying file. The view will hold a reference to the underlying file.
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">subFile</span><span class="p">([</span><span class="n">start</span><span class="p">[,</span> <span class="n">length</span><span class="p">]])</span>
+</code></pre></div></td></tr></table></div></p>
+<p>In addition to the above methods, the File API has these helpers, that'll read or write binary values off their corresponding stream position for the non-At variants, or at the indicated position for the At variants. All the values will be read or stored in Little Endian, regardless of the host's endianness.
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span>
+<span class="normal">8</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">readU8</span><span class="p">(),</span> <span class="p">:</span><span class="n">readU16</span><span class="p">(),</span> <span class="p">:</span><span class="n">readU32</span><span class="p">(),</span> <span class="p">:</span><span class="n">readU64</span><span class="p">(),</span>
+<span class="p">:</span><span class="n">readI8</span><span class="p">(),</span> <span class="p">:</span><span class="n">readI16</span><span class="p">(),</span> <span class="p">:</span><span class="n">readI32</span><span class="p">(),</span> <span class="p">:</span><span class="n">readI64</span><span class="p">(),</span>
+<span class="p">:</span><span class="n">readU8At</span><span class="p">(</span><span class="n">pos</span><span class="p">),</span> <span class="p">:</span><span class="n">readU16At</span><span class="p">(</span><span class="n">pos</span><span class="p">),</span> <span class="p">:</span><span class="n">readU32At</span><span class="p">(</span><span class="n">pos</span><span class="p">),</span> <span class="p">:</span><span class="n">readU64At</span><span class="p">(</span><span class="n">pos</span><span class="p">),</span>
+<span class="p">:</span><span class="n">readI8At</span><span class="p">(</span><span class="n">pos</span><span class="p">),</span> <span class="p">:</span><span class="n">readI16At</span><span class="p">(</span><span class="n">pos</span><span class="p">),</span> <span class="p">:</span><span class="n">readI32At</span><span class="p">(</span><span class="n">pos</span><span class="p">),</span> <span class="p">:</span><span class="n">readI64At</span><span class="p">(</span><span class="n">pos</span><span class="p">),</span>
+<span class="p">:</span><span class="n">writeU8</span><span class="p">(</span><span class="n">val</span><span class="p">),</span> <span class="p">:</span><span class="n">writeU16</span><span class="p">(</span><span class="n">val</span><span class="p">),</span> <span class="p">:</span><span class="n">writeU32</span><span class="p">(</span><span class="n">val</span><span class="p">),</span> <span class="p">:</span><span class="n">writeU64</span><span class="p">(</span><span class="n">val</span><span class="p">),</span>
+<span class="p">:</span><span class="n">writeI8</span><span class="p">(</span><span class="n">val</span><span class="p">),</span> <span class="p">:</span><span class="n">writeI16</span><span class="p">(</span><span class="n">val</span><span class="p">),</span> <span class="p">:</span><span class="n">writeI32</span><span class="p">(</span><span class="n">val</span><span class="p">),</span> <span class="p">:</span><span class="n">writeI64</span><span class="p">(</span><span class="n">val</span><span class="p">),</span>
+<span class="p">:</span><span class="n">writeU8At</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">pos</span><span class="p">),</span> <span class="p">:</span><span class="n">writeU16At</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">pos</span><span class="p">),</span> <span class="p">:</span><span class="n">writeU32At</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">pos</span><span class="p">),</span> <span class="p">:</span><span class="n">writeU64At</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">pos</span><span class="p">),</span>
+<span class="p">:</span><span class="n">writeI8At</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">pos</span><span class="p">),</span> <span class="p">:</span><span class="n">writeI16At</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">pos</span><span class="p">),</span> <span class="p">:</span><span class="n">writeI32At</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">pos</span><span class="p">),</span> <span class="p">:</span><span class="n">writeI64At</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">pos</span><span class="p">),</span>
+</code></pre></div></td></tr></table></div></p>
+<h2 id="creating-file-objects">Creating File objects</h2>
+<p>The Lua VM can create File objects in different ways:
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">open</span><span class="p">(</span><span class="n">filename</span><span class="p">[,</span> <span class="nb">type</span><span class="p">])</span>
+<span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">buffer</span><span class="p">()</span>
+<span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">buffer</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">size</span><span class="p">[,</span> <span class="nb">type</span><span class="p">])</span>
+<span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">mem4g</span><span class="p">()</span>
+<span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">uvFifo</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">port</span><span class="p">)</span>
+<span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">zReader</span><span class="p">(</span><span class="n">file</span><span class="p">[,</span> <span class="n">size</span><span class="p">[,</span> <span class="n">raw</span><span class="p">]])</span>
+</code></pre></div></td></tr></table></div></p>
+<h3 id="basic-files">Basic files</h3>
+<p>The <code>open</code> function will function on filesystem and network URLs, while the <code>buffer</code> function will generate a memory-only File object that's fully readable, writable, and seekable. The <code>type</code> argument of the <code>open</code> function will determine what happens exactly. It's a string that can have the following values:</p>
+<ul>
+<li><code>READ</code>: Opens the file for reading only. Will fail if the file does not exist. This is the default type.</li>
+<li><code>TRUNCATE</code>: Opens the file for reading and writing. If the file does not exist, it will be created. If it does exist, it will be truncated to 0 size.</li>
+<li><code>CREATE</code>: Opens the file for reading and writing. If the file does not exist, it will be created. If it does exist, it will be left untouched.</li>
+<li><code>READWRITE</code>: Opens the file for reading and writing. Will fail if the file does not exist.</li>
+<li><code>DOWNLOAD_URL</code>: Opens the file for reading only. Will immediately start downloading the file from the network. The <code>filename</code> argument will be treated as a URL. The <a href="http://curl.se/libcurl">curl</a> is the backend for this feature, and its <a href="https://everything.curl.dev/cmdline/urls">url schemes</a> are supported. The progress of the download can be monitored with the <code>:cacheProgress()</code> method.</li>
+<li><code>DOWNLOAD_URL_AND_WAIT</code>: As above, but suspends the current coroutine until the download is done. Cannot be used with the main thread.</li>
+</ul>
+<h3 id="buffers">Buffers</h3>
+<p>When calling <code>.buffer()</code> with no argument, this will create an empty read-write buffer. When calling it with a cdata pointer and a size, this will have the following behavior, depending on type:</p>
+<ul>
+<li><code>READWRITE</code> (or no type): The memory passed as an argument will be copied first.</li>
+<li><code>READ</code>: The memory passed as an argument will be referenced, and the lifespan of said memory needs to outlast the File object. The File object will be read-only.</li>
+<li><code>ACQUIRE</code>: It will acquire the pointer passed as an argument, and free it later using <code>free()</code>, meaning it needs to have been allocated using <code>malloc()</code> in the first place.</li>
+</ul>
+<p>The <code>.mem4g()</code> constructor will return a sparse buffer that has a virtual 4GB span. It can be used to read and write data in the 4GB range, but will not actually allocate any memory until the data is actually written to. This is useful for doing operations that are similar to that of the PlayStation memory. The <code>.mem4g()</code> constructor will return a File object that's fully readable, writable, and seekable. Its size will always be 4GB. The returned object will have 3 additional methods:</p>
+<ul>
+<li><code>:lowestAddress()</code>: Returns the lowest address that has been written to.</li>
+<li><code>:highestAddress()</code>: Returns the highest address that has been written to.</li>
+<li><code>:actualSize()</code>: Returns the size of the buffer, which is the highest address minus the lowest address.</li>
+</ul>
+<p>This is a useful object to use with the <code>:subFile()</code> method, as it will allow you to create a view of a specific range of the 4GB memory. Specifically, <code>obj:subFile(obj:lowestAddress(), obj:actualSize())</code> will create a view of the entire memory that has been written to.</p>
+<h3 id="network-streams">Network streams</h3>
+<p>The <code>uvFifo</code> function will create a File object that will read from and write to the specified TCP address and port after connecting to it. The <code>:failed()</code> method will return true in case of a connection failure. The address is a string, and must be a strict IP address, no hostnames allowed. The port is a number between 1 and 65535 inclusive. As the name suggests, this object is a FIFO, meaning that incoming bytes will be consumed by any read operation. The <code>:size()</code> method will return the number of bytes in the FIFO. Writes will be immediately sent over. There are no reception guarantees, as the other side might have disconnected at any point. The <code>:eof()</code> method will return true when the opposite end of the stream has been disconnected and there's no more bytes in the FIFO. In addition to the normal <code>File</code> API, a <code>uvFifo</code> has a method called <code>:isConnecting()</code>, which returns a boolean indicating the fifo is still connecting, meaning it's possible to verify if the fifo has successfully connected using the boolean expression <code>not fifo:isConnecting() and not fifo:failed()</code>.</p>
+<h3 id="compressed-streams">Compressed streams</h3>
+<p>The <code>zReader</code> function will create a read-only File object which decompresses the data from the specified File object. The <code>file</code> argument is a File object, and the <code>size</code> argument is an optional number that will be used to determine the size of the decompressed data. If not specified, the resulting file won't be seekable, and its <code>:size()</code> method won't work, but the file will be readable until <code>:eof()</code> returns true. The <code>raw</code> argument is an optional string that needs to be equal to <code>'RAW'</code>, and will determine whether the data is compressed using the raw deflate format, or the zlib format. Any other string means the zlib format will be used.</p>
+<h2 id="iso-files">Iso files</h2>
+<p>There is a fairly complete API for working with ISO files. Two related topics have their own pages: creating new images from scratch is covered in <a href="../iso-builder/">Building ISO images</a>, and the patch generation mechanism behind the <code>:savePPF()</code> method below is covered in <a href="../ppf/">PPF patches</a>.</p>
+<ul>
+<li><code>PCSX.getCurrentIso()</code> will return an <code>Iso</code> object representing the currently loaded ISO file by the emulator.</li>
+<li><code>PCSX.openIso(pathOrFile)</code> will return an <code>Iso</code> object opened from the specified argument, which can either be a filesystem path, or a <code>File</code> object.</li>
+</ul>
+<p>The following methods are available on the <code>Iso</code> object:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">failed</span><span class="p">()</span>       <span class="c1">-- Returns true if the Iso file failed in some ways. The Iso object is defunct if this is true.</span>
+<span class="p">:</span><span class="n">createReader</span><span class="p">()</span> <span class="c1">-- Returns an ISOReader object off the Iso file.</span>
+<span class="p">:</span><span class="n">open</span><span class="p">(</span><span class="n">lba</span><span class="p">[,</span> <span class="n">size</span><span class="p">[,</span> <span class="n">mode</span><span class="p">]])</span> <span class="c1">-- Returns a File object off the specified span of sectors.</span>
+<span class="p">:</span><span class="n">clearPPF</span><span class="p">()</span>     <span class="c1">-- Clears out all of the currently applied patches.</span>
+<span class="p">:</span><span class="n">savePPF</span><span class="p">()</span>      <span class="c1">-- Saves the currently applied patches to a PPF file named after the ISO file.</span>
+<span class="p">:</span><span class="n">getTN</span><span class="p">()</span>        <span class="c1">-- Returns the number of tracks. An image without a track table reports 1.</span>
+<span class="p">:</span><span class="n">getTD</span><span class="p">(</span><span class="n">track</span><span class="p">)</span>   <span class="c1">-- Returns the start of the track as an MSF struct with m, s and f fields, as plain numbers. Track 0 returns the position past the last track, and a single track image or an out of range track returns 00:02:00.</span>
+</code></pre></div></td></tr></table></div>
+<p>The <code>:open</code> method has some magic built-in. The size argument is optional, and if missing, the code will attempt to guess the size of the underlying file within the Iso. It will represent the size of the virtual file in bytes. The size guessing mechanism can only work on MODE2 FORM1 or FORM2 sectors, and will result in a failed File object otherwise. The mode argument is optional, and can be one of the following:</p>
+<ul>
+<li><code>'GUESS'</code>: will attempt to guess the mode of the file. This is the default.</li>
+<li><code>'RAW'</code>: the returned File object will read 2352 bytes per sector.</li>
+<li><code>'M1'</code>: the returned File object will read 2048 bytes per sector.</li>
+<li><code>'M2_RAW'</code>: the returned File object will read 2336 bytes per sector. This can't be guessed. This is useful for extracting STR files that require the subheaders to be present.</li>
+<li><code>'M2_FORM1'</code>: the returned File object will read 2048 bytes per sector.</li>
+<li><code>'M2_FORM2'</code>: the returned File object will read 2324 bytes per sector.</li>
+</ul>
+<p>The resulting File object will cache a single full sector in memory, meaning that small sequential reads won't read the same sector over and over from the disk.</p>
+<p>The resulting File object will be writable, which will temporarily patch the CD-Rom image file in memory. It is possible to flush the patches to a PPF file by calling the <code>:savePPF()</code> method of the corresponding Iso object. When writing to one of these files, the filesystem metadata information will not be updated, meaning that the size of the file on the filesystem will not change, despite it being possible to write past the end of it and overflow on the next sectors. Note that while the virtual File object will enlarge to accommodate the writes, it will not be filled with zeroes as with typical filesystem operations, but instead will be filled with the existing data from the iso image. The written data is laid over the existing sector: only the part of the sector the mode exposes is replaced, and the rest, such as the sync header and location, is kept as it is on the image. ECC and EDC will be recalculated on the fly for files opened in <code>'M2_FORM1'</code> or <code>'M2_FORM2'</code> mode, including when that mode was guessed. In any other mode, including <code>'M1'</code>, they are not recalculated.</p>
+<p>The ISOReader object has the following methods:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="p">:</span><span class="n">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="c1">-- Returns a File object off the specified file within the ISO.</span>
+</code></pre></div></td></tr></table></div>
+<p>This method is basically a helper over the <code>:open()</code> method of the Iso object, and will automatically guess the mode and size of the file.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>

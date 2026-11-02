@@ -1,0 +1,1437 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://pcsx-redux.consoledev.net/Lua/playbook-localizing-bugs/">
+      
+      
+        <link rel="prev" href="../playbook-scripted-session/">
+      
+      
+        <link rel="next" href="../../openbios/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Playbook: finding where a bug lives - PCSX-Redux</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#playbook-finding-where-a-bug-lives" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PCSX-Redux" class="md-header__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PCSX-Redux
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Playbook: finding where a bug lives
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PCSX-Redux" class="md-nav__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    PCSX-Redux
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../menus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PCSX-Redux menus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../compiling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compiling PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli_flags/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Command Line Flags
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Debugging
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Debugging
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Debugging with PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gdb-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GDB server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/ghidra/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting Ghidra to PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/misc-features/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Misc Features
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/vram-viewer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    VRAM viewer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gpu-logger/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GPU Logger
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mips_api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Mips API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../web_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Web server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sio1_networking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SIO1 networking
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Lua
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Lua
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../libraries/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Loaded libraries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../redux-basics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Redux basic API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rendering/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Rendering
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../file-api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    File API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../iso-builder/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Building ISO images
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ppf/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PPF patches
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Webserver Lua API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory-and-registers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Memory and registers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../expansion-carts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Expansion carts in Lua
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Events
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../breakpoints/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Breakpoints
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../assembler/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Inline assembler
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../binary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Handling of PSX binaries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compression/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compression formats
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guest-calls/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Calling guest code
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../implot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Plots
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../case-studies/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Case studies
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playbook-scripted-session/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: scripting a game session
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Playbook: finding where a bug lives
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: finding where a bug lives
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#turning-the-debugger-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      Turning the debugger on
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#who-writes-this-variable" class="md-nav__link">
+    <span class="md-ellipsis">
+      Who writes this variable?
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-it-asking-the-bios" class="md-nav__link">
+    <span class="md-ellipsis">
+      What is it asking the BIOS?
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#following-the-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Following the code
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#taking-the-game-out-of-the-picture-gpu-dumps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Taking the game out of the picture: GPU dumps
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Taking the game out of the picture: GPU dumps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-worked-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      A worked example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../openbios/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Openbios
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#turning-the-debugger-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      Turning the debugger on
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#who-writes-this-variable" class="md-nav__link">
+    <span class="md-ellipsis">
+      Who writes this variable?
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-it-asking-the-bios" class="md-nav__link">
+    <span class="md-ellipsis">
+      What is it asking the BIOS?
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#following-the-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Following the code
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#taking-the-game-out-of-the-picture-gpu-dumps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Taking the game out of the picture: GPU dumps
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Taking the game out of the picture: GPU dumps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-worked-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      A worked example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="playbook-finding-where-a-bug-lives">Playbook: finding where a bug lives</h1>
+<p>When a game misbehaves in the emulator, the first question is where the problem is: in the game's own code doing something unexpected, in the CPU emulation, in the GPU, or somewhere else entirely. This page goes through the tools that answer that question from Lua: breakpoints to see what the game's code is doing, and GPU dumps to take the game out of the equation altogether. It builds on the scripted session from the <a href="../playbook-scripted-session/">previous playbook</a>, and the examples were run against Crash Bandicoot (USA) on its title menu.</p>
+<h2 id="turning-the-debugger-on">Turning the debugger on</h2>
+<p><a href="../breakpoints/">Breakpoints</a> are only evaluated when the debugger is enabled, and the ones triggered by the CPU only work with the interpreter: the dynarec doesn't check them. So any run using them needs both flags:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>pcsx-redux -testmode -stdout -lua_stdout -bios scph5501.bin -iso &quot;Crash Bandicoot (USA).cue&quot; -run -debugger -interpreter -dofile debug.lua
+</code></pre></div></td></tr></table></div>
+<p>The interpreter is a lot slower than the dynarec, but a scripted session doesn't care, since its schedule is counted in emulated frames.</p>
+<h2 id="who-writes-this-variable">Who writes this variable?</h2>
+<p>Diffing two RAM dumps, as shown in the previous playbook, gives candidate addresses. On Crash's title menu, the word at <code>0x800549f0</code> goes up by one on every frame. The next question is which code writes it, and a write breakpoint answers it. Here it's set from the vsync listener once the game has reached the menu, so that it doesn't fire during boot:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">frame</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">vsyncListener</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">Events</span><span class="p">.</span><span class="n">createEventListener</span><span class="p">(</span><span class="s1">&#39;GPU::Vsync&#39;</span><span class="p">,</span> <span class="kr">function</span><span class="p">()</span>
+    <span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="kr">if</span> <span class="n">frame</span> <span class="o">==</span> <span class="mi">3600</span> <span class="kr">then</span>
+        <span class="n">writerBp</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">addBreakpoint</span><span class="p">(</span><span class="mh">0x800549f0</span><span class="p">,</span> <span class="s1">&#39;Write&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="s1">&#39;who writes the counter&#39;</span><span class="p">,</span> <span class="kr">function</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">width</span><span class="p">)</span>
+            <span class="kd">local</span> <span class="n">r</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">getRegisters</span><span class="p">()</span>
+            <span class="nb">print</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s1">&#39;write to %08x (%d bytes) by pc=%08x ra=%08x&#39;</span><span class="p">,</span> <span class="n">address</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">r</span><span class="p">.</span><span class="n">pc</span><span class="p">,</span> <span class="n">r</span><span class="p">.</span><span class="n">GPR</span><span class="p">.</span><span class="n">n</span><span class="p">.</span><span class="n">ra</span><span class="p">))</span>
+            <span class="kr">return</span> <span class="kc">false</span>
+        <span class="kr">end</span><span class="p">)</span>
+    <span class="kr">end</span>
+<span class="kr">end</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<p>Which prints:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>write to 800549f0 (4 bytes) by pc=8003eed8 ra=8004b844
+</code></pre></div></td></tr></table></div>
+<p><code>pc</code> is the store instruction, and <code>ra</code> usually points back into the function's caller, which is the next place to look in the assembly view or in a disassembler. Returning <code>false</code> from the callback removes the breakpoint after its first hit; returning <code>true</code> keeps it, and the callback then runs on every write. The callback doesn't pause the emulator unless it calls <code>PCSX.pauseEmulator()</code> itself, so a script keeps running through the hits.</p>
+<h2 id="what-is-it-asking-the-bios">What is it asking the BIOS?</h2>
+<p>Games call the BIOS through three entry points, at <code>0xa0</code>, <code>0xb0</code> and <code>0xc0</code>, with the function number in register <code>t1</code>. Execution breakpoints on these three addresses log every BIOS call, along with who made it and its first arguments:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">kernelBps</span> <span class="o">=</span> <span class="p">{}</span>
+
+<span class="kd">local</span> <span class="kr">function</span> <span class="nf">logKernelCalls</span><span class="p">()</span>
+    <span class="kr">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">entry</span> <span class="kr">in</span> <span class="nb">ipairs</span><span class="p">({</span> <span class="mh">0xa0</span><span class="p">,</span> <span class="mh">0xb0</span><span class="p">,</span> <span class="mh">0xc0</span> <span class="p">})</span> <span class="kr">do</span>
+        <span class="n">kernelBps</span><span class="p">[</span><span class="o">#</span><span class="n">kernelBps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">addBreakpoint</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="s1">&#39;Exec&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="s1">&#39;kernel call&#39;</span><span class="p">,</span> <span class="kr">function</span><span class="p">()</span>
+            <span class="kd">local</span> <span class="n">r</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">getRegisters</span><span class="p">().</span><span class="n">GPR</span><span class="p">.</span><span class="n">n</span>
+            <span class="nb">print</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s1">&#39;%02X(%02x) from %08x a0=%08x a1=%08x&#39;</span><span class="p">,</span> <span class="n">entry</span><span class="p">,</span> <span class="n">bit</span><span class="p">.</span><span class="n">band</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">t1</span><span class="p">,</span> <span class="mh">0xff</span><span class="p">),</span> <span class="n">r</span><span class="p">.</span><span class="n">ra</span><span class="p">,</span> <span class="n">r</span><span class="p">.</span><span class="n">a0</span><span class="p">,</span> <span class="n">r</span><span class="p">.</span><span class="n">a1</span><span class="p">))</span>
+            <span class="kr">return</span> <span class="kc">true</span>
+        <span class="kr">end</span><span class="p">)</span>
+    <span class="kr">end</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span> <span class="kr">function</span> <span class="nf">stopKernelCalls</span><span class="p">()</span>
+    <span class="kr">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">bp</span> <span class="kr">in</span> <span class="nb">ipairs</span><span class="p">(</span><span class="n">kernelBps</span><span class="p">)</span> <span class="kr">do</span> <span class="n">bp</span><span class="p">:</span><span class="n">remove</span><span class="p">()</span> <span class="kr">end</span>
+    <span class="n">kernelBps</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="kr">end</span>
+</code></pre></div></td></tr></table></div>
+<p>Calling <code>logKernelCalls()</code> at frame 3500 and <code>stopKernelCalls()</code> ten frames later gives lines such as:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span></pre></div></td><td class="code"><div><pre><span></span><code>B0(17) from 8003eb2c a0=00000040 a1=1f801070
+A0(2a) from 80040e98 a0=80054ad8 a1=8005a49c
+B0(16) from 8003e470 a0=00000000 a1=00000000
+</code></pre></div></td></tr></table></div>
+<p>The function numbers can be looked up in the BIOS function list of <a href="https://psx-spx.consoledev.net/">psx-spx</a>. Keep the window short, as every call prints a line.</p>
+<h2 id="following-the-code">Following the code</h2>
+<p>An execution breakpoint can also cover a whole range. One spanning the 2MB of RAM fires on every instruction, which makes a trace of everything the CPU runs. It's slow, so arm it at the point of interest, and remove it as soon as it has seen enough:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">traceBp</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">addBreakpoint</span><span class="p">(</span><span class="mh">0x80000000</span><span class="p">,</span> <span class="s1">&#39;Exec&#39;</span><span class="p">,</span> <span class="mh">0x200000</span><span class="p">,</span> <span class="s1">&#39;trace&#39;</span><span class="p">,</span> <span class="kr">function</span><span class="p">(</span><span class="n">address</span><span class="p">)</span>
+    <span class="kd">local</span> <span class="n">r</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">getRegisters</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s1">&#39;%08x ra=%08x v0=%08x&#39;</span><span class="p">,</span> <span class="n">address</span><span class="p">,</span> <span class="n">r</span><span class="p">.</span><span class="n">GPR</span><span class="p">.</span><span class="n">n</span><span class="p">.</span><span class="n">ra</span><span class="p">,</span> <span class="n">r</span><span class="p">.</span><span class="n">GPR</span><span class="p">.</span><span class="n">n</span><span class="p">.</span><span class="n">v0</span><span class="p">))</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="n">count</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="kr">return</span> <span class="n">count</span> <span class="o">&lt;</span> <span class="mi">1000</span>
+<span class="kr">end</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<p>This is the tool for questions such as "which path does the code take after this write", or "what runs between this exception and the return from it".</p>
+<h2 id="taking-the-game-out-of-the-picture-gpu-dumps">Taking the game out of the picture: GPU dumps</h2>
+<p>When the problem is on the screen, the question becomes whether the game sent the GPU the wrong commands, or whether the GPU emulation drew the right commands wrong. A GPU dump settles it. It records everything the GPU receives, starting from a snapshot of its state, so the same frames can later be replayed without the game, the CPU or the rest of the machine:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1">-- in the vsync listener, at the frames of interest</span>
+<span class="kr">if</span> <span class="n">frame</span> <span class="o">==</span> <span class="mi">3600</span> <span class="kr">then</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">GPU</span><span class="p">.</span><span class="n">startDump</span><span class="p">(</span><span class="s1">&#39;title.gpd&#39;</span><span class="p">)</span> <span class="kr">end</span>
+<span class="kr">if</span> <span class="n">frame</span> <span class="o">==</span> <span class="mi">3604</span> <span class="kr">then</span>
+    <span class="n">PCSX</span><span class="p">.</span><span class="n">GPU</span><span class="p">.</span><span class="n">stopDump</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;dumped frames: &#39;</span> <span class="o">..</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">GPU</span><span class="p">.</span><span class="n">getDumpFrames</span><span class="p">())</span>
+<span class="kr">end</span>
+</code></pre></div></td></tr></table></div>
+<p>The recording begins at the next vsync after <code>startDump</code>, so the example above records 3 complete frames. The dump can then be replayed by the dump player, which runs its own GPU, separate from the emulator's:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span>
+<span class="normal">8</span>
+<span class="normal">9</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">player</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">GPU</span><span class="p">.</span><span class="n">DumpPlayer</span>
+<span class="n">player</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;title.gpd&#39;</span><span class="p">)</span>
+<span class="kr">while</span> <span class="n">player</span><span class="p">.</span><span class="n">step</span><span class="p">()</span> <span class="kr">do</span> <span class="kr">end</span>      <span class="c1">-- one frame per step, false at the end of the dump</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;replayed up to frame &#39;</span> <span class="o">..</span> <span class="n">player</span><span class="p">.</span><span class="n">getFrame</span><span class="p">())</span>
+
+<span class="kd">local</span> <span class="n">out</span> <span class="o">=</span> <span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;replay.vram&#39;</span><span class="p">,</span> <span class="s1">&#39;TRUNCATE&#39;</span><span class="p">)</span>
+<span class="n">out</span><span class="p">:</span><span class="n">writeMoveSlice</span><span class="p">(</span><span class="n">player</span><span class="p">.</span><span class="n">getVRAM</span><span class="p">())</span>   <span class="c1">-- 16bpp, 1024 pixels per row</span>
+<span class="n">out</span><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+<span class="n">player</span><span class="p">.</span><span class="n">unload</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div>
+<p><code>PCSX.GPU.getVRAM()</code> returns the emulator's own VRAM in the same layout. On the Crash title menu, replaying the dump gives back the displayed frame byte for byte. Other areas of VRAM, such as textures, can differ, depending on what was uploaded around the moment the dump stopped, so comparing the display area is what tells whether the replay reproduces the picture.</p>
+<p>From there, the dump is a self-contained test case:</p>
+<ul>
+<li>If the replay shows the problem, the GPU received commands that produce it. Replaying the same file through a build with a candidate fix, and comparing the VRAM, tells whether the fix works, without ever booting the game again.</li>
+<li>If the replay looks right while the game looks wrong, the problem is elsewhere, on the CPU side or in timing.</li>
+<li>The commands themselves are in the file, so the geometry the game sent can be drawn separately, to check whether it was already broken before reaching the GPU.</li>
+</ul>
+<h3 id="a-worked-example">A worked example</h3>
+<p>This is how the torn spider and web in MediEvil's graveyard (<a href="https://github.com/pcsx-redux/pcsx-redux/issues/2012">issue #2012</a>) were tracked down. A scripted session played the game to the right frames and dumped them. Drawing the polygons from the dump as a wireframe showed intact geometry, so the game was sending correct data. Replaying the same dump in the emulator reproduced the shards, which put the problem in the GPU's command parsing. The log was also printing <code>Got an invalid line command</code>, and the culprit turned out to be a polyline whose very first word looked like the end-of-polyline marker. With the parsing fixed, the same dump replayed cleanly, and both the interpreter and the dynarec had torn identically before, which ruled the CPU out.</p>
+<p>That log line is a cheap first check when geometry looks torn: any <code>Got an invalid line command</code> message means the emulated GPU desynchronized from the command stream, and the vertices themselves may well be fine.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>

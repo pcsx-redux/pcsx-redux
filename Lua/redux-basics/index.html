@@ -1,0 +1,1913 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://pcsx-redux.consoledev.net/Lua/redux-basics/">
+      
+      
+        <link rel="prev" href="../libraries/">
+      
+      
+        <link rel="next" href="../rendering/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Redux basic API - PCSX-Redux</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#redux-basic-api" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PCSX-Redux" class="md-header__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PCSX-Redux
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Redux basic API
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PCSX-Redux" class="md-nav__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    PCSX-Redux
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../menus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PCSX-Redux menus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../compiling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compiling PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli_flags/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Command Line Flags
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Debugging
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Debugging
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Debugging with PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gdb-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GDB server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/ghidra/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting Ghidra to PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/misc-features/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Misc Features
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/vram-viewer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    VRAM viewer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gpu-logger/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GPU Logger
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mips_api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Mips API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../web_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Web server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sio1_networking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SIO1 networking
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Lua
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Lua
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../libraries/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Loaded libraries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Redux basic API
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Redux basic API
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Settings
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#imgui-interaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      ImGui interaction
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#events-engine-interaction-execution-contexts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Events Engine interaction &amp; Execution Contexts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      Constants
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pads" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pads
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execution-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Execution flow
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Execution flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-memory-snapshots-and-rewind" class="md-nav__link">
+    <span class="md-ellipsis">
+      In-memory snapshots and rewind
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Messages
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      GUI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      GPU
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spu" class="md-nav__link">
+    <span class="md-ellipsis">
+      SPU
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SPU">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spu-logger" class="md-nav__link">
+    <span class="md-ellipsis">
+      SPU logger
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-trace" class="md-nav__link">
+    <span class="md-ellipsis">
+      CPU trace
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#disc-and-lid" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disc and lid
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading-and-executing-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading and executing code
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#miscellaneous" class="md-nav__link">
+    <span class="md-ellipsis">
+      Miscellaneous
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rendering/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Rendering
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../file-api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    File API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../iso-builder/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Building ISO images
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ppf/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PPF patches
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Webserver Lua API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory-and-registers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Memory and registers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../expansion-carts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Expansion carts in Lua
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Events
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../breakpoints/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Breakpoints
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../assembler/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Inline assembler
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../binary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Handling of PSX binaries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compression/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compression formats
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guest-calls/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Calling guest code
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../implot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Plots
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../case-studies/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Case studies
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playbook-scripted-session/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: scripting a game session
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playbook-localizing-bugs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: finding where a bug lives
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../openbios/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Openbios
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Settings
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#imgui-interaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      ImGui interaction
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#events-engine-interaction-execution-contexts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Events Engine interaction &amp; Execution Contexts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      Constants
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pads" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pads
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execution-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Execution flow
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Execution flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-memory-snapshots-and-rewind" class="md-nav__link">
+    <span class="md-ellipsis">
+      In-memory snapshots and rewind
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Messages
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      GUI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      GPU
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spu" class="md-nav__link">
+    <span class="md-ellipsis">
+      SPU
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SPU">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spu-logger" class="md-nav__link">
+    <span class="md-ellipsis">
+      SPU logger
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-trace" class="md-nav__link">
+    <span class="md-ellipsis">
+      CPU trace
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#disc-and-lid" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disc and lid
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading-and-executing-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading and executing code
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#miscellaneous" class="md-nav__link">
+    <span class="md-ellipsis">
+      Miscellaneous
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="redux-basic-api">Redux basic API</h1>
+<h2 id="settings">Settings</h2>
+<p>All of the settings are exposed to Lua via the <code>PCSX.settings</code> table. It contains pseudo-tables that are reflections of the internal objects, and can be used to read and write the settings. The exact list of settings can vary quickly over time, so making a full list here would be fruitless. It is possible however to traverse the settings using <code>pprint</code> for example. The semantic of the settings is the same as from within the GUI, with the same caveats. For example, disabling the dynamic recompiler requires a reboot of the emulator.</p>
+<h2 id="imgui-interaction">ImGui interaction</h2>
+<p>PCSX-Redux will periodically try to call the Lua function <code>DrawImguiFrame</code> to allow the Lua code to draw some widgets on screen. The function will be called exactly once per actual UI frame draw, which, when the emulator is running, will correspond to the emulated GPU's vsync. If the function throws an exception however, it will be disabled until recompiled with new code.</p>
+<h2 id="events-engine-interaction-execution-contexts">Events Engine interaction &amp; Execution Contexts</h2>
+<p>LuaJIT C callbacks aren't called from a safe execution context that can allow for coroutine resuming, and luv's execution context doesn't have any error handling.</p>
+<p>It is possible to defer executing code to the main loop of PCSX-Redux, which can (a) resume coroutines and (b) execute code in a safe context. The function <code>PCSX.nextTick(func)</code> will execute the given function in the next main loop iteration. Here's some examples of how to use it:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span></pre></div></td><td class="code"><div><pre><span></span><code>    <span class="kd">local</span> <span class="n">captures</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">captures</span><span class="p">.</span><span class="n">current</span> <span class="o">=</span> <span class="nb">coroutine.running</span><span class="p">()</span>
+    <span class="n">captures</span><span class="p">.</span><span class="n">callback</span> <span class="o">=</span> <span class="kr">function</span><span class="p">()</span>
+        <span class="n">PCSX</span><span class="p">.</span><span class="n">nextTick</span><span class="p">(</span><span class="kr">function</span><span class="p">()</span>
+            <span class="n">captures</span><span class="p">.</span><span class="n">callback</span><span class="p">:</span><span class="n">free</span><span class="p">()</span>
+            <span class="nb">coroutine.resume</span><span class="p">(</span><span class="n">captures</span><span class="p">.</span><span class="n">current</span><span class="p">)</span>
+        <span class="kr">end</span><span class="p">)</span>
+    <span class="kr">end</span>
+    <span class="n">captures</span><span class="p">.</span><span class="n">callback</span> <span class="o">=</span> <span class="n">ffi</span><span class="p">.</span><span class="n">cast</span><span class="p">(</span><span class="s1">&#39;void (*)()&#39;</span><span class="p">,</span> <span class="n">captures</span><span class="p">.</span><span class="n">callback</span><span class="p">)</span>
+    <span class="c1">-- use the C callback somewhere...</span>
+</code></pre></div></td></tr></table></div>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kr">function</span> <span class="nf">createClient</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">port</span><span class="p">)</span>
+  <span class="n">client</span> <span class="o">=</span> <span class="n">luv</span><span class="p">.</span><span class="n">new_tcp</span><span class="p">()</span>
+
+  <span class="n">luv</span><span class="p">.</span><span class="n">tcp_connect</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">ip</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="kr">function</span> <span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="n">PCSX</span><span class="p">.</span><span class="n">nextTick</span><span class="p">(</span><span class="kr">function</span><span class="p">()</span>
+      <span class="nb">assert</span><span class="p">(</span><span class="ow">not</span> <span class="n">err</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+
+      <span class="n">luv</span><span class="p">.</span><span class="n">read_start</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="kr">function</span> <span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="n">chunk</span><span class="p">)</span>
+        <span class="n">PCSX</span><span class="p">.</span><span class="n">nextTick</span><span class="p">(</span><span class="kr">function</span><span class="p">()</span>
+          <span class="n">pprint</span><span class="p">(</span><span class="s2">&quot;received at client&quot;</span><span class="p">,</span> <span class="p">{</span><span class="n">err</span><span class="o">=</span><span class="n">err</span><span class="p">,</span> <span class="n">chunk</span><span class="o">=</span><span class="n">chunk</span><span class="p">})</span>
+          <span class="nb">assert</span><span class="p">(</span><span class="ow">not</span> <span class="n">err</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+          <span class="kr">if</span> <span class="n">chunk</span> <span class="kr">then</span>
+            <span class="c1">-- do something with the client</span>
+          <span class="kr">else</span>
+            <span class="n">luv</span><span class="p">.</span><span class="n">close</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+          <span class="kr">end</span>
+        <span class="kr">end</span><span class="p">)</span>
+      <span class="kr">end</span><span class="p">)</span>
+
+      <span class="n">pprint</span><span class="p">(</span><span class="s2">&quot;writing from client&quot;</span><span class="p">)</span>
+      <span class="n">luv</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;Hello&quot;</span><span class="p">)</span>
+      <span class="n">luv</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;World&quot;</span><span class="p">)</span>
+
+    <span class="kr">end</span><span class="p">)</span>
+  <span class="kr">end</span><span class="p">)</span>
+  <span class="kr">return</span> <span class="n">client</span>
+<span class="kr">end</span>
+</code></pre></div></td></tr></table></div>
+<p>Of course, this can also delay processing significantly, as the main loop is usually bound to the speed of the UI, which can mean up to 20ms of delay.</p>
+<h2 id="constants">Constants</h2>
+<p>The table <code>PCSX.CONSTS</code> contains numerical constants used throughout the rest of the API. Keeping an up to date list here is too exhausting, and it's simpler to print them using <code>pprint(PCSX.CONSTS)</code>.</p>
+<h2 id="pads">Pads</h2>
+<p>You can access the pads API through <code>PCSX.SIO0.slots[s].pads[p]</code> where <code>s</code> is the slot number and <code>p</code> is the pad number, both indexed from 1, Lua-style. So <code>PCSX.SIO0.slots[1].pads[1]</code> accesses the first pad, and <code>PCSX.SIO0.slots[2].pads[1]</code> accesses the second pad.</p>
+<p>Each Pad table has the following functions:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="n">getButton</span><span class="p">(</span><span class="n">button</span><span class="p">)</span>     <span class="c1">-- Returns true if the specified button is pressed.</span>
+<span class="n">setOverride</span><span class="p">(</span><span class="n">button</span><span class="p">)</span>   <span class="c1">-- Overrides the specified button.</span>
+<span class="n">clearOverride</span><span class="p">(</span><span class="n">button</span><span class="p">)</span> <span class="c1">-- Clears the override for the specified button.</span>
+<span class="n">setAnalogMode</span><span class="p">(</span><span class="n">bool</span><span class="p">)</span>   <span class="c1">-- Sets or clears the analog mode of this pad.</span>
+<span class="n">map</span><span class="p">()</span>                 <span class="c1">-- Forces the pad to be remapped. Useful after changing pad settings.</span>
+</code></pre></div></td></tr></table></div>
+<p>The button constants can be found in <code>PCSX.CONSTS.PAD.BUTTON</code>.</p>
+<p>You can for instance press the button Down on the first pad using the following code:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="n">PCSX</span><span class="p">.</span><span class="n">SIO0</span><span class="p">.</span><span class="n">slots</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">pads</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">setOverride</span><span class="p">(</span><span class="n">PCSX</span><span class="p">.</span><span class="n">CONSTS</span><span class="p">.</span><span class="n">PAD</span><span class="p">.</span><span class="n">BUTTON</span><span class="p">.</span><span class="n">DOWN</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<h2 id="execution-flow">Execution flow</h2>
+<p>The Lua code has the following API functions available to it in order to control the execution flow of the emulator:</p>
+<ul>
+<li><code>PCSX.pauseEmulator()</code></li>
+<li><code>PCSX.resumeEmulator()</code></li>
+<li><code>PCSX.softResetEmulator()</code></li>
+<li><code>PCSX.hardResetEmulator()</code></li>
+</ul>
+<p>It's also possible to manipulate savestates using the following functions:</p>
+<ul>
+<li><code>PCSX.createSaveState()    -- returns a slice representing the savestate</code></li>
+<li><code>PCSX.loadSaveState(slice)</code></li>
+<li><code>PCSX.loadSaveState(file)</code></li>
+</ul>
+<p>When called while the emulated CPU is running, for instance from a <code>GPU::Vsync</code> listener or a breakpoint callback, <code>PCSX.loadSaveState</code> doesn't load the state right away. The current CPU step finishes against the old state, and the load happens as soon as the CPU loop returns, before any further instruction is executed. Listen to the <code>ExecutionFlow::SaveStateLoaded</code> event to know when it happened. When the emulator is paused, the load is immediate.</p>
+<p>Additionally, the following function returns a string containing the .proto file used to serialize the savestate:</p>
+<ul>
+<li><code>PCSX.getSaveStateProtoSchema()</code></li>
+</ul>
+<p>Note that the actual savestates made from the UI are gzip-compressed, but the functions above don't compress or decompress the data, so if trying to reload a savestate made from the UI, it'll need to be decompressed first, possibly through the zReader File object.</p>
+<p>Overall, this means the following is possible:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span>
+<span class="normal">8</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">compiler</span> <span class="o">=</span> <span class="nb">require</span><span class="p">(</span><span class="s1">&#39;protoc&#39;</span><span class="p">).</span><span class="n">new</span><span class="p">()</span>
+<span class="kd">local</span> <span class="n">pb</span> <span class="o">=</span> <span class="nb">require</span><span class="p">(</span><span class="s1">&#39;pb&#39;</span><span class="p">)</span>
+
+<span class="kd">local</span> <span class="n">state</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">createSaveState</span><span class="p">()</span>
+<span class="n">compiler</span><span class="p">:</span><span class="nb">load</span><span class="p">(</span><span class="n">PCSX</span><span class="p">.</span><span class="n">getSaveStateProtoSchema</span><span class="p">())</span>
+
+<span class="kd">local</span> <span class="n">decodedState</span> <span class="o">=</span> <span class="n">pb</span><span class="p">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;SaveState&#39;</span><span class="p">,</span> <span class="n">Support</span><span class="p">.</span><span class="n">sliceToPBSlice</span><span class="p">(</span><span class="n">state</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s1">&#39;%08x&#39;</span><span class="p">,</span> <span class="n">decodedState</span><span class="p">.</span><span class="n">registers</span><span class="p">.</span><span class="n">pc</span><span class="p">))</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="in-memory-snapshots-and-rewind">In-memory snapshots and rewind</h3>
+<p>Serializing a savestate to a slice is slow when it needs to be done thousands of times. For a harness which snapshots and rolls back repeatedly, there is a single in-memory snapshot slot:</p>
+<ul>
+<li><code>PCSX.captureState()</code> stores the whole machine in the slot, replacing what was there. It is an error to call it while a <code>restoreState()</code> is still waiting to be applied.</li>
+<li><code>PCSX.restoreState()</code> brings the slot back. It is an error to call it before <code>captureState()</code> has filled the slot. As with <code>PCSX.loadSaveState</code>, when called from a listener or a breakpoint callback, the restore is applied by the main loop once the CPU loop has returned; otherwise it is immediate.</li>
+</ul>
+<p>The emulator also has a rewind ring, which keeps the most recent snapshots. It is filled automatically every N frames when the rewind interval setting is not zero, up to the configured number of snapshots, and by the following functions:</p>
+<ul>
+<li><code>PCSX.createRewindState()</code> pushes a snapshot onto the ring. When called from inside the emulation, the snapshot is taken at the end of the current CPU branch test, so restoring it later doesn't skip any of the work of that step.</li>
+<li><code>PCSX.rewindState()</code> restores the most recent snapshot, and removes it from the ring, so successive calls walk further into the past. It returns <code>false</code> if the ring is empty, and <code>true</code> otherwise. From inside the emulation, the rewind is queued and applied by the main loop, like <code>PCSX.restoreState()</code>.</li>
+<li><code>PCSX.getRewindStateCount()</code> returns how many snapshots can still be rewound to, not counting the ones already claimed by queued rewinds.</li>
+</ul>
+<p>For calling a function of the running program and getting its result back without leaving a trace on the machine, see <a href="../guest-calls/">Calling guest code</a>.</p>
+<h2 id="messages">Messages</h2>
+<p>The globals <code>print</code> and <code>printError</code> are available, and will display logs in the Lua Console. You can also use <code>PCSX.log</code> to display a line in the general Log window. All three functions should behave the way you'd expect from the normal <code>print</code> function in mainstream Lua.</p>
+<h2 id="gui">GUI</h2>
+<p>You can move the cursor within the assembly window and the first memory view using the following functions:</p>
+<ul>
+<li><code>PCSX.GUI.jumpToPC(pc)</code></li>
+<li><code>PCSX.GUI.jumpToMemory(address[, width])</code></li>
+</ul>
+<p>When drawing over an image with ImGui, <code>PCSX.Helpers.UI.imageCoordinates(x, y, w, h, imageW, imageH)</code> converts a point of a <code>w</code> by <code>h</code> source image, displayed at <code>imageW</code> by <code>imageH</code> pixels, into absolute screen coordinates. It reads the ImGui cursor position at the time of the call, so call it before drawing the image, while the cursor is still at the image's top left corner.</p>
+<h2 id="gpu">GPU</h2>
+<p>You can take a screenshot of the current view of the emulated display using the following:</p>
+<ul>
+<li><code>PCSX.GPU.takeScreenShot()</code></li>
+</ul>
+<p>This will return a struct that has the following fields:
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">ScreenShot</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">Slice</span><span class="w"> </span><span class="n">data</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">width</span><span class="p">,</span><span class="w"> </span><span class="n">height</span><span class="p">;</span>
+<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">BPP_16</span><span class="p">,</span><span class="w"> </span><span class="n">BPP_24</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="n">bpp</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre></div></td></tr></table></div></p>
+<p>The <code>Slice</code> will contain the raw bytes of the screenshot data. It's meant to be written out using the <code>:writeMoveSlice()</code> method on a <code>File</code> object. The <code>width</code> and <code>height</code> will be the width and height of the screenshot, in pixels. The <code>bpp</code> will be either <code>BPP_16</code> or <code>BPP_24</code>, depending on the color depth of the screenshot. The size of the <code>data</code> Slice will be <code>height * width</code> multiplied by the number of bytes per pixel, depending on the <code>bpp</code>.</p>
+<p>You can also get the framerate of the emulated game using the following:</p>
+<ul>
+<li><code>PCSX.GPU.getGuestFPS()</code></li>
+</ul>
+<p>This will return a number, which is how many times the game moved the display start area per second of emulated vsyncs. As games flip their buffers by moving the display start area, this is the framerate of the game itself, as opposed to the framerate of the UI. The value is updated once every 50 or 60 emulated vsyncs, depending on the video mode. Games which keep displaying the same buffer, such as single buffered games, will read 0. The exception is 480i: when the display start doesn't move over the counting window, the value counts instead the vsyncs in which the game writes a drawing area or offset after sending primitives, at most one per vsync.</p>
+<p>The GPU logger can be driven from Lua too:</p>
+<ul>
+<li><code>PCSX.GPU.setLogging(enabled[, overdrawStats])</code> turns the logger on or off. <code>overdrawStats</code> defaults to false, and enables the per-frame overdraw statistics below, which cost a readback of the heatmaps once per frame.</li>
+<li><code>PCSX.GPU.getOverdrawStats([read])</code> returns <code>nil</code> until a frame has produced statistics. Otherwise it returns a table for the last complete frame, about the pixels written (or, with <code>read</code> true, read) by drawing commands: <code>total</code> (sum of the touch counts), <code>pixels</code> (how many distinct pixels were touched), <code>max</code>, <code>mean</code>, and <code>buckets</code>, five counts of the pixels touched 1, 2, 3-4, 5-8, and 9 or more times.</li>
+<li><code>PCSX.GPU.getOverdrawSum(read, x, y, w, h)</code> returns the sum of the touch counts over a VRAM rectangle, clamped to the 1024 by 1024 pixel area, from the same frame. It returns 0 when there are no statistics.</li>
+<li><code>PCSX.GPU.getVRAM()</code> returns the emulated VRAM as a <code>Slice</code>. Dumping and replaying commands is covered in <a href="../playbook-localizing-bugs/">Localizing bugs</a>.</li>
+</ul>
+<h2 id="spu">SPU</h2>
+<p>You can play audio from memory through the emulator's audio output using the following:</p>
+<ul>
+<li><code>PCSX.SPU.playAudio(source, descriptor)</code></li>
+</ul>
+<p>The <code>source</code> can be a string, a LuaBuffer, a <a href="../file-api/"><code>File</code> object</a>, or a <code>Slice</code>. A <code>File</code> is read entirely, without moving its read cursor. The data is copied or decoded before the function returns. The playback is independent of the emulated SPU, and happens whether the emulation is running or paused. The Mute setting also applies to it.</p>
+<p>The <code>descriptor</code> is a table which describes the format of the data. Its <code>format</code> field is mandatory, and can be one of <code>'pcm'</code>, <code>'spu'</code>, or <code>'xa'</code>. All formats accept an optional <code>gain</code> field, which is a non-negative number defaulting to 1.0. Any other field that isn't listed below for the given format is an error.</p>
+<ul>
+<li><code>'pcm'</code>: raw interleaved little endian samples. The data size needs to be a multiple of the frame size.<ul>
+<li><code>bits</code>: mandatory, 8 or 16.</li>
+<li><code>channels</code>: mandatory, 1 or 2.</li>
+<li><code>rate</code>: mandatory, the sample rate in Hz, between 1 and 384000.</li>
+<li><code>signed</code>: optional boolean, defaults to true for 16 bits, and false for 8 bits. 16 bits samples have to be signed.</li>
+</ul>
+</li>
+<li>
+<p><code>'spu'</code>: a sequence of 16-byte SPU-ADPCM blocks, mono. The data size needs to be a multiple of 16 bytes. Exactly one of these two fields is mandatory:</p>
+<ul>
+<li><code>rate</code>: the sample rate in Hz, between 1 and 176400.</li>
+<li><code>pitch</code>: the SPU pitch value, between 1 and 0x4000, where 0x1000 is 44100Hz.</li>
+</ul>
+<p>The loop flags of the blocks are followed: the playback stops at a block with the loop end flag without the repeat flag, and jumps back to the last loop start block at a block with both the loop end and repeat flags. A single silent block looping onto itself ends the playback, as it is the usual terminator of a one-shot sample.
+- <code>'xa'</code>: XA-ADPCM data.
+- <code>sectors</code>: optional boolean, defaults to false.
+- When <code>sectors</code> is false, the data is a sequence of 128-byte sound groups, and these fields are mandatory:
+    - <code>bits</code>: 4 or 8.
+    - <code>channels</code>: 1 or 2.
+    - <code>rate</code>: 37800 or 18900.
+- When <code>sectors</code> is true, the data is a sequence of 2352-byte raw sectors starting with the CD sync pattern, or of 2336-byte sectors starting at the subheader. Only the audio sectors are played, and the format is read from their subheaders, so <code>bits</code>, <code>channels</code>, and <code>rate</code> are an error. These fields are optional, and only valid in this mode:
+    - <code>xaFile</code>: only play the sectors with this file number, between 0 and 255.
+    - <code>xaChannel</code>: only play the sectors with this channel number, between 0 and 255.</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>Without these fields, only the file and channel of the first audio sector are played, since XA files usually interleave several streams. All the played sectors need to have the same format.
+</code></pre></div></td></tr></table></div>
+</li>
+</ul>
+<p>The function will throw an error if the descriptor or the data are invalid, or if no audio device is available. Otherwise, it will return a sound object, which has the following methods:</p>
+<ul>
+<li><code>:stop()</code> stops the playback.</li>
+<li><code>:isPlaying()</code> returns true until the playback has finished or has been stopped.</li>
+<li><code>:setGain(gain)</code> changes the gain, which is a non-negative number.</li>
+</ul>
+<p>The sound object owns the playback: the sound stops when the object is garbage collected, so it needs to be kept around for as long as the sound should play.</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span>
+<span class="normal">8</span>
+<span class="normal">9</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1">-- One second of a 440Hz sine wave, as 16 bits mono samples.</span>
+<span class="kd">local</span> <span class="n">samples</span> <span class="o">=</span> <span class="n">ffi</span><span class="p">.</span><span class="n">new</span><span class="p">(</span><span class="s1">&#39;int16_t[44100]&#39;</span><span class="p">)</span>
+<span class="kr">for</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">44099</span> <span class="kr">do</span> <span class="n">samples</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">8000</span> <span class="o">*</span> <span class="nb">math.sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="nb">math.pi</span> <span class="o">*</span> <span class="mi">440</span> <span class="o">*</span> <span class="n">i</span> <span class="o">/</span> <span class="mi">44100</span><span class="p">)</span> <span class="kr">end</span>
+<span class="n">beep</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">SPU</span><span class="p">.</span><span class="n">playAudio</span><span class="p">(</span><span class="n">ffi</span><span class="p">.</span><span class="n">string</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="mi">44100</span> <span class="o">*</span> <span class="mi">2</span><span class="p">),</span> <span class="p">{</span> <span class="n">format</span> <span class="o">=</span> <span class="s1">&#39;pcm&#39;</span><span class="p">,</span> <span class="n">bits</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span> <span class="n">channels</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">rate</span> <span class="o">=</span> <span class="mi">44100</span> <span class="p">})</span>
+
+<span class="c1">-- Playing an XA file, keeping its first stream only.</span>
+<span class="kd">local</span> <span class="n">file</span> <span class="o">=</span> <span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;MUSIC.XA&#39;</span><span class="p">)</span>
+<span class="n">music</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">SPU</span><span class="p">.</span><span class="n">playAudio</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="p">{</span> <span class="n">format</span> <span class="o">=</span> <span class="s1">&#39;xa&#39;</span><span class="p">,</span> <span class="n">sectors</span> <span class="o">=</span> <span class="kc">true</span><span class="p">,</span> <span class="n">gain</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="p">})</span>
+<span class="n">file</span><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="spu-logger">SPU logger</h3>
+<p>The SPU logger records the register writes made to the SPU, and can export them as an SPD file:</p>
+<ul>
+<li><code>PCSX.SPU.Logger.enable()</code>, <code>.disable()</code>, <code>.isEnabled()</code>, <code>.clear()</code></li>
+<li><code>PCSX.SPU.Logger.getEventCount()</code> returns how many events are captured.</li>
+<li><code>PCSX.SPU.Logger.exportSPD(file[, tickRate[, fullRam]])</code> writes the capture as an SPD dump. <code>file</code> is a <code>File</code> object or a filename; a filename is only opened, and truncated, once the capture is known to be exportable. <code>tickRate</code> is in 16.16 fixed point Hz, and defaults to 1/16th of the hblank rate. By default only the span of sound RAM that the keyed voices point into is stored, and <code>fullRam</code> set to true stores all of it. Returns <code>true</code>, or <code>false</code> and the reason, such as there being no register writes to export.</li>
+</ul>
+<h2 id="cpu-trace">CPU trace</h2>
+<p><code>PCSX.CPU.Trace</code> gives access to the binary CPU trace. Instructions are only recorded by the interpreter, while tracing is enabled, and the store stops growing at its limit of 32 million records.</p>
+<ul>
+<li><code>.enable()</code>, <code>.disable()</code>, <code>.enabled()</code>, <code>.clear()</code>, <code>.size()</code></li>
+<li><code>.read([start[, count]])</code> copies records into a new FFI array of <code>PCSX_TraceEntry</code>, and returns it with the number of records copied. It returns <code>nil, 0</code> when <code>start</code> is past the end.</li>
+<li><code>.getLine(index)</code> returns the annotated disassembly of a record, the same text the trace viewer shows.</li>
+<li><code>.exportText(path)</code> writes one annotated line per record to a text file, <code>.save(path)</code> writes the raw records, and <code>.load(path)</code> replaces the trace with a saved one. All three return a boolean.</li>
+</ul>
+<p>A record is 32 bytes, and holds the operands as they were before the instruction executed, so a destination register still has its old value:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">pc</span><span class="p">,</span><span class="w"> </span><span class="n">code</span><span class="p">,</span><span class="w"> </span><span class="n">regRs</span><span class="p">,</span><span class="w"> </span><span class="n">regRt</span><span class="p">,</span><span class="w"> </span><span class="n">regRd</span><span class="p">,</span><span class="w"> </span><span class="n">hilo</span><span class="p">,</span><span class="w"> </span><span class="n">cop</span><span class="p">,</span><span class="w"> </span><span class="n">memValue</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="n">PCSX_TraceEntry</span><span class="p">;</span>
+</code></pre></div></td></tr></table></div>
+<p><code>hilo</code> is <code>hi</code> or <code>lo</code>, and <code>cop</code> is the coprocessor register value, for the instructions that use them. <code>memValue</code> is the value read at the effective address, for loads and stores.</p>
+<h2 id="disc-and-lid">Disc and lid</h2>
+<p><code>PCSX.CDRom</code> swaps the disc and drives the lid of the emulated drive:</p>
+<ul>
+<li><code>PCSX.CDRom.setIso(source)</code> mounts a disc image, and parses its table of contents, the same way as the File menu does. <code>source</code> is a path, a <code>File</code>, or an <code>Iso</code> object from <code>PCSX.openIso</code>.</li>
+<li><code>PCSX.CDRom.ejectIso()</code> mounts an empty drive.</li>
+<li><code>PCSX.CDRom.openLid()</code> and <code>PCSX.CDRom.closeLid()</code> change the lid state immediately.</li>
+<li><code>PCSX.CDRom.scheduleCloseLid()</code> opens the lid now, and closes it one emulated second later.</li>
+<li><code>PCSX.CDRom.isLidOpen()</code> returns the lid state.</li>
+</ul>
+<h2 id="loading-and-executing-code">Loading and executing code</h2>
+<p>While the basic Lua functions <code>dofile</code> and <code>loadfile</code> exist, some alternative functions are available to load and execute code in a more flexible way.</p>
+<ul>
+<li><code>Support.extra.addArchive(filename)</code> will load the given zip file, and will make it available to the <code>Support.extra.dofile</code> function. It is equivalent to the <code>-archive</code> command line flag. Note that if a file named <code>autoexec.lua</code> is found in the zip file, it will be executed automatically.</li>
+<li><code>Support.extra.dofile(filename)</code> will load the given file, and execute it. It is equivalent to <code>dofile</code>, but will also search for the file next to the currently loaded Lua file which is calling this function, and will also search for the file in all of the loaded zip files, either through the command line, or through the <code>Support.extra.addArchive</code> function.</li>
+<li><code>Support.extra.loadfile(filename)</code> will load the given file, and return a function that can be called to execute the file. It is equivalent to <code>loadfile</code>, but has the same file search algorithm as <code>Support.extra.dofile</code>.</li>
+<li><code>Support.extra.open(filename)</code> will open the given file as read only, and return a <code>File</code> object. It is roughly equivalent to <code>Support.File.open</code>, but has the same file search algorithm as <code>Support.extra.dofile</code>.</li>
+</ul>
+<p>If given the following directory structure:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span></pre></div></td><td class="code"><div><pre><span></span><code>.
+└── bar.zip
+    ├── test/baz.lua
+    └── test2/qux.lua
+</code></pre></div></td></tr></table></div>
+<p>If <code>test/baz.lua</code> contains the following code:</p>
+<p><div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="n">Support</span><span class="p">.</span><span class="n">extra</span><span class="p">.</span><span class="nb">dofile</span><span class="p">(</span><span class="s1">&#39;../test2/qux.lua&#39;</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+Then running the following code:
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="n">Support</span><span class="p">.</span><span class="n">extra</span><span class="p">.</span><span class="n">addArchive</span><span class="p">(</span><span class="s1">&#39;bar.zip&#39;</span><span class="p">)</span>
+<span class="n">Support</span><span class="p">.</span><span class="n">extra</span><span class="p">.</span><span class="nb">dofile</span><span class="p">(</span><span class="s1">&#39;test/baz.lua&#39;</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+Will first load <code>test/baz.lua</code> from the zip file <code>bar.zip</code>, run it, which will in turn load <code>test2/qux.lua</code> from the zip file <code>bar.zip</code> again, and execute it.</p>
+<p>This allows distributing complex "mods" as zip files, which can be loaded and executed from the command line or the console.</p>
+<h2 id="miscellaneous">Miscellaneous</h2>
+<ul>
+<li>
+<p><code>PCSX.quit([code])</code> schedules the emulator to quit. It's not instantaneous, and will only quit after the current block of Lua code has finished executing, which will be before the next main loop iteration. The <code>code</code> parameter is optional, and will be the exit code of the emulator. If not specified, it'll default to 0.</p>
+</li>
+<li>
+<p><code>PCSX.getCPUCycles()</code> returns an unsigned 64-bit number indicating how many CPU cycles have elapsed. This can be paired with the <code>PCSX.CONSTS.CPU.CLOCKSPEED</code> constant to determine how much emulated time has passed.</p>
+</li>
+<li>
+<p><code>PCSX.Adpcm.NewEncoder</code> will return an Adpcm encoder object. The object has the following methods:</p>
+</li>
+<li><code>:reset([mode])</code> will reset the encoder, and set the mode to the given mode. The mode can be <code>'Normal'</code>, <code>'XA'</code>, <code>'High'</code>, <code>'Low'</code>, <code>'FourBits'</code>. The default mode is <code>'Normal'</code>, which enables all the filters available in the SPU. The <code>'XA'</code> mode limits the encoder to the filters available in the XA ADPCM format. The <code>'High'</code> mode uses the high-pass filter, and the <code>'Low'</code> mode uses the low-pass filter. The <code>'FourBits'</code> mode forces plain 4-bit Adpcm encoding.</li>
+<li><code>:processBlock(inData, [outData], [channels])</code> will encode the given ffi input buffer, and write the result to the given ffi output buffer. The input buffer should be a buffer of 16-bit signed integers, and the output buffer should be a buffer of 16-bit signed integers. The channels parameter is optional, and will default to 1. The input buffer should contain exactly 28 samples per channel, interleaved when stereo, and so does the output buffer. If the output buffer is not given, the function will return a new buffer with the result. LuaBuffers are also accepted as input and output buffers. The function will return three values: the output buffer, the filter index used, and the shifting used. With 2 channels, it will return five values: the output buffer, then the filter index and shifting used for the first channel, then the filter index and shifting used for the second channel. The function is intended to be used as an intermediate computation step, and the output still needs to be processed into 4 bits or 8 bits samples.</li>
+<li><code>:processSPUBlock(inData, [outData], [blockAttribute])</code> will encode the given ffi input buffer, and write the result to the given ffi output buffer. The input buffer should be a buffer of 16-bit signed integers, and the output buffer should be a buffer which is at least 16 bytes large. The blockAttribute parameter is optional, and will default to <code>'OneShot'</code>. The input buffer should contain exactly 28 samples. If the output buffer is not given, the function will return a new buffer with the result. LuaBuffers are also accepted as input and output buffers. The function will return the encoded block, suitable for SPU usage. The <code>blockAttribute</code> parameter can be one of the following strings: <code>'OneShot'</code>, <code>'OneShotEnd'</code>, <code>'LoopStart'</code>, <code>'LoopBody'</code>, <code>'LoopEnd'</code>.</li>
+<li><code>:finishSPU([outData])</code> will write the opinionated end of sample looping block, as prescribed by the original Sony API. The output buffer should be a buffer which is at least 16 bytes large. If the output buffer is not given, the function will return a new buffer with the result. LuaBuffers are also accepted as output buffers. The function will return the encoded block, suitable for SPU usage.</li>
+<li>
+<p><code>:processXABlock(inData, [outData], [xaMode], [channels])</code> will encode the given ffi input buffer, and write the result to the given ffi output buffer. The input buffer should be a buffer of 16-bit signed integers, and the output buffer should be a buffer which is at least 128 bytes large. Note that a MODE2 FORM2 XA sector requires subheaders and 18 of these blocks. The xaMode parameter is optional, and will default to <code>'XAFourBits'</code>. The other valid value is <code>'XAEightBits'</code>. It will defines the encoding output between either 4-bit and 8-bit. The channels parameter is optional, and will default to 1. If the output buffer is not given, the function will return a new buffer with the result. LuaBuffers are also accepted as input and output buffers. The function will return the encoded block, suitable for XA usage. The amount of required input samples varies depending of the number of channels and the encoding mode:</p>
+<ul>
+<li>4-bit mono: 224 samples aka 448 bytes</li>
+<li>4-bit stereo: 112 samples aka 448 bytes</li>
+<li>8-bit mono: 112 samples aka 224 bytes</li>
+<li>8-bit stereo: 56 samples aka 224 bytes</li>
+</ul>
+</li>
+<li>
+<p><code>PCSX.Adpcm.NewDecoder</code> will return an Adpcm decoder object. The object has the following methods:</p>
+</li>
+<li><code>:reset()</code> will reset the decoder history.</li>
+<li><code>:decodeSPUBlock(inData, [outData])</code> will decode a single 16-byte SPU-ADPCM block into 28 16-bit signed samples. The input can be a LuaBuffer, a string, or an ffi pointer, and needs to be at least 16 bytes large. The output can be a LuaBuffer or an ffi pointer, and needs to be at least 56 bytes large. If the output buffer is not given, the function will return a new LuaBuffer with the result. The function will return two values: the output buffer, and the flags byte of the block, which contains the loop flags.</li>
+<li><code>:decodeXASoundGroup(inData, [outData], [bitsPerSample], [channels])</code> will decode a single 128-byte XA-ADPCM sound group into 16-bit signed samples. The input can be a LuaBuffer, a string, or an ffi pointer, and needs to be at least 128 bytes large. The output can be a LuaBuffer or an ffi pointer. If the output buffer is not given, the function will return a new LuaBuffer with the result. The bitsPerSample parameter is optional, can be 4 or 8, and will default to 4. The channels parameter is optional, can be 1 or 2, and will default to 1. Stereo output is interleaved, left first. The function will return two values: the output buffer, and the number of samples written, which is 224 for 4-bit, and 112 for 8-bit, stereo included. An XA sector contains 18 of these sound groups.</li>
+</ul>
+<p>Using the encoder to process an input audio file is as simple as:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span>
+<span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span>
+<span class="normal">40</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kr">function</span> <span class="nf">encodeAudioLoop</span><span class="p">(</span><span class="n">inputFile</span><span class="p">,</span> <span class="n">outputFile</span><span class="p">)</span>
+  <span class="kd">local</span> <span class="n">closeInput</span> <span class="o">=</span> <span class="kc">false</span>
+  <span class="kr">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">inputFile</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;string&#39;</span> <span class="kr">then</span>
+    <span class="n">inputFile</span> <span class="o">=</span> <span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">open</span><span class="p">(</span><span class="n">inputFile</span><span class="p">)</span>
+    <span class="n">closeInput</span> <span class="o">=</span> <span class="kc">true</span>
+  <span class="kr">end</span>
+  <span class="kd">local</span> <span class="n">audio</span> <span class="o">=</span> <span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">ffmpegAudioFile</span><span class="p">(</span><span class="n">inputFile</span><span class="p">,</span> <span class="p">{</span>
+    <span class="n">channels</span> <span class="o">=</span> <span class="s1">&#39;Mono&#39;</span><span class="p">,</span>
+    <span class="n">frequency</span> <span class="o">=</span> <span class="mi">22050</span>
+  <span class="p">})</span>
+
+  <span class="kd">local</span> <span class="n">closeOutput</span> <span class="o">=</span> <span class="kc">false</span>
+  <span class="kr">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">outputFile</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;string&#39;</span> <span class="kr">then</span>
+    <span class="n">outputFile</span> <span class="o">=</span> <span class="n">Support</span><span class="p">.</span><span class="n">File</span><span class="p">.</span><span class="n">open</span><span class="p">(</span><span class="n">outputFile</span><span class="p">,</span> <span class="s1">&#39;TRUNCATE&#39;</span><span class="p">)</span>
+    <span class="n">closeOutput</span> <span class="o">=</span> <span class="kc">true</span>
+  <span class="kr">end</span>
+  <span class="kd">local</span> <span class="n">blockCount</span> <span class="o">=</span> <span class="nb">math.floor</span><span class="p">(</span><span class="n">audio</span><span class="p">:</span><span class="n">size</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="mi">28</span><span class="p">))</span>
+  <span class="kd">local</span> <span class="n">bufferIn</span> <span class="o">=</span> <span class="n">ffi</span><span class="p">.</span><span class="n">new</span><span class="p">(</span><span class="s1">&#39;int16_t[28]&#39;</span><span class="p">)</span>
+  <span class="kd">local</span> <span class="n">bufferOut</span> <span class="o">=</span> <span class="n">Support</span><span class="p">.</span><span class="n">NewLuaBuffer</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>
+
+  <span class="kd">local</span> <span class="n">encoder</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">Adpcm</span><span class="p">.</span><span class="n">NewEncoder</span><span class="p">()</span>
+  <span class="n">encoder</span><span class="p">:</span><span class="n">reset</span> <span class="s1">&#39;Normal&#39;</span>
+
+  <span class="kr">for</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">blockCount</span> <span class="kr">do</span>
+    <span class="n">audio</span><span class="p">:</span><span class="n">read</span><span class="p">(</span><span class="n">bufferIn</span><span class="p">,</span> <span class="mi">28</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="kd">local</span> <span class="n">blockType</span> <span class="o">=</span> <span class="s1">&#39;LoopBody&#39;</span>
+    <span class="kr">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">1</span> <span class="kr">then</span> <span class="n">blockType</span> <span class="o">=</span> <span class="s1">&#39;LoopStart&#39;</span> <span class="kr">end</span>
+    <span class="kr">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">blockCount</span> <span class="kr">then</span> <span class="n">blockType</span> <span class="o">=</span> <span class="s1">&#39;LoopEnd&#39;</span> <span class="kr">end</span>
+    <span class="n">encoder</span><span class="p">:</span><span class="n">processSPUBlock</span><span class="p">(</span><span class="n">bufferIn</span><span class="p">,</span> <span class="n">bufferOut</span><span class="p">,</span> <span class="n">blockType</span><span class="p">)</span>
+    <span class="n">outputFile</span><span class="p">:</span><span class="n">write</span><span class="p">(</span><span class="n">bufferOut</span><span class="p">)</span>
+  <span class="kr">end</span>
+
+  <span class="kr">if</span> <span class="n">closeInput</span> <span class="kr">then</span>
+    <span class="n">inputFile</span><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+  <span class="kr">end</span>
+  <span class="kr">if</span> <span class="n">closeOutput</span> <span class="kr">then</span>
+    <span class="n">outputFile</span><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+  <span class="kr">end</span>
+  <span class="n">audio</span><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+<span class="kr">end</span>
+</code></pre></div></td></tr></table></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>
