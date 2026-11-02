@@ -10,7 +10,7 @@ The argument is a single table:
 |---|---|
 | `pc` | Mandatory. The address to call, 4-byte aligned. |
 | `args` | Table of numbers. The first four go in `$a0` to `$a3`, the rest on the stack, following the o32 convention with its 16-byte argument save area. |
-| `sp` | Stack pointer, 8-byte aligned. Defaults to the top of RAM, minus 16. The frame must be in RAM or the scratchpad if there are more than four arguments. |
+| `sp` | Stack pointer before the argument frame is reserved, 8-byte aligned. Defaults to the top of RAM, minus 16. The callee gets `sp` lowered by the frame, which is 16 bytes, or 4 bytes per argument if that is more: with the default, `$sp` is `0x801fffe0` on entry to a function of the 2MB RAM. The frame must be in RAM or the scratchpad if there are more than four arguments. |
 | `gp` | If present, loaded into `$gp`. |
 | `ra` | Sentinel return address, 4-byte aligned, defaults to `0x8f000000`. The call ends when the program counter reaches it, so it should be somewhere the callee never legitimately jumps to. |
 | `cycles` | Cycle budget, defaults to 100000000. |
@@ -36,7 +36,7 @@ The function returns a table:
 | `dirty` | Addresses of the changed 64kB pages (`0x80000000` or'd with the page offset), when `isolate = 'ram'` or `dirty` was requested. |
 | `nonRamAccesses` | How many bus accesses outside of RAM happened. Zero means the callee touched nothing but RAM, so `'ram'` isolation was sound for it. |
 | `depth` | Change in the depth of the call stack monitor. A leaf function never opens a frame, so it stays 0; non-zero after a clean return means the callee unwound badly. |
-| `storesDropped` | True when the RAM write LUT is empty, which is the case while the caches are isolated, including on a cold boot: every guest store then vanishes. Worth checking before trusting `dirty`. |
+| `storesDropped` | True when the RAM write LUT is empty, which is the case while the caches are isolated, including on a cold boot: every guest store then vanishes. Worth checking before trusting `dirty`, and the arguments past the fourth, which are stored through the same bus, are dropped as well. `stage` isn't affected. |
 | `pc` | Only with status `'cycles'`: where it stopped. |
 | `exceptionCode`, `epc`, `badVAddr` | Only with status `'exception'`. |
 
