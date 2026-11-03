@@ -318,3 +318,26 @@ TEST_F(GPULoggerHitTest, BlitVramVram) {
     gp0({0x02000000 | c_white, xy(0, 300), xy(48, 30)});
     expectExact(measure({0x80000000, xy(0, 300), xy(200, 200), xy(40, 30)}));
 }
+
+// Replay starts from the VRAM captured when the frame's first primitive was logged. getVRAM()
+// returns all 1024 rows, so the rows above 511 (the 2MB bank) have to come back too.
+TEST_F(GPULoggerHitTest, ReplayRestoresAllRows) {
+    auto pixel = [this](int x, int y) {
+        gpu()->drainRenderer();
+        auto slice = gpu()->getVRAM(PCSX::GPU::Ownership::ACQUIRE);
+        return slice.data<uint16_t>()[y * 1024 + x];
+    };
+    auto poke = [this](int x, int y, uint16_t value) {
+        gpu()->partialUpdateVRAM(x, y, 1, 1, &value);
+        gpu()->drainRenderer();
+    };
+    logger()->clearFrameLog();
+    poke(10, 100, 0x1234);
+    poke(10, 700, 0x2345);
+    gp0({0x02000000 | c_white, xy(0, 0), xy(16, 1)});
+    poke(10, 100, 0x5555);
+    poke(10, 700, 0x6666);
+    logger()->replay(gpu());
+    EXPECT_EQ(pixel(10, 100), 0x1234);
+    EXPECT_EQ(pixel(10, 700), 0x2345);
+}
