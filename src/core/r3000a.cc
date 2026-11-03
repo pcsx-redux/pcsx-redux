@@ -79,12 +79,15 @@ void PCSX::R3000Acpu::stackBoundsViolation(uint32_t pc, uint32_t sp) {
 
 // The metadata layout is the one in nugget's common/libc/alloc.c, also read by
 // the heap viewer: head, bottom, top, then the end-of-list marker at +16. Free
-// blocks are { next, size } and the list is sorted by address. Memory between
-// bottom and top that no free block covers has been handed out. A list that does
-// not look like that is left to the heap viewer to report.
+// blocks are { next, size }, 8-byte aligned, inside [bottom, top), and the list
+// is sorted by address. Memory between bottom and top that no free block covers
+// has been handed out. A list that does not look like that is left to the heap
+// viewer to report.
 bool PCSX::R3000Acpu::checkHeapAgainstStack(uint32_t pc) {
     const uint32_t meta = g_emulator->m_mem->m_psyqoHeapMetadata;
+    // Only aligned words are read, so a word never straddles two memory pages.
     auto read = [](uint32_t address) -> std::optional<uint32_t> {
+        if (address & 3) return std::nullopt;
         auto* ptr = g_emulator->m_mem->getPointer<uint32_t>(address);
         if (!ptr) return std::nullopt;
         return *ptr;
@@ -93,6 +96,8 @@ bool PCSX::R3000Acpu::checkHeapAgainstStack(uint32_t pc) {
     auto bottom = read(meta + 4);
     auto top = read(meta + 8);
     if (!head || !bottom || !top || (*top <= *bottom)) return false;
+    // Same limit as the heap viewer: no heap is bigger than RAM.
+    if (*top - *bottom > 8 * 1024 * 1024) return false;
     // The part of the bounds the heap covers, inclusive.
     const uint32_t low = std::max(m_stackBounds.low, *bottom);
     const uint32_t high = std::min(m_stackBounds.high, *top - 1);
@@ -103,14 +108,15 @@ bool PCSX::R3000Acpu::checkHeapAgainstStack(uint32_t pc) {
     uint32_t freeUpTo = low;
     uint32_t curr = *head;
     uint32_t prev = 0;
-    constexpr unsigned c_maxBlocks = 100000;
-    for (unsigned count = 0; curr != marker; count++) {
-        if ((count == c_maxBlocks) || (curr <= prev)) return false;
+    // Each block is at least 8 bytes past the previous one and inside the heap,
+    // so the walk ends within (top - bottom) / 8 steps.
+    while (curr != marker) {
+        if ((curr & 7) || (curr <= prev) || (curr < *bottom) || (curr >= *top)) return false;
         auto next = read(curr);
         auto size = read(curr + 4);
-        if (!next || !size) return false;
+        if (!next || !size || (*size < 8) || (*size & 7)) return false;
         const uint32_t end = curr + *size;
-        if (end < curr) return false;
+        if ((end < curr) || (end > *top)) return false;
         if (curr > freeUpTo) break;
         freeUpTo = std::max(freeUpTo, end);
         if (freeUpTo > high) return false;
