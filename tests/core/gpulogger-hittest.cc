@@ -23,6 +23,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <initializer_list>
 #include <memory>
 #include <stdexcept>
@@ -327,11 +328,49 @@ TEST_F(GPULoggerHitTest, FastFillWrapsAtRow512) {
     };
     for (auto arm : {Arm{256, 480, 224}, Arm{300, 300, 88}, Arm{500, 20, 8}}) {
         clearVram();
-        gp0({0x02000000 | c_white, xy(0, arm.y), xy(640, arm.h)});
+        auto c = measure({0x02000000 | c_white, xy(0, arm.y), xy(640, arm.h)});
         auto v = vram();
         for (unsigned y = 0; y < 512; y++) {
             bool expected = y < arm.wrappedRows || y >= arm.y;
             EXPECT_EQ(v[y * 1024 + 8] != 0, expected) << "fill y=" << arm.y << " h=" << arm.h << ", row " << y;
         }
+        expectExact(c);
+
+        // The heatmap geometry covers the same rows: two rectangles, none past row 512.
+        unsigned tris = 0;
+        int minY = 1024, maxY = -1;
+        for (auto& n : logger()->frameLog()) {
+            n.getVertices(
+                [&](auto a, auto b, auto d) {
+                    tris++;
+                    for (auto p : {a, b, d}) {
+                        minY = std::min(minY, int(p.y()));
+                        maxY = std::max(maxY, int(p.y()));
+                    }
+                },
+                PCSX::GPU::Logged::PixelOp::WRITE);
+        }
+        EXPECT_EQ(tris, 4u) << "fill y=" << arm.y << " h=" << arm.h;
+        EXPECT_EQ(minY, 0) << "fill y=" << arm.y << " h=" << arm.h;
+        EXPECT_EQ(maxY, 512) << "fill y=" << arm.y << " h=" << arm.h;
+    }
+}
+
+// A fill logged with the bank gate closed replays with the wrap it had when logged, even if
+// the gate has opened since.
+TEST_F(GPULoggerHitTest, FastFillReplayKeepsLoggedWrap) {
+    clearVram();
+    logger()->clearFrameLog();
+    gp0({0x02000000 | c_white, xy(0, 500), xy(640, 20)});
+    clearVram();
+    gpu()->writeStatus(0x09000001);
+    // The two clearing fills after it are logged too; replay only the first node.
+    auto& list = logger()->frameLog();
+    ASSERT_NE(list.begin(), list.end());
+    list.begin()->execute(gpu());
+    auto v = vram();
+    for (unsigned y = 0; y < 512; y++) {
+        bool expected = y < 8 || y >= 500;
+        EXPECT_EQ(v[y * 1024 + 8] != 0, expected) << "replayed row " << y;
     }
 }

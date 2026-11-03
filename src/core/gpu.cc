@@ -880,6 +880,7 @@ void PCSX::GPU::FastFill::processWrite(Buffer &buf, Logged::Origin origin, uint3
             x &= 0x3f0;
             w = ((w & 0x3ff) + 0xf) & ~0xf;
             h = h & 0x1ff;
+            wrapHeight = m_gpu->vram2MBGateOpen() ? 1024 : 512;
             m_state = READ_COLOR;
             m_gpu->m_defaultProcessor.setActive();
             m_gpu->m_logger->addNode(*this, origin, origvalue, length);
@@ -889,32 +890,35 @@ void PCSX::GPU::FastFill::processWrite(Buffer &buf, Logged::Origin origin, uint3
     }
 }
 
-bool PCSX::GPU::FastFill::draw(GPU *gpu) const {
+unsigned PCSX::GPU::FastFill::rects(Rect out[2]) const {
     // The row counter wraps at the addressable height: 512 rows with the bank gate closed,
     // 1024 with it open, where the soft fillArea still drops the upper bank unless 2MB is
     // fitted. Measured on retail SCPH-1000/1001/5501/7001 with the gate closed: a fill at
     // y=256 h=480 writes rows 256-511 then 0-223. The upper bank wraps the same way mod 1024.
-    const unsigned hMax = gpu->vram2MBGateOpen() ? 1024 : 512;
+    Rect r = {x % 1024, y % wrapHeight, w, h};
+    if (r.x + r.w > 1024) r.x = 0;
+    if (r.y + r.h <= wrapHeight) {
+        out[0] = r;
+        return 1;
+    }
+    const unsigned first = wrapHeight - r.y;
+    out[0] = {r.x, r.y, r.w, first};
+    out[1] = {r.x, 0, r.w, r.h - first};
+    return 2;
+}
+
+bool PCSX::GPU::FastFill::draw(GPU *gpu) const {
+    Rect r[2];
+    unsigned n = rects(r);
     FastFill part = *this;
-    bool clipped = false;
-    part.x %= 1024;
-    if (part.x + part.w > 1024) {
-        part.x = 0;
-        clipped = true;
-    }
-    part.y %= hMax;
-    if (part.y + part.h <= hMax) {
+    for (unsigned i = 0; i < n; i++) {
+        part.x = r[i].x;
+        part.y = r[i].y;
+        part.w = r[i].w;
+        part.h = r[i].h;
         gpu->write0(&part);
-        return clipped;
     }
-    const unsigned first = hMax - part.y;
-    const unsigned rest = part.h - first;
-    part.h = first;
-    gpu->write0(&part);
-    part.y = 0;
-    part.h = rest;
-    gpu->write0(&part);
-    return true;
+    return (n > 1) || (r[0].x != x % 1024);
 }
 
 void PCSX::GPU::BlitVramVram::processWrite(Buffer &buf, Logged::Origin origin, uint32_t origvalue, uint32_t length) {
