@@ -90,6 +90,8 @@ static bool isHeadless(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         if (!argv[i]) continue;
         const char *arg = argv[i];
+        // Only flags: "-logfile cli" names a file, it doesn't ask for the CLI.
+        if (*arg != '-') continue;
         while (*arg == '-') arg++;
         if (!strcmp(arg, "testmode") || !strcmp(arg, "no-ui") || !strcmp(arg, "cli")) return true;
     }
@@ -103,11 +105,11 @@ static bool isHeadless(int argc, char **argv) {
 // header first. Yes, I know it's wrong, blame Microsoft.
 #include <shellapi.h>
 
-static void Complain(const char *msg) {
+static void Complain(const char *msg, bool headless) {
 #ifdef USE_SENTRY
     sentry_capture_event(sentry_value_new_message_event(SENTRY_LEVEL_FATAL, "exception", msg));
 #endif
-    MessageBoxA(nullptr, msg, "Error", MB_ICONERROR | MB_OK);
+    if (!headless) MessageBoxA(nullptr, msg, "Error", MB_ICONERROR | MB_OK);
 }
 
 #ifndef PCSX_CLI
@@ -144,7 +146,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     if (!errorMsg.empty()) {
         r = -1;
         fprintf(stderr, "%s\n", errorMsg.c_str());
-        if (!isHeadless(argc, argv)) Complain(errorMsg.c_str());
+        Complain(errorMsg.c_str(), isHeadless(argc, argv));
     }
 
     for (int i = 0; i < argc; i++) free(argv[i]);
@@ -199,7 +201,11 @@ int main(int argc, char **argv) {
 
     fprintf(stderr, "%s\n", errorMsg.c_str());
 
+#if defined(_WIN32) || defined(_WIN64)
+    Complain(errorMsg.c_str(), isHeadless(argc, argv));
+#else
     if (!isHeadless(argc, argv)) Complain(errorMsg.c_str());
+#endif
 
     return -1;
 }
