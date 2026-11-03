@@ -208,7 +208,11 @@ static SDL_Window* getSDLWindowFromImGuiViewport(ImGuiViewport* viewport) {
 PCSX::GUI* PCSX::g_gui = nullptr;
 
 // Sink for ThorVG's TVGERR / TVGLOG, wired in third_party/thorvg-config/config.h.
+// Only errors are kept. TVGLOG is informational chatter (loader probing, missing
+// optional font tables, ...) that fires on every load and would otherwise end up
+// on stdout with -stdout.
 void pcsxThorVGLog(bool error, const char* tag, const char* file, int line, const char* fmt, ...) {
+    if (!error) return;
     va_list args, copy;
     va_start(args, fmt);
     va_copy(copy, args);
@@ -218,12 +222,11 @@ void pcsxThorVGLog(bool error, const char* tag, const char* file, int line, cons
     if (len > 0) vsnprintf(buffer.data(), len + 1, fmt, args);
     va_end(args);
     if (!PCSX::g_system) {
-        fprintf(stderr, "[ThorVG %s] %s (%s:%d): %s\n", error ? "error" : "log", tag, file, line, buffer.c_str());
+        fprintf(stderr, "[ThorVG error] %s (%s:%d): %s\n", tag, file, line, buffer.c_str());
         return;
     }
     auto base = std::filesystem::path(file).filename().string();
-    PCSX::g_system->log(PCSX::LogClass::UI, "[ThorVG %s] %s (%s:%d): %s\n", error ? "error" : "log", tag, base, line,
-                        buffer);
+    PCSX::g_system->log(PCSX::LogClass::UI, "[ThorVG error] %s (%s:%d): %s\n", tag, base, line, buffer);
 }
 
 void PCSX::GUI::setFullscreen(bool fullscreen) {
