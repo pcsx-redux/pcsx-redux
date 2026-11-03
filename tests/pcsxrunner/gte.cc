@@ -222,11 +222,7 @@ TEST(GTE, WriteToUseCoarseInterpreter) {
     EXPECT_EQ(ret, 2);
 }
 
-// Only the x64 recompiler delays GTE writes so far.
 TEST(GTE, WriteToUseCoarseDynarec) {
-#if !(defined(__x86_64) || defined(_M_AMD64))
-    GTEST_SKIP();
-#endif
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
                         "-loadexe", "src/mips/tests/gte-write-to-use/gte-write-to-use.ps-exe");
     int ret = invoker.invoke();
