@@ -334,10 +334,13 @@ TEST_F(GPULoggerHitTest, ReplayRestoresAllRows) {
     logger()->clearFrameLog();
     poke(10, 100, 0x1234);
     poke(10, 700, 0x2345);
+    poke(10, 1023, 0x3456);
     gp0({0x02000000 | c_white, xy(0, 0), xy(16, 1)});
     poke(10, 100, 0x5555);
     poke(10, 700, 0x6666);
+    poke(10, 1023, 0x7777);
     logger()->replay(gpu());
     EXPECT_EQ(pixel(10, 100), 0x1234);
     EXPECT_EQ(pixel(10, 700), 0x2345);
+    EXPECT_EQ(pixel(10, 1023), 0x3456);
 }
