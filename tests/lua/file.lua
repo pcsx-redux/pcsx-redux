@@ -115,3 +115,14 @@ function TestFile:test_loading_an_empty_file_does_not_throw()
     local ok, err = pcall(PCSX.loadSaveState, Support.File.buffer())
     lu.assertTrue(ok, tostring(err))
 end
+
+function TestFile:test_readToSlice()
+    local buf = Support.File.buffer()
+    buf:write('hello world')
+    local slice = buf:readToSlice(5)
+    lu.assertEquals(slice.size, 5)
+    lu.assertEquals(ffi.string(slice.data, slice.size), 'hello')
+    slice = buf:readToSlice(16)
+    lu.assertEquals(slice.size, 6)
+    lu.assertEquals(ffi.string(slice.data, slice.size), ' world')
+end
