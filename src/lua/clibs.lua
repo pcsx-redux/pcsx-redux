@@ -170,6 +170,11 @@ end
 
 -- Self-installing, and returns nothing: Redux's L.load leaves a chunk's return
 -- values on the Lua stack, and the emulator expects it empty once setLua is done.
+-- Both refusals from M.install are the expected outcome on LuaJIT, where
+-- lj_clib.c resolves _CLIBS itself, so stay quiet there. Only a runtime without
+-- that C path depends on the adapter, and only there is a refusal worth printing.
 local ok, why = M.install()
-if not ok then print('_CLIBS adapter not installed: ' .. tostring(why)) end
+if not ok and not (package.loaded.jit or rawget(_G, 'jit')) then
+    print('_CLIBS adapter not installed: ' .. tostring(why))
+end
 -- )EOF"
