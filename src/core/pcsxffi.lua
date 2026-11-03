@@ -267,6 +267,7 @@ PCSX = {
     invalidateCache = function() C.invalidateCache() end,
     log = function(...) printLike(function(msg) C.luaLog(msg .. '\n') end, ...) end,
     GUI = { jumpToPC = jumpToPC, jumpToMemory = jumpToMemory },
+    WebServer = { Handlers = {} },
     CPU = {
         -- Binary CPU trace. Records are fixed PCSX_TraceEntry structs; the store is
         -- chunked, so read() flattens a range into a fresh FFI array

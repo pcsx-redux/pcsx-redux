@@ -18,6 +18,7 @@
  ***************************************************************************/
 
 #include <stdio.h>
+#include <string.h>
 
 #include <stdexcept>
 #include <string>
@@ -84,6 +85,17 @@ static std::pair<int, std::string> loopMain(int argc, char **argv) {
     return {r, errorMsg};
 }
 
+// A headless run has nobody to dismiss a dialog, and the error is already on stderr.
+static bool isHeadless(int argc, char **argv) {
+    for (int i = 1; i < argc; i++) {
+        if (!argv[i]) continue;
+        const char *arg = argv[i];
+        while (*arg == '-') arg++;
+        if (!strcmp(arg, "testmode") || !strcmp(arg, "no-ui") || !strcmp(arg, "cli")) return true;
+    }
+    return false;
+}
+
 #if defined(_WIN32) || defined(_WIN64)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -132,7 +144,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     if (!errorMsg.empty()) {
         r = -1;
         fprintf(stderr, "%s\n", errorMsg.c_str());
-        Complain(errorMsg.c_str());
+        if (!isHeadless(argc, argv)) Complain(errorMsg.c_str());
     }
 
     for (int i = 0; i < argc; i++) free(argv[i]);
@@ -187,7 +199,7 @@ int main(int argc, char **argv) {
 
     fprintf(stderr, "%s\n", errorMsg.c_str());
 
-    Complain(errorMsg.c_str());
+    if (!isHeadless(argc, argv)) Complain(errorMsg.c_str());
 
     return -1;
 }
