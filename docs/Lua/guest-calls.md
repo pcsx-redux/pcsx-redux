@@ -2,7 +2,7 @@
 
 `PCSX.callGuest(call)` runs a function of the emulated program from Lua, with arguments, and returns its result. It is meant for harnesses: feeding a decompressor deliberately broken streams, measuring how many cycles a routine takes, or checking which memory a routine writes.
 
-It needs the interpreter, since the recompilers can't be stopped on an arbitrary address. Start with `-interpreter`, or turn the dynarec off in the Emulation settings and reboot. It can't be nested, which means it can't be called from a breakpoint invoker that fires during another guest call; an `ExecutionFlow` event listener is a fine place to call it from.
+It needs the interpreter, since the recompilers can't be stopped on an arbitrary address. Start with `-interpreter`, or turn the dynarec off in the Emulation settings and reboot. It can't be nested: a `PCSX.execSlots` function or an `UnknownMemoryRead` handler run by the callee's own accesses gets a Lua error if it calls it. Breakpoints don't fire during a guest call at all. An `ExecutionFlow` event listener is a fine place to call it from.
 
 The argument is a single table:
 
@@ -29,10 +29,10 @@ The function returns a table:
 
 | Field | Meaning |
 |---|---|
-| `status` | `'returned'` when the program counter reached `ra`, `'cycles'` when the budget ran out, `'exception'` when the callee raised one, `'unknown'` otherwise. |
+| `status` | `'returned'` when the program counter reached `ra`, `'cycles'` when the budget ran out, `'exception'` when the callee raised one. |
 | `v0`, `v1` | The values of `$v0` and `$v1` when the call ended. |
 | `cycles` | Cycles spent. |
-| `out` | The strings read by `fetch`, in order. |
+| `out` | The strings read by `fetch`, one per range, in the order given. |
 | `dirty` | Addresses of the changed 64kB pages (`0x80000000` or'd with the page offset), when `isolate = 'ram'` or `dirty` was requested. |
 | `nonRamAccesses` | How many bus accesses outside of RAM happened. Zero means the callee touched nothing but RAM, so `'ram'` isolation was sound for it. |
 | `depth` | Change in the depth of the call stack monitor. A leaf function never opens a frame, so it stays 0; non-zero after a clean return means the callee unwound badly. |
