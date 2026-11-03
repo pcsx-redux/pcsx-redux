@@ -1728,9 +1728,10 @@ void InterpretedCPU::Execute() {
 PCSX::R3000Acpu::RunUntilResult InterpretedCPU::RunUntil(uint32_t stopPC, uint64_t cycleBudget) {
     ZoneScoped;
     /* Nesting would re-enter execBlock on top of a live one and shred the delayed-load
-       ping-pong underneath it. The dangerous caller is a breakpoint invoker, which runs from
-       Debug::process in the middle of execBlock's loop body; an ExecutionFlow event listener
-       is fine, since those fire from hasToRun() between blocks, which is the same point
+       ping-pong underneath it. The dangerous callers are Lua handlers run from inside an
+       instruction: a PCSX.execSlots function or a Lua read handler. Breakpoints can't get
+       here, since the execBlock below has debug off. An ExecutionFlow event listener is
+       fine, since those fire from hasToRun() between blocks, which is the same point
        UI::shellReached does its own wholesale register surgery from. */
     if (m_inRunUntil) return RunUntilResult::Reentered;
     m_inRunUntil = true;
