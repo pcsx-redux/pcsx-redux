@@ -445,11 +445,14 @@ class GPU {
     struct FastFill final : public Command, public Logged {
         std::string_view getName() override { return "Fast Fill"; }
         void drawLogNode(unsigned itemIndex, const DrawLogSettings &) override;
-        void execute(GPU *gpu) override { gpu->write0(this); }
+        void execute(GPU *gpu) override { draw(gpu); }
         void generateStatsInfo() override {}
         void cumulateStats(GPUStats *) override;
         void getVertices(AddTri &&, PixelOp) override;
         FastFill(GPU *parent) : Command(parent) {}
+        // Sends the fill to the GPU, split in two where it runs past the last addressable row,
+        // since the rows wrap to the top. Returns whether it was clipped or wrapped.
+        bool draw(GPU *gpu) const;
         void processWrite(Buffer &, Logged::Origin, uint32_t value, uint32_t length) override;
         void reset() override { m_state = READ_COLOR; }
         bool isInside(unsigned x, unsigned y) override {

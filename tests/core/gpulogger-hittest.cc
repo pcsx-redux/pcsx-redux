@@ -318,3 +318,20 @@ TEST_F(GPULoggerHitTest, BlitVramVram) {
     gp0({0x02000000 | c_white, xy(0, 300), xy(48, 30)});
     expectExact(measure({0x80000000, xy(0, 300), xy(200, 200), xy(40, 30)}));
 }
+
+// GP0(02h) rows wrap at row 512 with the bank gate closed. Expected rows are the retail silicon
+// readings (SCPH-1000/1001/5501/7001) of a probe filling each rectangle on a cleared VRAM.
+TEST_F(GPULoggerHitTest, FastFillWrapsAtRow512) {
+    struct Arm {
+        unsigned y, h, wrappedRows;
+    };
+    for (auto arm : {Arm{256, 480, 224}, Arm{300, 300, 88}, Arm{500, 20, 8}}) {
+        clearVram();
+        gp0({0x02000000 | c_white, xy(0, arm.y), xy(640, arm.h)});
+        auto v = vram();
+        for (unsigned y = 0; y < 512; y++) {
+            bool expected = y < arm.wrappedRows || y >= arm.y;
+            EXPECT_EQ(v[y * 1024 + 8] != 0, expected) << "fill y=" << arm.y << " h=" << arm.h << ", row " << y;
+        }
+    }
+}

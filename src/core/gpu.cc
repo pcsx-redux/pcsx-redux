@@ -884,18 +884,37 @@ void PCSX::GPU::FastFill::processWrite(Buffer &buf, Logged::Origin origin, uint3
             m_gpu->m_defaultProcessor.setActive();
             m_gpu->m_logger->addNode(*this, origin, origvalue, length);
             if (w == 0 || h == 0) return;  // Xsiz=0 or Ysiz=0: no fill
-            // Gate open: clip against the full 1024x1024 buffer so a fast-fill
-            // can target the upper bank; the soft fillArea still bounds the
-            // actual fill to the effective drawable height (512 unless 2MB).
-            // Gate closed: retail, Y folds into the lower 512 rows.
-            if (m_gpu->vram2MBGateOpen()) {
-                clipped = GPU::clip<unsigned, 1024, 1024>(x, y, w, h);
-            } else {
-                clipped = GPU::clip(x, y, w, h);
-            }
-            m_gpu->write0(this);
+            clipped = draw(m_gpu);
             return;
     }
+}
+
+bool PCSX::GPU::FastFill::draw(GPU *gpu) const {
+    // The row counter wraps at the addressable height: 512 rows with the bank gate closed,
+    // 1024 with it open, where the soft fillArea still drops the upper bank unless 2MB is
+    // fitted. Measured on retail SCPH-1000/1001/5501/7001 with the gate closed: a fill at
+    // y=256 h=480 writes rows 256-511 then 0-223. The upper bank wraps the same way mod 1024.
+    const unsigned hMax = gpu->vram2MBGateOpen() ? 1024 : 512;
+    FastFill part = *this;
+    bool clipped = false;
+    part.x %= 1024;
+    if (part.x + part.w > 1024) {
+        part.x = 0;
+        clipped = true;
+    }
+    part.y %= hMax;
+    if (part.y + part.h <= hMax) {
+        gpu->write0(&part);
+        return clipped;
+    }
+    const unsigned first = hMax - part.y;
+    const unsigned rest = part.h - first;
+    part.h = first;
+    gpu->write0(&part);
+    part.y = 0;
+    part.h = rest;
+    gpu->write0(&part);
+    return true;
 }
 
 void PCSX::GPU::BlitVramVram::processWrite(Buffer &buf, Logged::Origin origin, uint32_t origvalue, uint32_t length) {
