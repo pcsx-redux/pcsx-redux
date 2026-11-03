@@ -400,7 +400,11 @@ PCSX::GPU* PCSX::GPULogger::gpu() const { return m_owner ? m_owner : g_emulator-
 void PCSX::GPULogger::startNewFrame() { m_vram = gpu()->getVRAM(GPU::Ownership::ACQUIRE); }
 
 void PCSX::GPULogger::replay(GPU* gpu) {
-    if (m_vram.data()) gpu->partialUpdateVRAM(0, 0, 1024, 512, m_vram.data<uint16_t>());
+    // The snapshot holds every row getVRAM() returned, which includes the 2MB bank.
+    if (m_vram.data()) {
+        const int rows = m_vram.size() / (1024 * sizeof(uint16_t));
+        gpu->partialUpdateVRAM(0, 0, 1024, rows, m_vram.data<uint16_t>());
+    }
     for (auto& node : m_list) {
         if (node.enabled) node.execute(gpu);
     }
