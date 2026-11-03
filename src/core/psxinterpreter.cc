@@ -1854,6 +1854,8 @@ inline void InterpretedCPU::execBlock() {
                 if ((sp < m_stackBounds.low) || (sp > m_stackBounds.high)) {
                     stackBoundsViolation(pc, sp);
                     stackTripped = true;
+                } else if (PCSX::g_emulator->m_mem->m_psyqoHeapMetadata != 0) {
+                    stackTripped = checkHeapAgainstStack(pc);
                 }
             }
         }

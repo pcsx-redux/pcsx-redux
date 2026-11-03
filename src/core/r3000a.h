@@ -446,6 +446,11 @@ class R3000Acpu {
     void clearStackBounds() { m_stackBounds = {}; }
     // Called with $sp already updated; pc is the instruction that moved it.
     [[gnu::cold]] void stackBoundsViolation(uint32_t pc, uint32_t sp);
+    // Called on a $sp change that stayed inside the bounds, when an allocator has
+    // registered its metadata through pcsx_registerHeapMetadata. Returns true and
+    // stops like stackBoundsViolation when that allocator has handed out memory
+    // inside the bounds.
+    bool checkHeapAgainstStack(uint32_t pc);
     bool m_nextIsDelaySlot = false;
     bool m_inDelaySlot = false;
     // The next instruction is the delay slot of the branch at m_nextSlotBranchPC, taken or not.
