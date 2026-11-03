@@ -55,3 +55,7 @@ The project heavily relies on unit tests. If you find a problem while writing PS
 ## Filing a bug report
 
 If you find a bug, please as much as possible try to file a detailed bug report using the [issue template](https://github.com/pcsx-redux/pcsx-redux/issues/new?assignees=&labels=&template=bug_report.yml).
+
+## Agentic AI
+
+Contributions made using generative AI are accepted, provided they are clearly designated as such, either by being submitted from an account that's labeled as an AI agent, in the body of the issue or pull request, or with an `Assisted-by:` commit trailer. For example, this repository has an AI agent working on it with [an account marked as such](https://github.com/rixnobis), and contributors are encouraged to do the same, in order to distinguish between actions made by agentic AI, and actions made by humans.
