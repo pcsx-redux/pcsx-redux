@@ -43,3 +43,19 @@ TEST(StackBounds, Overflow) {
     int ret = invoker.invoke();
     EXPECT_EQ(ret, PCSX::R3000Acpu::c_stackBoundsExitCode);
 }
+
+// Blocks the allocator hands out inside the bounds trip the same check.
+
+TEST(StackBounds, HeapQuiet) {
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-luacov", "-loadexe", "src/mips/tests/stack-bounds-heap-quiet/stack-bounds-heap-quiet.ps-exe");
+    int ret = invoker.invoke();
+    EXPECT_EQ(ret, 0);
+}
+
+TEST(StackBounds, HeapOverStack) {
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-luacov", "-loadexe", "src/mips/tests/stack-bounds-heap/stack-bounds-heap.ps-exe");
+    int ret = invoker.invoke();
+    EXPECT_EQ(ret, PCSX::R3000Acpu::c_stackBoundsExitCode);
+}
