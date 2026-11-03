@@ -671,8 +671,13 @@ void PCSX::GPU::BlitVramRam::cumulateStats(GPUStats* stats) { stats->pixelReads 
 
 void PCSX::GPU::FastFill::getVertices(AddTri&& add, PixelOp op) {
     if (op == PixelOp::READ) return;
-    add({int(x), int(y)}, {int(x + w), int(y)}, {int(x + w), int(y + h)});
-    add({int(x + w), int(y + h)}, {int(x), int(y + h)}, {int(x), int(y)});
+    Rect r[2];
+    unsigned n = rects(r);
+    for (unsigned i = 0; i < n; i++) {
+        int x0 = r[i].x, y0 = r[i].y, x1 = r[i].x + r[i].w, y1 = r[i].y + r[i].h;
+        add({x0, y0}, {x1, y0}, {x1, y1});
+        add({x1, y1}, {x0, y1}, {x0, y0});
+    }
 }
 void PCSX::GPU::BlitVramVram::getVertices(AddTri&& add, PixelOp op) {
     if (op == PixelOp::READ) {

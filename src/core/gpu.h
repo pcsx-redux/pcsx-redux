@@ -445,19 +445,36 @@ class GPU {
     struct FastFill final : public Command, public Logged {
         std::string_view getName() override { return "Fast Fill"; }
         void drawLogNode(unsigned itemIndex, const DrawLogSettings &) override;
-        void execute(GPU *gpu) override { gpu->write0(this); }
+        void execute(GPU *gpu) override { draw(gpu); }
         void generateStatsInfo() override {}
         void cumulateStats(GPUStats *) override;
         void getVertices(AddTri &&, PixelOp) override;
         FastFill(GPU *parent) : Command(parent) {}
+        // Sends the fill to the GPU, split in two where it runs past the last addressable row,
+        // since the rows wrap to the top. Returns whether it was clipped or wrapped.
+        bool draw(GPU *gpu) const;
         void processWrite(Buffer &, Logged::Origin, uint32_t value, uint32_t length) override;
         void reset() override { m_state = READ_COLOR; }
         bool isInside(unsigned x, unsigned y) override {
-            return (x >= this->x) && (y >= this->y) && (x < this->x + this->w) && (y < this->y + this->h);
+            Rect r[2];
+            unsigned n = rects(r);
+            for (unsigned i = 0; i < n; i++) {
+                if ((x >= r[i].x) && (y >= r[i].y) && (x < r[i].x + r[i].w) && (y < r[i].y + r[i].h)) return true;
+            }
+            return false;
         }
+
+        struct Rect {
+            unsigned x, y, w, h;
+        };
+        // The rectangles the fill writes: one, or two where the rows run past wrapHeight.
+        unsigned rects(Rect out[2]) const;
 
         uint32_t color;
         unsigned x, y, w, h;
+        // Row count the fill wraps at, taken from the bank gate when the command is decoded
+        // (512 closed, 1024 open), so a logged fill replays and hit-tests like the live one.
+        unsigned wrapHeight = 512;
 
         struct {
             unsigned x, y, w, h;
