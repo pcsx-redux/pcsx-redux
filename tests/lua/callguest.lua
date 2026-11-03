@@ -134,6 +134,31 @@ function TestCallGuest:test_faulting_callee_reports_the_exception()
     lu.assertEquals(regs.pc, pcBefore)
 end
 
+-- Breakpoints aren't processed during a guest call, but an execSlots handler runs from the
+-- store that triggers it, in the middle of the outer call. A second call from there is
+-- refused, and the outer one still completes.
+function TestCallGuest:test_nested_call_is_refused()
+    if not interpreter() then lu.skip('needs the interpreter') end
+    enableStores()
+    local INNER = CODE + 0x100
+    -- lui t0,0x1f80 ; li t1,1 ; sb t1,0x2081(t0) ; jr ra ; li v0,7
+    poke(CODE, { 0x3c081f80, 0x24090001, 0xa1092081, 0x03e00008, 0x24020007 })
+    poke(INNER, { 0x03e00008, 0x00000000 }) -- jr ra ; nop
+    local hits, ok, err = 0
+    local savedSlot = PCSX.execSlots[1]
+    PCSX.execSlots[1] = function()
+        hits = hits + 1
+        ok, err = pcall(PCSX.callGuest, { pc = INNER })
+    end
+    local r = PCSX.callGuest { pc = CODE }
+    PCSX.execSlots[1] = savedSlot
+    lu.assertEquals(hits, 1)
+    lu.assertFalse(ok)
+    lu.assertStrContains(tostring(err), "can't be nested")
+    lu.assertEquals(r.status, 'returned')
+    lu.assertEquals(r.v0, 7)
+end
+
 function TestCallGuest:test_rejects_bad_arguments()
     lu.assertFalse(pcall(PCSX.callGuest, {}))
     lu.assertFalse(pcall(PCSX.callGuest, { pc = CODE + 2 }))
@@ -179,6 +204,25 @@ function TestCallGuest:test_stage_fetch_without_isolation_keeps_the_writes()
     lu.assertEquals(r.out[1], data)
     lu.assertEquals(r.dirty, { 0x80160000 })
     lu.assertEquals(ffi.string(ram8(DST), #data), data)
+end
+
+-- Several fetch ranges come back in the order they were given, each with its own size.
+function TestCallGuest:test_fetch_returns_every_range_in_order()
+    if not interpreter() then lu.skip('needs the interpreter') end
+    enableStores()
+    poke(CODE, COPIER)
+    local data = payload(256)
+    ffi.fill(ram8(DST), 256, 0)
+    local r = PCSX.callGuest {
+        pc = CODE, args = { SRC, DST, #data },
+        stage = { { addr = SRC, data = data } },
+        fetch = { { addr = DST + 128, size = 16 }, { addr = DST, size = 4 }, { addr = SRC, size = 0 } },
+    }
+    lu.assertEquals(r.status, 'returned')
+    lu.assertEquals(#r.out, 3)
+    lu.assertEquals(r.out[1], data:sub(129, 144))
+    lu.assertEquals(r.out[2], data:sub(1, 4))
+    lu.assertEquals(r.out[3], '')
 end
 
 function TestCallGuest:test_ram_isolation_rolls_back_writes_and_staging()
