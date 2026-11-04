@@ -17,6 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include "core/r3000a.h"
 #include "gtest/gtest.h"
 #include "main/main.h"
 
@@ -222,7 +223,11 @@ TEST(GTE, WriteToUseCoarseInterpreter) {
     EXPECT_EQ(ret, 2);
 }
 
+// -dynarec runs the interpreter where no recompiler is built, which would pass this test without testing one.
 TEST(GTE, WriteToUseCoarseDynarec) {
+#if defined(DYNAREC_NONE)
+    GTEST_SKIP();
+#endif
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
                         "-loadexe", "src/mips/tests/gte-write-to-use/gte-write-to-use.ps-exe");
     int ret = invoker.invoke();
