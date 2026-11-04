@@ -299,9 +299,9 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
     static void recErrorWrapper(DynaRecCPU* that) { that->error(); }
 
     static void signalShellReached(DynaRecCPU* that);
-    static DynarecCallback recRecompileWrapper(DynaRecCPU* that, DynarecCallback* callback,
-                                               bool fullLoadDelayEmulation) {
-        return that->recompile(callback, that->m_regs.pc, true, fullLoadDelayEmulation);
+    static DynarecCallback recRecompileWrapper(DynaRecCPU* that, bool fullLoadDelayEmulation) {
+        const uint32_t pc = that->m_regs.pc;
+        return that->recompile(that->getBlockPointer(pc), pc, true, fullLoadDelayEmulation);
     }
 
     template <uint32_t pc>
