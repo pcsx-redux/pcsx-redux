@@ -374,6 +374,7 @@ DynarecCallback DynaRecCPU::recompile(DynarecCallback* callback, uint32_t pc, bo
     m_pc = pc & ~3;
     m_firstInstruction = true;
     m_fullLoadDelayEmulation = fullLoadDelayEmulation;
+    m_gteQueue.count = 0;
 
     const auto startingPC = m_pc;
     unsigned count = 0;  // How many instructions have we compiled?
@@ -407,6 +408,17 @@ DynarecCallback DynaRecCPU::recompile(DynarecCallback* callback, uint32_t pc, bo
     }
 
     handleKernelCall();  // Check if this is a kernel call vector, emit some extra code in that case.
+
+    // GTE writes left in flight by the previous block, the interpreter or a save state land here, up to two
+    // instructions early.
+    {
+        Label noPendingWrites;
+        gen.Ldr(w4, MemOperand(contextPointer, (uintptr_t)&m_gtePendingCount - (uintptr_t)this));
+        gen.Cbz(w4, &noPendingWrites);
+        loadThisPointer(arg1.X());
+        call(drainGTEWritesWrapper);
+        gen.L(noPendingWrites);
+    }
 
     auto shouldContinue = [&]() {
         if (m_nextIsDelaySlot) {
@@ -487,10 +499,12 @@ DynarecCallback DynaRecCPU::recompile(DynarecCallback* callback, uint32_t pc, bo
     }
     resolveInitialLoadDelay();
     processDelayedLoad();
+    tickGTEWrites();
     m_firstInstruction = false;
 
     // Ends the block: writes back the registers and the PC, adds the cycles, returns to the dispatcher.
     const auto endBlock = [&]() {
+        emitGTEFlushQueue(false);
         flushRegs();
         if (!m_pcWrittenBack) {
             gen.Mov(w0, m_pc);
@@ -517,6 +531,7 @@ DynarecCallback DynaRecCPU::recompile(DynarecCallback* callback, uint32_t pc, bo
             const auto savedLoads0 = m_delayedLoadInfo[0];
             const auto savedLoads1 = m_delayedLoadInfo[1];
             const auto savedCurrentLoad = m_currentDelayedLoad;
+            const auto savedGTEQueue = m_gteQueue;
             const auto savedCount = count;
             const auto savedExtra = extra;
             Label notTaken;
@@ -546,6 +561,7 @@ DynarecCallback DynaRecCPU::recompile(DynarecCallback* callback, uint32_t pc, bo
                 m_pcWrittenBack = true;
             }
             processDelayedLoad();
+            tickGTEWrites();
             // Its delay slot is the instruction at the first branch's target.
             m_nextIsDelaySlot = true;
             m_nestedSlotBranchPC = slotPC;
@@ -553,6 +569,7 @@ DynarecCallback DynaRecCPU::recompile(DynarecCallback* callback, uint32_t pc, bo
                 return m_invalidBlock;
             }
             processDelayedLoad();
+            tickGTEWrites();
             m_pcWrittenBack = true;
             endBlock();
 
@@ -561,6 +578,7 @@ DynarecCallback DynaRecCPU::recompile(DynarecCallback* callback, uint32_t pc, bo
             m_delayedLoadInfo[0] = savedLoads0;
             m_delayedLoadInfo[1] = savedLoads1;
             m_currentDelayedLoad = savedCurrentLoad;
+            m_gteQueue = savedGTEQueue;
             count = savedCount;
             extra = savedExtra;
             m_pc = slotPC;
@@ -574,8 +592,10 @@ DynarecCallback DynaRecCPU::recompile(DynarecCallback* callback, uint32_t pc, bo
             return m_invalidBlock;
         }
         processDelayedLoad();
+        tickGTEWrites();
     }
 
+    emitGTEFlushQueue(false);
     flushRegs();
     if (!m_pcWrittenBack) {  // Write PC back if needed
         gen.Mov(w0, m_pc);
