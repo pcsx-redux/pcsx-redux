@@ -318,6 +318,7 @@ void DynaRecCPU::recBCz(uint32_t code) {
         gen.Ldr(w4, MemOperand(contextPointer, delayedValueOffset));
         gen.Str(w4, MemOperand(contextPointer, GPR_OFFSET(delayedLoad.index)));
     }
+    emitGTEFlushQueue(true);
 
     loadThisPointer(arg1.X());
     gen.Mov(arg2, (static_cast<uint32_t>(Exception::CoprocessorUnusable) << 2) | (z << 28));

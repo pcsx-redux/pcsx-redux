@@ -23,6 +23,8 @@
 #include <uv.h>
 
 #include <cstdarg>
+#include <memory>
+#include <optional>
 #include <string>
 
 #include "core/debug.h"
@@ -38,7 +40,7 @@ namespace PCSX {
 class GdbClient : public Intrusive::List<GdbClient>::Node {
   public:
     GdbClient(IO<File> connection, uv_loop_t* loop);
-    ~GdbClient() { m_breakpoints.destroyAll(); }
+    ~GdbClient();
     typedef Intrusive::List<GdbClient> ListType;
 
     void close();
@@ -148,6 +150,32 @@ class GdbClient : public Intrusive::List<GdbClient>::Node {
     Slice passthroughData(Slice slice);
     std::pair<uint64_t, uint64_t> parseCursor(const std::string& cursorStr);
 
+    // Reverse execution, bs and bc. Both replay from the emulator's rewind ring: restore the
+    // newest snapshot before the current boundary, replay up to it while recording, then
+    // restore again and replay to the boundary to stop at. bs stops at the boundary before
+    // this one. bc stops at the last breakpoint hit before it, and goes one snapshot further
+    // back each time a segment has none, down to the oldest snapshot, the edge of the replay
+    // log. The replays run as ordinary emulation, and every one of them ends in a Pause.
+    struct ReverseJob {
+        bool isContinue;
+        // false while scanning a segment for the boundary to stop at, true while replaying to it
+        bool landing = false;
+        bool scanned = false;
+        bool atEdge = false;
+        uint64_t now;
+        size_t snapshot;
+        uint64_t target = 0;
+    };
+    void startReverse(bool isContinue);
+    void replayFrom(size_t snapshot, uint64_t stopAt);
+    void land(uint64_t target);
+    void onReplayPaused();
+    void finishReverse(const char* reply);
+    std::optional<ReverseJob> m_reverse;
+    // A restore queued for the main loop holds a weak reference to this, so it does nothing if
+    // the client went away in between.
+    std::shared_ptr<GdbClient*> m_self = std::make_shared<GdbClient*>(this);
+
     std::string dumpOneRegister(int n);
     void setOneRegister(int n, uint32_t value);
     static std::string dumpValue(uint32_t value);
@@ -168,6 +196,8 @@ class GdbClient : public Intrusive::List<GdbClient>::Node {
     bool m_multiprocess = false;
     bool m_waitingForTrap = false;
     bool m_waitingForShell = false;
+    bool m_restartRewindOnResume = false;
+    bool m_rewindWasInUse = false;
     bool m_exception = false;
     // Not sure about the logic here; we need to keep an eye on when
     // gdb complains about invalid responses, and toggle this accordingly.

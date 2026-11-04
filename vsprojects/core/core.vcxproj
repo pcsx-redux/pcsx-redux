@@ -152,6 +152,7 @@
     <ClCompile Include="..\..\src\core\cputrace.cc" />
     <ClCompile Include="..\..\src\core\gpudump.cc" />
     <ClCompile Include="..\..\src\core\gpulogger.cc" />
+    <ClCompile Include="..\..\src\core\spdwriter.cc" />
     <ClCompile Include="..\..\src\core\spulogger.cc" />
     <ClCompile Include="..\..\src\core\kernel.cc" />
     <ClCompile Include="..\..\src\core\kernellog.cc" />
@@ -222,6 +223,7 @@
     <ClInclude Include="..\..\src\core\cputrace.h" />
     <ClInclude Include="..\..\src\core\gpudump.h" />
     <ClInclude Include="..\..\src\core\gpulogger.h" />
+    <ClInclude Include="..\..\src\core\spdwriter.h" />
     <ClInclude Include="..\..\src\core\spulogger.h" />
     <ClInclude Include="..\..\src\core\gte.h" />
     <ClInclude Include="..\..\src\core\kernel.h" />

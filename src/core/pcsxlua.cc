@@ -32,6 +32,7 @@
 #include "core/psxemulator.h"
 #include "core/psxmem.h"
 #include "core/r3000a.h"
+#include "core/spulogger.h"
 #include "core/sstate.h"
 #include "lua/luafile.h"
 #include "lua/luawrapper.h"
@@ -165,6 +166,36 @@ LuaScreenShot takeScreenShot() {
 
 double getGuestFPS() { return PCSX::g_emulator->m_gpuLogger->getGuestFPS(); }
 
+void setGPULogging(bool enabled, bool overdrawStats) {
+    auto logger = PCSX::g_emulator->m_gpuLogger.get();
+    logger->setEnabled(enabled);
+    logger->m_overdrawStats = overdrawStats;
+}
+
+struct LuaOverdrawStats {
+    bool valid;
+    uint64_t total;
+    uint32_t pixels, max;
+    uint32_t buckets[5];
+};
+
+uint64_t getOverdrawSum(bool read, int x, int y, int w, int h) {
+    return PCSX::g_emulator->m_gpuLogger->getOverdrawSum(read, x, y, w, h);
+}
+
+LuaOverdrawStats getOverdrawStats(bool read) {
+    LuaOverdrawStats ret = {};
+    auto logger = PCSX::g_emulator->m_gpuLogger.get();
+    if (!logger->hasOverdrawStats()) return ret;
+    auto& stats = read ? logger->getReadOverdraw() : logger->getWrittenOverdraw();
+    ret.valid = true;
+    ret.total = stats.total;
+    ret.pixels = stats.pixels;
+    ret.max = stats.max;
+    for (unsigned i = 0; i < 5; i++) ret.buckets[i] = stats.buckets[i];
+    return ret;
+}
+
 void startGPUDump(PCSX::LuaFFI::LuaFile* file) { PCSX::g_emulator->m_gpuDumper->start(file->file); }
 void stopGPUDump() { PCSX::g_emulator->m_gpuDumper->stop(); }
 bool isGPUDumpArmed() { return PCSX::g_emulator->m_gpuDumper->armed(); }
@@ -176,6 +207,8 @@ void unloadGPUDumpPlayer() { PCSX::g_emulator->m_gpuDumpPlayer->unload(); }
 bool stepGPUDumpPlayer() { return PCSX::g_emulator->m_gpuDumpPlayer->step(); }
 void rewindGPUDumpPlayer() { PCSX::g_emulator->m_gpuDumpPlayer->rewind(); }
 uint64_t getGPUDumpPlayerFrame() { return PCSX::g_emulator->m_gpuDumpPlayer->frame(); }
+uint64_t getGPUDumpPlayerFrameCount() { return PCSX::g_emulator->m_gpuDumpPlayer->frameCount(); }
+bool seekGPUDumpPlayer(uint64_t frame) { return PCSX::g_emulator->m_gpuDumpPlayer->seek(frame); }
 void setGPUDumpPlayerLogging(bool enabled) { PCSX::g_emulator->m_gpuDumpPlayer->logger()->setLogging(enabled); }
 uint32_t getGPUDumpPlayerLoggedCount() { return PCSX::g_emulator->m_gpuDumpPlayer->logger()->loggedCount(); }
 PCSX::Slice* getGPUDumpPlayerVRAM() {
@@ -183,6 +216,35 @@ PCSX::Slice* getGPUDumpPlayerVRAM() {
     if (!gpu) return new PCSX::Slice();
     return new PCSX::Slice(gpu->getVRAM(PCSX::GPU::Ownership::ACQUIRE));
 }
+void setSPULoggerEnabled(bool enabled) { PCSX::g_emulator->m_spuLogger->setEnabled(enabled); }
+bool isSPULoggerEnabled() { return PCSX::g_emulator->m_spuLogger->enabled(); }
+void clearSPULogger() { PCSX::g_emulator->m_spuLogger->clear(); }
+uint64_t getSPULoggerEventCount() { return PCSX::g_emulator->m_spuLogger->size(); }
+static std::string s_spuLoggerExportError;
+static std::vector<uint8_t> s_spuLoggerExport;
+// Two steps, so a filename is only opened, and truncated, once the capture is known to export.
+bool prepareSPULoggerSPD(uint32_t tickRate, bool fullRam) {
+    PCSX::SPD::Options options;
+    options.tickRate = tickRate;
+    options.fullRam = fullRam;
+    s_spuLoggerExport.clear();
+    s_spuLoggerExportError = PCSX::g_emulator->m_spuLogger->exportSPD(s_spuLoggerExport, options);
+    return s_spuLoggerExportError.empty();
+}
+bool writeSPULoggerSPD(PCSX::LuaFFI::LuaFile* file) {
+    if (file->file->failed()) {
+        s_spuLoggerExportError = "unable to open the SPD file";
+        s_spuLoggerExport.clear();
+        return false;
+    }
+    auto size = static_cast<ssize_t>(s_spuLoggerExport.size());
+    bool ok = file->file->write(s_spuLoggerExport.data(), s_spuLoggerExport.size()) == size;
+    if (!ok) s_spuLoggerExportError = "failed to write the whole SPD file";
+    s_spuLoggerExport.clear();
+    return ok;
+}
+const char* getSPULoggerExportError() { return s_spuLoggerExportError.c_str(); }
+
 PCSX::Slice* getVRAM() { return new PCSX::Slice(PCSX::g_emulator->m_gpu->getVRAM(PCSX::GPU::Ownership::ACQUIRE)); }
 
 PCSX::Slice* createSaveState() {
@@ -277,7 +339,17 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, loadCpuTrace);
     REGISTER(L, takeScreenShot);
     REGISTER(L, getGuestFPS);
+    REGISTER(L, setGPULogging);
+    REGISTER(L, getOverdrawStats);
+    REGISTER(L, getOverdrawSum);
     REGISTER(L, startGPUDump);
+    REGISTER(L, setSPULoggerEnabled);
+    REGISTER(L, isSPULoggerEnabled);
+    REGISTER(L, clearSPULogger);
+    REGISTER(L, getSPULoggerEventCount);
+    REGISTER(L, prepareSPULoggerSPD);
+    REGISTER(L, writeSPULoggerSPD);
+    REGISTER(L, getSPULoggerExportError);
     REGISTER(L, stopGPUDump);
     REGISTER(L, isGPUDumpArmed);
     REGISTER(L, isGPUDumpRecording);
@@ -287,6 +359,8 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, stepGPUDumpPlayer);
     REGISTER(L, rewindGPUDumpPlayer);
     REGISTER(L, getGPUDumpPlayerFrame);
+    REGISTER(L, getGPUDumpPlayerFrameCount);
+    REGISTER(L, seekGPUDumpPlayer);
     REGISTER(L, setGPUDumpPlayerLogging);
     REGISTER(L, getGPUDumpPlayerLoggedCount);
     REGISTER(L, getGPUDumpPlayerVRAM);
@@ -572,9 +646,9 @@ void PCSX::LuaFFI::open_pcsx(Lua L) {
                 regs.pc.raw() = savedPC;
                 regs.cycle = savedCycle;
                 return L.error(
-                    "callGuest can't be nested: this one was called from inside another guest call, most likely from "
-                    "a breakpoint invoker that fired during it. An ExecutionFlow event listener is a fine place to "
-                    "call from; the middle of an instruction is not.");
+                    "callGuest can't be nested: this one was called from inside another guest call, from a Lua "
+                    "handler run by one of its accesses, such as a PCSX.execSlots function. An ExecutionFlow event "
+                    "listener is a fine place to call from; the middle of an instruction is not.");
             }
             if (outcome == R3000Acpu::RunUntilResult::Unsupported) {
                 undoInputs();

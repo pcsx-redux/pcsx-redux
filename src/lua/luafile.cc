@@ -84,7 +84,8 @@ uint64_t readFileRawPtr(LuaFile* wrapper, void* dst, uint64_t size) { return wra
 uint64_t readFileBuffer(LuaFile* wrapper, void* buffer) {
     uint32_t* pSize = reinterpret_cast<uint32_t*>(buffer);
     uint8_t* data = reinterpret_cast<uint8_t*>(pSize + 1);
-    return *pSize = wrapper->file->read(data, *pSize);
+    const ssize_t got = wrapper->file->read(data, *pSize);
+    return *pSize = got < 0 ? 0 : got;
 }
 PCSX::Slice* readFileToSlice(LuaFile* wrapper, uint64_t size) {
     return new PCSX::Slice(std::move(wrapper->file->read(size)));
@@ -121,7 +122,8 @@ uint64_t readFileAtRawPtr(LuaFile* wrapper, void* dst, uint64_t size, uint64_t p
 uint64_t readFileAtBuffer(LuaFile* wrapper, void* buffer, uint64_t pos) {
     uint32_t* pSize = reinterpret_cast<uint32_t*>(buffer);
     uint8_t* data = reinterpret_cast<uint8_t*>(pSize + 1);
-    return *pSize = wrapper->file->readAt(data, *pSize, pos);
+    const ssize_t got = wrapper->file->readAt(data, *pSize, pos);
+    return *pSize = got < 0 ? 0 : got;
 }
 PCSX::Slice* readFileAtToSlice(LuaFile* wrapper, uint64_t size, uint64_t pos) {
     return new PCSX::Slice(std::move(wrapper->file->readAt(size, pos)));

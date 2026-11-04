@@ -198,6 +198,23 @@ void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title, 
         ImGui::Text(_("%i pixel writes"), stats.pixelWrites);
         ImGui::Text(_("%i pixel reads"), stats.pixelReads);
         ImGui::Text(_("%i texel reads"), stats.texelReads);
+        ImGui::Checkbox(_("Overdraw statistics"), &logger->m_overdrawStats);
+        ImGuiHelpers::ShowHelpMarker(
+            _("Counts how many times each VRAM pixel was touched during the previous frame, from the same buffers as "
+              "the overdraw heatmap. Reading them back costs a GPU stall per frame."));
+        if (logger->m_overdrawStats && logger->hasOverdrawStats()) {
+            auto showOverdraw = [](const char* title, const PCSX::GPULogger::OverdrawStats& o) {
+                ImGui::TextUnformatted(title);
+                ImGui::Indent();
+                ImGui::Text(_("%u pixels, %llu touches, mean %.2f, max %u"), o.pixels, (unsigned long long)o.total,
+                            o.mean(), o.max);
+                ImGui::Text(_("1x: %u  2x: %u  3-4x: %u  5-8x: %u  9x+: %u"), o.buckets[0], o.buckets[1], o.buckets[2],
+                            o.buckets[3], o.buckets[4]);
+                ImGui::Unindent();
+            };
+            showOverdraw(_("Pixels written"), logger->getWrittenOverdraw());
+            showOverdraw(_("Pixels read"), logger->getReadOverdraw());
+        }
 
         ImGui::TreePop();
     }

@@ -267,8 +267,11 @@ class Emulator {
     // In-memory rewind ring; defined in psxemulator.cc so this header does not pull in sstate.h.
     struct RewindRing;
     std::unique_ptr<RewindRing> m_rewindRing;
+    bool m_rewindCaptureSuppressed = false;
     bool m_rewindCapturePending = false;
-    void captureRewindState();
+    // The pending capture comes from restartRewind(), see captureRewindState().
+    bool m_rewindRestartPending = false;
+    void captureRewindState(bool restarting = false);
 
     // Used for overclocking
     // Make the timing events trigger faster as we are currently assuming everything
@@ -313,6 +316,27 @@ class Emulator {
     bool rewindState();
     bool rewindStateNow(unsigned steps = 1);
     size_t rewindStateCount() const;
+
+    // Random access into the same ring, for replaying from a snapshot rather than stepping back
+    // to it, which is what the gdb server's reverse execution does. Index 0 is the oldest
+    // snapshot. The cycle is m_regs.cycle at capture. restoreRewindSnapshot() leaves the
+    // snapshot on the ring, and has the same constraint as rewindStateNow(): nothing of the
+    // emulation may be on the stack. While a replay is suppressing captures, the vsyncs it runs
+    // through don't push copies of what the ring already holds. dropRewindSnapshotsAfter()
+    // discards the snapshots of a future that is about to be executed again.
+    size_t rewindSnapshotCount() const;
+    uint64_t rewindSnapshotCycle(size_t index) const;
+    void restoreRewindSnapshot(size_t index);
+    void dropRewindSnapshotsAfter(uint64_t cycle);
+    void suppressRewindCapture(bool suppress) { m_rewindCaptureSuppressed = suppress; }
+
+    // For a point in the emulation that a replay from an earlier snapshot can't reproduce, such as
+    // the shell being hijacked. clearRewindRing() drops every snapshot and returns whether there
+    // were any. restartRewind() does the same, then takes a snapshot if the ring was in use, or if
+    // it is capturing on its own. Called from Execute(), it has to be between two blocks, where the
+    // ShellReached event is signalled.
+    bool clearRewindRing();
+    void restartRewind(bool inUse = false);
 
     void setLua();
 

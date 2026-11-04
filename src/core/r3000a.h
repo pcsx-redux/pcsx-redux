@@ -423,6 +423,34 @@ class R3000Acpu {
     }
     bool m_inISR = false;
     bool m_inRunUntil = false;
+
+    // Guest-registered stack bounds, set through the guest command port and
+    // checked by the interpreter each time $sp changes value.
+    struct StackBounds {
+        uint32_t low = 0;
+        uint32_t high = 0;
+        // $sp as of the last check; only a change against it is checked.
+        uint32_t lastSP = 0;
+        bool active = false;
+    };
+    StackBounds m_stackBounds;
+    static constexpr int c_stackBoundsExitCode = 251;
+    // Low and high both zero clears the bounds. Constant time, no allocation:
+    // guests issue this on every context switch.
+    void setStackBounds(uint32_t low, uint32_t high) {
+        m_stackBounds.low = low;
+        m_stackBounds.high = high;
+        m_stackBounds.lastSP = m_regs.GPR.n.sp;
+        m_stackBounds.active = (low != 0) || (high != 0);
+    }
+    void clearStackBounds() { m_stackBounds = {}; }
+    // Called with $sp already updated; pc is the instruction that moved it.
+    [[gnu::cold]] void stackBoundsViolation(uint32_t pc, uint32_t sp);
+    // Called on a $sp change that stayed inside the bounds, when an allocator has
+    // registered its metadata through pcsx_registerHeapMetadata. Returns true and
+    // stops like stackBoundsViolation when that allocator has handed out memory
+    // inside the bounds.
+    bool checkHeapAgainstStack(uint32_t pc);
     bool m_nextIsDelaySlot = false;
     bool m_inDelaySlot = false;
     // The next instruction is the delay slot of the branch at m_nextSlotBranchPC, taken or not.

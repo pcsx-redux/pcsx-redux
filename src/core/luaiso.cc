@@ -404,6 +404,7 @@ void dirTreeSetDeclaredSize(PCSX::ISO9660::DirTree* node, uint32_t size) { node-
 void dirTreeClearDeclaredSize(PCSX::ISO9660::DirTree* node) { node->clearDeclaredSize(); }
 bool dirTreeHasXA(PCSX::ISO9660::DirTree* node) { return node->hasXA(); }
 void dirTreeSetHasXA(PCSX::ISO9660::DirTree* node, bool val) { node->setHasXA(val); }
+PCSX::IEC60908b::SectorMode dirTreeGetSectorMode(PCSX::ISO9660::DirTree* node) { return node->getSectorMode(); }
 void dirTreeSetSectorMode(PCSX::ISO9660::DirTree* node, PCSX::IEC60908b::SectorMode mode) { node->setSectorMode(mode); }
 uint16_t dirTreeGetXAAttribs(PCSX::ISO9660::DirTree* node) {
     return node->getXA().get<PCSX::ISO9660LowLevel::DirEntry_XA_Attribs>().value;
@@ -489,6 +490,40 @@ static void registerPvdSymbols(PCSX::Lua L) {
     REGISTER(L, hlPvdSetBibliographicFileIdent);
 }
 
+static void registerDirTreeSymbols(PCSX::Lua L) {
+    REGISTER(L, dirTreeGetName);
+    REGISTER(L, dirTreeGetSize);
+    REGISTER(L, dirTreeGetLBA);
+    REGISTER(L, dirTreeIsDir);
+    REGISTER(L, dirTreeIsHidden);
+    REGISTER(L, dirTreeSetHidden);
+    REGISTER(L, dirTreeShouldSkip);
+    REGISTER(L, dirTreeSetSkip);
+    REGISTER(L, dirTreeHasAnchorLBA);
+    REGISTER(L, dirTreeGetAnchorLBA);
+    REGISTER(L, dirTreeSetAnchorLBA);
+    REGISTER(L, dirTreeClearAnchorLBA);
+    REGISTER(L, dirTreeHasDeclaredSize);
+    REGISTER(L, dirTreeGetDeclaredSize);
+    REGISTER(L, dirTreeSetDeclaredSize);
+    REGISTER(L, dirTreeClearDeclaredSize);
+    REGISTER(L, dirTreeHasXA);
+    REGISTER(L, dirTreeSetHasXA);
+    REGISTER(L, dirTreeGetSectorMode);
+    REGISTER(L, dirTreeSetSectorMode);
+    REGISTER(L, dirTreeGetXAAttribs);
+    REGISTER(L, dirTreeSetXAAttribs);
+    REGISTER(L, dirTreeGetXAFileNum);
+    REGISTER(L, dirTreeSetXAFileNum);
+    REGISTER(L, dirTreeParent);
+    REGISTER(L, dirTreeFirstChild);
+    REGISTER(L, dirTreeNextSibling);
+    REGISTER(L, dirTreeSetDate);
+    REGISTER(L, dirTreeGetDateYear);
+    REGISTER(L, dirTreeGetDateMonth);
+    REGISTER(L, dirTreeGetDateDay);
+}
+
 static void registerAllSymbols(PCSX::Lua L) {
     L.getfieldtable("_CLIBS", LUA_REGISTRYINDEX);
     L.push("CORE_ISO");
@@ -539,36 +574,7 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, hlCreateRoot);
     REGISTER(L, hlCreateDir);
     REGISTER(L, hlCreateFile);
-    REGISTER(L, dirTreeGetName);
-    REGISTER(L, dirTreeGetSize);
-    REGISTER(L, dirTreeGetLBA);
-    REGISTER(L, dirTreeIsDir);
-    REGISTER(L, dirTreeIsHidden);
-    REGISTER(L, dirTreeSetHidden);
-    REGISTER(L, dirTreeShouldSkip);
-    REGISTER(L, dirTreeSetSkip);
-    REGISTER(L, dirTreeHasAnchorLBA);
-    REGISTER(L, dirTreeGetAnchorLBA);
-    REGISTER(L, dirTreeSetAnchorLBA);
-    REGISTER(L, dirTreeClearAnchorLBA);
-    REGISTER(L, dirTreeHasDeclaredSize);
-    REGISTER(L, dirTreeGetDeclaredSize);
-    REGISTER(L, dirTreeSetDeclaredSize);
-    REGISTER(L, dirTreeClearDeclaredSize);
-    REGISTER(L, dirTreeHasXA);
-    REGISTER(L, dirTreeSetHasXA);
-    REGISTER(L, dirTreeSetSectorMode);
-    REGISTER(L, dirTreeGetXAAttribs);
-    REGISTER(L, dirTreeSetXAAttribs);
-    REGISTER(L, dirTreeGetXAFileNum);
-    REGISTER(L, dirTreeSetXAFileNum);
-    REGISTER(L, dirTreeParent);
-    REGISTER(L, dirTreeFirstChild);
-    REGISTER(L, dirTreeNextSibling);
-    REGISTER(L, dirTreeSetDate);
-    REGISTER(L, dirTreeGetDateYear);
-    REGISTER(L, dirTreeGetDateMonth);
-    REGISTER(L, dirTreeGetDateDay);
+    registerDirTreeSymbols(L);
 
     L.settable();
     L.pop();
