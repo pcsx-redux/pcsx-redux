@@ -212,27 +212,20 @@ void DynaRecCPU::emitDispatcher() {
     gen.Ret();
 
     // Code for when the block to be executed needs to be compiled.
-    // x0 = Base pointer to the page of m_recompilerLUT we're executing from
-    // x3 = Index into the page
-    // Doing x0 + (x3 << 3) gets us the pointer to where the block callback should be stored
     gen.align();
     m_uncompiledBlock = gen.getCurr<DynarecCallback>();
 
-    // Do arg2 = x0 + (x3 << 3). Now arg2 points to the address we'll store the block callback to.
-    gen.Add(arg2.X(), x0, Operand(x3, LSL, 3));
     loadThisPointer(arg1.X());
-    gen.Mov(arg3, 0);  // Do not fully emulate load delays at first
+    gen.Mov(arg2, 0);  // Do not fully emulate load delays at first
     call(recRecompileWrapper);
     gen.Br(x0);  // Jump to compiled block
 
-    // Code for recompiling the current block with full load delay support. Reached from the check at the top of a
-    // block that was compiled without it, so x0 and x3 still hold what emitBlockLookup left there.
+    // Code for recompiling the current block with full load delay support.
     gen.align();
     m_needFullLoadDelays = gen.getCurr<DynarecCallback>();
 
-    gen.Add(arg2.X(), x0, Operand(x3, LSL, 3));
     loadThisPointer(arg1.X());
-    gen.Mov(arg3, 1);  // Fully emulate load delays
+    gen.Mov(arg2, 1);  // Fully emulate load delays
     call(recRecompileWrapper);
     gen.Br(x0);  // Jump to the newly compiled block
 
