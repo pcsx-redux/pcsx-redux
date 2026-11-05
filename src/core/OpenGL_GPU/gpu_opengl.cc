@@ -713,7 +713,8 @@ void PCSX::OpenGL_GPU::syncVRAMForRead() {
 
     GLint program, vao, arrayBuffer, drawFB, readFB, activeTexture, tex2D;
     GLint viewport[4], scissorBox[4];
-    GLint polygonMode[2] = {GL_FILL, GL_FILL};
+    // Core profiles may return a single value for GL_POLYGON_MODE.
+    GLint polygonMode[2] = {GL_FILL, -1};
     GLint blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha, blendEqRGB, blendEqAlpha;
     glGetIntegerv(GL_CURRENT_PROGRAM, &program);
     glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
@@ -724,6 +725,7 @@ void PCSX::OpenGL_GPU::syncVRAMForRead() {
     glGetIntegerv(GL_VIEWPORT, viewport);
     glGetIntegerv(GL_SCISSOR_BOX, scissorBox);
     glGetIntegerv(GL_POLYGON_MODE, polygonMode);
+    if (polygonMode[1] == -1) polygonMode[1] = polygonMode[0];
     glGetIntegerv(GL_BLEND_SRC_RGB, &blendSrcRGB);
     glGetIntegerv(GL_BLEND_DST_RGB, &blendDstRGB);
     glGetIntegerv(GL_BLEND_SRC_ALPHA, &blendSrcAlpha);
@@ -736,11 +738,17 @@ void PCSX::OpenGL_GPU::syncVRAMForRead() {
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex2D);
 
     setOpenGLContext();
+    OpenGL::setFillMode(m_polygonMode);
     setScissorArea();
     if (m_lastTransparency == Transparency::Transparent) {
         OpenGL::enableBlend();
     } else {
         OpenGL::disableBlend();
+    }
+    // Same blend state setBlendingModeFromTexpage() leaves; mode 2 sets its equations in renderBatch().
+    if (m_lastBlendingMode >= 0) {
+        OpenGL::setBlendFactor(GL_SRC1_COLOR, GL_SRC1_ALPHA, GL_ONE, GL_ZERO);
+        if (m_lastBlendingMode != 2) OpenGL::setBlendEquation(OpenGL::BlendEquation::Add);
     }
     renderBatch();
 
@@ -753,7 +761,12 @@ void PCSX::OpenGL_GPU::syncVRAMForRead() {
     glActiveTexture(activeTexture);
     glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
     glScissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3]);
-    glPolygonMode(GL_FRONT_AND_BACK, polygonMode[0]);
+    if (polygonMode[0] == polygonMode[1]) {
+        glPolygonMode(GL_FRONT_AND_BACK, polygonMode[0]);
+    } else {
+        glPolygonMode(GL_FRONT, polygonMode[0]);
+        glPolygonMode(GL_BACK, polygonMode[1]);
+    }
     glBlendFuncSeparate(blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha);
     glBlendEquationSeparate(blendEqRGB, blendEqAlpha);
     if (scissor) {
