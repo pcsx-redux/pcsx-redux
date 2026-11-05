@@ -48,3 +48,15 @@ TEST(Tapcard, NoTapInterpreter) {
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
+
+// setup-tap.lua, then a card in slot C whose file can be neither read nor created. A card that failed to load
+// must look like no card at all, so the guest's empty slot C checks still hold.
+TEST(Tapcard, FailedLoadInterpreter) {
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-luacov", "-dofile", "src/mips/tests/tapcard/setup-tap.lua", "-exec",
+                        "PCSX.settings.emulator.Mcd1CInserted = true "
+                        "PCSX.settings.emulator.Mcd1C = '/nonexistent-pcsx-redux-tapcard/memcard1c.mcd'",
+                        "-loadexe", "src/mips/tests/tapcard/tapcard.ps-exe");
+    int ret = invoker.invoke();
+    EXPECT_EQ(ret, 0);
+}

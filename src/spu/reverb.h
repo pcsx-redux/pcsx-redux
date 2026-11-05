@@ -22,6 +22,7 @@
 #include <stdint.h>
 
 #include "spu/types.h"
+#include "support/protobuf.h"
 
 namespace PCSX {
 
@@ -62,7 +63,57 @@ class ReverbUnit {
     int mixLeft(int ns, uint16_t *spuMem, uint16_t spuCtrl);
     int mixRight();
 
+    // Savestate bridge (freeze.cc only): mirror the resampling filter state to/from the
+    // SPU-level savestate fields. A state saved without them carries zeroes, which is a
+    // reset filter.
+    template <typename InL, typename InR, typename OutL, typename OutR>
+    void saveTo(InL &inL, InR &inR, OutL &outL, OutR &outR, Protobuf::Bool &altLeftTick,
+                Protobuf::Int32 &callCount) const {
+        saveHistory(m_h44L, inL);
+        saveHistory(m_h44R, inR);
+        saveHistory(m_h22L, outL);
+        saveHistory(m_h22R, outR);
+        altLeftTick.value = m_altLeftTick;
+        callCount.value = m_callCount;
+    }
+    template <typename InL, typename InR, typename OutL, typename OutR>
+    void loadFrom(const InL &inL, const InR &inR, const OutL &outL, const OutR &outR,
+                  const Protobuf::Bool &altLeftTick, const Protobuf::Int32 &callCount) {
+        loadHistory(m_h44L, inL);
+        loadHistory(m_h44R, inR);
+        loadHistory(m_h22L, outL);
+        loadHistory(m_h22R, outR);
+        m_altLeftTick = altLeftTick.value;
+        m_callCount = callCount.value;
+    }
+
   private:
+    static constexpr int kFirTaps = 39;
+    static constexpr int kFirOutTaps = (kFirTaps + 1) / 2;
+
+    template <int N, typename Field>
+    static void saveHistory(const int (&history)[N], Field &field) {
+        for (int i = 0; i < N; i++) field.value[i].value = history[i];
+        field.count = N;
+    }
+    template <int N, typename Field>
+    static void loadHistory(int (&history)[N], const Field &field) {
+        for (int i = 0; i < N; i++) history[i] = field.value[i].value;
+    }
+
+    // The input/output resampling FIR (psx-spx "Reverb Buffer Resampling").
+    // m_h44[k] = the 44.1kHz reverb input k samples ago; m_h22[k] = the 22.05kHz wet output
+    // k ticks ago.
+    int m_h44L[kFirTaps] = {};
+    int m_h44R[kFirTaps] = {};
+    int m_h22L[kFirOutTaps] = {};
+    int m_h22R[kFirOutTaps] = {};
+    bool m_altLeftTick = false;  // which half of the 22.05kHz iteration this 44.1kHz cycle runs
+    int m_callCount = 0;         // 44.1kHz cycles run with reverb on; its parity picks m_altLeftTick
+
+    void resetFilterState();
+    void firPushIn(int l, int r);
+
     // The reverb work area is a circular window in sound RAM. Offsets are counted
     // in 32-bit units from CurrAddr, wrap at the top of RAM back to StartAddr, and
     // are the one piece of arithmetic every work-area access shares. ExtraSample is
