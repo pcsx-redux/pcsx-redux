@@ -62,7 +62,9 @@ class MainInvoker {
         std::filesystem::path cwd = std::filesystem::current_path();
         while (true) {
             std::filesystem::path maybe = cwd / head;
-            if (std::filesystem::exists(maybe)) {
+            // An argument can be a whole Lua script, too long to be a file name.
+            std::error_code ec;
+            if (std::filesystem::exists(maybe, ec)) {
                 array[index] = strdup(reinterpret_cast<const char*>(maybe.u8string().c_str()));
                 argGenerateOne(array, index + 1, args...);
                 return;

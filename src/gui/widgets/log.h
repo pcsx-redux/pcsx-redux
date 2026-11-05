@@ -21,9 +21,11 @@
 
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "imgui.h"
 #include "json.hpp"
+#include "support/ansi-sgr.h"
 #include "support/hashtable.h"
 #include "support/list.h"
 #include "support/strings-helpers.h"
@@ -62,7 +64,7 @@ class Log {
         c->buffer = lines.back();
         lines.pop_back();
         for (auto& line : lines) {
-            Element* element = new Element(std::move(line));
+            Element* element = new Element(c->sgr, line);
             c->list.push_back(element);
             m_allLogs.push_back(element);
             if (c->displayed) m_activeLogs.insert(m_activeLogs.size(), element);
@@ -77,13 +79,15 @@ class Log {
     void addClass(unsigned logClass, const std::string& s) { m_classes.insert(logClass, new ClassElement(s)); }
     void rebuildActive();
     struct Element;
+    static void drawEntry(const Element& element, bool plain);
     struct Class {};
     typedef Intrusive::List<Element> All;
     typedef Intrusive::Tree<unsigned, Element> ActiveTree;
     typedef Intrusive::List<Element, Class> ClassList;
     struct Element : public All::Node, public ActiveTree::Node, public ClassList::Node {
-        Element(const std::string& e) : entry(e) {}
-        Element(std::string&& e) : entry(std::move(e)) {}
+        Element(AnsiSGR& sgr, std::string_view e) : entry(sgr.parse(e, spans)) {}
+        // Colour spans come first: the entry initializer fills them in while stripping escapes.
+        std::vector<AnsiSGR::Span> spans;
         const std::string entry;
     };
 
@@ -95,6 +99,7 @@ class Log {
         ClassElement(const std::string& n) : name(n) {}
         const std::string name;
         std::string buffer;
+        AnsiSGR sgr;
         ClassList list;
         bool enabled = true;
         bool displayed = true;

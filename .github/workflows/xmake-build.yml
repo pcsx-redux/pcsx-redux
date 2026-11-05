@@ -24,7 +24,7 @@ jobs:
   emulator:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/grumpycoders/pcsx-redux-build:latest
+      image: ghcr.io/pcsx-redux/pcsx-redux-build:latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,7 +47,7 @@ jobs:
   guest:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/grumpycoders/pcsx-redux-build:latest
+      image: ghcr.io/pcsx-redux/pcsx-redux-build:latest
     strategy:
       fail-fast: false
       matrix:
@@ -67,3 +67,99 @@ jobs:
           cd ${{ matrix.sample }}
           xmake f -P . -y
           xmake -P . -y
+
+  wasm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    container:
+      image: ghcr.io/pcsx-redux/pcsx-redux-build:latest
+    env:
+      # Pinned: a new emscripten release is a toolchain change, and it should
+      # land as a one-line PR here rather than as a red build nobody caused.
+      EMSDK_VERSION: 6.0.3
+      # The emsdk repository's own 6.0.3 tag, so the installer is pinned too.
+      EMSDK_COMMIT: db04e88298d9916fc51fcd3743045ca3eb695127
+      EMSDK: /tmp/emsdk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          set-safe-directory: true
+          persist-credentials: false
+      - name: Fetch submodules
+        run: ./.github/scripts/update-submodules.sh
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/emsdk
+          key: emsdk-${{ runner.os }}-${{ runner.arch }}-${{ env.EMSDK_VERSION }}-${{ env.EMSDK_COMMIT }}
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/xmake-global/.xmake/packages
+          key: xmake-packages-wasm-${{ env.EMSDK_VERSION }}-${{ hashFiles('xmake.lua') }}
+          restore-keys: |
+            xmake-packages-wasm-${{ env.EMSDK_VERSION }}-
+      - name: Install emsdk
+        run: |
+          if [ ! -x "$EMSDK/emsdk" ]; then
+            git clone https://github.com/emscripten-core/emsdk.git "$EMSDK"
+            git -C "$EMSDK" checkout -q "$EMSDK_COMMIT"
+          fi
+          "$EMSDK/emsdk" install "$EMSDK_VERSION"
+          "$EMSDK/emsdk" activate "$EMSDK_VERSION"
+      # The before_build hook makes OpenBIOS with the image's mips toolchain and
+      # packs it into the bundle, so the artifact never carries a Sony BIOS.
+      - name: Build
+        run: |
+          . "$EMSDK/emsdk_env.sh"
+          xmake f -p wasm -m release -y
+          xmake -y -j 4
+      - name: Stage bundle
+        run: |
+          mkdir -p dist
+          cp build/wasm/wasm32/release/pcsx-redux.html dist/index.html
+          cp build/wasm/wasm32/release/pcsx-redux.js \
+             build/wasm/wasm32/release/pcsx-redux.wasm \
+             build/wasm/wasm32/release/pcsx-redux.data \
+             build/wasm/wasm32/release/enable-threads.js dist/
+          touch dist/.nojekyll
+          ls -l dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pcsx-redux-wasm
+          path: dist
+          include-hidden-files: true
+
+  # Publishes the bundle to https://tools.psx.dev/redux/, which is GitHub Pages
+  # on ps1dev/redux. Pages cannot send COOP/COEP, so the page gets its cross
+  # origin isolation from enable-threads.js instead. The site repository holds
+  # a single commit, replaced on every deploy, so it does not grow a copy of
+  # the bundle per push.
+  wasm-deploy:
+    needs: wasm
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'pcsx-redux/pcsx-redux'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: wasm-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pcsx-redux-wasm
+          path: dist
+      - name: Push to ps1dev/redux
+        env:
+          DEPLOY_KEY: ${{ secrets.TOOLS_REDUX_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > ~/.ssh/known_hosts
+          cd dist
+          git init -q -b main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Deploy pcsx-redux/pcsx-redux@${GITHUB_SHA}"
+          git push -f git@github.com:ps1dev/redux.git main

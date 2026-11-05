@@ -36,6 +36,7 @@ class Disasm {
     static const char *s_disRNameCP2D[];
     static const char *s_disRNameCP2C[];
     static const char *s_disRNameCP0[];
+    static const char *getSyscallName(uint32_t index);
 
     // Abstracts where operand values come from when disassembling "with values".
     // The live source reads the running CPU/memory; a playback source can feed
@@ -93,6 +94,7 @@ class Disasm {
     virtual void OfB(int16_t offset, uint8_t reg, int size) = 0;
     virtual void BranchDest(uint32_t offset) = 0;
     virtual void Offset(uint32_t offset, int size) = 0;
+    virtual void SyscallName(const char *) = 0;
 
   private:
     // Type definition of our functions
@@ -211,6 +213,9 @@ class Disasm {
     declare(disGPL);
     declare(disNCCT);
 #undef declare
+
+    // li is the addiu/ori $zero pseudo-instruction; li $a0 followed by a plain syscall reads as the named syscall
+    void disLI(uint8_t reg, uint16_t imm, bool zeroExtend, uint32_t nextCode, bool *skipNext);
 };
 
 }  // namespace PCSX

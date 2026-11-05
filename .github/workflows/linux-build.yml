@@ -27,7 +27,7 @@ jobs:
             secret: APPDISTRIB_DEV_LINUX_ARM64
     runs-on: ${{ matrix.runner }}
     container:
-      image: ghcr.io/grumpycoders/pcsx-redux-build:noble
+      image: ghcr.io/pcsx-redux/pcsx-redux-build:noble
       options: --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined
       env:
         TEST_RESULTS: /tmp/test-results
@@ -51,6 +51,10 @@ jobs:
         run: |
           apt update
           apt install -y jq
+      - name: Build OpenPSK
+        run: |
+          apt install -y gcc-arm-none-eabi
+          make -C src/pocketstation/openpsk
       - name: Packaging
         env:
           APPDISTRIB_TOKEN: ${{ secrets[matrix.secret] }}

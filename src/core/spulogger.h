@@ -21,7 +21,11 @@
 
 #include <stdint.h>
 
+#include <array>
+#include <string>
 #include <vector>
+
+#include "core/spdwriter.h"
 
 namespace PCSX {
 
@@ -49,10 +53,11 @@ class SPULogger {
         KeyOn,         // 1F801D88h
         KeyOff,        // 1F801D8Ch
         ReverbAddr,    // 1F801DA2h
+        RegWrite,      // any register, address = offset from 1F801C00h
     };
 
     static constexpr uint8_t c_noVoice = 0xff;
-    static constexpr size_t c_capacity = 64 * 1024;
+    static constexpr size_t c_capacity = 256 * 1024;
 
     struct Event {
         uint64_t cycle = 0;
@@ -68,8 +73,27 @@ class SPULogger {
         if (m_enabled) logInternal(kind, address, length, value, voice);
     }
 
-    bool &enabled() { return m_enabled; }
+    bool enabled() const { return m_enabled; }
+    // Turning the logger back on after a pause leaves a hole in the register history, which is
+    // remembered so an export does not present the result as a continuous capture.
+    void setEnabled(bool enabled);
     void clear();
+
+    // Called by the SPU before it applies a register write, so the first write after a clear
+    // can snapshot the register file it is about to change.
+    void logRegWrite(uint32_t reg, uint16_t value, const uint16_t *registers) {
+        if (!m_enabled) {
+            // A register write missed while paused breaks the replay; anything else does not.
+            if (m_baselineValid) m_gap = true;
+            return;
+        }
+        if (!m_baselineValid) captureBaseline(registers);
+        logInternal(Kind::RegWrite, reg, 0, value, c_noVoice);
+    }
+
+    // Writes the retained register writes as an SPU dump. Returns an empty string on success,
+    // or why the log cannot be exported.
+    std::string exportSPD(std::vector<uint8_t> &out, SPD::Options options);
 
     size_t size() const { return m_count; }
     // Oldest-first: index 0 is the oldest entry still retained.
@@ -87,6 +111,7 @@ class SPULogger {
 
   private:
     void logInternal(Kind kind, uint32_t address, uint32_t length, uint32_t value, uint8_t voice);
+    void captureBaseline(const uint16_t *registers);
 
     std::vector<Event> m_events;
     size_t m_head = 0;
@@ -94,6 +119,9 @@ class SPULogger {
     uint64_t m_seen = 0;
     uint64_t m_clears = 0;
     bool m_enabled = false;
+    bool m_baselineValid = false;
+    bool m_gap = false;
+    std::array<uint16_t, 0x100> m_baseline{};
 };
 
 }  // namespace PCSX

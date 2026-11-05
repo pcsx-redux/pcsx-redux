@@ -146,6 +146,17 @@ class OpenGL_GPU final : public GPU {
     bool m_updateDrawOffset = false;
     bool m_syncVRAM = true;
     uint32_t m_rectTexpage = 0;  // Rects have their own texpage settings
+    // NTSC 480i with GP0(E1h).10 (draw to display area) clear: drawing primitives and GP0(02h) do not
+    // write the VRAM rows whose (y & 1) equals GPUSTAT.31 at the time they are drawn. updateSkipParity()
+    // samples that before each drawing primitive and pushes it to the u_skipParity uniform, flushing the
+    // batch first, when it changed. -1 skips nothing; s_skipParityUnknown matches nothing, so the next
+    // drawing primitive always pushes.
+    static constexpr int s_skipParityUnknown = -2;
+    int m_skipParity = s_skipParityUnknown;
+    GLint m_skipParityLoc;
+    // GP0(E1h).10 as last written by GP0(E1h). A polygon's texpage cannot change it.
+    bool m_drawToDisplay = false;
+    void updateSkipParity();
     uint32_t m_lastTexwindowSetting = 0;
     uint32_t m_lastDrawOffsetSetting = 0;
     uint32_t m_drawMode;

@@ -700,3 +700,151 @@ function TestIsoBuilder:test_directoryLargeEnoughLists()
     end
     lu.assertEquals(files, 60)
 end
+
+-- Reads the XA attributes of every record in a directory extent, keyed by record name. The '.' and '..'
+-- records come out as '\0' and '\1'.
+local function readXAAttribs(iso, lba)
+    local sector = tostring(iso:open(lba, 2048, 'M2_FORM1'):read(2048))
+    local attribs = {}
+    local offset = 1
+    while offset <= #sector do
+        local len = sector:byte(offset)
+        if len == 0 then break end
+        local nameLen = sector:byte(offset + 32)
+        local name = sector:sub(offset + 33, offset + 32 + nameLen)
+        local xa = offset + 33 + nameLen
+        if nameLen % 2 == 0 then xa = xa + 1 end
+        if sector:sub(xa + 6, xa + 7) == 'XA' then
+            attribs[name] = sector:byte(xa + 4) * 256 + sector:byte(xa + 5)
+        else
+            attribs[name] = false
+        end
+        offset = offset + len
+    end
+    return attribs
+end
+
+function TestIsoBuilder:test_xaDefaults()
+    local out = Support.File.buffer()
+    local builder = PCSX.isoBuilder(out)
+    builder:writeLicense()
+    builder:setVolumeIdent('XA')
+    local root = builder:createRoot(1)
+    root:setXA {}
+    local dir = builder:createDir(root, 'DATA', 1)
+    dir:setXA {}
+    local form1 = builder:createFile(dir, 'FORM1.DAT', generateTestContent(2048))
+    form1:setXA {}
+    local form2 = builder:createFile(dir, 'FORM2.STR', generateTestContent(2324))
+    form2:setSectorMode('M2_FORM2')
+    form2:setXA {}
+    local interleaved = builder:createFile(dir, 'MOVIE.STR', generateTestContent(2324))
+    interleaved:setSectorMode('M2_FORM2')
+    interleaved:setXA { interleaved = true }
+    builder:close()
+
+    lu.assertEquals(root:getXAAttribs(), 0x8d55)
+    lu.assertEquals(dir:getXAAttribs(), 0x8d55)
+    lu.assertEquals(form1:getXAAttribs(), 0x0d55)
+    lu.assertEquals(form2:getXAAttribs(), 0x1555)
+    lu.assertEquals(interleaved:getXAAttribs(), 0x3555)
+
+    out:rSeek(0)
+    local iso = PCSX.openIso(out)
+    lu.assertEquals(readXAAttribs(iso, root:getLBA()), { ['\0'] = 0x8d55, ['\1'] = 0x8d55, DATA = 0x8d55 })
+    lu.assertEquals(readXAAttribs(iso, dir:getLBA()), {
+        ['\0'] = 0x8d55,
+        ['\1'] = 0x8d55,
+        ['FORM1.DAT;1'] = 0x0d55,
+        ['FORM2.STR;1'] = 0x1555,
+        ['MOVIE.STR;1'] = 0x3555,
+    })
+    local f = iso:createReader():open('DATA/FORM2.STR;1')
+    lu.assertNotNil(f)
+    lu.assertFalse(f:failed())
+end
+
+function TestIsoBuilder:test_xaFields()
+    local builder = PCSX.isoBuilder(Support.File.buffer())
+    local root = builder:createRoot(1)
+    local function file(name) return builder:createFile(root, name, generateTestContent(16)) end
+
+    -- Without setXA a node inherits the XA flag and carries an attribute word of 0.
+    local z = file('Z')
+    lu.assertTrue(z:hasXA())
+    lu.assertEquals(z:getXAAttribs(), 0)
+
+    -- setXA(true) is setXA{}, setXA(false) drops the record altogether.
+    local a, b = file('A'), file('B')
+    a:setXA(true)
+    b:setXA {}
+    lu.assertEquals(a:getXAAttribs(), b:getXAAttribs())
+    lu.assertTrue(a:hasXA())
+    a:setXA(false)
+    lu.assertFalse(a:hasXA())
+
+    -- Named fields only touch their own bits.
+    local c = file('C')
+    c:setXA { worldExecute = false, groupExecute = false, ownerExecute = false }
+    lu.assertEquals(c:getXAAttribs(), 0x0911)
+    c:setXA { directory = true, cdda = true }
+    lu.assertEquals(c:getXAAttribs(), 0xc555)
+    root:setXA { directory = false, ownerRead = false }
+    lu.assertEquals(root:getXAAttribs(), 0x0d54)
+
+    -- Derived form bits follow the sector mode, in either order.
+    local d = file('D')
+    d:setXA {}
+    d:setSectorMode('M2_FORM2')
+    lu.assertEquals(d:getXAAttribs(), 0x1555)
+    d:setSectorMode('M2_FORM1')
+    lu.assertEquals(d:getXAAttribs(), 0x0d55)
+    lu.assertEquals(d:getSectorMode(), 'M2_FORM1')
+
+    -- The form follows the sector mode through a wrapper obtained by navigation too.
+    local e = file('E')
+    e:setXA {}
+    local found = root:firstChild()
+    while found:getName() ~= 'E' do
+        found = found:nextSibling()
+    end
+    found:setSectorMode('M2_FORM2')
+    lu.assertEquals(e:getXAAttribs(), 0x1555)
+
+    -- An explicit form, or raw attributes, stop the following.
+    local g = file('G')
+    g:setXA { form = 1 }
+    g:setSectorMode('M2_FORM2')
+    lu.assertEquals(g:getXAAttribs(), 0x0d55)
+    local h = file('H')
+    h:setXA {}
+    h:setXAAttribs(0x0d55)
+    h:setSectorMode('M2_FORM2')
+    lu.assertEquals(h:getXAAttribs(), 0x0d55)
+
+    -- M1 contents go on the disc as Form 1 sectors.
+    local m1 = file('M1')
+    m1:setSectorMode('M1')
+    m1:setXA {}
+    lu.assertEquals(m1:getXAAttribs(), 0x0d55)
+    m1:setSectorMode('M2_FORM2')
+    lu.assertEquals(m1:getXAAttribs(), 0x1555)
+    m1:setSectorMode('M1')
+    lu.assertEquals(m1:getXAAttribs(), 0x0d55)
+
+    -- A raw sector mode cannot say which form the file is.
+    local i = file('I')
+    i:setSectorMode('M2_RAW')
+    lu.assertErrorMsgContains('pass form = 1 or 2', function() i:setXA {} end)
+    i:setXA { form = 2, interleaved = true }
+    lu.assertEquals(i:getXAAttribs(), 0x3555)
+    local j = file('J')
+    j:setXA {}
+    lu.assertErrorMsgContains('pass form = 1 or 2', function() j:setSectorMode('RAW') end)
+    lu.assertEquals(j:getSectorMode(), 'M2_FORM1')
+
+    lu.assertErrorMsgContains('unknown field', function() a:setXA { owner = true } end)
+    lu.assertErrorMsgContains('form must be 1 or 2', function() a:setXA { form = 3 } end)
+    lu.assertErrorMsgContains('must be a boolean', function() a:setXA { interleaved = 1 } end)
+    lu.assertErrorMsgContains('boolean or a table', function() a:setXA() end)
+end

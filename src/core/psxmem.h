@@ -315,6 +315,13 @@ class Memory {
     IO<MemoryAsFile> getMemoryAsFile() { return m_memoryAsFile; }
 
     bool isiCacheEnabled() { return m_BIU == 0x1e988; }
+    uint32_t getBIU() const { return m_BIU; }
+    // For save states: the guest's own write to 0xfffe0130 also invalidates the code cache on
+    // some values, which a restore does by itself.
+    void setBIU(uint32_t value) {
+        m_BIU = value;
+        setLuts();
+    }
 
   private:
     friend class MemoryAsFile;

@@ -83,6 +83,14 @@ class impl final : public SPUInterface {
     void lockSPURAM() final;
     void unlockSPURAM() final;
     uint8_t *getSpuRam() final { return spuRamBase; }
+    void setOverlay(std::shared_ptr<const Overlay> overlay) final {
+        std::lock_guard<std::mutex> lock(m_overlayMutex);
+        m_overlay = std::move(overlay);
+    }
+    std::shared_ptr<const Overlay> getOverlay() final {
+        std::lock_guard<std::mutex> lock(m_overlayMutex);
+        return m_overlay;
+    }
     uint32_t getTransferAddr() final { return spuAddr; }
     void resetCaptureBuffer() final;
     void writeDMAMem(uint16_t *, int) final;
@@ -338,6 +346,10 @@ class impl final : public SPUInterface {
     std::atomic<bool> m_mixerWaiting = false;
     std::atomic<bool> m_cpuWaiting = false;
     std::mutex m_syncMutex;
+    // Set from the UI thread, read by the mixer at key-on.
+    std::mutex m_overlayMutex;
+    std::shared_ptr<const Overlay> m_overlay;
+    void startOverlay(SPUCHAN *voice);
     std::condition_variable m_mixerWake;
     std::condition_variable m_cpuWake;
     // SPUCNT as last written by the CPU, which is what a CPU read returns. The mixer's spuCtrl
@@ -516,7 +528,6 @@ class impl final : public SPUInterface {
         uint64_t cachedSample = 0;
         int32_t cachedState = 0;
         int32_t cachedVol = 0;
-        int32_t cachedFraction = 0;
         bool cachedOn = true;
         // The ADPCM cursor, walked alongside the envelope so the walk knows the sample
         // where an end block without repeat stops the voice. Offsets into SPU RAM.

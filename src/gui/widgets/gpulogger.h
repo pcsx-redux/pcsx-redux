@@ -33,7 +33,8 @@ namespace Widgets {
 class GPULogger {
   public:
     GPULogger(bool& show);
-    void draw(PCSX::GPULogger* logger, const char* title);
+    // replayAllowed: whether the GPU the logger records is stopped, so a replay will not be overwritten.
+    void draw(PCSX::GPULogger* logger, const char* title, bool replayAllowed);
 
     bool& m_show;
 

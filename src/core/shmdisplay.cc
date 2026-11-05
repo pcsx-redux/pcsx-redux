@@ -19,6 +19,7 @@
 
 #include "core/shmdisplay.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cstring>
 
@@ -35,7 +36,15 @@ PCSX::ShmDisplay::ShmDisplay() : m_listener(g_system->m_eventBus) {
     m_header->version = ShmDisplayHeader::c_version;
     m_header->headerSize = sizeof(ShmDisplayHeader);
     m_header->vramOffset = c_vramOffset;
-    m_header->hostPads[0] = m_header->hostPads[1] = 0xffff;
+    for (unsigned port = 0; port < 2; port++) {
+        m_header->hostPads[port] = 0xffff;
+        m_header->hostMultitap[port] = 0;
+        for (auto& slot : m_header->hostSlotPads[port]) slot = ShmDisplayHeader::c_slotEmpty;
+        m_header->hostDevice[port] = 0;
+        m_header->hostMouseDX[port] = 0;
+        m_header->hostMouseDY[port] = 0;
+        m_header->hostMouseButtons[port] = 0;
+    }
     m_listener.listen<Events::GPU::VSync>([this](const auto& event) { publish(); });
 }
 
@@ -61,4 +70,41 @@ void PCSX::ShmDisplay::publish() {
 uint16_t PCSX::ShmDisplay::hostPad(int port) const {
     if (m_header->hostInput.load(std::memory_order_acquire) == 0) return 0xffff;
     return m_header->hostPads[port].load(std::memory_order_relaxed);
+}
+
+bool PCSX::ShmDisplay::hostMultitap(int port) const {
+    if (!hostInput()) return false;
+    return m_header->hostMultitap[port].load(std::memory_order_relaxed) != 0;
+}
+
+bool PCSX::ShmDisplay::hostSlotPad(int port, int slot, uint16_t& buttons) const {
+    buttons = 0xffff;
+    if (!hostInput() || slot < 1 || slot > 3) return false;
+    uint32_t value = m_header->hostSlotPads[port][slot].load(std::memory_order_relaxed);
+    if (value & 0xffff0000) return false;
+    buttons = value;
+    return true;
+}
+
+int PCSX::ShmDisplay::hostDevice(int port) const {
+    if (!hostInput()) return -1;
+    uint32_t value = m_header->hostDevice[port].load(std::memory_order_relaxed);
+    if (value == 0 || value > 6) return -1;
+    return value - 1;
+}
+
+void PCSX::ShmDisplay::hostMouse(int port, int8_t& dx, int8_t& dy, uint32_t& buttons) {
+    dx = dy = 0;
+    buttons = 0;
+    if (!hostInput()) return;
+    // Send what fits in the reply, and hand the rest back to the accumulator for the next read.
+    auto take = [](std::atomic<int32_t>& accumulator) -> int8_t {
+        int32_t value = accumulator.exchange(0, std::memory_order_acq_rel);
+        int32_t sent = std::clamp<int32_t>(value, -128, 127);
+        if (value != sent) accumulator.fetch_add(value - sent, std::memory_order_acq_rel);
+        return sent;
+    };
+    dx = take(m_header->hostMouseDX[port]);
+    dy = take(m_header->hostMouseDY[port]);
+    buttons = m_header->hostMouseButtons[port].load(std::memory_order_relaxed);
 }

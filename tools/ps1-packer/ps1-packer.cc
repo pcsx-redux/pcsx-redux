@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
 
     fmt::print(R"(
 ps1-packer by Nicolas "Pixel" Noble
-https://github.com/grumpycoders/pcsx-redux/tree/main/tools/ps1-packer/
+https://github.com/pcsx-redux/pcsx-redux/tree/main/tools/ps1-packer/
 )");
 
     const auto inputs = args::get(inputsList);

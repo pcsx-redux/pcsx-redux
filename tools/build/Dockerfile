@@ -1,16 +1,16 @@
-# Dockerfile for ghcr.io/grumpycoders/pcsx-redux-build
+# Dockerfile for ghcr.io/pcsx-redux/pcsx-redux-build
 #
 # This one needs the repository root as its build context, as the first stage
 # builds the mips toolchain using tools/linux-mips/spawn-compiler.sh:
 #
-#   docker build -f tools/build/Dockerfile -t ghcr.io/grumpycoders/pcsx-redux-build .
+#   docker build -f tools/build/Dockerfile -t ghcr.io/pcsx-redux/pcsx-redux-build .
 #
 # BASE picks the Ubuntu release. The general image tracks the newest one, but
 # an AppImage needs the glibc it was built against, so the packaging job uses a
 # second tag built from the oldest LTS we want the AppImage to run on:
 #
 #   docker build -f tools/build/Dockerfile --build-arg BASE=ubuntu:24.04 \
-#     --build-arg GXX_VERSION=15 -t ghcr.io/grumpycoders/pcsx-redux-build:noble .
+#     --build-arg GXX_VERSION=15 -t ghcr.io/pcsx-redux/pcsx-redux-build:noble .
 
 ARG BASE=ubuntu:26.04
 

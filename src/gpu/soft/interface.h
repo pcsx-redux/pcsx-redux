@@ -40,6 +40,10 @@ class impl final : public GPU, private SoftRenderer {
     void presentFromGui() override;
     bool configure() override;
     void debug() override;
+    void debugVideoMode(uint32_t stat);
+    void debugDisplayArea();
+    void debugDrawing(uint32_t stat);
+    void debugRowSkip(uint32_t stat);
 
     void setDither(int setting) override {
         m_queue.sync();
@@ -168,8 +172,7 @@ class impl final : public GPU, private SoftRenderer {
     // copy; s_skipParityUnknown matches nothing, so the next drawing primitive always forwards.
     static constexpr int8_t s_skipParityUnknown = -2;
     int8_t m_pushedSkipParity = s_skipParityUnknown;
-    // GP0(E1h).10 as last written by GP0(E1h). Not GPUSTAT.10 (m_statusRet): texturePageStatus() rewrites
-    // bits 0-10 from a textured polygon's texpage, whose bit 10 is always 0, and a polygon cannot change DFE.
+    // GP0(E1h).10 as last written by GP0(E1h).
     bool m_drawToDisplay = false;
     friend struct SkipParityOp;
     void updateSkipParity();
@@ -179,6 +182,9 @@ class impl final : public GPU, private SoftRenderer {
         dispatch(prim);
     }
     void texturePageStatus(GPU::TPage &tpage);
+    // A textured polygon's texpage only loads GPUSTAT bits 0-8; bits 9 and 10 (dither, drawing to the
+    // display area) keep their GP0(E1h) values, measured on v0 and v2 GPUs.
+    void polygonTexturePageStatus(const GPU::TPage &tpage);
     void maskBitStatus(const GPU::MaskBit &mask);
     // The emulation thread's copy of SoftRenderer::m_ditherMode, which decides whether a textured polygon's
     // texpage gets its dither bit forced. It follows the same rule over the same texpage sequence.

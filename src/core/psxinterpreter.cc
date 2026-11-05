@@ -933,6 +933,7 @@ void InterpretedCPU::psxJALR(uint32_t code) {
 void InterpretedCPU::psxLB(uint32_t code) {
     // load delay = 1 latency
     if (_Rt_) {
+        maybeCancelDelayedLoad(_Rt_);
         delayedLoadRef<int32_t>(_Rt_) = (int8_t)PCSX::g_emulator->m_mem->read8(_oB_);
     } else {
         PCSX::g_emulator->m_mem->read8(_oB_);
@@ -942,6 +943,7 @@ void InterpretedCPU::psxLB(uint32_t code) {
 void InterpretedCPU::psxLBU(uint32_t code) {
     // load delay = 1 latency
     if (_Rt_) {
+        maybeCancelDelayedLoad(_Rt_);
         delayedLoadRef(_Rt_) = PCSX::g_emulator->m_mem->read8(_oB_);
     } else {
         PCSX::g_emulator->m_mem->read8(_oB_);
@@ -959,6 +961,7 @@ void InterpretedCPU::psxLH(uint32_t code) {
     }
 
     if (_Rt_) {
+        maybeCancelDelayedLoad(_Rt_);
         delayedLoadRef<int32_t>(_Rt_) = (short)PCSX::g_emulator->m_mem->read16(_oB_);
     } else {
         PCSX::g_emulator->m_mem->read16(_oB_);
@@ -976,6 +979,7 @@ void InterpretedCPU::psxLHU(uint32_t code) {
     }
 
     if (_Rt_) {
+        maybeCancelDelayedLoad(_Rt_);
         delayedLoadRef(_Rt_) = PCSX::g_emulator->m_mem->read16(_oB_);
     } else {
         PCSX::g_emulator->m_mem->read16(_oB_);
@@ -994,6 +998,7 @@ void InterpretedCPU::psxLW(uint32_t code) {
 
     uint32_t val = PCSX::g_emulator->m_mem->read32(_oB_);
     if (_Rt_) {
+        maybeCancelDelayedLoad(_Rt_);
         switch (_Rt_) {
             case 29:
                 PCSX::g_emulator->m_callStacks->setSP(m_regs.GPR.n.sp, val);
@@ -1723,9 +1728,10 @@ void InterpretedCPU::Execute() {
 PCSX::R3000Acpu::RunUntilResult InterpretedCPU::RunUntil(uint32_t stopPC, uint64_t cycleBudget) {
     ZoneScoped;
     /* Nesting would re-enter execBlock on top of a live one and shred the delayed-load
-       ping-pong underneath it. The dangerous caller is a breakpoint invoker, which runs from
-       Debug::process in the middle of execBlock's loop body; an ExecutionFlow event listener
-       is fine, since those fire from hasToRun() between blocks, which is the same point
+       ping-pong underneath it. The dangerous callers are Lua handlers run from inside an
+       instruction: a PCSX.execSlots function or a Lua read handler. Breakpoints can't get
+       here, since the execBlock below has debug off. An ExecutionFlow event listener is
+       fine, since those fire from hasToRun() between blocks, which is the same point
        UI::shellReached does its own wholesale register surgery from. */
     if (m_inRunUntil) return RunUntilResult::Reentered;
     m_inRunUntil = true;
@@ -1810,6 +1816,7 @@ void InterpretedCPU::Shutdown() {}
 template <bool debug, bool trace, bool detached>
 inline void InterpretedCPU::execBlock() {
     bool ranDelaySlot = false;
+    bool stackTripped = false;
     do {
         if (m_nextIsDelaySlot) {
             m_inDelaySlot = true;
@@ -1838,6 +1845,21 @@ inline void InterpretedCPU::execBlock() {
 
         m_currentDelayedLoad ^= 1;
         flushCurrentDelayedLoad();
+        // Checked here rather than in the instructions that write $sp so that
+        // every write is covered, delayed loads included. Exception handlers
+        // run on their own stacks, so nothing is checked until the rfe.
+        if (m_stackBounds.active && !m_inISR) [[unlikely]] {
+            const uint32_t sp = m_regs.GPR.n.sp;
+            if (sp != m_stackBounds.lastSP) {
+                m_stackBounds.lastSP = sp;
+                if ((sp < m_stackBounds.low) || (sp > m_stackBounds.high)) {
+                    stackBoundsViolation(pc, sp);
+                    stackTripped = true;
+                } else if (PCSX::g_emulator->m_mem->m_psyqoHeapMetadata != 0) {
+                    stackTripped = checkHeapAgainstStack(pc);
+                }
+            }
+        }
         if (m_gtePendingCount) gteTickWrites();
         auto& delayedLoad = m_delayedLoadInfo[m_currentDelayedLoad];
         bool fromLink = false;
@@ -1873,6 +1895,9 @@ inline void InterpretedCPU::execBlock() {
            262113 instructions in one call - long past any cycle budget, and long past the
            exception that sent it there. */
         if constexpr (debug || detached) break;
+        // Stop on the offending instruction, as a breakpoint would: the paused cpu then sits right
+        // after it, and nothing further in the block can report again.
+        if (stackTripped) [[unlikely]] break;
     } while (!ranDelaySlot && !cop0Armed());
 }
 

@@ -143,6 +143,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\src\supportpsx\adpcm.cc" />
     <ClCompile Include="..\..\src\supportpsx\adpcmlua.cc" />
+    <ClCompile Include="..\..\src\supportpsx\spu-sample-layout.cc" />
     <ClCompile Include="..\..\src\supportpsx\assembler.cc" />
     <ClCompile Include="..\..\src\supportpsx\binloader.cc" />
     <ClCompile Include="..\..\src\supportpsx\binlua.cc" />
@@ -151,6 +152,8 @@
     <ClCompile Include="..\..\src\supportpsx\iso9660-builder.cc" />
     <ClCompile Include="..\..\src\supportpsx\ps1-packer.cc" />
     <ClCompile Include="..\..\src\supportpsx\psyq-obj.cc" />
+    <ClCompile Include="..\..\src\supportpsx\sf2.cc" />
+    <ClCompile Include="..\..\src\supportpsx\spusample.cc" />
     <ClCompile Include="..\..\src\supportpsx\ucl-glue.c" />
     <ClCompile Include="..\..\src\supportpsx\ucl-utils.cc" />
     <ClCompile Include="..\..\third_party\iec-60908b\edcecc.c" />
@@ -175,6 +178,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\src\supportpsx\adpcm.h" />
     <ClInclude Include="..\..\src\supportpsx\adpcmlua.h" />
+    <ClInclude Include="..\..\src\supportpsx\spu-sample-layout.h" />
     <ClInclude Include="..\..\src\supportpsx\assembler.h" />
     <ClInclude Include="..\..\src\supportpsx\binloader.h" />
     <ClInclude Include="..\..\src\supportpsx\binlua.h" />
@@ -186,6 +190,8 @@
     <ClInclude Include="..\..\src\supportpsx\memory.h" />
     <ClInclude Include="..\..\src\supportpsx\ps1-packer.h" />
     <ClInclude Include="..\..\src\supportpsx\psyq-obj.h" />
+    <ClInclude Include="..\..\src\supportpsx\sf2.h" />
+    <ClInclude Include="..\..\src\supportpsx\spusample.h" />
     <ClInclude Include="..\..\src\supportpsx\ucl-utils.h" />
     <ClInclude Include="..\..\third_party\iec-60908b\edcecc.h" />
     <ClInclude Include="..\..\third_party\iec-60908b\tables.h" />

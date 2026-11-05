@@ -10,7 +10,7 @@ jobs:
   ubsan:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/grumpycoders/pcsx-redux-build:latest
+      image: ghcr.io/pcsx-redux/pcsx-redux-build:latest
       env:
         TEST_RESULTS: /tmp/test-results
         BUILD: ubsan

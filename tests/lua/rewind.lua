@@ -254,3 +254,42 @@ function TestRewind:test_vsync_rewind_waits_for_the_main_loop()
     lu.assertTrue(math.abs(r.nextCycle - r.firstCycle - r.frameCycles) < 64,
                   'frame after rewind: ' .. (r.nextCycle - r.firstCycle) .. ' vs ' .. r.frameCycles)
 end
+
+-- Runs guest code that points the SPU transfer address into sound RAM, then pauses on a vsync.
+local function runIntoSpuTransferAddress()
+    local code = ram32(0x100400)
+    code[0] = 0x3c081f80 -- lui t0, 0x1f80
+    code[1] = 0x34090100 -- ori t1, zero, 0x100
+    code[2] = 0xa5091da6 -- sh t1, 0x1da6(t0)
+    code[3] = 0x08040103 -- j 0x8010040c
+    code[4] = 0x00000000 -- nop
+    PCSX.invalidateCache()
+    PCSX.getRegisters().pc = 0x80100400
+    local co = coroutine.running()
+    local vsync
+    vsync = PCSX.Events.createEventListener('GPU::Vsync', function()
+        vsync:remove()
+        PCSX.pauseEmulator()
+        resumeFromMainLoop(co)
+    end)
+    PCSX.resumeEmulator()
+    coroutine.yield()
+end
+
+-- On a paused machine a restored state has to save back byte for byte. The first load and the
+-- first rewind may still normalize a few fields, so the comparison starts after one of each.
+function TestRewind:test_paused_round_trips_are_a_fixed_point()
+    while PCSX.getRewindStateCount() > 0 do PCSX.rewindState() end
+    runIntoSpuTransferAddress()
+    PCSX.loadSaveState(PCSX.createSaveState())
+    PCSX.createRewindState()
+    lu.assertTrue(PCSX.rewindState())
+    local reference = tostring(PCSX.createSaveState())
+    for i = 1, 3 do
+        PCSX.loadSaveState(PCSX.createSaveState())
+        lu.assertTrue(tostring(PCSX.createSaveState()) == reference, 'load round trip ' .. i)
+        PCSX.createRewindState()
+        lu.assertTrue(PCSX.rewindState())
+        lu.assertTrue(tostring(PCSX.createSaveState()) == reference, 'rewind round trip ' .. i)
+    end
+end

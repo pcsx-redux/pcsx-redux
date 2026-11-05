@@ -773,6 +773,8 @@ void DynaRecCPU::recompileLoadWithDelay(uint32_t code, LoadDelayDependencyType t
     }
 
     if (_Rt_) {
+        // Cancel any pending load to the same register, as this load overrides it
+        maybeCancelDelayedLoad(_Rt_);
         m_delayedLoadInfo[m_currentDelayedLoad].active = true;
 
         switch (size) {

@@ -41,7 +41,8 @@ class MemcardManager {
     MemcardManager(bool& show, std::vector<std::string>& favorites)
         : m_show(show),
           m_importMemoryCardDialog(l_("Import Memory Card file"), favorites),
-          m_exportMemoryCardDialog(l_("Export Memory Card file"), favorites) {}
+          m_exportMemoryCardDialog(l_("Export Memory Card file"), favorites),
+          m_pocketstationBiosDialog(l_("Select Pocketstation BIOS"), favorites) {}
     bool draw(GUI* gui, const char* title);
     bool& m_show;
     // The framecount from 0 to 59 inclusive. We need it to know which frame of multi-animation
@@ -78,6 +79,7 @@ class MemcardManager {
     std::unique_ptr<uint8_t[]> m_latest;
     Widgets::FileDialog<> m_importMemoryCardDialog;
     Widgets::FileDialog<FileDialogMode::Save> m_exportMemoryCardDialog;
+    Widgets::FileDialog<> m_pocketstationBiosDialog;
     unsigned m_memoryCardImportExportIndex = 0;
 
     void clearUndoBuffer() {

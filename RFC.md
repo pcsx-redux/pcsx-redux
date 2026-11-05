@@ -28,7 +28,7 @@ what changed in a comment; the seven days start over. Changes that leave the pro
 not restart it.
 
 Open RFCs are the
-[open pull requests with the label](https://github.com/grumpycoders/pcsx-redux/pulls?q=is%3Apr+is%3Aopen+label%3Arfc).
+[open pull requests with the label](https://github.com/pcsx-redux/pcsx-redux/pulls?q=is%3Apr+is%3Aopen+label%3Arfc).
 When the label goes on, the people listed in [.github/rfc-stakeholders](.github/rfc-stakeholders)
 are mentioned on the pull request.
 

@@ -70,6 +70,7 @@ struct RecordingDisasm : public PCSX::Disasm {
     }
     void BranchDest(uint32_t) override {}
     void Offset(uint32_t addr, int size) override { m_entry->memValue = readMem(addr, size); }
+    void SyscallName(const char*) override {}
 };
 
 }  // namespace

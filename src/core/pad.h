@@ -38,7 +38,12 @@ class Pads {
 
     virtual void init() = 0;
     virtual void shutdown() = 0;
-    virtual uint8_t startPoll(Port port) = 0;
+    // Starts an access to the device at address on port: 1 is the pad plugged into the port, or slot A of a
+    // multitap there, and 2 to 4 are multitap slots B to D. Returns false when nothing answers the address,
+    // and otherwise sets reply to the first byte the device sends.
+    virtual bool startPoll(Port port, uint8_t address, uint8_t& reply) = 0;
+    // Whether a multitap is plugged into port, which makes addresses 2 to 4 answer.
+    virtual bool hasMultitap(Port port) = 0;
     virtual uint8_t poll(uint8_t value, Port port, uint32_t& padState) = 0;
 
     virtual json getCfg() = 0;
@@ -50,6 +55,22 @@ class Pads {
     virtual bool configure(PCSX::GUI* gui) = 0;
 
     virtual void reset() = 0;
+
+    // The part of a pad's protocol state that has to follow a save state: where it is in
+    // the current transfer, the reply it is clocking out, and the config/analog modes.
+    struct TransferState {
+        uint8_t cmd = 0;
+        bool configMode = false;
+        bool analogMode = false;
+        uint32_t bufferLen = 0;
+        uint32_t currentByte = 0;
+        uint8_t buf[256] = {};
+        uint8_t motorMapping[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+        bool configCommandsUsed = false;
+        uint8_t oldMethodLatch = 0;
+    };
+    virtual void getTransferState(Port port, TransferState& state) = 0;
+    virtual void setTransferState(Port port, const TransferState& state) = 0;
 
     virtual void setLua(PCSX::Lua L) = 0;
 

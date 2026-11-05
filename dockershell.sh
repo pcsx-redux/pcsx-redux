@@ -6,5 +6,5 @@ cd $ROOT
 ROOT=$(pwd)
 cd $CWD
 
-docker pull ghcr.io/grumpycoders/pcsx-redux-build:latest
-docker run --rm -t -i -w/project${CWD#$ROOT} -v "${ROOT}:/project" -u `id -u`:`id -g` --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined ghcr.io/grumpycoders/pcsx-redux-build:latest bash -l
+docker pull ghcr.io/pcsx-redux/pcsx-redux-build:latest
+docker run --rm -t -i -w/project${CWD#$ROOT} -v "${ROOT}:/project" -u `id -u`:`id -g` --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined ghcr.io/pcsx-redux/pcsx-redux-build:latest bash -l

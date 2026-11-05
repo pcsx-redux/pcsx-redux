@@ -202,7 +202,7 @@ $MipsBaseURL = "https://distrib.app/alias/pcsx-redux/mips-toolchain/"
 $GdbBaseURL = "https://distrib.app/alias/pcsx-redux/gdb-multiarch-windows/"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$MyURI = "https://raw.githubusercontent.com/grumpycoders/pcsx-redux/main/mips.ps1"
+$MyURI = "https://raw.githubusercontent.com/pcsx-redux/pcsx-redux/main/mips.ps1"
 
 # Globals for PowerShell behavior
 $ProgressPreference = "SilentlyContinue"

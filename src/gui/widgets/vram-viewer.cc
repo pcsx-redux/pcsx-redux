@@ -196,8 +196,8 @@ vec4 readTexture(in vec2 pos) {
 
 float sampleTexture(in sampler2D sampler, in ivec2 pos) {
     if ((pos.x < 0) || (pos.y < 0)) return 0.0;
-    if ((pos.x >= 1024) || (pos.y >= 512)) return 0.0;
-    return texture(sampler, vec2(float(pos.x) / 1024.0, float(pos.y) / 512.0)).r;
+    if ((pos.x >= 1024) || (pos.y >= 1024)) return 0.0;
+    return texture(sampler, vec2(float(pos.x) / 1024.0, float(pos.y) / 1024.0)).r;
 }
 
 float sum9(in sampler2D sampler, in vec2 pos) {

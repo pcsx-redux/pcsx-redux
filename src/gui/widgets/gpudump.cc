@@ -46,6 +46,10 @@ void PCSX::Widgets::GPUDump::draw(const char* title) {
     drawPlayer();
     ImGui::End();
 
+    // The dump's own GPU logger: frames are the dump's vsyncs, and a replay goes to the player's GPU.
+    auto& player = g_emulator->m_gpuDumpPlayer;
+    if (m_showLogger && player->loaded()) m_logger.draw(player->logger(), _("GPU Dump Logger"), !m_playing);
+
     if (m_saveDialog.draw()) {
         auto& selected = m_saveDialog.selected();
         if (!selected.empty()) {
@@ -105,7 +109,13 @@ void PCSX::Widgets::GPUDump::drawPlayer() {
 
     if (!player->gameID().empty()) ImGui::Text(_("Game ID: %s"), player->gameID().c_str());
     if (!player->comment().empty()) ImGui::Text(_("Comment: %s"), player->comment().c_str());
-    ImGui::Text(_("Frame %llu"), static_cast<unsigned long long>(player->frame()));
+    uint64_t frame = player->frame();
+    const uint64_t first = 0, last = player->frameCount();
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::SliderScalar("##frame", ImGuiDataType_U64, &frame, &first, &last, _("Frame %llu"))) {
+        m_playing = false;
+        player->seek(frame);
+    }
 
     if (ImGui::Button(m_playing ? C_("Playback", "Pause") : C_("Playback", "Play"))) m_playing = !m_playing;
     ImGui::SameLine();
@@ -116,6 +126,8 @@ void PCSX::Widgets::GPUDump::drawPlayer() {
     if (ImGui::Button(_("Rewind"))) player->rewind();
     ImGui::SameLine();
     ImGui::Checkbox(_("Loop"), &m_loop);
+    ImGui::SameLine();
+    ImGui::Checkbox(_("Logger"), &m_showLogger);
     ImGui::SameLine();
     ImGui::Checkbox(_("Display area only"), &m_displayOnly);
     ImGui::SameLine();

@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\lua\compressionffi.cc" />
     <ClCompile Include="..\..\src\lua\extra.cc" />
     <ClCompile Include="..\..\src\lua\glffi.cc" />
     <ClCompile Include="..\..\src\lua\luafile.cc" />
@@ -29,6 +30,7 @@
     <ClCompile Include="..\..\third_party\luafilesystem\src\lfs.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\src\lua\compressionffi.h" />
     <ClInclude Include="..\..\src\lua\extra.h" />
     <ClInclude Include="..\..\src\lua\glffi.h" />
     <ClInclude Include="..\..\src\lua\luafile.h" />
@@ -50,6 +52,8 @@
     <None Include="..\..\third_party\glffi\glffi-enum1.lua" />
     <None Include="..\..\third_party\glffi\glffi-enum2.lua" />
     <None Include="..\..\third_party\glffi\glffi-enum3.lua" />
+    <None Include="..\..\src\lua\compressionffi-cdef.lua" />
+    <None Include="..\..\src\lua\compressionffi.lua" />
     <None Include="..\..\third_party\glffi\glffi-typedefs.lua" />
     <None Include="..\..\third_party\lua-protobuf\descriptor.pb.lua" />
     <None Include="..\..\third_party\lua-protobuf\lexer.lua" />

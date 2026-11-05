@@ -719,6 +719,15 @@ DynaRecCPU::LoadDelayDependencyType DynaRecCPU::getLoadDelayDependencyType(int i
                                            : LoadDelayDependencyType::NoDependency;
             break;
         }
+        case 0x20:  // LB
+        case 0x21:  // LH
+        case 0x23:  // LW
+        case 0x24:  // LBU
+        case 0x25:  // LHU
+            // A load into the same register in the delay slot cancels our pending load, so we emulate the delay and
+            // let the next load cancel it. LWL/LWR are excluded as they merge with the pending value instead.
+            dependencyType = DepIfRsOrRt;
+            break;
         default:
             dependencyType = mainDependencyList[opcode];
             break;

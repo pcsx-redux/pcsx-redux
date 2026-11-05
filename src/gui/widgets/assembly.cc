@@ -113,6 +113,7 @@ class DummyAsm : public PCSX::Disasm {
     virtual void OfB(int16_t offset, uint8_t reg, int size) final {}
     virtual void BranchDest(uint32_t offset) final {}
     virtual void Offset(uint32_t offset, int size) final {}
+    virtual void SyscallName(const char*) final {}
 };
 
 }  // namespace
@@ -318,6 +319,10 @@ void PCSX::Widgets::Assembly::Target(uint32_t value) {
         m_jumpToPC = value;
     }
     ImGui::PopStyleVar();
+}
+void PCSX::Widgets::Assembly::SyscallName(const char* name) {
+    sameLine();
+    ImGui::Text(" %s", name);
 }
 void PCSX::Widgets::Assembly::Sa(uint8_t value) {
     comma();

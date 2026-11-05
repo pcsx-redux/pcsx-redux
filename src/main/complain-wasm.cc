@@ -46,7 +46,9 @@ extern "C" void Complain(const char *message) {
             // real error with a second one - a reporter that fails louder than
             // what it was reporting. console.error above has already run, so
             // bailing out here still surfaces the message.
-            if (typeof document == = 'undefined') return;
+            // Plain == on purpose: clang-format reads this block as C++ and splits a
+            // === into '== =', which is a JavaScript syntax error at link time.
+            if (typeof document == 'undefined') return;
             var d = document.createElement('div');
             d.setAttribute('style',
                            'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.85);' +

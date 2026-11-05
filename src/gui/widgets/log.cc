@@ -147,16 +147,14 @@ bool PCSX::Widgets::Log::draw(GUI* gui, const char* title) {
     if (filter.IsActive()) {  // Filter for logs if filter is active
         for (auto& m_activeLog : m_activeLogs) {
             auto& s = m_activeLog.entry;
-            if (filter.PassFilter(s.c_str(), s.c_str() + s.length()))
-                ImGui::TextUnformatted(s.c_str(), s.c_str() + s.length());
+            if (filter.PassFilter(s.c_str(), s.c_str() + s.length())) drawEntry(m_activeLog, copy);
         }
     } else {
         // Otherwise, Display logs for selected log class as normal when filter is not active
         while (clipper.Step()) {
             for (auto i = m_activeLogs.find(clipper.DisplayStart);
                  i != m_activeLogs.end() && i->getLow() < clipper.DisplayEnd; i++) {
-                auto& s = i->entry;
-                ImGui::TextUnformatted(s.c_str(), s.c_str() + s.length());
+                drawEntry(*i, copy);
             }
         }
     }
@@ -169,6 +167,37 @@ bool PCSX::Widgets::Log::draw(GUI* gui, const char* title) {
     ImGui::End();
 
     return changed;
+}
+
+// When copying, each line goes out as a single item: ImGui's logger puts a space between items
+// sharing a line, which would corrupt the copied text at every colour change.
+void PCSX::Widgets::Log::drawEntry(const Element& element, bool plain) {
+    auto& s = element.entry;
+    if (plain || element.spans.empty()) {
+        ImGui::TextUnformatted(s.c_str(), s.c_str() + s.length());
+        return;
+    }
+    bool first = true;
+    size_t start = 0;
+    auto segment = [&](size_t end, int32_t color) {
+        if (end <= start) return;
+        if (!first) ImGui::SameLine(0.0f, 0.0f);
+        first = false;
+        if (color != AnsiSGR::c_default) {
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                                  IM_COL32((color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff, 0xff));
+        }
+        ImGui::TextUnformatted(s.c_str() + start, s.c_str() + end);
+        if (color != AnsiSGR::c_default) ImGui::PopStyleColor();
+        start = end;
+    };
+    int32_t color = AnsiSGR::c_default;
+    for (auto& span : element.spans) {
+        segment(span.offset, color);
+        color = span.color;
+    }
+    segment(s.length(), color);
+    if (first) ImGui::TextUnformatted("");
 }
 
 void PCSX::Widgets::Log::rebuildActive() {
