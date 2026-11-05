@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iterator>
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -87,29 +88,10 @@ constexpr int kFir[39] = {
     0x0000,  0x0534, 0x0000, -0x0B90, 0x0000,  0x2806, 0x4000, 0x2806, 0x0000,  -0x0B90, 0x0000, 0x0534, 0x0000,
     -0x0268, 0x0000, 0x010A, 0x0000,  -0x0067, 0x0000, 0x0023, 0x0000, -0x000A, 0x0000,  0x0002, 0x0000, -0x0001,
 };
-// h44[k] = the 44.1kHz reverb input k samples ago; h22[k] = the 22.05kHz wet output
-// k ticks ago. The FIR is centred, so a causal implementation runs a fixed delay
-// (19 samples in / 10 ticks out). That is harmless here: p3-compare.py scores modulo
-// rotation, so a constant group delay costs nothing.
-int h44L[39], h44R[39], h22L[20], h22R[20];
-bool altLeftTick;  // which half of the 22.05kHz iteration this 44.1kHz cycle runs
-int callCount;     // 44.1kHz cycles run with reverb on; its parity picks altLeftTick
-void resetFilterState() {
-    memset(h44L, 0, sizeof(h44L));
-    memset(h44R, 0, sizeof(h44R));
-    memset(h22L, 0, sizeof(h22L));
-    memset(h22R, 0, sizeof(h22R));
-    altLeftTick = false;
-    callCount = 0;
-}
-inline void firPushIn(int l, int r) {
-    for (int i = 38; i > 0; i--) {
-        h44L[i] = h44L[i - 1];
-        h44R[i] = h44R[i - 1];
-    }
-    h44L[0] = l;
-    h44R[0] = r;
-}
+// The histories it runs over are per-unit state (ReverbUnit::m_h44L and friends). The FIR
+// is centred, so a causal implementation runs a fixed delay (19 samples in / 10 ticks
+// out). That is harmless here: p3-compare.py scores modulo rotation, so a constant group
+// delay costs nothing.
 // A hardware fixed-point datapath keeps the upper multiplier bits, which is an
 // arithmetic shift, i.e. floor. C's / rounds toward zero, so the two differ by one
 // LSB on every negative product; the shift is the one that matches the silicon.
@@ -133,6 +115,25 @@ inline int firInterp(const int* h, bool passthrough) {
 }
 }  // namespace
 
+void PCSX::SPU::ReverbUnit::resetFilterState() {
+    static_assert(std::size(kFir) == kFirTaps);
+    std::fill(std::begin(m_h44L), std::end(m_h44L), 0);
+    std::fill(std::begin(m_h44R), std::end(m_h44R), 0);
+    std::fill(std::begin(m_h22L), std::end(m_h22L), 0);
+    std::fill(std::begin(m_h22R), std::end(m_h22R), 0);
+    m_altLeftTick = false;
+    m_callCount = 0;
+}
+
+void PCSX::SPU::ReverbUnit::firPushIn(int l, int r) {
+    for (int i = kFirTaps - 1; i > 0; i--) {
+        m_h44L[i] = m_h44L[i - 1];
+        m_h44R[i] = m_h44R[i - 1];
+    }
+    m_h44L[0] = l;
+    m_h44R[0] = r;
+}
+
 // The FIR histories and the L/R parity are reverb-unit state too; a reset that left
 // them would replay the previous tail through h22[9].
 void PCSX::SPU::ReverbUnit::reset() {
@@ -148,7 +149,7 @@ int PCSX::SPU::ReverbUnit::mixLeft(int ns, uint16_t* spuMem, uint16_t spuCtrl) {
         return 0;
     }
 
-    callCount++;
+    m_callCount++;
 
     // psx-spx: the unit spends "one 44100h cycle on left calculations, and the next on
     // right". A complete 22.05kHz iteration is therefore two 44.1kHz cycles, each half
@@ -159,19 +160,19 @@ int PCSX::SPU::ReverbUnit::mixLeft(int ns, uint16_t* spuMem, uint16_t spuCtrl) {
     // Games that stream audio into the work area depend on this.
     const bool writeEnabled = (spuCtrl & kReverbMasterEnable) != 0;
     firPushIn(*(mixStart + (ns << 1)), *(mixStart + (ns << 1) + 1));
-    altLeftTick = (callCount & 1) != 0;
-    const int in = sat16(altLeftTick ? firDecimate(h44L) : firDecimate(h44R));
-    const int sSame = altLeftTick ? rvb.IIR_SRC_A0 : rvb.IIR_SRC_A1;
-    const int dSame = altLeftTick ? rvb.IIR_DEST_A0 : rvb.IIR_DEST_A1;
-    const int sDiff = altLeftTick ? rvb.IIR_SRC_B0 : rvb.IIR_SRC_B1;
-    const int dDiff = altLeftTick ? rvb.IIR_DEST_B0 : rvb.IIR_DEST_B1;
-    const int inCoef = altLeftTick ? rvb.IN_COEF_L : rvb.IN_COEF_R;
-    const int c1 = altLeftTick ? rvb.ACC_SRC_A0 : rvb.ACC_SRC_A1;
-    const int c2 = altLeftTick ? rvb.ACC_SRC_B0 : rvb.ACC_SRC_B1;
-    const int c3 = altLeftTick ? rvb.ACC_SRC_C0 : rvb.ACC_SRC_C1;
-    const int c4 = altLeftTick ? rvb.ACC_SRC_D0 : rvb.ACC_SRC_D1;
-    const int mA = altLeftTick ? rvb.MIX_DEST_A0 : rvb.MIX_DEST_A1;
-    const int mB = altLeftTick ? rvb.MIX_DEST_B0 : rvb.MIX_DEST_B1;
+    m_altLeftTick = (m_callCount & 1) != 0;
+    const int in = sat16(m_altLeftTick ? firDecimate(m_h44L) : firDecimate(m_h44R));
+    const int sSame = m_altLeftTick ? rvb.IIR_SRC_A0 : rvb.IIR_SRC_A1;
+    const int dSame = m_altLeftTick ? rvb.IIR_DEST_A0 : rvb.IIR_DEST_A1;
+    const int sDiff = m_altLeftTick ? rvb.IIR_SRC_B0 : rvb.IIR_SRC_B1;
+    const int dDiff = m_altLeftTick ? rvb.IIR_DEST_B0 : rvb.IIR_DEST_B1;
+    const int inCoef = m_altLeftTick ? rvb.IN_COEF_L : rvb.IN_COEF_R;
+    const int c1 = m_altLeftTick ? rvb.ACC_SRC_A0 : rvb.ACC_SRC_A1;
+    const int c2 = m_altLeftTick ? rvb.ACC_SRC_B0 : rvb.ACC_SRC_B1;
+    const int c3 = m_altLeftTick ? rvb.ACC_SRC_C0 : rvb.ACC_SRC_C1;
+    const int c4 = m_altLeftTick ? rvb.ACC_SRC_D0 : rvb.ACC_SRC_D1;
+    const int mA = m_altLeftTick ? rvb.MIX_DEST_A0 : rvb.MIX_DEST_A1;
+    const int mB = m_altLeftTick ? rvb.MIX_DEST_B0 : rvb.MIX_DEST_B1;
     auto at = [&](int off, int extra) { return (int)reinterpret_cast<int16_t*>(spuMem)[wrapOffset(off, extra)]; };
     const int iirSame =
         sat16(rdiv15((int64_t)(getBuffer(sSame, spuMem) * rvb.IIR_COEF)) + rdiv15((int64_t)(in * inCoef)));
@@ -209,16 +210,16 @@ int PCSX::SPU::ReverbUnit::mixLeft(int ns, uint16_t* spuMem, uint16_t spuCtrl) {
     // vLOUT/vROUT are signed 16bit and their products divide by 8000h, not 4000h.
     // registers.cc assigns these from a uint16_t with no cast, unlike every other
     // reverb coefficient there, so sign-extend at the point of use.
-    const int vol = altLeftTick ? (int)(int16_t)rvb.VolLeft : (int)(int16_t)rvb.VolRight;
+    const int vol = m_altLeftTick ? (int)(int16_t)rvb.VolLeft : (int)(int16_t)rvb.VolRight;
     const int wet = rdiv15((int64_t)out * vol);
-    if (altLeftTick) {
+    if (m_altLeftTick) {
         rvb.wetLeft = wet;
-        for (int i = 19; i > 0; i--) h22L[i] = h22L[i - 1];
-        h22L[0] = wet;
+        for (int i = 19; i > 0; i--) m_h22L[i] = m_h22L[i - 1];
+        m_h22L[0] = wet;
     } else {
         rvb.wetRight = wet;
-        for (int i = 19; i > 0; i--) h22R[i] = h22R[i - 1];
-        h22R[0] = wet;
+        for (int i = 19; i > 0; i--) m_h22R[i] = m_h22R[i - 1];
+        m_h22R[0] = wet;
         // Address advances once per COMPLETE 22.05kHz iteration, after both halves.
         rvb.CurrAddr++;
         if (rvb.CurrAddr > 0x3ffff) rvb.CurrAddr = rvb.StartAddr;
@@ -228,16 +229,16 @@ int PCSX::SPU::ReverbUnit::mixLeft(int ns, uint16_t* spuMem, uint16_t spuCtrl) {
     // phase earlier than pairing them the obvious way round. h22[9] and not h22[10]:
     // on the off cycle h22[10] is 21 ticks old, so the parity swap on its own would
     // jitter the group delay between 19 and 21.
-    return altLeftTick ? firInterp(h22L, false) : h22L[9];
+    return m_altLeftTick ? firInterp(m_h22L, false) : m_h22L[9];
 }
 
 ////////////////////////////////////////////////////////////////////////
 
 int PCSX::SPU::ReverbUnit::mixRight() {
     // The mirror of the left output stage: mixLeft has already run for this 44.1kHz
-    // cycle and left altLeftTick set, so the right channel takes the interpolating
+    // cycle and left m_altLeftTick set, so the right channel takes the interpolating
     // polyphase on its own compute cycle and the passthrough on the other one.
-    return !altLeftTick ? firInterp(h22R, false) : h22R[9];
+    return !m_altLeftTick ? firInterp(m_h22R, false) : m_h22R[9];
 }
 
 ////////////////////////////////////////////////////////////////////////
