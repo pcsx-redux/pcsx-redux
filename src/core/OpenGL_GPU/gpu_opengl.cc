@@ -999,9 +999,29 @@ void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
     OpenGL::enableScissor();
 }
 
+// Hardware drops a polygon or line with an edge spanning more than 1023 pixels
+// horizontally or 511 vertically. Same test as the software renderer's
+// checkCoord3/checkCoord4/CheckCoordL. The draw offset is added unwrapped, so
+// it cancels out of the deltas and the raw vertices can be compared directly.
+static bool edgeOverLimit(int x0, int y0, int x1, int y1) {
+    return std::abs(x1 - x0) >= 1024 || std::abs(y1 - y0) >= 512;
+}
+
 template <PCSX::GPU::Shading shading, PCSX::GPU::Shape shape, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend,
           PCSX::GPU::Modulation modulation>
 void PCSX::OpenGL_GPU::polyExec(Poly<shading, shape, textured, blend, modulation> *prim) {
+    const auto &x = prim->x;
+    const auto &y = prim->y;
+    // A quad renders as (v0, v1, v2) and (v1, v2, v3), so its five triangle
+    // edges are checked; v0-v3 belongs to neither triangle.
+    if (edgeOverLimit(x[0], y[0], x[1], y[1]) || edgeOverLimit(x[1], y[1], x[2], y[2]) ||
+        edgeOverLimit(x[2], y[2], x[0], y[0])) {
+        return;
+    }
+    if constexpr (shape == Shape::Quad) {
+        if (edgeOverLimit(x[1], y[1], x[3], y[3]) || edgeOverLimit(x[3], y[3], x[2], y[2])) return;
+    }
+
     updateSkipParity();
     if constexpr (blend == Blend::Off) {
         setTransparency<Transparency::Opaque>();
@@ -1048,6 +1068,7 @@ void PCSX::OpenGL_GPU::lineExec(Line<shading, lineType, blend> *prim) {
         auto c0 = prim->colors[i - 1];
         auto c1 = prim->colors[i];
 
+        if (edgeOverLimit(x0, y0, x1, y1)) continue;
         drawLine(x0, y0, c0, x1, y1, c1);
     }
 }
