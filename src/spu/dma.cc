@@ -59,6 +59,8 @@ void PCSX::SPU::impl::resetCaptureBuffer() {
     captureBuffer.endIndex = 0;
     captureBuffer.startIndex = 0;
     // The capture write positions follow the mixer's sample clock and are not reset here.
+    // A reset restarts the CPU cycle count, so a pending landing cycle from before it is stale.
+    m_writeDMALandedCycle = 0;
 }
 
 // After CHCR goes idle on a write DMA, the SPU still has the tail of the transfer to put into
