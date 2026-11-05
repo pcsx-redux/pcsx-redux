@@ -787,6 +787,45 @@ class CDRomImpl final : public PCSX::CDRom {
         }
     }
 
+    // Opening the shell under a spinning disc stops the drive with an unsolicited error. On
+    // hardware, after a completed SeekP: stat 16h (shell open, spindle, error), code 08h.
+    void lidOpened() override {
+        // Play, ReadN, ReadS and the seeks leave m_motorOn alone after a Stop, so an active
+        // read or play counts as a spinning disc here too.
+        const bool active = (m_status != Status::Idle) || (m_readingType != ReadingType::None) ||
+                            (m_readingState != ReadingState::None);
+        if (!m_motorOn && !active) return;
+        // A seek or other timed command in flight does not complete.
+        if (!m_commandExecuting.empty()) {
+            PCSX::g_emulator->m_cpu->unschedule(PCSX::Schedule::CDRCOMMANDS);
+            m_commandExecuting.clear();
+        }
+        m_status = Status::Idle;
+        m_readingState = ReadingState::None;
+        m_readingType = ReadingType::None;
+        QueueElement error;
+        error.pushPayloadData(getStatus() | 0x06);
+        error.pushPayloadData(0x08);
+        m_motorOn = false;
+        maybeTriggerIRQ(Cause::Error, error);
+    }
+
+    // Commands that need the disc fail with 80h while the shell is open. Measured on hardware
+    // for GetLocP and GetID; the other disc commands are not characterised yet.
+    static bool needsClosedLid(uint8_t command) { return (command == 0x11) || (command == 0x1a); }
+
+    // The error code a command is refused with before its handler runs, or 0 to run it: 40h for
+    // an opcode out of range, 20h for a wrong parameter count, 80h for a disc command with the
+    // shell open.
+    uint8_t commandRejection(uint8_t command) {
+        static constexpr unsigned c_commandMax = sizeof(c_commandsArgumentsCount) / sizeof(c_commandsArgumentsCount[0]);
+        if (command >= c_commandMax) return 0x40;
+        auto expectedCount = c_commandsArgumentsCount[command];
+        if ((expectedCount >= 0) && (expectedCount != m_commandFifo.payloadSize)) return 0x20;
+        if (needsClosedLid(command) && isLidOpen()) return 0x80;
+        return 0;
+    }
+
     void maybeEnqueueError(uint8_t mask1, uint8_t mask2) {
         QueueElement error;
         error.pushPayloadData(getStatus() | mask1);
@@ -811,16 +850,8 @@ class CDRomImpl final : public PCSX::CDRom {
             PCSX::g_system->log(PCSX::LogClass::CDROM, "CD-Rom: Starting command %s (%i)\n", commandName(command),
                                 command);
         }
-        static constexpr unsigned c_commandMax = sizeof(c_commandsArgumentsCount) / sizeof(c_commandsArgumentsCount[0]);
-        if (command >= c_commandMax) {
-            maybeEnqueueError(1, 0x40);
-            maybeScheduleNextCommand();
-            m_commandFifo.clear();
-            return;
-        }
-        auto expectedCount = c_commandsArgumentsCount[command];
-        if ((expectedCount >= 0) && (expectedCount != m_commandFifo.payloadSize)) {
-            maybeEnqueueError(1, 0x20);
+        if (auto code = commandRejection(command)) {
+            maybeEnqueueError(1, code);
             maybeScheduleNextCommand();
             m_commandFifo.clear();
             return;

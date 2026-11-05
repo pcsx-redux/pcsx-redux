@@ -20,16 +20,23 @@
 #include "gtest/gtest.h"
 #include "main/main.h"
 
+// misc.c's lid tests ask for the lid through these slots instead of a hand on the drive.
+static const char c_lidSlots[] = R"(
+PCSX.execSlots[0xd0] = function() PCSX.CDRom.openLid() end
+PCSX.execSlots[0xd1] = function() PCSX.CDRom.closeLid() end
+)";
+
 TEST(cdrom, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
-                        "-interpreter", "-iso", "test.cue", "-loadexe", "src/mips/tests/cdrom/cdrom.ps-exe");
+                        "-interpreter", "-iso", "test.cue", "-exec", c_lidSlots, "-loadexe",
+                        "src/mips/tests/cdrom/cdrom.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(cdrom, Dynarec) {
-    MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
-                        "-dynarec", "-iso", "test.cue", "-loadexe", "src/mips/tests/cdrom/cdrom.ps-exe");
+    MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
+                        "-iso", "test.cue", "-exec", c_lidSlots, "-loadexe", "src/mips/tests/cdrom/cdrom.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

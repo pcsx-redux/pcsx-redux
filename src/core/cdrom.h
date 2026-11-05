@@ -60,16 +60,20 @@ class CDRom {
         m_lidCloseScheduled = false;
     }
     void openLid() {
+        const bool wasOpen = isLidOpen();
         m_lidOpen = true;
         m_wasLidOpened = true;
         m_lidCloseScheduled = false;
+        if (!wasOpen) lidOpened();
     }
     void scheduleCloseLid() {
+        const bool wasOpen = isLidOpen();
         m_lidOpen = true;
         m_wasLidOpened = true;
         m_lidCloseScheduled = true;
         using namespace std::chrono_literals;
         m_lidCloseAtCycles = g_emulator->m_cpu->m_regs.getFutureCycle(1s);
+        if (!wasOpen) lidOpened();
     }
     void parseIso();
 
@@ -91,6 +95,8 @@ class CDRom {
     const std::string& getCDRomLabel() { return m_cdromLabel; }
 
     virtual void reset() = 0;
+    // Called once when the lid goes from closed to open.
+    virtual void lidOpened() {}
 
     virtual void fifoScheduledCallback() = 0;
     virtual void commandsScheduledCallback() = 0;
