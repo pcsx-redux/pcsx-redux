@@ -1,0 +1,1537 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://pcsx-redux.consoledev.net/Lua/expansion-carts/">
+      
+      
+        <link rel="prev" href="../memory-and-registers/">
+      
+      
+        <link rel="next" href="../events/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Expansion carts in Lua - PCSX-Redux</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#expansion-carts-in-lua" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PCSX-Redux" class="md-header__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PCSX-Redux
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Expansion carts in Lua
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PCSX-Redux" class="md-nav__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    PCSX-Redux
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../menus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PCSX-Redux menus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../compiling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compiling PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli_flags/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Command Line Flags
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Debugging
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Debugging
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Debugging with PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gdb-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GDB server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/ghidra/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting Ghidra to PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/misc-features/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Misc Features
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/vram-viewer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    VRAM viewer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gpu-logger/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GPU Logger
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mips_api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Mips API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../web_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Web server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sio1_networking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SIO1 networking
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Lua
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Lua
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../libraries/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Loaded libraries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../redux-basics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Redux basic API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rendering/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Rendering
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../file-api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    File API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../iso-builder/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Building ISO images
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ppf/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PPF patches
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Webserver Lua API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory-and-registers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Memory and registers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Expansion carts in Lua
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Expansion carts in Lua
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction-rationale" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction &amp; Rationale
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-an-access-reaches-lua" class="md-nav__link">
+    <span class="md-ellipsis">
+      How an access reaches Lua
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#claiming-a-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      Claiming a range
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-callbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      The callbacks
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#disconnecting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disconnecting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#packaging" class="md-nav__link">
+    <span class="md-ellipsis">
+      Packaging
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#complete-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Complete examples
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Events
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../breakpoints/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Breakpoints
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../assembler/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Inline assembler
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../binary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Handling of PSX binaries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compression/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compression formats
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guest-calls/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Calling guest code
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../implot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Plots
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../case-studies/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Case studies
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playbook-scripted-session/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: scripting a game session
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playbook-localizing-bugs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: finding where a bug lives
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../openbios/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Openbios
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction-rationale" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction &amp; Rationale
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-an-access-reaches-lua" class="md-nav__link">
+    <span class="md-ellipsis">
+      How an access reaches Lua
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#claiming-a-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      Claiming a range
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-callbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      The callbacks
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#disconnecting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disconnecting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#packaging" class="md-nav__link">
+    <span class="md-ellipsis">
+      Packaging
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#complete-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Complete examples
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="expansion-carts-in-lua">Expansion carts in Lua</h1>
+<h2 id="introduction-rationale">Introduction &amp; Rationale</h2>
+<p>The PlayStation's parallel port, also known as EXP1, maps the cartridge connected to it at <code>0x1f000000</code> to <code>0x1f7fffff</code>. PCSX-Redux emulates one cartridge natively, the PIO cart found under Configuration &gt; PIO Cartridge. Anything else, be it a development board, a USB adapter, or a cheat device behaving slightly differently, can be emulated from Lua, without touching the emulator's code, by combining the memory LUTs and the unmapped memory callbacks described in <a href="../memory-and-registers/">Memory and registers</a>.</p>
+<p>The short version: a memory access whose page has no entry in the LUTs, and which isn't claimed by the emulator itself, is forwarded to the global Lua functions <code>UnknownMemoryRead</code> and <code>UnknownMemoryWrite</code>. A cart in Lua makes sure its pages have no LUT entry, and then answers these callbacks.</p>
+<h2 id="how-an-access-reaches-lua">How an access reaches Lua</h2>
+<p>For each read or write, the CPU looks up the 64kB page of the address, <code>address &gt;&gt; 16</code>, in the read or write LUT. In order:</p>
+<ul>
+<li>If the LUT entry is not <code>nil</code>, the access goes straight to the memory it points to, and Lua never sees it.</li>
+<li>Pages <code>0x1f80</code>, <code>0x9f80</code> and <code>0xbf80</code>, the scratchpad and the hardware registers, are always handled by the emulator.</li>
+<li>If the native PIO cart is connected, all of <code>0x1f000000</code> to <code>0x1f7fffff</code> goes to it. So the native PIO cart has to be disconnected for a Lua cart to work.</li>
+<li>Otherwise, the access is forwarded to Lua.</li>
+</ul>
+<p>Each page is reachable through three addresses, one per memory segment: <code>0x1f00</code> for KUSEG, <code>0x9f00</code> for KSEG0, and <code>0xbf00</code> for KSEG1. The LUTs have one entry for each, so a cart needs to handle all three.</p>
+<h2 id="claiming-a-range">Claiming a range</h2>
+<p>When the native PIO cart is disconnected, the EXP1 pages have no LUT entry, and every access already reaches Lua. However, another script may have mapped them, so a cart should clear the pages it wants to trap explicitly, through the pointers returned by <code>PCSX.getReadLUT()</code> and <code>PCSX.getWriteLUT()</code>:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">pages</span> <span class="o">=</span> <span class="p">{</span> <span class="mh">0x1f00</span><span class="p">,</span> <span class="mh">0x9f00</span><span class="p">,</span> <span class="mh">0xbf00</span> <span class="p">}</span>
+
+<span class="kd">local</span> <span class="kr">function</span> <span class="nf">claim</span><span class="p">()</span>
+    <span class="kd">local</span> <span class="n">readLUT</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">getReadLUT</span><span class="p">()</span>
+    <span class="kd">local</span> <span class="n">writeLUT</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">getWriteLUT</span><span class="p">()</span>
+    <span class="kr">if</span> <span class="n">readLUT</span> <span class="o">==</span> <span class="kc">nil</span> <span class="ow">or</span> <span class="n">writeLUT</span> <span class="o">==</span> <span class="kc">nil</span> <span class="kr">then</span> <span class="kr">return</span> <span class="kr">end</span>
+    <span class="kr">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">page</span> <span class="kr">in</span> <span class="nb">ipairs</span><span class="p">(</span><span class="n">pages</span><span class="p">)</span> <span class="kr">do</span>
+        <span class="n">readLUT</span><span class="p">[</span><span class="n">page</span><span class="p">]</span> <span class="o">=</span> <span class="kc">nil</span>
+        <span class="n">writeLUT</span><span class="p">[</span><span class="n">page</span><span class="p">]</span> <span class="o">=</span> <span class="kc">nil</span>
+    <span class="kr">end</span>
+<span class="kr">end</span>
+</code></pre></div></td></tr></table></div>
+<p>The emulator signals the <code>Memory::SetLuts</code> event when it rebuilds its memory LUTs, so a cart should listen to it and claim its pages again, keeping the listener object alive as explained in <a href="../events/">Events</a>.</p>
+<p>A cart which holds actual memory, such as a ROM, can do the opposite for its read pages: point them to a buffer allocated with <code>ffi.new</code>, and reads will then be served at full speed without going through Lua. The buffer must stay referenced from Lua for as long as the LUT points to it, otherwise the garbage collector will free memory the emulated CPU is still reading. Writes to a ROM or a flash chip usually still need to go through Lua, so their write pages stay <code>nil</code>.</p>
+<h2 id="the-callbacks">The callbacks</h2>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kr">function</span> <span class="nf">UnknownMemoryRead</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span> <span class="kr">end</span>
+<span class="kr">function</span> <span class="nf">UnknownMemoryWrite</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="kr">end</span>
+</code></pre></div></td></tr></table></div>
+<ul>
+<li><code>address</code> is the full address used by the CPU, including its segment: a read from KSEG1 arrives as <code>0xbf000100</code>, not <code>0x1f000100</code>. Mask it with <code>bit.band(address, 0x1fffffff)</code> to get the physical address.</li>
+<li><code>size</code> is 1, 2 or 4, depending on the instruction.</li>
+<li>For a read, returning a number makes it the value read by the CPU. It should fit in <code>size</code> bytes. Returning nothing at all leaves the read unhandled, and the emulator carries on as if the function didn't exist, which usually means the CPU reads <code>0xff</code>, <code>0xffff</code> or <code>0xffffffff</code>. Careful: returning <code>nil</code> explicitly still counts as a value, and the CPU will read 0.</li>
+<li>For a write, returning <code>true</code> marks it as handled. Anything else leaves it unhandled.</li>
+<li>If either function raises an error, the error is printed in the console, the access is left unhandled, and the emulator removes the global by setting it to <code>nil</code>. A buggy cart therefore disconnects itself on its first error.</li>
+</ul>
+<p>These are two global names, so only one script at a time can own them. A cart which only handles its own addresses should keep the previous functions and forward everything else to them, as the example below does.</p>
+<h2 id="disconnecting">Disconnecting</h2>
+<p>A cart which can be unplugged needs to undo what it did when it was connected: remove its <code>Memory::SetLuts</code> listener, put back the LUT entries it saved when connecting, and restore the previous <code>UnknownMemoryRead</code> and <code>UnknownMemoryWrite</code> functions. A cart which pointed LUT entries to its own buffers has to remove these before letting the buffers go.</p>
+<h2 id="packaging">Packaging</h2>
+<p>A cart made of several files is easiest to distribute as a zip file. When a zip file is loaded, its <code>autoexec.lua</code> file, if present, is executed, and <code>Support.extra.dofile</code> will find the other Lua files of the archive. There are several ways to load it:</p>
+<ul>
+<li>From the command line, using the <code>-archive</code> flag, as in <code>pcsx-redux -archive mycart.zip</code>.</li>
+<li>From the File menu, using Add Lua archive.</li>
+<li>By dragging and dropping the zip file onto the main window.</li>
+<li>From Lua, using <code>Support.extra.addArchive(filename)</code>.</li>
+</ul>
+<h2 id="example">Example</h2>
+<p>This cart exposes a single 32-bit status register at <code>0x1f000100</code>. Each read returns a counter which increments on every access, and writing to it sets the counter. All the other addresses are forwarded to whatever was handling them before.</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span>
+<span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span>
+<span class="normal">40</span>
+<span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span>
+<span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span>
+<span class="normal">65</span>
+<span class="normal">66</span>
+<span class="normal">67</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="n">CounterCart</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">register</span> <span class="o">=</span> <span class="mh">0x1f000100</span><span class="p">,</span>
+    <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">pages</span> <span class="o">=</span> <span class="p">{</span> <span class="mh">0x1f00</span><span class="p">,</span> <span class="mh">0x9f00</span><span class="p">,</span> <span class="mh">0xbf00</span> <span class="p">},</span>
+    <span class="n">connected</span> <span class="o">=</span> <span class="kc">false</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="kr">function</span> <span class="nc">CounterCart</span><span class="p">.</span><span class="nf">claim</span><span class="p">()</span>
+    <span class="kd">local</span> <span class="n">readLUT</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">getReadLUT</span><span class="p">()</span>
+    <span class="kd">local</span> <span class="n">writeLUT</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">getWriteLUT</span><span class="p">()</span>
+    <span class="kr">if</span> <span class="n">readLUT</span> <span class="o">==</span> <span class="kc">nil</span> <span class="ow">or</span> <span class="n">writeLUT</span> <span class="o">==</span> <span class="kc">nil</span> <span class="kr">then</span> <span class="kr">return</span> <span class="kr">end</span>
+    <span class="kr">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">page</span> <span class="kr">in</span> <span class="nb">ipairs</span><span class="p">(</span><span class="n">CounterCart</span><span class="p">.</span><span class="n">pages</span><span class="p">)</span> <span class="kr">do</span>
+        <span class="n">readLUT</span><span class="p">[</span><span class="n">page</span><span class="p">]</span> <span class="o">=</span> <span class="kc">nil</span>
+        <span class="n">writeLUT</span><span class="p">[</span><span class="n">page</span><span class="p">]</span> <span class="o">=</span> <span class="kc">nil</span>
+    <span class="kr">end</span>
+<span class="kr">end</span>
+
+<span class="kr">function</span> <span class="nc">CounterCart</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>
+    <span class="kr">if</span> <span class="n">bit</span><span class="p">.</span><span class="n">band</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="mh">0x1fffffff</span><span class="p">)</span> <span class="o">==</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">register</span> <span class="kr">then</span>
+        <span class="n">CounterCart</span><span class="p">.</span><span class="n">counter</span> <span class="o">=</span> <span class="p">(</span><span class="n">CounterCart</span><span class="p">.</span><span class="n">counter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mh">0x100000000</span>
+        <span class="kr">return</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">counter</span>
+    <span class="kr">end</span>
+    <span class="kr">if</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">previousRead</span> <span class="kr">then</span> <span class="kr">return</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">previousRead</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span> <span class="kr">end</span>
+<span class="kr">end</span>
+
+<span class="kr">function</span> <span class="nc">CounterCart</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+    <span class="kr">if</span> <span class="n">bit</span><span class="p">.</span><span class="n">band</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="mh">0x1fffffff</span><span class="p">)</span> <span class="o">==</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">register</span> <span class="kr">then</span>
+        <span class="n">CounterCart</span><span class="p">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="kr">return</span> <span class="kc">true</span>
+    <span class="kr">end</span>
+    <span class="kr">if</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">previousWrite</span> <span class="kr">then</span> <span class="kr">return</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">previousWrite</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="kr">end</span>
+    <span class="kr">return</span> <span class="kc">false</span>
+<span class="kr">end</span>
+
+<span class="kr">function</span> <span class="nc">CounterCart</span><span class="p">.</span><span class="nf">connect</span><span class="p">()</span>
+    <span class="kr">if</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">connected</span> <span class="kr">then</span> <span class="kr">return</span> <span class="kr">end</span>
+    <span class="kd">local</span> <span class="n">readLUT</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">getReadLUT</span><span class="p">()</span>
+    <span class="kd">local</span> <span class="n">writeLUT</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">getWriteLUT</span><span class="p">()</span>
+    <span class="n">CounterCart</span><span class="p">.</span><span class="n">saved</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="kr">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">page</span> <span class="kr">in</span> <span class="nb">ipairs</span><span class="p">(</span><span class="n">CounterCart</span><span class="p">.</span><span class="n">pages</span><span class="p">)</span> <span class="kr">do</span>
+        <span class="n">CounterCart</span><span class="p">.</span><span class="n">saved</span><span class="p">[</span><span class="n">page</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="n">readLUT</span><span class="p">[</span><span class="n">page</span><span class="p">],</span> <span class="n">writeLUT</span><span class="p">[</span><span class="n">page</span><span class="p">]</span> <span class="p">}</span>
+    <span class="kr">end</span>
+    <span class="n">CounterCart</span><span class="p">.</span><span class="n">previousRead</span> <span class="o">=</span> <span class="n">UnknownMemoryRead</span>
+    <span class="n">CounterCart</span><span class="p">.</span><span class="n">previousWrite</span> <span class="o">=</span> <span class="n">UnknownMemoryWrite</span>
+    <span class="n">UnknownMemoryRead</span> <span class="o">=</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">read</span>
+    <span class="n">UnknownMemoryWrite</span> <span class="o">=</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">write</span>
+    <span class="n">CounterCart</span><span class="p">.</span><span class="n">claim</span><span class="p">()</span>
+    <span class="n">CounterCart</span><span class="p">.</span><span class="n">listener</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">Events</span><span class="p">.</span><span class="n">createEventListener</span><span class="p">(</span><span class="s1">&#39;Memory::SetLuts&#39;</span><span class="p">,</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">claim</span><span class="p">)</span>
+    <span class="n">CounterCart</span><span class="p">.</span><span class="n">connected</span> <span class="o">=</span> <span class="kc">true</span>
+<span class="kr">end</span>
+
+<span class="kr">function</span> <span class="nc">CounterCart</span><span class="p">.</span><span class="nf">disconnect</span><span class="p">()</span>
+    <span class="kr">if</span> <span class="ow">not</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">connected</span> <span class="kr">then</span> <span class="kr">return</span> <span class="kr">end</span>
+    <span class="n">CounterCart</span><span class="p">.</span><span class="n">listener</span><span class="p">:</span><span class="n">remove</span><span class="p">()</span>
+    <span class="n">CounterCart</span><span class="p">.</span><span class="n">listener</span> <span class="o">=</span> <span class="kc">nil</span>
+    <span class="kd">local</span> <span class="n">readLUT</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">getReadLUT</span><span class="p">()</span>
+    <span class="kd">local</span> <span class="n">writeLUT</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">getWriteLUT</span><span class="p">()</span>
+    <span class="kr">for</span> <span class="n">page</span><span class="p">,</span> <span class="n">pointers</span> <span class="kr">in</span> <span class="nb">pairs</span><span class="p">(</span><span class="n">CounterCart</span><span class="p">.</span><span class="n">saved</span><span class="p">)</span> <span class="kr">do</span>
+        <span class="n">readLUT</span><span class="p">[</span><span class="n">page</span><span class="p">]</span> <span class="o">=</span> <span class="n">pointers</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">writeLUT</span><span class="p">[</span><span class="n">page</span><span class="p">]</span> <span class="o">=</span> <span class="n">pointers</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="kr">end</span>
+    <span class="n">UnknownMemoryRead</span> <span class="o">=</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">previousRead</span>
+    <span class="n">UnknownMemoryWrite</span> <span class="o">=</span> <span class="n">CounterCart</span><span class="p">.</span><span class="n">previousWrite</span>
+    <span class="n">CounterCart</span><span class="p">.</span><span class="n">connected</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="kr">end</span>
+
+<span class="n">CounterCart</span><span class="p">.</span><span class="n">connect</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div>
+<p>Saved as <code>autoexec.lua</code> in a zip file and loaded with <code>-archive</code>, the cart is connected before the emulated machine starts. On the PlayStation side, reading the register is a plain load:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">volatile</span><span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="o">*</span><span class="n">counter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="k">volatile</span><span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="mh">0xbf000100</span><span class="p">;</span>
+<span class="kt">uint32_t</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">counter</span><span class="p">;</span><span class="w">  </span><span class="c1">// 1</span>
+<span class="kt">uint32_t</span><span class="w"> </span><span class="n">second</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">counter</span><span class="p">;</span><span class="w"> </span><span class="c1">// 2</span>
+<span class="o">*</span><span class="n">counter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">41</span><span class="p">;</span>
+<span class="kt">uint32_t</span><span class="w"> </span><span class="n">third</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">counter</span><span class="p">;</span><span class="w">  </span><span class="c1">// 42</span>
+</code></pre></div></td></tr></table></div>
+<p>A byte or halfword access to the same address goes through the same function, with <code>size</code> set to 1 or 2. The value returned should fit in that size.</p>
+<h2 id="complete-examples">Complete examples</h2>
+<p>John Baumann's <a href="https://github.com/johnbaumann/lua-pio-cart">lua-pio-cart</a> emulates a cheat cartridge with its PAL and SST29EE020 flash chip using these same mechanisms, with its ROM mapped into the read LUT and its control registers trapped through the callbacks. It is packaged as a zip file and is a good starting point for a more complex cart.</p>
+<p><a href="https://github.com/rixnobis/redux-ch376-cart">redux-ch376-cart</a> emulates a CH376 USB host controller in parallel mode at <code>0x1f400000</code>, with a USB boot keyboard attached that follows the PC keyboard through the <code>Keyboard</code> event. It traps both of its registers through the callbacks and maps no memory.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>
