@@ -14,7 +14,7 @@ jobs:
   build-openbios:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/grumpycoders/pcsx-redux-build:latest
+      image: ghcr.io/pcsx-redux/pcsx-redux-build:latest
     steps:
     - uses: actions/checkout@v4
       with:
@@ -39,7 +39,7 @@ jobs:
         path: '**/*.ps-exe'
 
   macos-arm-build-and-test:
-    runs-on: macos-14
+    runs-on: macos-15
     needs: build-openbios
     steps:
     - uses: actions/checkout@v4

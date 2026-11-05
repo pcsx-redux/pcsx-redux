@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
 
     fmt::print(R"(
 exe2exe by Nicolas "Pixel" Noble
-https://github.com/grumpycoders/pcsx-redux/tree/main/tools/exe2exe/
+https://github.com/pcsx-redux/pcsx-redux/tree/main/tools/exe2exe/
 )");
 
     const auto inputs = args::get(inputsList);

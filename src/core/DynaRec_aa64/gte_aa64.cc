@@ -20,9 +20,150 @@
 #include "recompiler.h"
 
 #if defined(DYNAREC_AA64)
+#include <array>
+
 #include "core/gte.h"
 #define COP2_CONTROL_OFFSET(reg) ((uintptr_t) & m_regs.CP2C.r[(reg)] - (uintptr_t)this)
 #define COP2_DATA_OFFSET(reg) ((uintptr_t) & m_regs.CP2D.r[(reg)] - (uintptr_t)this)
+
+#define GTE_WRITE_VALUE_OFFSET(slot) ((uintptr_t) & m_gteWriteValues[(slot)] - (uintptr_t)this)
+#define GTE_PENDING_OFFSET(i, field) ((uintptr_t) & m_gtePending[(i)].field - (uintptr_t)this)
+#define GTE_PENDING_COUNT_OFFSET ((uintptr_t) & m_gtePendingCount - (uintptr_t)this)
+
+void DynaRecCPU::drainGTEWrites() {
+    for (unsigned i = 0; i < m_gtePendingCount; i++) gteCommit(m_gtePending[i]);
+    m_gtePendingCount = 0;
+}
+
+// Writes w0 to a GTE register the way GTE::MTC2 and GTE::CTC2 do. Clobbers w0 to w3.
+void DynaRecCPU::emitGTEWrite(bool ctrl, unsigned reg) {
+    if (ctrl) {
+        switch (reg) {
+            case 4:  // Signed 16-bit registers, read back sign-extended
+            case 12:
+            case 20:
+            case 26:
+            case 27:
+            case 29:
+            case 30:
+                gen.Sxth(w0, w0);
+                break;
+
+            case 31:  // FLAG: low 12 bits read as 0, bit 31 is the OR of the error bits
+                gen.And(w0, w0, 0x7ffff000);
+                gen.Orr(w1, w0, 0x80000000);
+                gen.Mov(w2, 0x7f87e000);
+                gen.Tst(w0, w2);
+                gen.Csel(w0, w1, w0, ne);
+                break;
+        }
+        gen.Str(w0, MemOperand(contextPointer, COP2_CONTROL_OFFSET(reg)));
+        return;
+    }
+
+    switch (reg) {
+        case 15:                                                            // SXYP
+            gen.Ldr(x1, MemOperand(contextPointer, COP2_DATA_OFFSET(13)));  // SXY0 = SXY1 and SXY1 = SXY2
+            gen.Str(x1, MemOperand(contextPointer, COP2_DATA_OFFSET(12)));
+            break;
+
+        case 28:  // IRGB sets IR1-IR3
+            gen.And(w1, w0, 0x1f);
+            gen.Lsl(w1, w1, 7);
+            gen.Str(w1, MemOperand(contextPointer, COP2_DATA_OFFSET(9)));
+            gen.Lsl(w1, w0, 2);
+            gen.And(w1, w1, 0xf80);
+            gen.Str(w1, MemOperand(contextPointer, COP2_DATA_OFFSET(10)));
+            gen.Lsr(w1, w0, 3);
+            gen.And(w1, w1, 0xf80);
+            gen.Str(w1, MemOperand(contextPointer, COP2_DATA_OFFSET(11)));
+            break;
+
+        case 30:  // LZCS sets LZCR
+            gen.Eor(w1, w0, Operand(w0, ASR, 31));
+            gen.Clz(w1, w1);
+            gen.Str(w1, MemOperand(contextPointer, COP2_DATA_OFFSET(31)));
+            break;
+
+        case 31:  // LZCR is read-only
+            return;
+    }
+    // SXYP itself is stored as SXY2
+    gen.Str(w0, MemOperand(contextPointer, COP2_DATA_OFFSET(reg == 15 ? 14 : reg)));
+}
+
+void DynaRecCPU::emitGTECommit(const GTEQueuedWrite& write) {
+    if (write.isConst) {
+        gen.Mov(w0, write.value);
+    } else {
+        gen.Ldr(w0, MemOperand(contextPointer, GTE_WRITE_VALUE_OFFSET(write.slot)));
+    }
+    emitGTEWrite(write.ctrl, write.reg);
+}
+
+// At most two writes are in flight when a new one issues, so this only commits on a path the tick did not cover.
+void DynaRecCPU::makeRoomForGTEWrite() {
+    auto& q = m_gteQueue;
+    if (q.count < 3) return;
+    emitGTECommit(q.writes[0]);
+    for (unsigned i = 1; i < q.count; i++) q.writes[i - 1] = q.writes[i];
+    q.count--;
+}
+
+void DynaRecCPU::queueGTEWrite(bool ctrl, unsigned reg, bool isConst, uint32_t value, Register src) {
+    auto& q = m_gteQueue;
+    unsigned used = 0;
+    for (unsigned i = 0; i < q.count; i++) used |= 1 << q.writes[i].slot;
+    uint8_t slot = 0;
+    while (used & (1 << slot)) slot++;
+    if (!isConst) gen.Str(src, MemOperand(contextPointer, GTE_WRITE_VALUE_OFFSET(slot)));
+    q.writes[q.count++] = {value, uint8_t(reg), slot, 3, ctrl, isConst};
+}
+
+// Runs after each compiled instruction, like the interpreter's tick after each executed one.
+void DynaRecCPU::tickGTEWrites() {
+    auto& q = m_gteQueue;
+    for (unsigned i = 0; i < q.count; i++) q.writes[i].countdown--;
+    while (q.count && q.writes[0].countdown == 0) {
+        emitGTECommit(q.writes[0]);
+        for (unsigned i = 1; i < q.count; i++) q.writes[i - 1] = q.writes[i];
+        q.count--;
+    }
+}
+
+// Copies the writes in flight to m_gtePending, starting at index 0.
+void DynaRecCPU::emitGTESpillQueue() {
+    const auto& q = m_gteQueue;
+    for (unsigned i = 0; i < q.count; i++) {
+        const auto& w = q.writes[i];
+        if (w.isConst) {
+            gen.Mov(w0, w.value);
+        } else {
+            gen.Ldr(w0, MemOperand(contextPointer, GTE_WRITE_VALUE_OFFSET(w.slot)));
+        }
+        gen.Str(w0, MemOperand(contextPointer, GTE_PENDING_OFFSET(i, value)));
+        gen.Mov(w0, w.reg);
+        gen.Str(w0, MemOperand(contextPointer, GTE_PENDING_OFFSET(i, reg)));
+        gen.Mov(w0, w.ctrl ? 1 : 0);
+        gen.Strb(w0, MemOperand(contextPointer, GTE_PENDING_OFFSET(i, ctrl)));
+        gen.Mov(w0, w.countdown);
+        gen.Str(w0, MemOperand(contextPointer, GTE_PENDING_OFFSET(i, countdown)));
+    }
+    gen.Mov(w0, q.count);
+    gen.Str(w0, MemOperand(contextPointer, GTE_PENDING_COUNT_OFFSET));
+}
+
+// Leaves the writes still in flight in m_gtePending for whatever runs next, or commits them all with commitAll,
+// up to two instructions early.
+void DynaRecCPU::emitGTEFlushQueue(bool commitAll) {
+    const auto& q = m_gteQueue;
+    if (q.count == 0) return;
+    if (commitAll) {
+        for (unsigned i = 0; i < q.count; i++) emitGTECommit(q.writes[i]);
+    } else {
+        emitGTESpillQueue();
+    }
+}
 
 void DynaRecCPU::recCOP2(uint32_t code) {
     if (_Rs_ == 8) {
@@ -30,7 +171,57 @@ void DynaRecCPU::recCOP2(uint32_t code) {
         return;
     }
     const auto func = m_recGTE[code & 0x3f];  // Look up the opcode in our decoding LUT
-    (*this.*func)(code);                      // Jump into the handler to recompile it
+    auto& q = m_gteQueue;
+    if ((code & 0x02000000) == 0 || q.count == 0 || func == &DynaRecCPU::recUnknown) {
+        (*this.*func)(code);  // Jump into the handler to recompile it
+        return;
+    }
+
+    // A GTE command with writes in flight: hand them to m_gtePending and run the command through the shared model
+    emitGTESpillQueue();
+    q.count = 0;
+    loadThisPointer(arg1.X());
+    gen.Mov(arg2, code);
+    call(gteCommandWrapper);
+}
+
+namespace {
+
+using GTECommand = void (PCSX::GTE::*)(uint32_t);
+constexpr auto c_gteCommands = [] {
+    std::array<GTECommand, 64> t{};
+    t[0x01] = &PCSX::GTE::RTPS;
+    t[0x06] = &PCSX::GTE::NCLIP;
+    t[0x0c] = &PCSX::GTE::OP;
+    t[0x10] = &PCSX::GTE::DPCS;
+    t[0x11] = &PCSX::GTE::INTPL;
+    t[0x12] = &PCSX::GTE::MVMVA;
+    t[0x13] = &PCSX::GTE::NCDS;
+    t[0x14] = &PCSX::GTE::CDP;
+    t[0x16] = &PCSX::GTE::NCDT;
+    t[0x1b] = &PCSX::GTE::NCCS;
+    t[0x1c] = &PCSX::GTE::CC;
+    t[0x1e] = &PCSX::GTE::NCS;
+    t[0x20] = &PCSX::GTE::NCT;
+    t[0x28] = &PCSX::GTE::SQR;
+    t[0x29] = &PCSX::GTE::DCPL;
+    t[0x2a] = &PCSX::GTE::DPCT;
+    t[0x2d] = &PCSX::GTE::AVSZ3;
+    t[0x2e] = &PCSX::GTE::AVSZ4;
+    t[0x30] = &PCSX::GTE::RTPT;
+    t[0x3d] = &PCSX::GTE::GPF;
+    t[0x3e] = &PCSX::GTE::GPL;
+    t[0x3f] = &PCSX::GTE::NCCT;
+    return t;
+}();
+
+}  // namespace
+
+void DynaRecCPU::gteCommandWrapper(DynaRecCPU* that, uint32_t code) {
+    that->gteRunCommand(code, [](PCSX::R3000Acpu*, uint32_t code) {
+        auto command = c_gteCommands[code & 0x3f];
+        if (command) (PCSX::g_emulator->m_gte.get()->*command)(code);
+    });
 }
 
 void DynaRecCPU::recGTEMove(uint32_t code) {
@@ -54,136 +245,22 @@ void DynaRecCPU::recGTEMove(uint32_t code) {
 }
 
 void DynaRecCPU::recCTC2(uint32_t code) {
+    makeRoomForGTEWrite();
     if (m_gprs[_Rt_].isConst()) {
-        switch (_Rd_) {
-            case 4:  // These registers are signed 16-bit values. Reading from them returns their value sign-extended to
-                     // 32 bits
-            case 12:
-            case 20:
-            case 26:
-            case 27:
-            case 29:
-            case 30:
-                gen.Mov(w0, (uint32_t)(int16_t)m_gprs[_Rt_].val);
-                gen.Str(w0, MemOperand(contextPointer, COP2_CONTROL_OFFSET(_Rd_)));
-                break;
-
-            case 31: {  // Write to FLAG - Set low 12 bits to 0 and fix up the error flag
-                uint32_t value = m_gprs[_Rt_].val & 0x7ffff000;
-                if ((value & 0x7f87e000) != 0) {
-                    value |= 0x80000000;
-                }
-                gen.Mov(w0, value);
-                gen.Str(w0, MemOperand(contextPointer, COP2_CONTROL_OFFSET(31)));
-                break;
-            }
-
-            default:
-                gen.Mov(w0, m_gprs[_Rt_].val);
-                gen.Str(w0, MemOperand(contextPointer, COP2_CONTROL_OFFSET(_Rd_)));
-                break;
-        }
-
+        queueGTEWrite(true, _Rd_, true, m_gprs[_Rt_].val, w0);
     } else {
         allocateReg(_Rt_);
-
-        switch (_Rd_) {
-            case 4:  // These registers are signed 16-bit values. Reading from them returns their value sign-extended to
-                     // 32 bits
-            case 12:
-            case 20:
-            case 26:
-            case 27:
-            case 29:
-            case 30:
-                gen.Sxth(w0, m_gprs[_Rt_].allocatedReg);  // Sign extend value from 16 to 32 bits
-                gen.Str(w0, MemOperand(contextPointer, COP2_CONTROL_OFFSET(_Rd_)));
-                break;
-
-            case 31:  // Write to FLAG - Set low 12 bits to 0 and fix up the error flag
-                gen.And(w1, m_gprs[_Rt_].allocatedReg, 0x7fffe000);
-                gen.And(w0, m_gprs[_Rt_].allocatedReg, 0x7ffff000);
-                gen.Orr(w2, w0, 0x80000000);
-                gen.Ands(w1, w1, 0xff87ffff);
-                gen.Csel(w0, w2, w0, ne);
-                gen.Str(w0, MemOperand(contextPointer, COP2_CONTROL_OFFSET(31)));
-                break;
-
-            default:
-                gen.Str(m_gprs[_Rt_].allocatedReg, MemOperand(contextPointer, COP2_CONTROL_OFFSET(_Rd_)));
-                break;
-        }
+        queueGTEWrite(true, _Rd_, false, 0, m_gprs[_Rt_].allocatedReg);
     }
 }
 
 void DynaRecCPU::recMTC2(uint32_t code) {
-    switch (_Rd_) {
-        case 15:
-            gen.Ldr(x0, MemOperand(contextPointer, COP2_DATA_OFFSET(13)));  // SXY0 = SXY1 and SXY1 = SXY2
-            gen.Str(x0, MemOperand(contextPointer, COP2_DATA_OFFSET(12)));
-
-            // SXY2 = val
-            if (m_gprs[_Rt_].isConst()) {
-                gen.Mov(w1, m_gprs[_Rt_].val);
-                gen.Str(w1, MemOperand(contextPointer, COP2_DATA_OFFSET(14)));
-            } else {
-                allocateReg(_Rt_);
-                gen.Str(m_gprs[_Rt_].allocatedReg, MemOperand(contextPointer, COP2_DATA_OFFSET(14)));
-            }
-            break;
-
-        case 28:                           // IRGB
-            if (m_gprs[_Rt_].isConst()) {  // Calculate IR1/IR2/IR3 values and write them back
-                const auto value = m_gprs[_Rt_].val;
-
-                const auto IR1 = (value & 0x1f) << 7;
-                const auto IR2 = (value & 0x3e0) << 2;
-                const auto IR3 = (value & 0x7c00) >> 3;
-                gen.Mov(w1, IR1);
-                gen.Mov(w2, IR2);
-                gen.Mov(w3, IR3);
-                gen.Str(w1, MemOperand(contextPointer, COP2_DATA_OFFSET(9)));
-                gen.Str(w2, MemOperand(contextPointer, COP2_DATA_OFFSET(10)));
-                gen.Str(w3, MemOperand(contextPointer, COP2_DATA_OFFSET(11)));
-            } else {
-                allocateReg(_Rt_);
-                gen.And(w0, m_gprs[_Rt_].allocatedReg, 0x1f);  // Calculate IR1
-                gen.Lsl(w0, w0, 7);
-                gen.Str(w0, MemOperand(contextPointer, COP2_DATA_OFFSET(9)));
-                gen.Lsl(w0, m_gprs[_Rt_].allocatedReg, 2);  // Calculate IR2
-                gen.And(w0, w0, 0xf80);  // The above LSL shifted w0 by 2 first, so we adjust the mask
-                gen.Str(w0, MemOperand(contextPointer, COP2_DATA_OFFSET(10)));
-                gen.Lsr(w0, m_gprs[_Rt_].allocatedReg, 3);  // Calculate IR3
-                gen.And(w0, w0, 0xf80);
-                gen.Str(w0, MemOperand(contextPointer, COP2_DATA_OFFSET(11)));
-            }
-            break;
-
-        case 30:
-            if (m_gprs[_Rt_].isConst()) {
-                const auto result = PCSX::GTE::countLeadingBits(m_gprs[_Rt_].val);
-                gen.Mov(w0, result);
-                gen.Str(w0, MemOperand(contextPointer, COP2_DATA_OFFSET(31)));  // Set LZCR
-            } else {
-                allocateReg(_Rt_);
-
-                // value = ~value if the msb is set, then store value in w0
-                gen.Eor(w0, m_gprs[_Rt_].allocatedReg, Operand(m_gprs[_Rt_].allocatedReg, ASR, 31));
-                gen.Clz(w0, w0);                                                // Count leading Zeros
-                gen.Str(w0, MemOperand(contextPointer, COP2_DATA_OFFSET(31)));  // Write result to LZCR
-            }
-            break;
-
-        case 31:
-            return;
-    }
-
+    makeRoomForGTEWrite();
     if (m_gprs[_Rt_].isConst()) {
-        gen.Mov(w0, m_gprs[_Rt_].val);
-        gen.Str(w0, MemOperand(contextPointer, COP2_DATA_OFFSET(_Rd_)));
+        queueGTEWrite(false, _Rd_, true, m_gprs[_Rt_].val, w0);
     } else {
         allocateReg(_Rt_);
-        gen.Str(m_gprs[_Rt_].allocatedReg, MemOperand(contextPointer, COP2_DATA_OFFSET(_Rd_)));
+        queueGTEWrite(false, _Rd_, false, 0, m_gprs[_Rt_].allocatedReg);
     }
 }
 
@@ -286,6 +363,7 @@ void DynaRecCPU::recCFC2(uint32_t code) {
 }
 
 void DynaRecCPU::recLWC2(uint32_t code) {
+    makeRoomForGTEWrite();
     if (m_gprs[_Rs_].isConst()) {  // Store address in arg1
         gen.Mov(arg1, m_gprs[_Rs_].val + _Imm_);
     } else {
@@ -294,30 +372,7 @@ void DynaRecCPU::recLWC2(uint32_t code) {
     }
 
     call(read32Wrapper);
-    switch (_Rt_) {
-        case 15:
-        case 30:
-            fmt::print("Unimplemented LWC2 to GTE data register {}\n", _Rt_);
-            abort();
-            break;
-
-        case 28:                    // IRGB
-            gen.And(w1, w0, 0x1f);  // Calculate IR1
-            gen.Lsl(w1, w1, 7);
-            gen.Str(w1, MemOperand(contextPointer, COP2_DATA_OFFSET(9)));
-            gen.Lsl(w1, w0, 2);      // Calculate IR2
-            gen.And(w1, w1, 0xf80);  // The above w0 shifted left by 2 first, so we adjust the mask
-            gen.Str(w1, MemOperand(contextPointer, COP2_DATA_OFFSET(10)));
-
-            gen.Lsr(w1, w0, 3);  // Calculate IR3
-            gen.And(w1, w1, 0xf80);
-            gen.Str(w1, MemOperand(contextPointer, COP2_DATA_OFFSET(11)));
-            break;
-    }
-
-    if (_Rt_ != 31) {
-        gen.Str(w0, MemOperand(contextPointer, COP2_DATA_OFFSET(_Rt_)));
-    }
+    queueGTEWrite(false, _Rt_, false, 0, w0);
 }
 
 void DynaRecCPU::recSWC2(uint32_t code) {

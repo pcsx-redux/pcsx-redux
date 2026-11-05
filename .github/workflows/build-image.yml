@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/grumpycoders/pcsx-redux-build
+  IMAGE: ghcr.io/pcsx-redux/pcsx-redux-build
 
 jobs:
   build:

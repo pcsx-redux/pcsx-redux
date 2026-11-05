@@ -10,4 +10,4 @@ jobs:
     steps:
     - uses: superbrothers/close-pull-request@v3
       with:
-        comment: "Thank you for your pull request, but this repository is a read-only mirror of the [PCSX-Redux project](https://github.com/grumpycoders/pcsx-redux). Please open your pull request there instead."
+        comment: "Thank you for your pull request, but this repository is a read-only mirror of the [PCSX-Redux project](https://github.com/pcsx-redux/pcsx-redux). Please open your pull request there instead."

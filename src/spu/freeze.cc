@@ -104,6 +104,8 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
     capBufVoiceIndex = spu.get<SaveStates::CBVoiceIndex>().value;
 
     spu.get<SaveStates::SPURam>().copyTo(reinterpret_cast<uint8_t *>(spuMem));
+    // A replacement playhead is not saved, so loaded voices play their original samples.
+    for (auto &voice : s_chan) voice.overlay.reset();
     spu.get<SaveStates::SPUPorts>().copyTo(reinterpret_cast<uint8_t *>(regArea));
 
 #if 0
@@ -154,15 +156,16 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
     writeRegister(H_SPUrvolR, regArea[(H_SPUrvolR - 0xc00) >> 1]);
     replayMixVolumes(spu.get<SaveStates::SPUMainVolWritten>().value);
 
-    writeRegister(H_SPUctrl, (uint16_t)(regArea[(H_SPUctrl - 0xc00) >> 1] | 0x4000));
+    writeRegister(H_SPUctrl, regArea[(H_SPUctrl - 0xc00) >> 1]);
     // Fix to prevent new interpolations from crashing.
     for (unsigned i = 0; i < MAXCHAN; i++) s_chan[i].interp.resetAfterLoad();
 
-    // Repair LDChen's ADSR changes.
+    // Repair LDChen's ADSR changes: replay each voice's two ADSR registers, and nothing else.
+    // Replaying key on or the data port here would retrigger voices and write sound RAM.
     if (spuAddr < 0x7ffff) {
-        for (unsigned i = 0; i < 24; i++) {
-            writeRegister(0x1f801c00 + (i << 4) + 0xc8, regArea[(i << 3) + 0x64]);
-            writeRegister(0x1f801c00 + (i << 4) + 0xca, regArea[(i << 3) + 0x65]);
+        for (unsigned i = 0; i < MAXCHAN; i++) {
+            writeRegister(0x1f801c08 + (i << 4), regArea[(i << 3) + 4]);
+            writeRegister(0x1f801c0a + (i << 4), regArea[(i << 3) + 5]);
         }
     }
 
@@ -189,7 +192,6 @@ void PCSX::SPU::impl::loadEnvelopeCheckpoints(const SaveStates::EnvelopeCheckpoi
             cp.cachedSample = in.get<SaveStates::ECPCachedSample>().value;
             cp.cachedState = in.get<SaveStates::ECPCachedState>().value;
             cp.cachedVol = in.get<SaveStates::ECPCachedVol>().value;
-            cp.cachedFraction = in.get<SaveStates::ECPCachedFraction>().value;
             cp.cachedOn = in.get<SaveStates::ECPCachedOn>().value;
             cp.block = in.get<SaveStates::ECPBlock>().value;
             cp.loop = in.get<SaveStates::ECPLoop>().value;
@@ -213,7 +215,6 @@ void PCSX::SPU::impl::loadEnvelopeCheckpoints(const SaveStates::EnvelopeCheckpoi
         cp.cachedSample = 1;
         cp.cachedState = ex.get<exState>().value;
         cp.cachedVol = ex.get<exEnvelopeVol>().value;
-        cp.cachedFraction = ex.get<exEnvelopeVolF>().value;
         cp.cachedOn = true;
         cp.untracked = true;
     }
@@ -230,7 +231,6 @@ void PCSX::SPU::impl::saveEnvelopeCheckpoints(SaveStates::EnvelopeCheckpoints &c
         out.get<SaveStates::ECPCachedSample>().value = cp.cachedSample;
         out.get<SaveStates::ECPCachedState>().value = cp.cachedState;
         out.get<SaveStates::ECPCachedVol>().value = cp.cachedVol;
-        out.get<SaveStates::ECPCachedFraction>().value = cp.cachedFraction;
         out.get<SaveStates::ECPCachedOn>().value = cp.cachedOn;
         out.get<SaveStates::ECPBlock>().value = cp.block;
         out.get<SaveStates::ECPLoop>().value = cp.loop;

@@ -82,6 +82,10 @@ class CDRom {
         m_iso.reset(iso);
         g_system->m_eventBus->signal(Events::IsoMounted{});
     }
+    void setIso(std::shared_ptr<CDRIso> iso) {
+        m_iso = std::move(iso);
+        g_system->m_eventBus->signal(Events::IsoMounted{});
+    }
 
     const std::string& getCDRomID() { return m_cdromId; }
     const std::string& getCDRomLabel() { return m_cdromLabel; }

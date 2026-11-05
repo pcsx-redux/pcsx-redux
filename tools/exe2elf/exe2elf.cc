@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
 
     fmt::print(R"(
 exe2elf by Nicolas "Pixel" Noble
-https://github.com/grumpycoders/pcsx-redux/tree/main/tools/exe2elf/
+https://github.com/pcsx-redux/pcsx-redux/tree/main/tools/exe2elf/
 )");
 
     auto inputs = args::get(inputsList);

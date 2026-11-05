@@ -276,6 +276,9 @@
     <ProjectReference Include="..\SDL\SDL.vcxproj">
       <Project>{13621b3d-871a-46a0-935f-d92a585ae034}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\pocketstation\pocketstation.vcxproj">
+      <Project>{d1016595-b7a4-43ca-8b0b-56f1fa79de6c}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\soft\soft.vcxproj">
       <Project>{660a9963-15e0-4b91-a5cf-bed493e862ec}</Project>
     </ProjectReference>

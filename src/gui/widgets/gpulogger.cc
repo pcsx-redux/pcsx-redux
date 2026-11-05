@@ -39,7 +39,7 @@ PCSX::Widgets::GPULogger::GPULogger(bool& show) : m_show(show), m_listener(g_sys
     });
 }
 
-void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title) {
+void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title, bool replayAllowed) {
     if (!ImGui::Begin(title, &m_show, ImGuiWindowFlags_MenuBar)) {
         ImGui::End();
         return;
@@ -78,10 +78,12 @@ void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title) 
         _("Logs each frame's draw calls. When enabled, all the commands sent to the GPU will be logged and displayed "
           "here. This will contain only a single frame worth of commands. The feature can be pretty demanding in CPU "
           "and memory."));
-    ImGui::Checkbox(_("Breakpoint on vsync"), &logger->m_breakOnVSync);
-    ImGui::SameLine();
-    if (ImGui::Button(C_("Emulation", "Resume"))) {
-        g_system->resume();
+    if (logger->followsEmulator()) {
+        ImGui::Checkbox(_("Breakpoint on vsync"), &logger->m_breakOnVSync);
+        ImGui::SameLine();
+        if (ImGui::Button(C_("Emulation", "Resume"))) {
+            g_system->resume();
+        }
     }
     ImGui::Checkbox(_("Replay frame"), &m_replay);
     ImGuiHelpers::ShowHelpMarker(
@@ -143,7 +145,8 @@ void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title) 
     std::string label;
 
     ImGui::Separator();
-    if (ImGui::TreeNode(_("VRAM breakpoints"))) {
+    // Breakpoints pause the emulator, so they only make sense on the emulator's own logger.
+    if (logger->followsEmulator() && ImGui::TreeNode(_("VRAM breakpoints"))) {
         ImGuiHelpers::ShowHelpMarker(
             _("Pauses emulation when a command reads from or writes to one of these VRAM rectangles. Handy to catch "
               "the texture upload that stomped an area, since those are hard to spot in a frame that redraws "
@@ -195,6 +198,23 @@ void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title) 
         ImGui::Text(_("%i pixel writes"), stats.pixelWrites);
         ImGui::Text(_("%i pixel reads"), stats.pixelReads);
         ImGui::Text(_("%i texel reads"), stats.texelReads);
+        ImGui::Checkbox(_("Overdraw statistics"), &logger->m_overdrawStats);
+        ImGuiHelpers::ShowHelpMarker(
+            _("Counts how many times each VRAM pixel was touched during the previous frame, from the same buffers as "
+              "the overdraw heatmap. Reading them back costs a GPU stall per frame."));
+        if (logger->m_overdrawStats && logger->hasOverdrawStats()) {
+            auto showOverdraw = [](const char* title, const PCSX::GPULogger::OverdrawStats& o) {
+                ImGui::TextUnformatted(title);
+                ImGui::Indent();
+                ImGui::Text(_("%u pixels, %llu touches, mean %.2f, max %u"), o.pixels, (unsigned long long)o.total,
+                            o.mean(), o.max);
+                ImGui::Text(_("1x: %u  2x: %u  3-4x: %u  5-8x: %u  9x+: %u"), o.buckets[0], o.buckets[1], o.buckets[2],
+                            o.buckets[3], o.buckets[4]);
+                ImGui::Unindent();
+            };
+            showOverdraw(_("Pixels written"), logger->getWrittenOverdraw());
+            showOverdraw(_("Pixels read"), logger->getReadOverdraw());
+        }
 
         ImGui::TreePop();
     }
@@ -303,8 +323,8 @@ void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title) 
     ImGui::EndChild();
     ImGui::End();
 
-    if (m_replay && !g_system->running()) {
-        logger->replay(g_emulator->m_gpu.get());
+    if (m_replay && replayAllowed) {
+        logger->replay(logger->gpu());
     }
 
     logger->highlight(tempHighlight, tempHighlight && ImGui::GetIO().KeyCtrl);

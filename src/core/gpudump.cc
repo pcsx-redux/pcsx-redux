@@ -210,8 +210,13 @@ PCSX::GPUDumpPlayer::~GPUDumpPlayer() { unload(); }
 
 void PCSX::GPUDumpPlayer::unload() {
     if (m_gpu) m_gpu->shutdown();
+    m_logger.clearFrameLog();
+    m_logger.setOwner(nullptr);
     m_gpu.reset();
+    m_snapshots.clear();
+    m_snapshotInterval = c_snapshotInterval;
     m_frame = 0;
+    m_frameCount = 0;
     m_gameID.clear();
     m_comment.clear();
 }
@@ -228,15 +233,23 @@ bool PCSX::GPUDumpPlayer::load(IO<File> file) {
     if (!m_reader.open(file)) return false;
     m_gpu = GPU::getSoft();
     m_gpu->detach(&m_logger);
+    m_logger.setOwner(m_gpu.get());
     // No UI: a detached GPU must not draw into the main window. Callers read its VRAM instead.
     m_gpu->init(nullptr);
     rewind();
+    GPUDumpReader::Packet packet;
+    while (m_reader.next(packet)) {
+        if (packet.type == GPUDumper::VSync) m_frameCount++;
+    }
+    m_reader.setPosition(m_traceStart);
     return true;
 }
 
 void PCSX::GPUDumpPlayer::rewind() {
     if (!m_gpu) return;
     m_frame = 0;
+    m_logger.clearFrameLog();
+    m_logger.setFrame(0);
     m_reader.rewind();
     m_gpu->writeStatus(0x00000000);
     m_gpu->clearVRAM();
@@ -267,11 +280,59 @@ bool PCSX::GPUDumpPlayer::step() {
         if (packet.type == GPUDumper::VSync) {
             m_gpu->vblank(true);
             m_frame++;
+            m_logger.setFrame(m_frame);
+            cacheSnapshot();
             return true;
         }
         execute(packet);
     }
     return false;
+}
+
+void PCSX::GPUDumpPlayer::cacheSnapshot() {
+    if (m_frame % m_snapshotInterval != 0) return;
+    // A command cut by the vsync, or readback words still queued, would be lost: the snapshot only
+    // holds what a save state holds.
+    if (!m_gpu->isIdle() || m_gpu->hasPendingReadback()) return;
+    if (m_snapshots.contains(m_frame)) return;
+    if (m_snapshots.size() >= c_maxSnapshots) {
+        m_snapshotInterval *= 2;
+        std::erase_if(m_snapshots, [this](const auto& entry) { return entry.first % m_snapshotInterval != 0; });
+        if (m_frame % m_snapshotInterval != 0) return;
+    }
+    auto& snapshot = m_snapshots[m_frame];
+    snapshot.position = m_reader.position();
+    m_gpu->snapshot(snapshot.gpu);
+}
+
+bool PCSX::GPUDumpPlayer::seek(uint64_t frame) {
+    if (!m_gpu) return false;
+    if (frame > m_frameCount) return false;
+    if (frame == 0) {
+        rewind();
+        return true;
+    }
+    // The logger keeps the commands of the last frame played, so the restart point is at most the
+    // frame before the target, and the target frame itself is always played.
+    auto it = m_snapshots.upper_bound(frame - 1);
+    uint64_t from = 0;
+    if (it != m_snapshots.begin()) from = std::prev(it)->first;
+    if (m_frame >= frame || m_frame < from) {
+        if (from == 0) {
+            rewind();
+        } else {
+            auto& snapshot = std::prev(it)->second;
+            m_gpu->restore(snapshot.gpu);
+            m_reader.setPosition(snapshot.position);
+            m_frame = from;
+            m_logger.clearFrameLog();
+            m_logger.setFrame(from);
+        }
+    }
+    while (m_frame < frame) {
+        if (!step()) return false;
+    }
+    return true;
 }
 
 void PCSX::GPUDumpPlayer::execute(const GPUDumpReader::Packet& packet) {

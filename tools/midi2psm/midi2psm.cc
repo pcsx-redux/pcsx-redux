@@ -794,7 +794,7 @@ int main(int argc, char** argv) {
 
     fmt::print(R"(
 midi2psm - MIDI to PSM+VAB converter
-Part of PCSX-Redux - https://github.com/grumpycoders/pcsx-redux
+Part of PCSX-Redux - https://github.com/pcsx-redux/pcsx-redux
 
 )");
 

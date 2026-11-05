@@ -28,6 +28,7 @@
 #include <chrono>
 #include <magic_enum/magic_enum_all.hpp>
 #include <memory>
+#include <optional>
 #include <thread>
 
 #include "core/cdrom.h"
@@ -36,6 +37,7 @@
 #include "core/gte.h"
 #include "core/mdec.h"
 #include "core/pgxp_mem.h"
+#include "core/psxmem.h"
 #include "core/sio.h"
 #include "core/sio1.h"
 #include "core/spu.h"
@@ -60,12 +62,90 @@ int PCSX::R3000Acpu::psxInit() {
     return g_emulator->m_cpu->Init();
 }
 
+void PCSX::R3000Acpu::stackBoundsViolation(uint32_t pc, uint32_t sp) {
+    const auto& bounds = m_stackBounds;
+    g_system->printf(_("Stack %s: instruction at 0x%08x moved $sp to 0x%08x, outside [0x%08x, 0x%08x]\n"),
+                     sp < bounds.low ? _("overflow") : _("underflow"), pc, sp, bounds.low, bounds.high);
+    if (g_system->getArgs().isTestModeEnabled()) {
+        // Nobody is there to look at a paused emulator. Stop checking so the
+        // instructions that run before the quit is seen do not print again.
+        clearStackBounds();
+        g_system->quit(c_stackBoundsExitCode);
+        return;
+    }
+    g_system->pause();
+    g_system->m_eventBus->signal(Events::GUI::JumpToPC{pc});
+}
+
+// The metadata layout is the one in nugget's common/libc/alloc.c, also read by
+// the heap viewer: head, bottom, top, then the end-of-list marker at +16. Free
+// blocks are { next, size }, 8-byte aligned, inside [bottom, top), and the list
+// is sorted by address. Memory between bottom and top that no free block covers
+// has been handed out. A list that does not look like that is left to the heap
+// viewer to report.
+bool PCSX::R3000Acpu::checkHeapAgainstStack(uint32_t pc) {
+    const uint32_t meta = g_emulator->m_mem->m_psyqoHeapMetadata;
+    // Only aligned words are read, so a word never straddles two memory pages.
+    auto read = [](uint32_t address) -> std::optional<uint32_t> {
+        if (address & 3) return std::nullopt;
+        auto* ptr = g_emulator->m_mem->getPointer<uint32_t>(address);
+        if (!ptr) return std::nullopt;
+        return *ptr;
+    };
+    auto head = read(meta);
+    auto bottom = read(meta + 4);
+    auto top = read(meta + 8);
+    if (!head || !bottom || !top || (*top <= *bottom)) return false;
+    // Same limit as the heap viewer: no heap is bigger than RAM.
+    if (*top - *bottom > 8 * 1024 * 1024) return false;
+    // The part of the bounds the heap covers, inclusive.
+    const uint32_t low = std::max(m_stackBounds.low, *bottom);
+    const uint32_t high = std::min(m_stackBounds.high, *top - 1);
+    if (low > high) return false;
+
+    const uint32_t marker = meta + 16;
+    // Everything below this address inside [low, high] is known to be free.
+    uint32_t freeUpTo = low;
+    uint32_t curr = *head;
+    uint32_t prev = 0;
+    // Each block is at least 8 bytes past the previous one and inside the heap,
+    // so the walk ends within (top - bottom) / 8 steps.
+    while (curr != marker) {
+        if ((curr & 7) || (curr <= prev) || (curr < *bottom) || (curr >= *top)) return false;
+        auto next = read(curr);
+        auto size = read(curr + 4);
+        if (!next || !size || (*size < 8) || (*size & 7)) return false;
+        const uint32_t end = curr + *size;
+        if ((end < curr) || (end > *top)) return false;
+        if (curr > freeUpTo) break;
+        freeUpTo = std::max(freeUpTo, end);
+        if (freeUpTo > high) return false;
+        prev = curr;
+        curr = *next;
+    }
+    const uint32_t usedEnd = (curr != marker) ? std::min(curr - 1, high) : high;
+
+    g_system->printf(
+        _("Heap over stack: memory at [0x%08x, 0x%08x] is allocated, inside stack bounds [0x%08x, 0x%08x], "
+          "seen when the instruction at 0x%08x moved $sp\n"),
+        freeUpTo, usedEnd, m_stackBounds.low, m_stackBounds.high, pc);
+    if (g_system->getArgs().isTestModeEnabled()) {
+        clearStackBounds();
+        g_system->quit(c_stackBoundsExitCode);
+        return true;
+    }
+    g_system->pause();
+    g_system->m_eventBus->signal(Events::GUI::JumpToPC{pc});
+    return true;
+}
+
 void PCSX::R3000Acpu::psxReset() {
     Reset();
 
     memset(&m_regs, 0, sizeof(m_regs));
     m_shellStarted = false;
     m_inISR = false;
+    clearStackBounds();
     m_delayedLoadInfo[0].active = false;
     m_delayedLoadInfo[1].active = false;
     m_currentDelayedLoad = false;
@@ -82,15 +162,6 @@ void PCSX::R3000Acpu::psxReset() {
 }
 
 namespace {
-
-// How long PCopen("tcp://...") waits for the connection before giving up.
-constexpr auto c_pcdrvConnectTimeout = std::chrono::seconds(5);
-
-// Lets the PCdrv code queue work on the UV thread, so that a socket is only ever
-// freed there, after its uv_close: a read callback can't then land on a dead object.
-struct PCdrvUvAccess : public PCSX::UvFifo {
-    using PCSX::UvThreadOp::request;
-};
 
 bool startsWith(std::string_view str, std::string_view prefix) { return str.substr(0, prefix.size()) == prefix; }
 
@@ -109,191 +180,7 @@ bool hasScheme(std::string_view name) {
 // Names that PCdrv never turns into file paths.
 bool isPCdrvNetName(std::string_view name) { return startsWith(name, "probe:") || hasScheme(name); }
 
-std::string_view trim(std::string_view str) {
-    while (!str.empty() && isspace(static_cast<unsigned char>(str.front()))) str.remove_prefix(1);
-    while (!str.empty() && isspace(static_cast<unsigned char>(str.back()))) str.remove_suffix(1);
-    return str;
-}
-
-bool pcdrvNetAllowed(std::string_view allowList, std::string_view hostPort) {
-    if (allowList.empty()) return true;
-    while (!allowList.empty()) {
-        auto comma = allowList.find(',');
-        if (trim(allowList.substr(0, comma)) == hostPort) return true;
-        if (comma == std::string_view::npos) break;
-        allowList.remove_prefix(comma + 1);
-    }
-    return false;
-}
-
-bool isDigit(char c) { return (c >= '0') && (c <= '9'); }
-
-// Splits "host:port", with port a decimal number in 1-65535.
-bool parseHostPort(std::string_view hostPort, std::string& host, unsigned& port) {
-    auto colon = hostPort.rfind(':');
-    if ((colon == std::string_view::npos) || (colon == 0)) return false;
-    auto portStr = hostPort.substr(colon + 1);
-    if (portStr.empty() || (portStr.size() > 5)) return false;
-    if (!std::all_of(portStr.begin(), portStr.end(), isDigit)) return false;
-    port = 0;
-    for (auto c : portStr) port = port * 10 + (c - '0');
-    if ((port == 0) || (port > 65535)) return false;
-    host = hostPort.substr(0, colon);
-    return true;
-}
-
-// A name resolution running on the UV thread. Shared between the emulator thread and the
-// uv_getaddrinfo callback, so a callback landing after the deadline touches nothing freed.
-struct PCdrvResolve {
-    enum { Pending, Done, Failed };
-    std::atomic<int> state = Pending;
-    char address[64] = {};
-    // Only ever touched on the UV thread.
-    uv_getaddrinfo_t req = {};
-    bool active = false;
-};
-
-void pcdrvResolved(uv_getaddrinfo_t* req, int status, struct addrinfo* res) {
-    auto holder = reinterpret_cast<std::shared_ptr<PCdrvResolve>*>(req->data);
-    auto resolve = *holder;
-    delete holder;
-    resolve->active = false;
-    bool ok = false;
-    if ((status == 0) && res) {
-        ok = uv_ip4_name(reinterpret_cast<const struct sockaddr_in*>(res->ai_addr), resolve->address,
-                         sizeof(resolve->address)) == 0;
-    }
-    if (res) uv_freeaddrinfo(res);
-    resolve->state.store(ok ? PCdrvResolve::Done : PCdrvResolve::Failed, std::memory_order_release);
-}
-
-// Runs on the UV thread.
-void pcdrvStartResolve(uv_loop_t* loop, const std::shared_ptr<PCdrvResolve>& resolve, const std::string& host) {
-    struct addrinfo hints = {};
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    // The request holds its own reference until its callback runs, cancelled or not.
-    resolve->req.data = new std::shared_ptr<PCdrvResolve>(resolve);
-    int r = uv_getaddrinfo(loop, &resolve->req, pcdrvResolved, host.c_str(), nullptr, &hints);
-    if (r != 0) {
-        delete reinterpret_cast<std::shared_ptr<PCdrvResolve>*>(resolve->req.data);
-        resolve->state.store(PCdrvResolve::Failed, std::memory_order_release);
-        return;
-    }
-    resolve->active = true;
-}
-
-// Resolves host to an IPv4 literal, since UvFifo only takes those. Empty on failure or past the deadline.
-std::string pcdrvResolve(const std::string& host, std::chrono::steady_clock::time_point deadline) {
-    auto resolve = std::make_shared<PCdrvResolve>();
-    PCdrvUvAccess::request([resolve, host](uv_loop_t* loop) { pcdrvStartResolve(loop, resolve, host); });
-    while ((resolve->state.load(std::memory_order_acquire) == PCdrvResolve::Pending) &&
-           (std::chrono::steady_clock::now() < deadline)) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-    auto state = resolve->state.load(std::memory_order_acquire);
-    if (state == PCdrvResolve::Pending) {
-        // Too slow. Cancelling may come too late; the shared state covers that.
-        PCdrvUvAccess::request([resolve](uv_loop_t*) {
-            if (resolve->active) uv_cancel(reinterpret_cast<uv_req_t*>(&resolve->req));
-        });
-        return {};
-    }
-    if (state != PCdrvResolve::Done) return {};
-    return resolve->address;
-}
-
-PCSX::IO<PCSX::File> pcdrvConnectTo(const std::string& address, unsigned port,
-                                    std::chrono::steady_clock::time_point deadline) {
-    PCSX::IO<PCSX::UvFifo> fifo(new PCSX::UvFifo(address, port));
-    auto connecting = [&fifo]() { return fifo->isConnecting() && !fifo->failed(); };
-    while (connecting() && (std::chrono::steady_clock::now() < deadline)) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-    if (fifo->isConnecting() || fifo->failed()) {
-        fifo->close();
-        PCdrvUvAccess::request([fifo](uv_loop_t*) {});
-        return {};
-    }
-    return fifo;
-}
-
-// Connects "host:port" and returns the stream, or an empty handle on any failure or after
-// c_pcdrvConnectTimeout, which covers both the name resolution and the connection. Both
-// happen on the UV thread; this thread only polls their state.
-PCSX::IO<PCSX::File> pcdrvConnect(std::string_view hostPort) {
-    auto deadline = std::chrono::steady_clock::now() + c_pcdrvConnectTimeout;
-    std::string host;
-    unsigned port;
-    if (!parseHostPort(hostPort, host, port)) return {};
-    auto address = pcdrvResolve(host, deadline);
-    if (address.empty()) return {};
-    return pcdrvConnectTo(address, port, deadline);
-}
-
-// The stream behind a network name: empty when networking is off, the name is unknown, or
-// the host is not allowed. Sets probe for probe:net, which is an empty stream.
-PCSX::IO<PCSX::File> pcdrvNetStream(std::string_view filename, bool& probe) {
-    auto& debugSettings = PCSX::g_emulator->settings.get<PCSX::Emulator::SettingDebugSettings>();
-    probe = false;
-    if (!debugSettings.get<PCSX::Emulator::DebugSettings::PCdrvNet>()) return {};
-    if (filename == "probe:net") {
-        static uint8_t empty;
-        probe = true;
-        return PCSX::IO<PCSX::File>(new PCSX::BufferFile(&empty, 0));
-    }
-    if (!startsWith(filename, "tcp://")) return {};
-    filename.remove_prefix(6);
-    if (!pcdrvNetAllowed(debugSettings.get<PCSX::Emulator::DebugSettings::PCdrvNetAllow>().value, filename)) return {};
-    return pcdrvConnect(filename);
-}
-
 }  // namespace
-
-PCSX::R3000Acpu::PCdrvFile::~PCdrvFile() {
-    if (m_kind != Kind::Socket) return;
-    // Close now, but drop the last reference on the UV thread, once the uv_close is queued there.
-    IO<File> keep(*static_cast<IO<File>*>(this));
-    keep->close();
-    PCdrvUvAccess::request([keep](uv_loop_t*) {});
-}
-
-void PCSX::R3000Acpu::pcdrvOpenNet(const std::string& filename) {
-    auto& regs = m_regs.GPR.n;
-    bool probe;
-    IO<File> stream = pcdrvNetStream(filename, probe);
-    if (!stream) {
-        regs.v0 = -1;
-        regs.v1 = -1;
-        return;
-    }
-    uint16_t fd = m_availableFDs.front();
-    m_availableFDs.pop_front();
-    auto kind = probe ? PCdrvFile::Kind::Probe : PCdrvFile::Kind::Socket;
-    auto file = m_pcdrvFiles.insert(fd, new PCdrvFile(std::move(stream), kind));
-    file->m_relativeFilename = filename;
-    regs.v0 = 0;
-    regs.v1 = fd;
-}
-
-// Never blocks: whatever has arrived, up to a2 bytes; 0 if nothing yet. The probe reads nothing.
-void PCSX::R3000Acpu::pcdrvReadNet(PCdrvFile& filei, IO<File>& memFile) {
-    auto& regs = m_regs.GPR.n;
-    regs.v0 = 0;
-    regs.v1 = 0;
-    if (filei.m_kind == PCdrvFile::Kind::Probe) return;
-    IO<File> file = filei;
-    if (file->failed() || file->eof()) {
-        regs.v0 = -1;
-        regs.v1 = -1;
-        return;
-    }
-    size_t available = std::min(static_cast<size_t>(regs.a2), file->size());
-    if (!available) return;
-    auto slice = file->read(available);
-    regs.v1 = slice.size();
-    if (slice.size()) memFile->writeAt(std::move(slice), regs.a3);
-}
 
 void PCSX::R3000Acpu::psxShutdown() { Shutdown(); }
 
@@ -593,7 +480,21 @@ void PCSX::R3000Acpu::restorePCdrvFile(const std::filesystem::path& filename, ui
 }
 
 void PCSX::R3000Acpu::branchTest() {
+    branchTestEvents();
+    // Last, so that a snapshot taken at a vsync doesn't leave the scheduled callbacks and the
+    // interrupt check of this branchTest() for whoever restores it: Execute() starts by
+    // running an instruction, and they'd wait until the next branch.
+    g_emulator->flushRewindCapture();
+}
+
+void PCSX::R3000Acpu::branchTestEvents() {
     const uint64_t cycle = m_regs.cycle;
+
+    // Advance any docked PocketStation by the elapsed R3000A cycles. This inter-burst boundary is
+    // where the ARM7 catch-up lives (see SIO::stepPocketstation / sio.h): it keeps the device
+    // within a few cycles of current so its COM/FIQ handler services each SIO byte in time. Cheap
+    // early-return when nothing is docked.
+    g_emulator->m_sio->stepPocketstation();
 
     if (cycle >= g_emulator->m_counters->m_psxNextCounter) g_emulator->m_counters->update();
     g_emulator->dispatchVSync();

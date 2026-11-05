@@ -338,12 +338,65 @@ bool PCSX::SoftGPU::impl::configure() {
     return changed;
 }
 
+void PCSX::SoftGPU::impl::debugVideoMode(uint32_t stat) {
+    static constexpr const char *hresNames[] = {"256", "320", "512", "640", "368", "384"};
+    const auto &info = m_display.info;
+    const uint32_t mode = getStatusControl(8);
+    ImGui::SeparatorText(_("Video mode"));
+    ImGui::Text(_("GP1(08h): %06x"), mode & 0xffffff);
+    ImGui::Text(_("Resolution: %s x %s, %s, %s"), hresNames[magic_enum::enum_integer(info.hres)],
+                info.vres == CtrlDisplayMode::VR_480 ? "480" : "240",
+                info.mode == CtrlDisplayMode::VM_PAL ? "PAL" : "NTSC",
+                info.depth == CtrlDisplayMode::CD_24BITS ? _("24 bits") : _("15 bits"));
+    ImGui::Text(_("Interlace: %s"), info.interlace ? _("on") : _("off"));
+    ImGui::Text(_("Display (GPUSTAT.23): %s"), (stat & 0x800000) ? _("disabled") : _("enabled"));
+}
+
+void PCSX::SoftGPU::impl::debugDisplayArea() {
+    ImGui::SeparatorText(_("Display area"));
+    const uint32_t start = getStatusControl(5);
+    ImGui::Text(_("Start (GP1(05h)): %u, %u"), start & 0x3ff, (start >> 10) & 0x3ff);
+    ImGui::Text(_("Horizontal range (GP1(06h)): %d - %d"), m_display.x1, m_display.x2);
+    ImGui::Text(_("Vertical range (GP1(07h)): %d - %d"), m_display.y1, m_display.y2);
+    ImGui::Text(_("Shown rectangle: %d, %d, %d x %d"), m_display.start.x(), m_display.start.y(), m_display.size.x(),
+                m_display.size.y());
+}
+
+void PCSX::SoftGPU::impl::debugDrawing(uint32_t stat) {
+    ImGui::SeparatorText(_("Drawing"));
+    ImGui::Text(_("Draw to display area (E1h.10): %s"), (stat & 0x400) ? _("on") : _("off"));
+    ImGui::Text(_("Dither (E1h.9): %s"), (stat & 0x200) ? _("on") : _("off"));
+    ImGui::Text(_("Mask: set %s, check %s"), (stat & 0x800) ? _("on") : _("off"), (stat & 0x1000) ? _("on") : _("off"));
+    const uint32_t areaStart = getDrawingStartRaw();
+    const uint32_t areaEnd = getDrawingEndRaw();
+    const uint32_t offset = getDrawingOffsetRaw();
+    ImGui::Text(_("Drawing area: %u, %u - %u, %u"), areaStart & 0x3ff, (areaStart >> 10) & 0x3ff, areaEnd & 0x3ff,
+                (areaEnd >> 10) & 0x3ff);
+    // GP0(E5h) offsets are 11-bit signed.
+    const int offsetX = int32_t(offset << 21) >> 21;
+    const int offsetY = int32_t((offset >> 11) << 21) >> 21;
+    ImGui::Text(_("Drawing offset: %d, %d"), offsetX, offsetY);
+}
+
+void PCSX::SoftGPU::impl::debugRowSkip(uint32_t stat) {
+    ImGui::SeparatorText(_("480i row skip"));
+    ImGui::Text(_("GPUSTAT.31: %u, GPUSTAT.13: %u"), stat >> 31, (stat >> 13) & 1);
+    if (m_pushedSkipParity == -1) {
+        ImGui::TextUnformatted(_("Skip parity at the last draw: none, every row drawn"));
+    } else if (m_pushedSkipParity == s_skipParityUnknown) {
+        ImGui::TextUnformatted(_("Skip parity at the last draw: no draw since the last reset or threading change"));
+    } else {
+        ImGui::Text(_("Skip parity at the last draw: %s rows skipped"), m_pushedSkipParity ? _("odd") : _("even"));
+    }
+}
+
 void PCSX::SoftGPU::impl::debug() {
     if (ImGui::Begin(_("Soft GPU debugger"), &m_showDebug)) {
-        ImGui::TextUnformatted(
-            _("Debugging features are not supported when using the software renderer yet\nConsider enabling the "
-              "OpenGL "
-              "GPU option instead."));
+        const uint32_t stat = readStatusFromBus();
+        debugVideoMode(stat);
+        debugDisplayArea();
+        debugDrawing(stat);
+        debugRowSkip(stat);
     }
     ImGui::End();
 }
@@ -743,6 +796,11 @@ void PCSX::SoftGPU::impl::texturePageStatus(GPU::TPage &tpage) {
     m_statusRet |= tpage.raw & 0x07ff;
 }
 
+void PCSX::SoftGPU::impl::polygonTexturePageStatus(const GPU::TPage &tpage) {
+    m_statusRet &= ~0x01ff;
+    m_statusRet |= tpage.raw & 0x01ff;
+}
+
 void PCSX::SoftGPU::impl::maskBitStatus(const GPU::MaskBit &mask) {
     m_statusRet &= ~0x1800;
     if (mask.set) m_statusRet |= 0x0800;
@@ -786,7 +844,7 @@ void PCSX::SoftGPU::impl::dispatchPoly(Poly<shading, shape, textured, blend, mod
                     prim->tpage.dither = true;
                     prim->tpage.raw |= 0x200;
                 }
-                texturePageStatus(prim->tpage);
+                polygonTexturePageStatus(prim->tpage);
             }
         }
     }

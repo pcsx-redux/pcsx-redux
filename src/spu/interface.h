@@ -83,6 +83,14 @@ class impl final : public SPUInterface {
     void lockSPURAM() final;
     void unlockSPURAM() final;
     uint8_t *getSpuRam() final { return spuRamBase; }
+    void setOverlay(std::shared_ptr<const Overlay> overlay) final {
+        std::lock_guard<std::mutex> lock(m_overlayMutex);
+        m_overlay = std::move(overlay);
+    }
+    std::shared_ptr<const Overlay> getOverlay() final {
+        std::lock_guard<std::mutex> lock(m_overlayMutex);
+        return m_overlay;
+    }
     uint32_t getTransferAddr() final { return spuAddr; }
     void resetCaptureBuffer() final;
     void writeDMAMem(uint16_t *, int) final;
@@ -163,6 +171,21 @@ class impl final : public SPUInterface {
     }
     void advanceTo(uint64_t cycle) override { publishHorizon(cycle); }
 
+    // Embedding. A host that mixes on its own thread opens the SPU with openSynchronous()
+    // instead of open(): the same state, but no mixer thread, and nothing goes to the audio
+    // device. The host pulls the output with mixSynchronous() and closes with close() as usual.
+    // Register writes are still stamped with the CPU cycle and applied at the matching sample,
+    // so the host keeps PCSX::g_emulator's cycle on the same clock as the samples it mixes: a
+    // write at cycle (n - 1) * 768 takes effect at sample n. CPU reads do not wait for the
+    // mixer in this mode (catchUp is a no-op); the host is the mixer.
+    bool openSynchronous();
+    // Applies the queued writes as they come due and mixes the next `frames` samples into
+    // `out`, as interleaved stereo (2 * frames values). The CPU side is then considered to be
+    // at the last sample mixed. Only after openSynchronous(). In this mode the host is both
+    // the CPU side and the mixer: register writes, advanceTo() and mixSynchronous() must all
+    // come from one thread, since m_lastHorizon and the write queue are not locked against it.
+    void mixSynchronous(int16_t *out, size_t frames);
+
   private:
     struct ADSRFlags {
         enum : uint16_t {
@@ -241,8 +264,10 @@ class impl final : public SPUInterface {
     bool flushOutput();
     void SetupStreams();
     void RemoveStreams();
+    void SetupMixBuffers();
     void SetupThread();
     void RemoveThread();
+    bool openWith(bool startThread);
     void StartSound(SPUCHAN *voice);
     // Read-time reconstruction. A CPU read of ENVX or of SPUSTAT bit 11 asks what
     // the SPU is doing at the reader's own cycle, which the mixer thread, running
@@ -254,6 +279,8 @@ class impl final : public SPUInterface {
     uint16_t reconstructEnvelope(int ch, uint64_t cycle);
     // Samples elapsed at a CPU cycle, on the hardware 768 cycles/sample ratio.
     uint64_t cycleToSample(uint64_t cycle) const;
+    // The CPU cycle a sample is produced at; cycleToSample's inverse.
+    uint64_t sampleToCycle(uint64_t sample) const;
     // Installs a new 16.16 pitch step, clamping zero, and notifies the interpolator.
     void setPitchStep(SPUCHAN *voice, int32_t step);
     void VoiceChangeFrequency(SPUCHAN *voice);
@@ -319,6 +346,10 @@ class impl final : public SPUInterface {
     std::atomic<bool> m_mixerWaiting = false;
     std::atomic<bool> m_cpuWaiting = false;
     std::mutex m_syncMutex;
+    // Set from the UI thread, read by the mixer at key-on.
+    std::mutex m_overlayMutex;
+    std::shared_ptr<const Overlay> m_overlay;
+    void startOverlay(SPUCHAN *voice);
     std::condition_variable m_mixerWake;
     std::condition_variable m_cpuWake;
     // SPUCNT as last written by the CPU, which is what a CPU read returns. The mixer's spuCtrl
@@ -497,7 +528,6 @@ class impl final : public SPUInterface {
         uint64_t cachedSample = 0;
         int32_t cachedState = 0;
         int32_t cachedVol = 0;
-        int32_t cachedFraction = 0;
         bool cachedOn = true;
         // The ADPCM cursor, walked alongside the envelope so the walk knows the sample
         // where an end block without repeat stops the voice. Offsets into SPU RAM.

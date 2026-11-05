@@ -21,6 +21,8 @@
 
 #include "core/gpu.h"
 
+#include <algorithm>
+#include <cstdlib>
 #include <magic_enum/magic_enum_all.hpp>
 
 #include "core/debug.h"
@@ -381,6 +383,9 @@ uint32_t PCSX::GPU::readStatus() {
     if ((ret & GPUSTATUS_IDLE) == 0) ret &= ~GPUSTATUS_READYFORVRAM;
 #endif
     if (m_readFifo->size() != 0) ret |= GPUSTATUS_READYFORVRAM;
+    // Bit 26 stays clear from a multi-word command's first word until its last one, and for
+    // GP0(C0h) until the last word of the readout has been read.
+    if (!isIdle() || (m_readFifo->size() != 0)) ret &= ~GPUSTATUS_IDLE;
     if (m_irq1Flag) ret |= GPUSTATUS_IRQ1;
     // Let's pretend our input fifo is always ready for more data.
     if ((ret & 0x60000000) == 0x20000000) ret |= 0x02000000;
@@ -889,22 +894,45 @@ void PCSX::GPU::FastFill::processWrite(Buffer &buf, Logged::Origin origin, uint3
             x &= 0x3f0;
             w = ((w & 0x3ff) + 0xf) & ~0xf;
             h = h & 0x1ff;
+            wrapHeight = m_gpu->vram2MBGateOpen() ? 1024 : 512;
             m_state = READ_COLOR;
             m_gpu->m_defaultProcessor.setActive();
             m_gpu->m_logger->addNode(*this, origin, origvalue, length);
             if (w == 0 || h == 0) return;  // Xsiz=0 or Ysiz=0: no fill
-            // Gate open: clip against the full 1024x1024 buffer so a fast-fill
-            // can target the upper bank; the soft fillArea still bounds the
-            // actual fill to the effective drawable height (512 unless 2MB).
-            // Gate closed: retail, Y folds into the lower 512 rows.
-            if (m_gpu->vram2MBGateOpen()) {
-                clipped = GPU::clip<unsigned, 1024, 1024>(x, y, w, h);
-            } else {
-                clipped = GPU::clip(x, y, w, h);
-            }
-            m_gpu->write0(this);
+            clipped = draw(m_gpu);
             return;
     }
+}
+
+unsigned PCSX::GPU::FastFill::rects(Rect out[2]) const {
+    // The row counter wraps at the addressable height: 512 rows with the bank gate closed,
+    // 1024 with it open, where the soft fillArea still drops the upper bank unless 2MB is
+    // fitted. Measured on retail SCPH-1000/1001/5501/7001 with the gate closed: a fill at
+    // y=256 h=480 writes rows 256-511 then 0-223. The upper bank wraps the same way mod 1024.
+    Rect r = {x % 1024, y % wrapHeight, w, h};
+    if (r.x + r.w > 1024) r.x = 0;
+    if (r.y + r.h <= wrapHeight) {
+        out[0] = r;
+        return 1;
+    }
+    const unsigned first = wrapHeight - r.y;
+    out[0] = {r.x, r.y, r.w, first};
+    out[1] = {r.x, 0, r.w, r.h - first};
+    return 2;
+}
+
+bool PCSX::GPU::FastFill::draw(GPU *gpu) const {
+    Rect r[2];
+    unsigned n = rects(r);
+    FastFill part = *this;
+    for (unsigned i = 0; i < n; i++) {
+        part.x = r[i].x;
+        part.y = r[i].y;
+        part.w = r[i].w;
+        part.h = r[i].h;
+        gpu->write0(&part);
+    }
+    return (n > 1) || (r[0].x != x % 1024);
 }
 
 void PCSX::GPU::BlitVramVram::processWrite(Buffer &buf, Logged::Origin origin, uint32_t origvalue, uint32_t length) {
@@ -1652,16 +1680,65 @@ void PCSX::GPU::Rect<size, textured, blend, modulation>::getVertices(AddTri &&ad
     }
 }
 
+// Polygons fill a span from the left edge inclusive to the right edge exclusive, and rows from the top
+// inclusive to the bottom exclusive. That is the same as testing the point x + e, y + e * e for a tiny e
+// strictly inside the triangle: when the pixel sits exactly on an edge, the edge's slope decides.
 bool PCSX::GPU::Logged::isInsideTriangle(int x, int y, int x1, int y1, int x2, int y2, int x3, int y3) {
-    int o1 = (x - x1) * (y2 - y1) - (y - y1) * (x2 - x1);
-    int o2 = (x - x2) * (y3 - y2) - (y - y2) * (x3 - x2);
-    int o3 = (x - x3) * (y1 - y3) - (y - y3) * (x1 - x3);
-    return (o1 >= 0 && o2 >= 0 && o3 >= 0) || (o1 <= 0 && o2 <= 0 && o3 <= 0);
+    auto side = [x, y](int ax, int ay, int bx, int by) {
+        int e = (bx - ax) * (y - ay) - (by - ay) * (x - ax);
+        if (e == 0) e = ay - by;
+        if (e == 0) e = bx - ax;
+        return e;
+    };
+    int s1 = side(x1, y1, x2, y2);
+    int s2 = side(x2, y2, x3, y3);
+    int s3 = side(x3, y3, x1, y1);
+    return (s1 > 0 && s2 > 0 && s3 > 0) || (s1 < 0 && s2 < 0 && s3 < 0);
 }
 
+// Walks the same pixels as the soft renderer's line rasterizer (gpu/soft/lines.cc), including the
+// size cull that drops a segment with |dx| >= 1024 or |dy| >= 512.
 bool PCSX::GPU::Logged::isInsideLine(int x, int y, int x1, int y1, int x2, int y2) {
-    int o1 = (x - x1) * (y2 - y1) - (y - y1) * (x2 - x1);
-    return o1 == 0;
+    if (std::abs(x2 - x1) >= 1024 || std::abs(y2 - y1) >= 512) return false;
+    if (x2 < x1) {
+        std::swap(x1, x2);
+        std::swap(y1, y2);
+    }
+    if ((x < x1) || (x > x2) || (y < std::min(y1, y2)) || (y > std::max(y1, y2))) return false;
+    const int dx = x2 - x1;
+    const int dy = y2 - y1;
+    if ((dx == 0) || (dy == 0)) return true;
+    const int ady = std::abs(dy);
+    const int step = dy > 0 ? 1 : -1;
+    int px = x1, py = y1;
+    if (ady > dx) {
+        // Y-major: midpoint bias, x nudges right.
+        int d = 2 * dx - ady;
+        while (true) {
+            if ((px == x) && (py == y)) return true;
+            if (py == y2) return false;
+            if (d <= 0) {
+                d += 2 * dx;
+            } else {
+                d += 2 * (dx - ady);
+                px++;
+            }
+            py += step;
+        }
+    }
+    // X-major: pixel-centre bias, y nudges toward y2.
+    int d = 3 * ady - dx;
+    while (true) {
+        if ((px == x) && (py == y)) return true;
+        if (px == x2) return false;
+        if (d <= 0) {
+            d += 2 * ady;
+        } else {
+            d += 2 * (ady - dx);
+            py += step;
+        }
+        px++;
+    }
 }
 
 void PCSX::GPU::getRestoreSequence(std::vector<uint32_t> &gp0, std::vector<uint32_t> &gp1) const {

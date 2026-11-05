@@ -93,6 +93,7 @@ class Assembly : private Disasm {
     virtual void OfB(int16_t offset, uint8_t reg, int size) final;
     virtual void BranchDest(uint32_t value) final;
     virtual void Offset(uint32_t addr, int size) final;
+    virtual void SyscallName(const char*) final;
     bool m_gotArg = false;
     bool m_notch = false;
     bool m_notchAfterSkip[2] = {false, false};

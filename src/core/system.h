@@ -315,12 +315,7 @@ class System {
         m_currentLocale = name;
     }
     std::string localeName() const { return m_currentLocale; }
-    const ImWchar *getLocaleRanges() const {
-        auto localeInfo = LOCALES.find(m_currentLocale);
-        if (localeInfo == LOCALES.end()) return nullptr;
-        return localeInfo->second.ranges;
-    }
-    std::vector<std::pair<PCSX::u8string, const ImWchar *>> getLocaleExtra() {
+    std::vector<PCSX::u8string> getLocaleExtra() {
         auto localeInfo = LOCALES.find(m_currentLocale);
         if (localeInfo == LOCALES.end()) return {};
         return localeInfo->second.extraFonts;
@@ -343,17 +338,6 @@ class System {
         if (s_crashReportTagSetter) s_crashReportTagSetter(key, value);
     }
     static inline void (*s_crashReportTagSetter)(const char *key, const char *value) = nullptr;
-
-    // needs to be odd, and is a replica of ImGui's range tables
-    enum class Range {
-        KOREAN = 1,
-        JAPANESE = 3,
-        CHINESE_FULL = 5,
-        CHINESE_SIMPLIFIED = 7,
-        CYRILLIC = 9,
-        THAI = 11,
-        VIETNAMESE = 13,
-    };
 
     uv_loop_t *getLoop();
 
@@ -385,8 +369,7 @@ class System {
     int m_exitCode = 0;
     struct LocaleInfo {
         const std::string filename;
-        const std::vector<std::pair<PCSX::u8string, const ImWchar *>> extraFonts;
-        const ImWchar *ranges = nullptr;
+        const std::vector<PCSX::u8string> extraFonts;
     };
     static const std::map<std::string, LocaleInfo> LOCALES;
 

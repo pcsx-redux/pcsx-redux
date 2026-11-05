@@ -60,6 +60,7 @@ typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("release_mode_exp"), 9> exRe
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("release_rate"), 10> exReleaseRate;
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("envelope_vol"), 11> exEnvelopeVol;
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("volume"), 12> exVolume;
+// Unused: steps follow the SPU-wide sample count. Kept so older savestates still load.
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("envelope_vol_fraction"), 13> exEnvelopeVolF;
 
 typedef Protobuf::Message<TYPESTRING("ADSRInfoEx"), exState, exAttackModeExp, exAttackRate, exDecayRate, exSustainLevel,
@@ -80,8 +81,9 @@ class AdsrEnvelope {
     // envelope volume, which the mixer applies as `sample * envelope >> 15`
     // (hardware-accurate). stopRequested mirrors the voice's key-off/Stop flag and
     // forces the Release phase; channelOn is cleared once Release runs the envelope
-    // down to zero (i.e. the voice has finished playing).
-    int step(bool stopRequested, bool &channelOn);
+    // down to zero (i.e. the voice has finished playing). sample is the SPU-wide index of
+    // the sample being produced, which decides whether a step lands on it.
+    int step(bool stopRequested, bool &channelOn, uint64_t sample);
 
     // Current 0..0x400 volume factor (envelope_vol >> 5) mirror, as last produced
     // by step(). Reported by the voice register / debugger, not used by the mixer.
@@ -111,13 +113,13 @@ class AdsrEnvelope {
         };
     };
 
-    int Attack();
-    int Decay();
-    int Sustain();
-    int Release(bool &channelOn);
+    int Attack(uint64_t sample);
+    int Decay(uint64_t sample);
+    int Sustain(uint64_t sample);
+    int Release(bool &channelOn, uint64_t sample);
 
     // Store the freshly computed envelope state and return the 0..0x400 factor.
-    int commit(int32_t envelopeVol, int32_t envelopeVolFraction);
+    int commit(int32_t envelopeVol);
 
     ADSRInfo m_adsr;     // active ADSR settings (legacy/debug; still serialized)
     ADSRInfoEx m_adsrx;  // next/live ADSR envelope state

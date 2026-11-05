@@ -80,6 +80,8 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\tests\supportpsx\ps1-packer-overlap.cc" />
     <ClCompile Include="..\..\..\tests\supportpsx\psyq-obj.cc" />
+    <ClCompile Include="..\..\..\tests\support\ansi-sgr.cc" />
+    <ClCompile Include="..\..\..\tests\supportpsx\sf2.cc" />
     <ClCompile Include="..\..\..\tests\support\binstruct.cc" />
     <ClCompile Include="..\..\..\tests\support\circular.cc" />
     <ClCompile Include="..\..\..\tests\support\eventbus.cc" />

@@ -26,6 +26,7 @@
 
 #include "GL/gl3w.h"
 #include "gui/widgets/filedialog.h"
+#include "gui/widgets/gpulogger.h"
 
 namespace PCSX {
 namespace Widgets {
@@ -52,6 +53,8 @@ class GPUDump {
     bool m_displayOnly = true;
     float m_zoom = 1.0f;
     std::string m_error;
+    bool m_showLogger = false;
+    GPULogger m_logger{m_showLogger};
 };
 
 }  // namespace Widgets

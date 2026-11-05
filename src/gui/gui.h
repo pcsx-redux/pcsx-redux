@@ -63,6 +63,7 @@
 #include "gui/widgets/network.h"
 #include "gui/widgets/patches.h"
 #include "gui/widgets/pio-cart.h"
+#include "gui/widgets/pocketstation.h"
 #include "gui/widgets/ram-viewer.h"
 #include "gui/widgets/registers.h"
 #include "gui/widgets/shader-editor.h"
@@ -141,6 +142,7 @@ class GUI final : public UI {
     typedef Setting<bool, TYPESTRING("ShowRAMViewer")> ShowRAMViewer;
     typedef Setting<bool, TYPESTRING("ShowCDRomViewer")> ShowCDRomViewer;
     typedef Setting<bool, TYPESTRING("ShowHeapViewer")> ShowHeapViewer;
+    typedef Setting<bool, TYPESTRING("ShowPocketStationLCD")> ShowPocketStationLCD;
     typedef Setting<bool, TYPESTRING("ShowAllocTracker")> ShowAllocTracker;
     typedef Setting<bool, TYPESTRING("ShowHWRegs")> ShowHWRegs;
     typedef Setting<bool, TYPESTRING("ShowMsanViewer")> ShowMsanViewer;
@@ -191,7 +193,7 @@ class GUI final : public UI {
              ShowTypedDebugger, ShowPatches, ShowMemcardManager, ShowRegisters, ShowAssembly, ShowDisassembly,
              ShowCpuTrace, ShowBreakpoints, ShowNamedSaveStates, ShowEvents, ShowHandlers, ShowKernelLog,
              ShowCallstacks, ShowSIO1, ShowNetwork, ShowIsoBrowser, ShowGPULogger, ShowGPUDump, ShowRAMViewer,
-             ShowCDRomViewer, ShowHeapViewer, ShowAllocTracker, ShowHWRegs, MainFontSize, MonoFontSize, GUITheme,
+             ShowCDRomViewer, ShowHeapViewer, ShowPocketStationLCD, ShowAllocTracker, ShowHWRegs, MainFontSize, MonoFontSize, GUITheme,
              AllowMouseCaptureToggle, EnableRawMouseMotion, WidescreenRatio, ShowPIOCartConfig, ShowMemoryEditor1,
              ShowMemoryEditor2, ShowMemoryEditor3, ShowMemoryEditor4, ShowMemoryEditor5, ShowMemoryEditor6,
              ShowMemoryEditor7, ShowMemoryEditor8, ShowParallelPortEditor, ShowScratchpadEditor, ShowHWRegsEditor,
@@ -370,7 +372,6 @@ class GUI final : public UI {
     TvgViewport *getTvgViewport(unsigned viewportId);
     void renderTvgViewport(ImGuiViewport *viewport, SDL_Window *window);
     void destroyTvgViewport(unsigned viewportId, SDL_Window *window);
-    std::vector<ImWchar> m_baseFontRanges;
 
     unsigned int m_offscreenFrameBuffer = 0;
     unsigned int m_offscreenTextures[2] = {0, 0};
@@ -501,9 +502,10 @@ class GUI final : public UI {
     Widgets::SIO1 m_sio1 = {settings.get<ShowSIO1>().value};
 
     Widgets::GPULogger m_gpuLogger{settings.get<ShowGPULogger>().value};
-    Widgets::SPULogger m_spuLoggerWidget{settings.get<ShowSPULogger>().value, settings.get<SPULoggerEnabled>().value};
-    Widgets::SPUSamples m_spuSamplesWidget{settings.get<ShowSPUSamples>().value};
+    Widgets::SPULogger m_spuLoggerWidget;
+    Widgets::SPUSamples m_spuSamplesWidget;
     Widgets::HeapViewer m_heapViewer{settings.get<ShowHeapViewer>().value};
+    Widgets::PocketStationLCD m_pocketStationLCD{settings.get<ShowPocketStationLCD>().value};
     Widgets::AllocTrackerViewer m_allocTrackerViewer{settings.get<ShowAllocTracker>().value};
     Widgets::HWRegs m_hwRegs{settings.get<ShowHWRegs>().value};
     Widgets::MsanViewer m_msanViewer{settings.get<ShowMsanViewer>().value};
@@ -549,8 +551,7 @@ class GUI final : public UI {
     bool m_hasJapanese = false;
     float m_currentScale = 1.0f;
 
-    ImFont *loadFont(const PCSX::u8string &name, int size, ImGuiIO &io, const ImWchar *ranges, bool combine,
-                     bool isSymbolsFont);
+    ImFont *loadFont(const PCSX::u8string &name, int size, ImGuiIO &io, bool combine);
 
     bool m_reloadFonts = true;
     Widgets::ShaderEditor m_outputShaderEditor = {"output"};

@@ -169,6 +169,7 @@
     <ClInclude Include="..\..\src\support\mem4g.h" />
     <ClInclude Include="..\..\src\support\opengl.h" />
     <ClInclude Include="..\..\src\support\stream-file.h" />
+    <ClInclude Include="..\..\src\support\ansi-sgr.h" />
     <ClInclude Include="..\..\src\support\strings-helpers.h" />
     <ClInclude Include="..\..\src\support\tool-args.h" />
     <ClInclude Include="..\..\src\support\protobuf.h" />
@@ -183,6 +184,7 @@
     <ClInclude Include="..\..\src\support\network.h" />
     <ClInclude Include="..\..\src\support\version.h" />
     <ClInclude Include="..\..\src\support\windowswrapper.h" />
+    <ClInclude Include="..\..\src\support\compression-schema.h" />
     <ClInclude Include="..\..\src\support\zfile.h" />
     <ClInclude Include="..\..\src\support\zip.h" />
     <ClInclude Include="..\..\third_party\cq\concurrent_queue.h" />
@@ -227,6 +229,7 @@
     <ClCompile Include="..\..\src\support\version-macos.cc" />
     <ClCompile Include="..\..\src\support\version-windows.cc" />
     <ClCompile Include="..\..\src\support\version.cc" />
+    <ClCompile Include="..\..\src\support\compression-schema.cc" />
     <ClCompile Include="..\..\src\support\zfile.cc" />
     <ClCompile Include="..\..\src\support\zip.cc" />
     <ClCompile Include="..\..\third_party\cq\reclaimer.cc" />

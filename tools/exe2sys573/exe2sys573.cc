@@ -221,7 +221,7 @@ int main(int argc, char** argv) {
 
     fmt::print(R"(
 exe2sys573
-https://github.com/grumpycoders/pcsx-redux/tree/main/tools/exe2sys573/
+https://github.com/pcsx-redux/pcsx-redux/tree/main/tools/exe2sys573/
 )");
 
     const auto inputs = args::get(inputsList);

@@ -21,9 +21,11 @@
 
 #include <stdint.h>
 
+#include <string>
 #include <vector>
 
 #include "core/spulogger.h"
+#include "gui/widgets/filedialog.h"
 
 namespace PCSX {
 
@@ -31,8 +33,12 @@ namespace Widgets {
 
 class SPULogger {
   public:
-    SPULogger(bool &show, bool &enabled) : m_show(show), m_enabled(enabled) {}
+    SPULogger(bool &show, bool &enabled, std::vector<std::string> &favorites)
+        : m_show(show), m_enabled(enabled), m_exportDialog([]() { return _("Export SPU dump"); }, favorites) {}
     void draw(PCSX::SPULogger *logger, const char *title);
+    // Pushes a checkbox change to the logger, and otherwise follows the logger, so a script
+    // turning it on or off is reflected here rather than overridden on the next frame.
+    void syncEnabled(PCSX::SPULogger *logger);
 
     bool &m_show;
     // Capture state is deliberately independent of window visibility, and persisted: closing
@@ -40,12 +46,16 @@ class SPULogger {
     bool &m_enabled;
 
   private:
+    void drawExportDialog(PCSX::SPULogger *logger);
     bool m_filterEnabled = false;
     // One bit per PCSX::SPULogger::Kind, all set: no filtering until asked.
     uint32_t m_kindMask = 0xffffffff;
     bool m_followTail = true;
     // Indices into the ring that survived the filter, rebuilt each frame and fed to the clipper.
     std::vector<uint32_t> m_visible;
+    bool m_pushedEnabled = false;
+    FileDialog<FileDialogMode::Save> m_exportDialog;
+    std::string m_exportStatus;
 };
 
 }  // namespace Widgets

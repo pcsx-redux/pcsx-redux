@@ -42,6 +42,9 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\copbranch.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\disasm-syscall.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\dma.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -93,6 +96,12 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-dfe-480i.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat10.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat26.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-480i-wait.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -135,7 +144,16 @@
     <ClCompile Include="..\..\..\tests\modconv-layout.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\spu\overlay.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\tests\modconv-stretch.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\spu\speed.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\tests\spu\syncmix.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\tests\core\pad-config.cc">
@@ -144,7 +162,16 @@
     <ClCompile Include="..\..\..\tests\core\i18n.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\core\pocketstation-flash-sync.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\tests\core\spdwriter.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-threaded.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\sio1-misc.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

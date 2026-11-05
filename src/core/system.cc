@@ -29,14 +29,6 @@
 
 PCSX::System* PCSX::g_system = NULL;
 
-static const ImWchar c_frenchRanges[] = {0x0020, 0x00ff, 0x0152, 0x0153, 0};
-static const ImWchar c_greekRanges[] = {0x0020, 0x00ff, 0x0370, 0x03ff, 0};
-static const ImWchar c_hindiSupplementalRanges[] = {0x0900, 0x097f, 0};
-static const ImWchar c_malteseRanges[] = {0x0020, 0x00ff, 0x010a, 0x010b, 0x0120, 0x0121,
-                                          0x0126, 0x0127, 0x017b, 0x017c, 0};
-static const ImWchar c_polishRanges[] = {0x0020, 0x00ff, 0x0104, 0x0119, 0x0141, 0x0144,
-                                         0x015a, 0x015b, 0x0179, 0x017c, 0};
-static const ImWchar c_swedishRanges[] = {0x0020, 0x00ff, 0x2013, 0x2013, 0x201c, 0x201d, 0};
 
 // locale names have to be written in basic latin or extended latin, in order
 // to be properly displayed in the UI with the default range
@@ -52,57 +44,55 @@ uv_loop_t* PCSX::System::getLoop() { return m_loop; }
 const std::map<std::string, PCSX::System::LocaleInfo> PCSX::System::LOCALES = {
     {
         "Deutsch",
-        {"de.po", {}, nullptr},
+        {"de.po", {}},
     },
     {
         "Ellinika",
-        {"el.po", {}, c_greekRanges},
+        {"el.po", {}},
     },
     {
         "Español (España)",
-        {"es_ES.po", {}, nullptr},
+        {"es_ES.po", {}},
     },
     {
         "Français",
-        {"fr.po", {}, c_frenchRanges},
+        {"fr.po", {}},
     },
     {
         "Hindi",
-        {"hi.po", {{MAKEU8("NotoSansDevanagari-Regular.ttf"), c_hindiSupplementalRanges}}, nullptr},
+        {"hi.po", {MAKEU8("NotoSansDevanagari-Regular.ttf")}},
     },
     {
         "Italiano",
-        {"it.po", {}, nullptr},
+        {"it.po", {}},
     },
     {
         "Malti",
-        {"mt.po", {}, c_malteseRanges},
+        {"mt.po", {}},
     },
     {
         "Nihongo",
-        {"ja.po", {}, nullptr},
+        {"ja.po", {}},
     },
     {
         "Polski",
-        {"pl.po", {}, c_polishRanges},
+        {"pl.po", {}},
     },
     {
         "Português (Brasil)",
-        {"pt_BR.po", {}, nullptr},
+        {"pt_BR.po", {}},
     },
     {
         "Svenska",
-        {"sv.po", {}, c_swedishRanges},
+        {"sv.po", {}},
     },
     {
         "Ukrainska",
-        {"uk.po", {}, reinterpret_cast<const ImWchar*>(Range::CYRILLIC)},
+        {"uk.po", {}},
     },
     {
         "Zhongwen",
-        {"zh_CN.po",
-         {{MAKEU8("NotoSansSC-Regular.otf"), reinterpret_cast<const ImWchar*>(Range::CHINESE_FULL)}},
-         nullptr},
+        {"zh_CN.po", {MAKEU8("NotoSansSC-Regular.otf")}},
     },
 };
 

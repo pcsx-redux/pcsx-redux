@@ -56,6 +56,20 @@ LuaIso* openIsoFromFile(PCSX::LuaFFI::LuaFile* wrapper) {
     return new LuaIso(std::make_shared<PCSX::CDRIso>(wrapper->file));
 }
 
+// Same sequence as the File menu: swap the image, then re-read its TOC.
+void cdromSetIso(LuaIso* wrapper) {
+    PCSX::g_emulator->m_cdrom->setIso(wrapper->iso);
+    PCSX::g_emulator->m_cdrom->parseIso();
+}
+void cdromEjectIso() {
+    PCSX::g_emulator->m_cdrom->setIso(new PCSX::CDRIso(new PCSX::FailedFile));
+    PCSX::g_emulator->m_cdrom->parseIso();
+}
+void cdromOpenLid() { PCSX::g_emulator->m_cdrom->openLid(); }
+void cdromCloseLid() { PCSX::g_emulator->m_cdrom->closeLid(); }
+void cdromScheduleCloseLid() { PCSX::g_emulator->m_cdrom->scheduleCloseLid(); }
+bool cdromIsLidOpen() { return PCSX::g_emulator->m_cdrom->isLidOpen(); }
+
 PCSX::ISO9660Reader* createIsoReader(LuaIso* wrapper) { return new PCSX::ISO9660Reader(wrapper->iso); }
 void deleteIsoReader(PCSX::ISO9660Reader* isoReader) { delete isoReader; }
 
@@ -390,6 +404,7 @@ void dirTreeSetDeclaredSize(PCSX::ISO9660::DirTree* node, uint32_t size) { node-
 void dirTreeClearDeclaredSize(PCSX::ISO9660::DirTree* node) { node->clearDeclaredSize(); }
 bool dirTreeHasXA(PCSX::ISO9660::DirTree* node) { return node->hasXA(); }
 void dirTreeSetHasXA(PCSX::ISO9660::DirTree* node, bool val) { node->setHasXA(val); }
+PCSX::IEC60908b::SectorMode dirTreeGetSectorMode(PCSX::ISO9660::DirTree* node) { return node->getSectorMode(); }
 void dirTreeSetSectorMode(PCSX::ISO9660::DirTree* node, PCSX::IEC60908b::SectorMode mode) { node->setSectorMode(mode); }
 uint16_t dirTreeGetXAAttribs(PCSX::ISO9660::DirTree* node) {
     return node->getXA().get<PCSX::ISO9660LowLevel::DirEntry_XA_Attribs>().value;
@@ -442,6 +457,73 @@ static void registerSymbol(PCSX::Lua L, const char (&name)[S], const T ptr) {
 
 #define REGISTER(L, s) registerSymbol(L, #s, s)
 
+static void registerCDRomSymbols(PCSX::Lua L) {
+    REGISTER(L, cdromSetIso);
+    REGISTER(L, cdromEjectIso);
+    REGISTER(L, cdromOpenLid);
+    REGISTER(L, cdromCloseLid);
+    REGISTER(L, cdromScheduleCloseLid);
+    REGISTER(L, cdromIsLidOpen);
+}
+
+static void registerPvdSymbols(PCSX::Lua L) {
+    // PVD getters
+    REGISTER(L, hlPvdGetSystemIdent);
+    REGISTER(L, hlPvdGetVolumeIdent);
+    REGISTER(L, hlPvdGetVolSetIdent);
+    REGISTER(L, hlPvdGetPublisherIdent);
+    REGISTER(L, hlPvdGetDataPreparerIdent);
+    REGISTER(L, hlPvdGetApplicationIdent);
+    REGISTER(L, hlPvdGetCopyrightFileIdent);
+    REGISTER(L, hlPvdGetAbstractFileIdent);
+    REGISTER(L, hlPvdGetBibliographicFileIdent);
+
+    // PVD setters
+    REGISTER(L, hlPvdSetSystemIdent);
+    REGISTER(L, hlPvdSetVolumeIdent);
+    REGISTER(L, hlPvdSetVolSetIdent);
+    REGISTER(L, hlPvdSetPublisherIdent);
+    REGISTER(L, hlPvdSetDataPreparerIdent);
+    REGISTER(L, hlPvdSetApplicationIdent);
+    REGISTER(L, hlPvdSetCopyrightFileIdent);
+    REGISTER(L, hlPvdSetAbstractFileIdent);
+    REGISTER(L, hlPvdSetBibliographicFileIdent);
+}
+
+static void registerDirTreeSymbols(PCSX::Lua L) {
+    REGISTER(L, dirTreeGetName);
+    REGISTER(L, dirTreeGetSize);
+    REGISTER(L, dirTreeGetLBA);
+    REGISTER(L, dirTreeIsDir);
+    REGISTER(L, dirTreeIsHidden);
+    REGISTER(L, dirTreeSetHidden);
+    REGISTER(L, dirTreeShouldSkip);
+    REGISTER(L, dirTreeSetSkip);
+    REGISTER(L, dirTreeHasAnchorLBA);
+    REGISTER(L, dirTreeGetAnchorLBA);
+    REGISTER(L, dirTreeSetAnchorLBA);
+    REGISTER(L, dirTreeClearAnchorLBA);
+    REGISTER(L, dirTreeHasDeclaredSize);
+    REGISTER(L, dirTreeGetDeclaredSize);
+    REGISTER(L, dirTreeSetDeclaredSize);
+    REGISTER(L, dirTreeClearDeclaredSize);
+    REGISTER(L, dirTreeHasXA);
+    REGISTER(L, dirTreeSetHasXA);
+    REGISTER(L, dirTreeGetSectorMode);
+    REGISTER(L, dirTreeSetSectorMode);
+    REGISTER(L, dirTreeGetXAAttribs);
+    REGISTER(L, dirTreeSetXAAttribs);
+    REGISTER(L, dirTreeGetXAFileNum);
+    REGISTER(L, dirTreeSetXAFileNum);
+    REGISTER(L, dirTreeParent);
+    REGISTER(L, dirTreeFirstChild);
+    REGISTER(L, dirTreeNextSibling);
+    REGISTER(L, dirTreeSetDate);
+    REGISTER(L, dirTreeGetDateYear);
+    REGISTER(L, dirTreeGetDateMonth);
+    REGISTER(L, dirTreeGetDateDay);
+}
+
 static void registerAllSymbols(PCSX::Lua L) {
     L.getfieldtable("_CLIBS", LUA_REGISTRYINDEX);
     L.push("CORE_ISO");
@@ -454,6 +536,7 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, getCurrentIso);
     REGISTER(L, openIso);
     REGISTER(L, openIsoFromFile);
+    registerCDRomSymbols(L);
     REGISTER(L, getIsoTD);
     REGISTER(L, getIsoTN);
     REGISTER(L, createIsoReader);
@@ -485,62 +568,13 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, isoBuilderGetCurrentLBA);
     REGISTER(L, isoBuilderClose);
 
-    // PVD getters
-    REGISTER(L, hlPvdGetSystemIdent);
-    REGISTER(L, hlPvdGetVolumeIdent);
-    REGISTER(L, hlPvdGetVolSetIdent);
-    REGISTER(L, hlPvdGetPublisherIdent);
-    REGISTER(L, hlPvdGetDataPreparerIdent);
-    REGISTER(L, hlPvdGetApplicationIdent);
-    REGISTER(L, hlPvdGetCopyrightFileIdent);
-    REGISTER(L, hlPvdGetAbstractFileIdent);
-    REGISTER(L, hlPvdGetBibliographicFileIdent);
-
-    // PVD setters
-    REGISTER(L, hlPvdSetSystemIdent);
-    REGISTER(L, hlPvdSetVolumeIdent);
-    REGISTER(L, hlPvdSetVolSetIdent);
-    REGISTER(L, hlPvdSetPublisherIdent);
-    REGISTER(L, hlPvdSetDataPreparerIdent);
-    REGISTER(L, hlPvdSetApplicationIdent);
-    REGISTER(L, hlPvdSetCopyrightFileIdent);
-    REGISTER(L, hlPvdSetAbstractFileIdent);
-    REGISTER(L, hlPvdSetBibliographicFileIdent);
+    registerPvdSymbols(L);
 
     // DirTree
     REGISTER(L, hlCreateRoot);
     REGISTER(L, hlCreateDir);
     REGISTER(L, hlCreateFile);
-    REGISTER(L, dirTreeGetName);
-    REGISTER(L, dirTreeGetSize);
-    REGISTER(L, dirTreeGetLBA);
-    REGISTER(L, dirTreeIsDir);
-    REGISTER(L, dirTreeIsHidden);
-    REGISTER(L, dirTreeSetHidden);
-    REGISTER(L, dirTreeShouldSkip);
-    REGISTER(L, dirTreeSetSkip);
-    REGISTER(L, dirTreeHasAnchorLBA);
-    REGISTER(L, dirTreeGetAnchorLBA);
-    REGISTER(L, dirTreeSetAnchorLBA);
-    REGISTER(L, dirTreeClearAnchorLBA);
-    REGISTER(L, dirTreeHasDeclaredSize);
-    REGISTER(L, dirTreeGetDeclaredSize);
-    REGISTER(L, dirTreeSetDeclaredSize);
-    REGISTER(L, dirTreeClearDeclaredSize);
-    REGISTER(L, dirTreeHasXA);
-    REGISTER(L, dirTreeSetHasXA);
-    REGISTER(L, dirTreeSetSectorMode);
-    REGISTER(L, dirTreeGetXAAttribs);
-    REGISTER(L, dirTreeSetXAAttribs);
-    REGISTER(L, dirTreeGetXAFileNum);
-    REGISTER(L, dirTreeSetXAFileNum);
-    REGISTER(L, dirTreeParent);
-    REGISTER(L, dirTreeFirstChild);
-    REGISTER(L, dirTreeNextSibling);
-    REGISTER(L, dirTreeSetDate);
-    REGISTER(L, dirTreeGetDateYear);
-    REGISTER(L, dirTreeGetDateMonth);
-    REGISTER(L, dirTreeGetDateDay);
+    registerDirTreeSymbols(L);
 
     L.settable();
     L.pop();

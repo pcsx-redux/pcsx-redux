@@ -22,6 +22,7 @@
 #include "spu/adpcm.h"
 #include "spu/adsr.h"
 #include "spu/interpolation.h"
+#include "spu/overlay.h"
 #include "spu/volume.h"
 #include "support/protobuf.h"
 #include "support/settings.h"
@@ -105,6 +106,7 @@ struct SPUCHAN {
     AdsrEnvelope adsr;    // per-voice ADSR envelope: state + four-phase machine
     Interpolator interp;  // per-voice resampler: none/simple/gauss/cubic interpolation
     VoiceVolume volume;   // per-voice left/right output volume: raw register + decoded level
+    OverlayVoice overlay;  // per-voice replacement playhead, not part of the savestate
 };
 
 struct REVERBInfo {

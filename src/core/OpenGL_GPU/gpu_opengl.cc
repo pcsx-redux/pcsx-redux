@@ -166,7 +166,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
         flat out int texMode;
 
         // We always apply a 0.5 offset in addition to the drawing offsets, to cover up OpenGL inaccuracies
-        uniform vec2 u_vertexOffsets = vec2(+0.5, -0.5);
+        uniform vec2 u_vertexOffsets = vec2(+0.5, +0.5);
 
         // 1 when 2MB of VRAM is fitted, in which case texpage bit 11 is the
         // high bit of the texture page Y instead of the (unused) texture
@@ -230,6 +230,8 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
         // GP1(09h) gate closed - the upper rows then mirror onto the lower
         // ones), 1023 when the full 2MB is reachable.
         uniform int u_vramMaskY = 511;
+        // NTSC 480i with GP0(E1h).10 clear: the VRAM row parity not to write, or -1.
+        uniform int u_skipParity = -1;
 
         int floatToU5(float f) {
             return int(floor(f * 31.0 + 0.5));
@@ -258,6 +260,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
         }
 
         void main() {
+           if ((int(gl_FragCoord.y) & 1) == u_skipParity) discard;
            if (texMode == 4) { // Untextured primitive
                FragColor = vertexColor;
                BlendColor = u_blendFactors;
@@ -319,6 +322,8 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
     m_blendFactorsIfOpaqueLoc = OpenGL::uniformLocation(m_program, "u_blendFactorsIfOpaque");
     m_vramMaskYLoc = OpenGL::uniformLocation(m_program, "u_vramMaskY");
     m_texpage2MBLoc = OpenGL::uniformLocation(m_program, "u_texpage2MB");
+    m_skipParityLoc = OpenGL::uniformLocation(m_program, "u_skipParity");
+    m_skipParity = s_skipParityUnknown;
     m_vramConfigDirty = true;
     pushVRAMConfig();
 
@@ -466,6 +471,8 @@ bool PCSX::OpenGL_GPU::configure() {
             m_blendFactorsIfOpaqueLoc = OpenGL::uniformLocation(m_program, "u_blendFactorsIfOpaque");
             m_vramMaskYLoc = OpenGL::uniformLocation(m_program, "u_vramMaskY");
             m_texpage2MBLoc = OpenGL::uniformLocation(m_program, "u_texpage2MB");
+            m_skipParityLoc = OpenGL::uniformLocation(m_program, "u_skipParity");
+            m_skipParity = s_skipParityUnknown;
             m_vramConfigDirty = true;
 
             const auto vramSamplerLoc = OpenGL::uniformLocation(m_program, "u_vramTex");
@@ -868,7 +875,19 @@ void PCSX::OpenGL_GPU::write0(ClearCache *) {
     m_syncVRAM = true;
 }
 
-void PCSX::OpenGL_GPU::write0(TPage *prim) { m_rectTexpage = prim->raw; }
+void PCSX::OpenGL_GPU::write0(TPage *prim) {
+    m_rectTexpage = prim->raw;
+    m_drawToDisplay = prim->drawToDisplay;
+}
+
+void PCSX::OpenGL_GPU::updateSkipParity() {
+    int parity = -1;
+    if (!m_drawToDisplay && ((getStatusControl(8) & 0x2c) == 0x24)) parity = readStatusFromBus() >> 31;
+    if (parity == m_skipParity) return;
+    renderBatch();
+    m_skipParity = parity;
+    glUniform1i(m_skipParityLoc, parity);
+}
 
 // Set texture window, regardless of whether the window config changed
 void PCSX::OpenGL_GPU::setTexWindowUnchecked(uint32_t cmd) {
@@ -921,7 +940,7 @@ void PCSX::OpenGL_GPU::setDrawOffset(uint32_t cmd) {
 
     // The 0.5 offsets help fix some holes in rendering, in places like the PS logo
     // TODO: This might not work when upscaling?
-    float adjustedOffsets[2] = {static_cast<float>(offsetX) + 0.5f, static_cast<float>(offsetY) - 0.5f};
+    float adjustedOffsets[2] = {static_cast<float>(offsetX) + 0.5f, static_cast<float>(offsetY) + 0.5f};
     glUniform2fv(m_drawingOffsetLoc, 1, adjustedOffsets);
 }
 
@@ -937,6 +956,7 @@ void PCSX::OpenGL_GPU::write0(DrawingOffset *prim) {
 }
 
 void PCSX::OpenGL_GPU::write0(FastFill *prim) {
+    updateSkipParity();
     renderBatch();
     const auto colour = prim->color;
     const float r = float(colour & 0xff) / 255.f;
@@ -944,8 +964,17 @@ void PCSX::OpenGL_GPU::write0(FastFill *prim) {
     const float b = float((colour >> 16) & 0xff) / 255.f;
 
     OpenGL::setClearColor(r, g, b, 1.f);
-    OpenGL::setScissor(prim->x, prim->y, prim->w, prim->h);
-    OpenGL::clearColor();
+    if (m_skipParity < 0) {
+        OpenGL::setScissor(prim->x, prim->y, prim->w, prim->h);
+        OpenGL::clearColor();
+    } else {
+        // GP0(02h) is not exempt from the 480i row skip: clear the rows of the other parity one by one.
+        for (unsigned y = prim->y; y < prim->y + prim->h; y++) {
+            if ((y & 1) == unsigned(m_skipParity)) continue;
+            OpenGL::setScissor(prim->x, y, prim->w, 1);
+            OpenGL::clearColor();
+        }
+    }
     setScissorArea();
 }
 
@@ -970,9 +999,30 @@ void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
     OpenGL::enableScissor();
 }
 
+// Hardware drops a polygon or line with an edge spanning more than 1023 pixels
+// horizontally or 511 vertically. Same test as the software renderer's
+// checkCoord3/checkCoord4/CheckCoordL. The draw offset is added unwrapped, so
+// it cancels out of the deltas and the raw vertices can be compared directly.
+static bool edgeOverLimit(int x0, int y0, int x1, int y1) {
+    return std::abs(x1 - x0) >= 1024 || std::abs(y1 - y0) >= 512;
+}
+
 template <PCSX::GPU::Shading shading, PCSX::GPU::Shape shape, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend,
           PCSX::GPU::Modulation modulation>
 void PCSX::OpenGL_GPU::polyExec(Poly<shading, shape, textured, blend, modulation> *prim) {
+    const auto &x = prim->x;
+    const auto &y = prim->y;
+    // A quad renders as (v0, v1, v2) and (v1, v2, v3), so its five triangle
+    // edges are checked; v0-v3 belongs to neither triangle.
+    if (edgeOverLimit(x[0], y[0], x[1], y[1]) || edgeOverLimit(x[1], y[1], x[2], y[2]) ||
+        edgeOverLimit(x[2], y[2], x[0], y[0])) {
+        return;
+    }
+    if constexpr (shape == Shape::Quad) {
+        if (edgeOverLimit(x[1], y[1], x[3], y[3]) || edgeOverLimit(x[3], y[3], x[2], y[2])) return;
+    }
+
+    updateSkipParity();
     if constexpr (blend == Blend::Off) {
         setTransparency<Transparency::Opaque>();
     } else if constexpr (blend == Blend::Semi) {
@@ -1001,6 +1051,7 @@ void PCSX::OpenGL_GPU::polyExec(Poly<shading, shape, textured, blend, modulation
 
 template <PCSX::GPU::Shading shading, PCSX::GPU::LineType lineType, PCSX::GPU::Blend blend>
 void PCSX::OpenGL_GPU::lineExec(Line<shading, lineType, blend> *prim) {
+    updateSkipParity();
     auto count = prim->colors.size();
 
     if constexpr (blend == Blend::Off) {
@@ -1017,12 +1068,14 @@ void PCSX::OpenGL_GPU::lineExec(Line<shading, lineType, blend> *prim) {
         auto c0 = prim->colors[i - 1];
         auto c1 = prim->colors[i];
 
+        if (edgeOverLimit(x0, y0, x1, y1)) continue;
         drawLine(x0, y0, c0, x1, y1, c1);
     }
 }
 
 template <PCSX::GPU::Size size, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend, PCSX::GPU::Modulation modulation>
 void PCSX::OpenGL_GPU::rectExec(Rect<size, textured, blend, modulation> *prim) {
+    updateSkipParity();
     if constexpr (blend == Blend::Off) {
         setTransparency<Transparency::Opaque>();
     } else if constexpr (blend == Blend::Semi) {
@@ -1042,6 +1095,8 @@ void PCSX::OpenGL_GPU::rectExec(Rect<size, textured, blend, modulation> *prim) {
 
 void PCSX::OpenGL_GPU::write1(CtrlReset *) {
     // TODO: This should perform some more operations
+    // GP1(00h) clears GP0(E1h), DFE included.
+    m_drawToDisplay = false;
     m_display.reset();
     setDisplayEnable(false);
     acknowledgeIRQ1();
