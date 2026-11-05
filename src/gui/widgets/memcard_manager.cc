@@ -95,9 +95,11 @@ bool PCSX::Widgets::MemcardManager::draw(GUI* gui, const char* title) {
     if (m_importMemoryCardDialog.draw()) {
         std::vector<PCSX::u8string> fileToOpen = m_importMemoryCardDialog.selected();
         if (!fileToOpen.empty()) {
-            g_emulator->m_sio->loadMcd(fileToOpen[0], m_memoryCardImportExportIndex);
-            g_emulator->m_sio->saveMcd(m_memoryCardImportExportIndex);
-            clearUndoBuffer();
+            // A file that failed to import leaves the card as it was, so there is nothing to save.
+            if (g_emulator->m_sio->loadMcd(fileToOpen[0], m_memoryCardImportExportIndex)) {
+                g_emulator->m_sio->saveMcd(m_memoryCardImportExportIndex);
+                clearUndoBuffer();
+            }
         }
     }
 
