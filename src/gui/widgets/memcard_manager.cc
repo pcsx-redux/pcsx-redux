@@ -168,6 +168,10 @@ bool PCSX::Widgets::MemcardManager::draw(GUI* gui, const char* title) {
         changed = true;
     }
 
+    const char* pocketstationHelp =
+        _("Enables PocketStation emulation for this card. With a BIOS dump set below, the emulator boots a real "
+          "PocketStation kernel and runs it behind the card link; without one, it falls back to canned command "
+          "responses. Set the BIOS before enabling. Experimental.");
     // The cards in a multitap's slots B to D, for games only: the blocks below are cards 1 and 2.
     const auto drawTapCard = [&changed](const char* label, auto& inserted, auto& path) {
         if (ImGui::Checkbox(label, &inserted.value)) changed = true;
@@ -197,17 +201,40 @@ bool PCSX::Widgets::MemcardManager::draw(GUI* gui, const char* title) {
         g_emulator->m_sio->togglePocketstationMode();
         changed = true;
     }
-    ImGuiHelpers::ShowHelpMarker(
-        _("Experimental. Emulator will attempt to send artificial responses to Pocketstation commands, possibly "
-          "allowing apps to be saved/exported."));
+    ImGuiHelpers::ShowHelpMarker(pocketstationHelp);
     if (ImGui::Checkbox(_("Card 2 Pocketstation"),
                         &g_emulator->settings.get<Emulator::SettingMcd2Pocketstation>().value)) {
         g_emulator->m_sio->togglePocketstationMode();
         changed = true;
     }
-    ImGuiHelpers::ShowHelpMarker(
-        _("Experimental. Emulator will attempt to send artificial responses to Pocketstation commands, possibly "
-          "allowing apps to be saved/exported."));
+    ImGuiHelpers::ShowHelpMarker(pocketstationHelp);
+
+    // PocketStation BIOS (kernel) dump path. Shared by both card slots; the emulated ARM7 boots from it.
+    // There was no UI for this before, so the device could be enabled with nowhere to load a kernel from.
+    {
+        auto biosPath = g_emulator->settings.get<Emulator::SettingPocketstationBios>().string();
+        ImGui::InputText(_("Pocketstation BIOS"), const_cast<char*>(reinterpret_cast<const char*>(biosPath.c_str())),
+                         biosPath.length() + 1, ImGuiInputTextFlags_ReadOnly);
+        ImGui::SameLine();
+        if (ImGui::Button("...##pocketstationBios")) {
+            auto& browsePath = g_emulator->settings.get<Emulator::SettingBiosBrowsePath>();
+            if (!browsePath.empty()) m_pocketstationBiosDialog.m_currentPath = browsePath.value;
+            m_pocketstationBiosDialog.openDialog();
+        }
+        ImGuiHelpers::ShowHelpMarker(
+            _("A 16 KiB PocketStation BIOS (kernel) dump. Required to boot a real PocketStation; the card uses "
+              "canned responses without it."));
+        if (m_pocketstationBiosDialog.draw()) {
+            auto& browsePath = g_emulator->settings.get<Emulator::SettingBiosBrowsePath>();
+            browsePath = m_pocketstationBiosDialog.m_currentPath;
+            std::vector<PCSX::u8string> fileToOpen = m_pocketstationBiosDialog.selected();
+            if (!fileToOpen.empty()) {
+                g_emulator->settings.get<Emulator::SettingPocketstationBios>().value = fileToOpen[0];
+                g_emulator->m_sio->reloadPocketstations();
+                changed = true;
+            }
+        }
+    }
 
     ImGui::SliderInt(_("Icon size"), &m_iconSize, 16, 512);
     if (ImGui::Checkbox(_("Draw Pocketstation icons"), &m_drawPocketstationIcons)) {

@@ -63,6 +63,7 @@
 #include "gui/widgets/network.h"
 #include "gui/widgets/patches.h"
 #include "gui/widgets/pio-cart.h"
+#include "gui/widgets/pocketstation.h"
 #include "gui/widgets/ram-viewer.h"
 #include "gui/widgets/registers.h"
 #include "gui/widgets/shader-editor.h"
@@ -141,6 +142,7 @@ class GUI final : public UI {
     typedef Setting<bool, TYPESTRING("ShowRAMViewer")> ShowRAMViewer;
     typedef Setting<bool, TYPESTRING("ShowCDRomViewer")> ShowCDRomViewer;
     typedef Setting<bool, TYPESTRING("ShowHeapViewer")> ShowHeapViewer;
+    typedef Setting<bool, TYPESTRING("ShowPocketStationLCD")> ShowPocketStationLCD;
     typedef Setting<bool, TYPESTRING("ShowAllocTracker")> ShowAllocTracker;
     typedef Setting<bool, TYPESTRING("ShowHWRegs")> ShowHWRegs;
     typedef Setting<bool, TYPESTRING("ShowMsanViewer")> ShowMsanViewer;
@@ -191,7 +193,7 @@ class GUI final : public UI {
              ShowTypedDebugger, ShowPatches, ShowMemcardManager, ShowRegisters, ShowAssembly, ShowDisassembly,
              ShowCpuTrace, ShowBreakpoints, ShowNamedSaveStates, ShowEvents, ShowHandlers, ShowKernelLog,
              ShowCallstacks, ShowSIO1, ShowNetwork, ShowIsoBrowser, ShowGPULogger, ShowGPUDump, ShowRAMViewer,
-             ShowCDRomViewer, ShowHeapViewer, ShowAllocTracker, ShowHWRegs, MainFontSize, MonoFontSize, GUITheme,
+             ShowCDRomViewer, ShowHeapViewer, ShowPocketStationLCD, ShowAllocTracker, ShowHWRegs, MainFontSize, MonoFontSize, GUITheme,
              AllowMouseCaptureToggle, EnableRawMouseMotion, WidescreenRatio, ShowPIOCartConfig, ShowMemoryEditor1,
              ShowMemoryEditor2, ShowMemoryEditor3, ShowMemoryEditor4, ShowMemoryEditor5, ShowMemoryEditor6,
              ShowMemoryEditor7, ShowMemoryEditor8, ShowParallelPortEditor, ShowScratchpadEditor, ShowHWRegsEditor,
@@ -503,6 +505,7 @@ class GUI final : public UI {
     Widgets::SPULogger m_spuLoggerWidget;
     Widgets::SPUSamples m_spuSamplesWidget;
     Widgets::HeapViewer m_heapViewer{settings.get<ShowHeapViewer>().value};
+    Widgets::PocketStationLCD m_pocketStationLCD{settings.get<ShowPocketStationLCD>().value};
     Widgets::AllocTrackerViewer m_allocTrackerViewer{settings.get<ShowAllocTracker>().value};
     Widgets::HWRegs m_hwRegs{settings.get<ShowHWRegs>().value};
     Widgets::MsanViewer m_msanViewer{settings.get<ShowMsanViewer>().value};

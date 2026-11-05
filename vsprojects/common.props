@@ -23,5 +23,12 @@
       <AdditionalDependencies>crypt32.lib;dbghelp.lib;normaliz.lib;wldap32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  <!-- The PocketStation ARM instruction LUT (src/pocketstation/cpu/tablegen.inl) is a fold over
+       4096 elements, deeper than clang's default bracket limit. -->
+  <ItemDefinitionGroup Condition="'$(PlatformToolset)'=='ClangCL'">
+    <ClCompile>
+      <AdditionalOptions>/clang:-fbracket-depth=4096 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup />
 </Project>

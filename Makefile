@@ -40,6 +40,12 @@ HAS_SUBMODULES = false
 endif
 
 CXXFLAGS += -std=c++2b
+# The PocketStation ARM instruction LUT (src/pocketstation/cpu/tablegen.inl) nests
+# deeper than clang's default bracket limit (256); gcc has no such low cap.
+CXX_IS_CLANG := $(shell $(CXX) --version | grep -q clang && echo true || echo false)
+ifeq ($(CXX_IS_CLANG),true)
+CXXFLAGS += -fbracket-depth=4096
+endif
 CPPFLAGS += -I.
 CPPFLAGS += -Isrc
 CPPFLAGS += -Ithird_party
@@ -132,6 +138,7 @@ SRCS += $(call rwildcard,src/,*.cc)
 # src/mips is the nugget submodule, built by its own makefiles with the MIPS
 # toolchain. Globbing it here compiles its sources for the host as well.
 SRCS := $(filter-out src/mips/%,$(SRCS))
+SRCS := $(filter-out src/pocketstation/tests/%,$(SRCS))
 SRCS_pkg_fmt += third_party/fmt/src/os.cc third_party/fmt/src/format.cc
 IMGUI_SRCS += $(wildcard third_party/imgui/*.cpp)
 IMPLOT_SRCS += $(wildcard third_party/implot/*.cpp)

@@ -131,6 +131,13 @@ let
       rev = "794f2dc7caa306984cf385cbb8e7176146514959";
       hash = "sha256-S5FaAtPY/mXsQ8aYsluxwwYZ1CK20/DRew3ltRkm2z8=";
     })
+    ({
+      owner = "pcsx-redux";
+      repo = "pocketstation";
+      rev = "f3d029d0b8ac4952801634ab629f79288feb3755";
+      hash = "sha256-+SXqJy+O/wMJDa3/yw13X+4MxZ5AHSGDN9lmg/fkfKs=";
+      dest = "src/pocketstation";
+    })
   ] ++ lib.optional stdenv.hostPlatform.isAarch {
     owner = "grumpycoders";
     repo = "vixl";

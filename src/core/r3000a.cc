@@ -490,6 +490,12 @@ void PCSX::R3000Acpu::branchTest() {
 void PCSX::R3000Acpu::branchTestEvents() {
     const uint64_t cycle = m_regs.cycle;
 
+    // Advance any docked PocketStation by the elapsed R3000A cycles. This inter-burst boundary is
+    // where the ARM7 catch-up lives (see SIO::stepPocketstation / sio.h): it keeps the device
+    // within a few cycles of current so its COM/FIQ handler services each SIO byte in time. Cheap
+    // early-return when nothing is docked.
+    g_emulator->m_sio->stepPocketstation();
+
     if (cycle >= g_emulator->m_counters->m_psxNextCounter) g_emulator->m_counters->update();
     g_emulator->dispatchVSync();
 

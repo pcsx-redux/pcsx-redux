@@ -51,6 +51,10 @@ jobs:
         run: |
           apt update
           apt install -y jq
+      - name: Build OpenPSK
+        run: |
+          apt install -y gcc-arm-none-eabi
+          make -C src/pocketstation/openpsk
       - name: Packaging
         env:
           APPDISTRIB_TOKEN: ${{ secrets[matrix.secret] }}

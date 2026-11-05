@@ -20,12 +20,15 @@
 
 #pragma once
 
+#include <chrono>
 #include <string>
 
 #include "core/memorycard.h"
 #include "core/psxemulator.h"
 #include "core/psxmem.h"
 #include "core/r3000a.h"
+#include "core/sstate.h"
+#include "support/eventbus.h"
 
 namespace PCSX {
 
@@ -43,6 +46,17 @@ struct SIORegisters {
 
 class SIO {
   public:
+    // Advance any docked PocketStation by the elapsed R3000A cycles. Called from
+    // R3000Acpu::branchTest() (the inter-burst boundary); public so the CPU can drive it.
+    void stepPocketstation();
+
+    // Advance an enabled PocketStation off REAL wall-clock time, for the true-standalone case where
+    // the R3000A is not executing (emulation paused/stopped, or no game loaded) so branchTest never
+    // fires and stepPocketstation() never runs. Driven once per GUI frame from the main loop's
+    // not-running branch (see main.cc). MUST NOT be called while the core is running: that path is
+    // mutually exclusive with stepPocketstation() and calling both would double-clock the device.
+    void stepPocketstationWallClock();
+
     struct McdBlock {
         McdBlock() { reset(); }
         int mcd;
@@ -81,7 +95,8 @@ class SIO {
     static constexpr size_t c_cardCount = 2;
     static constexpr size_t c_tapCardCount = 6;
 
-    SIO() { reset(); }
+    // Defined in sio.cc: wires the per-frame PocketStation catch-up to the VSync event.
+    SIO();
 
     void write8(uint8_t value);
     void writeStatus16(uint16_t value);
@@ -128,6 +143,18 @@ class SIO {
     }
 
     void togglePocketstationMode();
+    // Rebuild the devices of enabled slots, e.g. after the kernel image setting changed.
+    void reloadPocketstations();
+    // Reconcile each device's flash with its card image, saving the card file when the device
+    // wrote to it.
+    void syncPocketstationFlash();
+    // Docked PocketStation device for a card slot (0-based), or nullptr if none. Used by the GUI
+    // LCD widget to read out the framebuffer.
+    // The card in a slot, for the UI: it owns the dock state as well as the device.
+    MemoryCard *getMemoryCard(unsigned slot) { return slot < c_cardCount ? &m_memoryCard[slot] : nullptr; }
+    PocketStation::PocketStation *getPocketstation(unsigned slot) {
+        return slot < c_cardCount ? m_memoryCard[slot].getPocketstation() : nullptr;
+    }
     static constexpr int otherMcd(const McdBlock &block) { return otherMcd(block.mcd); }
 
   private:
@@ -275,6 +302,39 @@ class SIO {
     bool m_tapMemoryCardLoaded[c_tapCardCount] = {};
 
     FIFO<uint8_t, 8> m_rxFIFO;
+
+    // ---- PocketStation cycle-delta catch-up -------------------------------------------------
+    // A docked PocketStation runs its ARM7 off the shared R3000A cycle counter. The catch-up is
+    // driven from R3000Acpu::branchTest() (the inter-burst boundary both backends funnel through),
+    // NOT from VSync: a whole card transaction (138 byte exchanges) fits inside one frame, so a
+    // per-frame catch-up would never advance the ARM7 *between* SIO bytes and the kernel's COM/FIQ
+    // handler could not keep up. At the inter-burst boundary the ARM7 stays within a few cycles of
+    // current always, so its COM poll loop services each byte in time. When no device is docked the
+    // call early-returns, so cost is ~zero when off. Sub-1-ARM-cycle deltas are accumulated (the
+    // anchor only advances by the PSX cycles actually consumed) so frequent small calls don't
+    // starve the device. (Declaration is in the public section above.)
+    uint64_t m_lastPsxCycle = 0;   // R3000A cycle at the previous catch-up (now advanced fully to now).
+    bool m_psxCycleValid = false;  // false until the first catch-up after a reset re-syncs the anchor.
+    // A savestate load can move the cycle counter forward as well as back; drop the anchor so the
+    // next catch-up re-syncs instead of running the whole jump through the ARM7.
+    EventBus::Listener m_listener;
+    // Per-device PSX-cycle catch-up remainder, accumulated in (PSX-cycle * armHz) units. Carrying the
+    // fraction per device (rather than a single shared anchor) is what lets each docked PocketStation
+    // convert at its OWN live CLK_MODE.FREQ clock while never discarding a sub-1-ARM-cycle delta.
+    uint64_t m_psxArmAccum[c_cardCount] = {0};
+    // Wall-clock standalone driver state (stepPocketstationWallClock). m_lastWallClock anchors real
+    // elapsed time; the per-device remainder (ns*Hz) carries the sub-1-ARM-cycle fraction so frequent small
+    // frame deltas don't starve the device (same accumulate-the-remainder discipline as the PSX path).
+    // The two anchors cross-invalidate when control passes between paths so each re-syncs cleanly on
+    // the running<->paused transition (no bogus first delta).
+    std::chrono::steady_clock::time_point m_lastWallClock{};
+    bool m_wallClockValid = false;
+    uint64_t m_wallClockRemainderNs[c_cardCount] = {0};
+    // The R3000A clock. The ARM7 clock is no longer a constant here: it is software-configurable via
+    // CLK_MODE.FREQ and read per-device (PocketStation::armClockHz) at each catch-up site, so the
+    // PSX->ARM cycle scale tracks an SWI-4 clock change. (Was a fixed kArmClockHz = 3997696.)
+    static constexpr uint64_t kPsxClockHz = 33868800;
+    // -----------------------------------------------------------------------------------------
 };
 
 }  // namespace PCSX

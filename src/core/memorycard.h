@@ -23,6 +23,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <memory>
+#include <vector>
+
+#include "core/sstate.h"
 #include "core/system.h"
 
 namespace PCSX {
@@ -33,21 +37,25 @@ struct Access;
 
 class SIO;
 
+namespace PocketStation {
+class PocketStation;
+}
+
 class MemoryCard {
   public:
-    MemoryCard() : m_sio(nullptr) { memset(m_mcdData, 0, c_cardSize); }
-    MemoryCard(SIO *parent) : m_sio(parent) { memset(m_mcdData, 0, c_cardSize); }
+    // Constructors and destructor are out-of-line (defined in memorycard.cc): the unique_ptr to
+    // the forward-declared PocketStation device needs the complete type to instantiate its
+    // destructor, which any inline ctor/dtor would otherwise force here.
+    MemoryCard();
+    MemoryCard(SIO *parent);
+    ~MemoryCard();
 
     // Hardware events
     void acknowledge();
-    void deselect() {
-        memset(&m_tempBuffer, 0, c_sectorSize);
-        m_currentCommand = Commands::None;
-        m_commandTicks = 0;
-        m_dataOffset = 0;
-        m_sector = 0;
-        m_spdr = Responses::IdleHighZ;
-    }
+    // Out-of-line (memorycard.cc): when a real PocketStation is docked, deselect also ends the
+    // in-progress COM command (re-arms FIQ-6 for the next one), which needs the complete device
+    // type. The POD reset is unchanged.
+    void deselect();
 
     // File system / data manipulation
     void commit(const PCSX::u8string path) {
@@ -57,8 +65,41 @@ class MemoryCard {
     }
     void createMcd(PCSX::u8string mcd);
     bool dataChanged() { return !m_savedToDisk; }
-    void disablePocketstation() { m_pocketstationEnabled = false; };
-    void enablePocketstation() { m_pocketstationEnabled = true; };
+    // Defined in memorycard.cc: enable creates+boots the device (kernel from the
+    // SettingPocketstationBios path, flash from this slot's m_mcdData); disable tears it down.
+    // Enabling a slot that already has a running device leaves it alone.
+    void disablePocketstation();
+    void enablePocketstation();
+    // Rebuilds the device of an enabled slot, e.g. to boot a newly selected kernel image.
+    void reloadPocketstation();
+    // Two-way sync between the device's flash and m_mcdData, against the image both last agreed
+    // on: device writes land in m_mcdData (marking the card unsaved), host-side edits of m_mcdData
+    // land in the device. The device wins when both changed. Returns true when m_mcdData changed.
+    bool syncPocketstationFlash();
+    // Returns the docked PocketStation device, or nullptr if none (disabled, or no kernel image).
+    PocketStation::PocketStation *getPocketstation() { return m_pocketstation.get(); }
+    // Dock the device once its kernel has armed the dock interrupt, instead of waiting for the
+    // first card access. Called from the cycle-delta and wall-clock drivers; no-op without a
+    // device, once docked, or once the user has taken manual control. See memorycard.cc for why
+    // first access is too late.
+    void tickPocketstationDock();
+    // Explicit dock / undock, both directions. Taking this hands control to the user: the automatic
+    // dock and the first-access backstop both stand down for the life of the device, so an undock
+    // is not silently reversed by the very next emulation step.
+    void setPocketstationDocked(bool docked);
+    bool isPocketstationDocked() const { return m_pocketstationDocked; }
+    // Whether the user has overridden the automatic policy (for the UI to show, and for tests).
+    bool pocketstationDockIsManual() const { return m_pocketstationManualDock; }
+    // /SEL asserted on this slot's port. The line is shared with the pad, as on hardware, so the
+    // device sees every selection of its port, not only card commands.
+    void selectPocketstation();
+    // Advances the device by armCycles, less the cycles transceive() already ran ahead of the
+    // R3000A to collect an acknowledge.
+    void runPocketstation(uint64_t armCycles);
+    // Savestate fields for this slot's device. Save leaves the slot message empty without a device;
+    // load restores only when the state carries a device and this slot has one to restore into.
+    void savePocketstationState(SaveStates::PocketStationSlot& slot);
+    void loadPocketstationState(SaveStates::PocketStationSlot& slot);
     char *getMcdData() { return m_mcdData; }
     void loadMcd(PCSX::u8string mcd);
     void saveMcd(PCSX::u8string mcd, const char *data, uint32_t adr, size_t size);
@@ -107,6 +148,12 @@ class MemoryCard {
     static constexpr size_t c_sectorSize = 8 * 16;
     static constexpr size_t c_blockSize = 8192;
     static constexpr size_t c_cardSize = 1024 * c_sectorSize;
+    // PocketStation link timing, in ARM7 cycles at the docked 3.997696MHz clock: the PS1 selects
+    // ~60us before the first byte completes; the kernel acknowledges within a few hundred cycles,
+    // so the budget is a timeout, not a cost.
+    static constexpr uint64_t c_pocketstationSelectLead = 250;
+    static constexpr uint64_t c_pocketstationAckStep = 64;
+    static constexpr uint64_t c_pocketstationAckBudget = 4096;
 
     // State machine / handlers
     uint8_t transceive(uint8_t value);
@@ -133,7 +180,22 @@ class MemoryCard {
 
     // PocketStation Specific
     bool m_pocketstationEnabled = false;
+    bool m_pocketstationDocked = false;  // device has been docked (IRQ-11 fired) since creation.
+    // Set once the user works the dock control by hand. While set, the automatic dock and the
+    // first-access backstop both stand down, so a manual undock stays undocked.
+    bool m_pocketstationManualDock = false;
+    bool m_pocketstationSelected = false;     // /SEL held on this slot's port.
+    bool m_pocketstationLeadPending = false;  // no byte yet since the select.
+    uint64_t m_pocketstationPrepaid = 0;      // ARM7 cycles run ahead of the R3000A by transceive().
     uint16_t m_directoryIndex = 0;
+
+    // Owned ARM7 device, present only while pocketstation mode is enabled AND a valid kernel
+    // image is configured. Created/destroyed by enable/disablePocketstation().
+    std::unique_ptr<PocketStation::PocketStation> m_pocketstation;
+    // The flash image the device and m_mcdData last agreed on; see syncPocketstationFlash().
+    std::vector<uint8_t> m_pocketstationFlashShadow;
+    // (Re)create + boot the device from the kernel-path setting and this slot's card image.
+    void createPocketstation();
 
     SIO *m_sio;
 };

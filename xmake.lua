@@ -382,6 +382,8 @@ target("pcsx-redux", function()
     )
     -- src/mips is the nugget submodule, built by its own toolchain.
     remove_files("src/mips/**")
+    -- The PocketStation core's own tests and benchmarks are standalone programs.
+    remove_files("src/pocketstation/tests/**")
 
     -- luv is the Lua libuv binding and v1 wasm has no libuv. It is the ONE
     -- exception to putting the guard in the source: luvit/luv is an upstream

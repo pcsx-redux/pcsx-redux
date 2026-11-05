@@ -159,6 +159,9 @@
     <ClCompile Include="..\..\..\tests\core\i18n.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\core\pocketstation-flash-sync.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\core\spdwriter.cc">
       <Filter>Source Files</Filter>
     </ClCompile>

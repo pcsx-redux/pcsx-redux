@@ -35,4 +35,14 @@ jobs:
           cd /build/pcsx-redux-git
           sed -i "s,git+https://github.com/\(grumpycoders\|pcsx-redux\)/pcsx-redux.git,git+file://$GITHUB_WORKSPACE#commit=$GITHUB_SHA,g" PKGBUILD
           grep -q "git+file://$GITHUB_WORKSPACE#commit=$GITHUB_SHA" PKGBUILD
+          # The AUR PKGBUILD lists submodules by hand and does not have src/pocketstation yet.
+          if ! grep -q pcsx-redux/pocketstation PKGBUILD; then
+            sed -i \
+              -e "s,^\(        'git+https://github.com/Taywee/args.git'\)\$,\1\n        'git+https://github.com/pcsx-redux/pocketstation.git'," \
+              -e "s,^sha256sums=('SKIP'\$,sha256sums=('SKIP' 'SKIP'," \
+              -e 's,^\(  git config submodule.third_party/args.url .*\)$,\1\n  git config submodule.src/pocketstation.url "$srcdir/pocketstation",' \
+              -e 's,^\( *\)third_party/args$,\1third_party/args \\\n\1src/pocketstation,' PKGBUILD
+            grep -c pcsx-redux/pocketstation PKGBUILD
+            grep -q '^ *src/pocketstation$' PKGBUILD
+          fi
           sudo -u builduser bash -c 'makepkg --noconfirm --syncdeps'

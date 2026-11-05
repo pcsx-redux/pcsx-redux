@@ -475,15 +475,32 @@ typedef Protobuf::Message<
     CDRom;
 typedef Protobuf::MessageField<CDRom, TYPESTRING("cdrom"), 15> CDRomField;
 
+// A PocketStation in a card slot. Written only while the slot has a device; "device" is the core's
+// own state blob (PocketStation::saveState), the rest is the slot's link and catch-up state.
+typedef Protobuf::Field<Protobuf::String, TYPESTRING("device"), 1> PocketStationDevice;
+typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("docked"), 2> PocketStationDocked;
+typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("manual_dock"), 3> PocketStationManualDock;
+typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("selected"), 4> PocketStationSelected;
+typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("lead_pending"), 5> PocketStationLeadPending;
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("prepaid"), 6> PocketStationPrepaid;
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("arm_accum"), 7> PocketStationArmAccum;
+typedef Protobuf::Message<TYPESTRING("PocketStationSlot"), PocketStationDevice, PocketStationDocked,
+                          PocketStationManualDock, PocketStationSelected, PocketStationLeadPending,
+                          PocketStationPrepaid, PocketStationArmAccum>
+    PocketStationSlot;
+typedef Protobuf::MessageField<PocketStationSlot, TYPESTRING("pocketstation1"), 16> PocketStation1Field;
+typedef Protobuf::MessageField<PocketStationSlot, TYPESTRING("pocketstation2"), 17> PocketStation2Field;
+
 typedef Protobuf::Message<TYPESTRING("SaveState"), SaveStateInfoField, ThumbnailField, MemoryField, RegistersField,
                           GPUField, SPUField, SIOField, HardwareField, CountersField, MDECField, PCdrvFilesField,
-                          CallStacksField, CDRomField>
+                          CallStacksField, CDRomField, PocketStation1Field, PocketStation2Field>
     SaveState;
 
 typedef Protobuf::ProtoFile<SaveStateInfo, Thumbnail, Memory, DelaySlotInfo, GtePendingWriteInfo, Registers, GPU,
                             ADPCMDecode, XA, ::PCSX::SPU::Chan::Data, ::PCSX::SPU::ADSRInfo, ::PCSX::SPU::ADSRInfoEx,
                             Channel, EnvelopeCheckpoint, SPU, PadTransfer, SIO, CDQueueElement, CDMSF, CDADPCM, CDRom,
-                            Hardware, Rcnt, Counters, MDEC, PCdrvFile, Call, CallStack, CallStacks, SaveState>
+                            Hardware, Rcnt, Counters, MDEC, PCdrvFile, Call, CallStack, CallStacks, PocketStationSlot,
+                            SaveState>
     ProtoFile;
 
 SaveState constructSaveState();
