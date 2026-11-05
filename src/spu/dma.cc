@@ -27,6 +27,8 @@ void PCSX::SPU::impl::readDMAMem(uint16_t* mainMem, int size) {
     // The mixer writes the capture and reverb areas as it plays, and it runs behind the CPU:
     // bring it up to this cycle first.
     catchUp(PCSX::g_emulator->m_cpu->m_regs.cycle);
+    // A new transfer drops SPUSTAT bits 7 and 9 left over from the last write.
+    m_writeDMALandedCycle = 0;
     // Always lock: the mixer thread writes the capture areas of spuMem under cbMtx,
     // and deciding from an unlocked read of mixIrqAddress would itself be a race.
     std::lock_guard<std::mutex> lock(cbMtx);
@@ -58,6 +60,14 @@ void PCSX::SPU::impl::resetCaptureBuffer() {
     captureBuffer.startIndex = 0;
     // The capture write positions follow the mixer's sample clock and are not reset here.
 }
+
+// After CHCR goes idle on a write DMA, the SPU still has the tail of the transfer to put into
+// sound RAM. On SCPH-1001, SCPH-5501 and SCPH-7001, SPUSTAT bits 7 and 9 read low right after
+// CHCR idle and rise together 172-213 sysclk/8 ticks later, once every byte has landed; they
+// stay set until the next transfer starts. 192 ticks is the middle of that.
+static constexpr uint64_t kWriteDMALandingCycles = 192 * 8;
+
+void PCSX::SPU::impl::writeDMAEndsAt(uint64_t endCycle) { m_writeDMALandedCycle = endCycle + kWriteDMALandingCycles; }
 
 // Main RAM -> SPU RAM DMA.
 void PCSX::SPU::impl::writeDMAMem(uint16_t* mainMem, int size) {
