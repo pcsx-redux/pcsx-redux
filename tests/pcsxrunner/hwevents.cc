@@ -100,7 +100,15 @@ TEST(HWEvents, IRQAndDMAEventsAreStampedInOrder) {
                       "local f = io.open('" +
                       luaOut.generic_string() +
                       "', 'w') "
-                      "f:write(string.format('%d %s %s', n, tostring(arr[0].cycle), tostring(arr[n - 1].cycle))) "
+                      "local sized = PCSX.HWEvents.size() == n "
+                      "PCSX.HWEvents.clear() "
+                      "local cleared = PCSX.HWEvents.size() == 0 and PCSX.HWEvents.read() == nil "
+                      "local armedMask = PCSX.HWEvents.mask() "
+                      "PCSX.HWEvents.disarm() "
+                      "local disarmed = PCSX.HWEvents.mask() == 0 "
+                      "f:write(string.format('%d %s %s %s %s %d %s', n, tostring(arr[0].cycle), "
+                      "tostring(arr[n - 1].cycle), tostring(sized), tostring(cleared), armedMask, "
+                      "tostring(disarmed))) "
                       "f:close() end)";
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
                         "-exec", lua.c_str(), "-loadexe", "src/mips/tests/dma/dma.ps-exe");
@@ -124,12 +132,18 @@ TEST(HWEvents, IRQAndDMAEventsAreStampedInOrder) {
     std::ifstream in(luaOut);
     ASSERT_TRUE(in.good()) << "the Lua Quitting listener did not write " << luaOut;
     uint64_t luaCount = 0;
-    std::string first, last;
-    in >> luaCount >> first >> last;
+    std::string first, last, sized, cleared, disarmed;
+    uint32_t armedMask = 0;
+    in >> luaCount >> first >> last >> sized >> cleared >> armedMask >> disarmed;
     EXPECT_EQ(luaCount, s_seen.total);
     // LuaJIT prints a uint64_t cdata with a ULL suffix.
     EXPECT_EQ(first, std::to_string(s_seen.firstCycle) + "ULL");
     EXPECT_EQ(last, std::to_string(s_seen.lastCycle) + "ULL");
+    EXPECT_EQ(sized, "true");
+    EXPECT_EQ(cleared, "true");
+    EXPECT_EQ(armedMask, PCSX::HWEvents::sourceBit(PCSX::HWEvents::Source::IRQ) |
+                             PCSX::HWEvents::sourceBit(PCSX::HWEvents::Source::DMA));
+    EXPECT_EQ(disarmed, "true");
     in.close();
     std::filesystem::remove(luaOut);
 }
