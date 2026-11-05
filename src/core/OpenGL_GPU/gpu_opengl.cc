@@ -734,6 +734,16 @@ void PCSX::OpenGL_GPU::syncVRAMForRead() {
     glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &blendEqAlpha);
     const bool scissor = OpenGL::isEnabled(GL_SCISSOR_TEST);
     const bool blend = OpenGL::isEnabled(GL_BLEND);
+    // The GPU never touches these and draws assuming their defaults.
+    const GLenum defaultedCaps[] = {GL_CULL_FACE, GL_DEPTH_TEST, GL_STENCIL_TEST};
+    bool capsEnabled[3];
+    for (unsigned i = 0; i < 3; i++) {
+        capsEnabled[i] = OpenGL::isEnabled(defaultedCaps[i]);
+        glDisable(defaultedCaps[i]);
+    }
+    GLboolean colorMask[4];
+    glGetBooleanv(GL_COLOR_WRITEMASK, colorMask);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glActiveTexture(GL_TEXTURE0);
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex2D);
 
@@ -779,6 +789,10 @@ void PCSX::OpenGL_GPU::syncVRAMForRead() {
     } else {
         OpenGL::disableBlend();
     }
+    for (unsigned i = 0; i < 3; i++) {
+        if (capsEnabled[i]) glEnable(defaultedCaps[i]);
+    }
+    glColorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
 }
 
 PCSX::Slice PCSX::OpenGL_GPU::getVRAM(Ownership) {
