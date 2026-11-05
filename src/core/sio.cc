@@ -677,6 +677,8 @@ bool PCSX::SIO::copyMcdFile(McdBlock block) {
 // Back up the entire memory card to a file
 // mcd: The memory card to back up (1 or 2)
 void PCSX::SIO::saveMcd(int mcd) {
+    // A card whose file failed to load leaves that file as it is.
+    if (mcd >= 1 && mcd <= c_cardCount && m_memoryCardFailed[mcd - 1]) return;
     switch (mcd) {
         case 1: {
             const auto path = g_emulator->settings.get<Emulator::SettingMcd1>().string();
