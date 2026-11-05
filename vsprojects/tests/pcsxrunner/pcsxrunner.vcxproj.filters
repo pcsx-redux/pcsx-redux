@@ -75,6 +75,9 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\cputrace.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\hwevents.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpudump.cc">
       <Filter>Source Files</Filter>
     </ClCompile>

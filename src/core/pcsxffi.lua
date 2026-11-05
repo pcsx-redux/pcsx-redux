@@ -88,6 +88,19 @@ bool exportCpuTraceText(const char* path);
 bool saveCpuTrace(const char* path);
 bool loadCpuTrace(const char* path);
 
+typedef struct {
+    uint64_t cycle;
+    uint32_t pc;
+    uint16_t type, flags;
+    uint32_t payload[4];
+} PCSX_HWEvent;
+
+uint64_t getHWEventsSize();
+void clearHWEvents();
+uint32_t getHWEventsMask();
+void setHWEventsMask(uint32_t mask);
+uint64_t readHWEvents(void* dest, uint64_t start, uint64_t count);
+
 typedef enum { BPP_16, BPP_24 } ScreenShotBPP;
 
 typedef struct {
@@ -297,6 +310,37 @@ PCSX = {
             save = function(path) return C.saveCpuTrace(path) end,
             load = function(path) return C.loadCpuTrace(path) end,
         },
+    },
+    -- Structured hardware events, fixed PCSX_HWEvent records (src/core/hwevents.h).
+    -- Nothing is recorded until a source is armed: arm('IRQ', 'DMA'). read() works
+    -- like PCSX.CPU.Trace.read.
+    HWEvents = {
+        Sources = { IRQ = 1, DMA = 2 },
+        Types = { IRQAssert = 0x0101, DMAStart = 0x0201, DMAComplete = 0x0202 },
+        size = function() return tonumber(C.getHWEventsSize()) end,
+        clear = function() C.clearHWEvents() end,
+        mask = function() return C.getHWEventsMask() end,
+        setMask = function(mask) C.setHWEventsMask(mask) end,
+        arm = function(...)
+            local mask = C.getHWEventsMask()
+            for _, name in ipairs({ ... }) do
+                local source = PCSX.HWEvents.Sources[name]
+                if not source then error('PCSX.HWEvents.arm: unknown source ' .. tostring(name)) end
+                mask = bit.bor(mask, bit.lshift(1, source))
+            end
+            C.setHWEventsMask(mask)
+        end,
+        disarm = function() C.setHWEventsMask(0) end,
+        read = function(start, count)
+            start = start or 0
+            local total = tonumber(C.getHWEventsSize())
+            if start >= total then return nil, 0 end
+            if count == nil or count > total - start then count = total - start end
+            if count <= 0 then return nil, 0 end
+            local arr = ffi.new('PCSX_HWEvent[?]', count)
+            local got = tonumber(C.readHWEvents(arr, start, count))
+            return arr, got
+        end,
     },
     nextTick = function(f)
         local oldCleanup = AfterPollingCleanup

@@ -24,6 +24,7 @@
 
 #include "core/callstacks.h"
 #include "core/cputrace.h"
+#include "core/hwevents.h"
 #include "core/debug.h"
 #include "core/disr3000a.h"
 #include "core/gpu.h"
@@ -146,6 +147,22 @@ bool loadCpuTrace(const char* path) {
     PCSX::IO<PCSX::File> file = new PCSX::PosixFile(path);
     if (file->failed()) return false;
     return PCSX::g_emulator->m_cpuTrace->load(file);
+}
+
+uint64_t getHWEventsSize() { return PCSX::g_emulator->m_hwEvents->size(); }
+void clearHWEvents() { PCSX::g_emulator->m_hwEvents->clear(); }
+uint32_t getHWEventsMask() { return PCSX::g_emulator->m_hwEvents->mask(); }
+void setHWEventsMask(uint32_t mask) { PCSX::g_emulator->m_hwEvents->setMask(mask); }
+// Same contract as readCpuTrace: copies into a caller-provided PCSX_HWEvent[] and
+// returns how many were copied.
+uint64_t readHWEvents(void* dest, uint64_t start, uint64_t count) {
+    auto& events = *PCSX::g_emulator->m_hwEvents;
+    uint64_t total = events.size();
+    if (start >= total) return 0;
+    if (count > total - start) count = total - start;
+    auto* out = reinterpret_cast<PCSX::HWEvent*>(dest);
+    for (uint64_t i = 0; i < count; i++) out[i] = events[start + i];
+    return count;
 }
 
 struct LuaScreenShot {
@@ -337,6 +354,11 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, exportCpuTraceText);
     REGISTER(L, saveCpuTrace);
     REGISTER(L, loadCpuTrace);
+    REGISTER(L, getHWEventsSize);
+    REGISTER(L, clearHWEvents);
+    REGISTER(L, getHWEventsMask);
+    REGISTER(L, setHWEventsMask);
+    REGISTER(L, readHWEvents);
     REGISTER(L, takeScreenShot);
     REGISTER(L, getGuestFPS);
     REGISTER(L, setGPULogging);
