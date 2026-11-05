@@ -4,12 +4,12 @@ If the debugger is activated, and while using the interpreter, the Lua code can 
 Breakpoints added while the debugger is off are accepted, but won't trigger until it is turned on, either with the `-debugger` command line flag or from the configuration menu. `PCSX.addBreakpoint` prints a warning in that case.
 
 ```lua
-PCSX.addBreakpoint(address, type, width, cause, invoker)
+PCSX.addBreakpoint(address, type, width, cause, invoker, label)
 ```
 
 **Important**: the return value of this function will be an object that represents the breakpoint itself. If this object gets garbage collected, the corresponding breakpoint will be removed. Thus it is important to store it somewhere that won't get garbage collected right away.
 
-The only mandatory argument is `address`, which will by default place an execution breakpoint at the corresponding address. The second argument `type` is an enum which can be represented by one of the 3 following strings: `'Exec'`, `'Read'`, `'Write'`, and will set the breakpoint type accordingly. The third argument `width` is the width of the breakpoint, which indicates how many bytes should intersect from the base address with operations done by the emulated CPU in order to actually trigger the breakpoint. The fourth argument `cause` is a string that will be displayed in the logs about why the breakpoint triggered. It will also be displayed in the Breakpoint Debug UI. And the fifth and final argument `invoker` is a Lua function that will be called whenever the breakpoint is triggered. By default, this will simply call `PCSX.pauseEmulator()`. If the invoker returns `false`, the breakpoint will be permanently removed, permitting temporary breakpoints for example. The signature of the invoker callback is:
+The only mandatory argument is `address`, which will by default place an execution breakpoint at the corresponding address. The second argument `type` is an enum which can be represented by one of the 3 following strings: `'Exec'`, `'Read'`, `'Write'`, and will set the breakpoint type accordingly. The third argument `width` is the width of the breakpoint, which indicates how many bytes should intersect from the base address with operations done by the emulated CPU in order to actually trigger the breakpoint. The fourth argument `cause` is a string that will be displayed in the logs about why the breakpoint triggered. It will also be displayed in the Breakpoint Debug UI. And the fifth and final argument `invoker` is a Lua function that will be called whenever the breakpoint is triggered. By default, this will simply call `PCSX.pauseEmulator()`. The optional sixth argument `label` is a string naming the breakpoint in the Breakpoint Debug UI; when absent or empty, the `cause` is used. If `cause` is a function and `invoker` is omitted, the function is taken as the invoker. If the invoker returns `false`, the breakpoint will be permanently removed, permitting temporary breakpoints for example. The signature of the invoker callback is:
 
 ```lua
 function(address, width, cause)
@@ -43,7 +43,7 @@ The returned breakpoint object will have a few methods attached to it:
 
 A removed breakpoint will no longer have any effect whatsoever, and none of its methods will do anything. Remember it is possible for the user to still manually remove a breakpoint from the UI.
 
-Note that the breakpoint will run outside of any safe Lua environment, so it's possible to crash the emulator by doing something wrong which would normally be caught by the safe environment of the main thread. This is to ensure that the breakpoint can run as fast as possible. In order to avoid this, it's possible to wrap the invoker callback in a `pcall` call, which will catch any error and display it in the logs. For example:
+A Lua error raised by the invoker is caught, reported in the Lua console, and the breakpoint is deleted, as if the invoker had returned `false`. The invoker can still catch its own errors with `pcall` to keep the breakpoint alive. For example:
 
 ```lua
 local someActualFunction = function(address, width, cause)

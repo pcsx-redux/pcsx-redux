@@ -8,6 +8,7 @@ The Lua code can access the emulated memory and registers directly through some 
 - `PCSX.getRomPtr()` will return a `cdata[uint8_t*]` representing up to 512kB of the BIOS memory space. This can be written to.
 - `PCSX.getScratchPtr()` will return a `cdata[uint8_t*]` representing up to 1kB for the scratchpad memory space.
 - `PCSX.getRegisters()` will return a structured cdata representing all the registers present in the CPU:
+- `PCSX.setGPR(index, value)` writes the general purpose register `index`, from 0 to 33 (`lo` and `hi` are 32 and 33). Unlike a store into `getRegisters().GPR`, it also drops a load still pending for that register. Assigning `pc` through `getRegisters()` likewise drops a branch still pending in a delay slot.
 - `PCSX.getReadLUT()` will return a `cdata[uint8_t**]` representing the read LUT for the CPU.
 - `PCSX.getWriteLUT()` will return a `cdata[uint8_t**]` representing the write LUT for the CPU.
 

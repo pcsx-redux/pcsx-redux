@@ -32,4 +32,4 @@ The [Lua-Protobuf](https://github.com/starwing/lua-protobuf) library is availabl
 The [luafilesystem](https://github.com/lunarmodules/luafilesystem) library is loaded globally as the `lfs` symbol. It's a library that provides access to the filesystem.
 
 ## LPeg
-The [LPeg](http://www.inf.puc-rio.br/~roberto/lpeg/) library is available, but not loaded by default. It's a library that provides a pattern-matching library for Lua, which can be useful to create ad-hoc arbitrary parsers.
+The [LPeg](http://www.inf.puc-rio.br/~roberto/lpeg/) library is loaded globally as the `lpeg` symbol, which is also what `require 'lpeg'` returns. It's a library that provides a pattern-matching library for Lua, which can be useful to create ad-hoc arbitrary parsers.

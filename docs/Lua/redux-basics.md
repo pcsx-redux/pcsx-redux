@@ -115,6 +115,21 @@ local decodedState = pb.decode('SaveState', Support.sliceToPBSlice(state))
 print(string.format('%08x', decodedState.registers.pc))
 ```
 
+### In-memory snapshots and rewind
+
+Serializing a savestate to a slice is slow when it needs to be done thousands of times. For a harness which snapshots and rolls back repeatedly, there is a single in-memory snapshot slot:
+
+ - `PCSX.captureState()` stores the whole machine in the slot, replacing what was there. It is an error to call it while a `restoreState()` is still waiting to be applied.
+ - `PCSX.restoreState()` brings the slot back. It is an error to call it before `captureState()` has filled the slot. As with `PCSX.loadSaveState`, when called from a listener or a breakpoint callback, the restore is applied by the main loop once the CPU loop has returned; otherwise it is immediate.
+
+The emulator also has a rewind ring, which keeps the most recent snapshots. It is filled automatically every N frames when the rewind interval setting is not zero, up to the configured number of snapshots, and by the following functions:
+
+ - `PCSX.createRewindState()` pushes a snapshot onto the ring. When called from inside the emulation, the snapshot is taken at the end of the current CPU branch test, so restoring it later doesn't skip any of the work of that step.
+ - `PCSX.rewindState()` restores the most recent snapshot, and removes it from the ring, so successive calls walk further into the past. It returns `false` if the ring is empty, and `true` otherwise. From inside the emulation, the rewind is queued and applied by the main loop, like `PCSX.restoreState()`.
+ - `PCSX.getRewindStateCount()` returns how many snapshots can still be rewound to, not counting the ones already claimed by queued rewinds.
+
+For calling a function of the running program and getting its result back without leaving a trace on the machine, see [Calling guest code](guest-calls.md).
+
 ## Messages
 The globals `print` and `printError` are available, and will display logs in the Lua Console. You can also use `PCSX.log` to display a line in the general Log window. All three functions should behave the way you'd expect from the normal `print` function in mainstream Lua.
 
@@ -123,6 +138,8 @@ You can move the cursor within the assembly window and the first memory view usi
 
 - `PCSX.GUI.jumpToPC(pc)`
 - `PCSX.GUI.jumpToMemory(address[, width])`
+
+When drawing over an image with ImGui, `PCSX.Helpers.UI.imageCoordinates(x, y, w, h, imageW, imageH)` converts a point of a `w` by `h` source image, displayed at `imageW` by `imageH` pixels, into absolute screen coordinates. It reads the ImGui cursor position at the time of the call, so call it before drawing the image, while the cursor is still at the image's top left corner.
 
 ## GPU
 You can take a screenshot of the current view of the emulated display using the following:
@@ -144,7 +161,14 @@ You can also get the framerate of the emulated game using the following:
 
 - `PCSX.GPU.getGuestFPS()`
 
-This will return a number, which is how many times the game moved the display start area per second of emulated vsyncs. As games flip their buffers by moving the display start area, this is the framerate of the game itself, as opposed to the framerate of the UI. The value is updated once every 50 or 60 emulated vsyncs, depending on the video mode. Games which keep displaying the same buffer, such as interlaced or single buffered games, will read 0.
+This will return a number, which is how many times the game moved the display start area per second of emulated vsyncs. As games flip their buffers by moving the display start area, this is the framerate of the game itself, as opposed to the framerate of the UI. The value is updated once every 50 or 60 emulated vsyncs, depending on the video mode. Games which keep displaying the same buffer, such as single buffered games, will read 0. The exception is 480i: when the display start doesn't move over the counting window, the value counts instead the vsyncs in which the game writes a drawing area or offset after sending primitives, at most one per vsync.
+
+The GPU logger can be driven from Lua too:
+
+- `PCSX.GPU.setLogging(enabled[, overdrawStats])` turns the logger on or off. `overdrawStats` defaults to false, and enables the per-frame overdraw statistics below, which cost a readback of the heatmaps once per frame.
+- `PCSX.GPU.getOverdrawStats([read])` returns `nil` until a frame has produced statistics. Otherwise it returns a table for the last complete frame, about the pixels written (or, with `read` true, read) by drawing commands: `total` (sum of the touch counts), `pixels` (how many distinct pixels were touched), `max`, `mean`, and `buckets`, five counts of the pixels touched 1, 2, 3-4, 5-8, and 9 or more times.
+- `PCSX.GPU.getOverdrawSum(read, x, y, w, h)` returns the sum of the touch counts over a VRAM rectangle, clamped to the 1024 by 1024 pixel area, from the same frame. It returns 0 when there are no statistics.
+- `PCSX.GPU.getVRAM()` returns the emulated VRAM as a `Slice`. Dumping and replaying commands is covered in [Localizing bugs](playbook-localizing-bugs.md).
 
 ## SPU
 You can play audio from memory through the emulator's audio output using the following:
@@ -196,6 +220,43 @@ local file = Support.File.open('MUSIC.XA')
 music = PCSX.SPU.playAudio(file, { format = 'xa', sectors = true, gain = 0.5 })
 file:close()
 ```
+
+### SPU logger
+
+The SPU logger records the register writes made to the SPU, and can export them as an SPD file:
+
+- `PCSX.SPU.Logger.enable()`, `.disable()`, `.isEnabled()`, `.clear()`
+- `PCSX.SPU.Logger.getEventCount()` returns how many events are captured.
+- `PCSX.SPU.Logger.exportSPD(file[, tickRate[, fullRam]])` writes the capture as an SPD dump. `file` is a `File` object or a filename; a filename is only opened, and truncated, once the capture is known to be exportable. `tickRate` is in 16.16 fixed point Hz, and defaults to 1/16th of the hblank rate. By default only the span of sound RAM that the keyed voices point into is stored, and `fullRam` set to true stores all of it. Returns `true`, or `false` and the reason, such as there being no register writes to export.
+
+## CPU trace
+
+`PCSX.CPU.Trace` gives access to the binary CPU trace. Instructions are only recorded by the interpreter, while tracing is enabled, and the store stops growing at its limit of 32 million records.
+
+- `.enable()`, `.disable()`, `.enabled()`, `.clear()`, `.size()`
+- `.read([start[, count]])` copies records into a new FFI array of `PCSX_TraceEntry`, and returns it with the number of records copied. It returns `nil, 0` when `start` is past the end.
+- `.getLine(index)` returns the annotated disassembly of a record, the same text the trace viewer shows.
+- `.exportText(path)` writes one annotated line per record to a text file, `.save(path)` writes the raw records, and `.load(path)` replaces the trace with a saved one. All three return a boolean.
+
+A record is 32 bytes, and holds the operands as they were before the instruction executed, so a destination register still has its old value:
+
+```c
+typedef struct {
+    uint32_t pc, code, regRs, regRt, regRd, hilo, cop, memValue;
+} PCSX_TraceEntry;
+```
+
+`hilo` is `hi` or `lo`, and `cop` is the coprocessor register value, for the instructions that use them. `memValue` is the value read at the effective address, for loads and stores.
+
+## Disc and lid
+
+`PCSX.CDRom` swaps the disc and drives the lid of the emulated drive:
+
+- `PCSX.CDRom.setIso(source)` mounts a disc image, and parses its table of contents, the same way as the File menu does. `source` is a path, a `File`, or an `Iso` object from `PCSX.openIso`.
+- `PCSX.CDRom.ejectIso()` mounts an empty drive.
+- `PCSX.CDRom.openLid()` and `PCSX.CDRom.closeLid()` change the lid state immediately.
+- `PCSX.CDRom.scheduleCloseLid()` opens the lid now, and closes it one emulated second later.
+- `PCSX.CDRom.isLidOpen()` returns the lid state.
 
 ## Loading and executing code
 

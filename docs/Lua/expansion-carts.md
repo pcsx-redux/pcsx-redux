@@ -153,6 +153,8 @@ uint32_t third = *counter;  // 42
 
 A byte or halfword access to the same address goes through the same function, with `size` set to 1 or 2. The value returned should fit in that size.
 
-## A complete example
+## Complete examples
 
 John Baumann's [lua-pio-cart](https://github.com/johnbaumann/lua-pio-cart) emulates a cheat cartridge with its PAL and SST29EE020 flash chip using these same mechanisms, with its ROM mapped into the read LUT and its control registers trapped through the callbacks. It is packaged as a zip file and is a good starting point for a more complex cart.
+
+[redux-ch376-cart](https://github.com/rixnobis/redux-ch376-cart) emulates a CH376 USB host controller in parallel mode at `0x1f400000`, with a USB boot keyboard attached that follows the PC keyboard through the `Keyboard` event. It traps both of its registers through the callbacks and maps no memory.
