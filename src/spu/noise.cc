@@ -20,9 +20,6 @@
 #include "spu/noise.h"
 
 namespace {
-// The position within the noise period, in 16.16 fixed-point samples (the unit
-// savestates have always stored it in).
-constexpr uint32_t kSampleTick = 0x10000;
 // The noise period P = 0x20000 >> shift samples is split in eighths, and the
 // LFSR clocks on the selected ones, one bit per eighth: the start of every
 // quarter, plus the half-way point of one, two (opposite) or three quarters
@@ -46,8 +43,8 @@ void PCSX::SPU::NoiseGenerator::step() {
     const uint32_t step = m_clock & 3;
     const uint32_t period = 0x20000u >> shift;
 
-    const uint32_t sample = (m_count / kSampleTick + 1) % period;
-    m_count = sample * kSampleTick;
+    const uint32_t sample = (m_count + 1) % period;
+    m_count = sample;
 
     // Eighth j starts at sample j * P / 8, rounded down, so this sample holds
     // eighths [first, last). At the fastest rate two share a sample, and the

@@ -80,3 +80,36 @@ TEST(SPUNoise, fastestClocksOncePerSample) {
     // P = 8: seven of the eight slots, one sample each.
     expectCyclic(clockGaps(14, 3, 256), {1, 1, 1, 1, 1, 1, 2});
 }
+
+TEST(SPUNoise, shift0KeepsItsWholePeriod) {
+    // P = 0x20000 is longer than 16.16 samples can hold.
+    expectCyclic(clockGaps(0, 1, 0x20000 * 5), {0x4000, 0x4000, 0x8000, 0x8000, 0x8000});
+    expectCyclic(clockGaps(0, 3, 0x20000 * 5), {0x4000, 0x4000, 0x4000, 0x4000, 0x4000, 0x4000, 0x8000});
+}
+
+TEST(SPUNoise, savestateKeepsThePosition) {
+    PCSX::SPU::NoiseGenerator a, b;
+    a.setClock(1);  // shift 0, step 1
+    for (unsigned i = 0; i < 0x1a000; i++) a.step();
+    PCSX::Protobuf::UInt32 clock, legacyCount, value, position;
+    a.saveTo(clock, legacyCount, value, position);
+    EXPECT_EQ(legacyCount.value, 0u);
+    b.loadFrom(clock, legacyCount, value, position);
+    for (unsigned i = 0; i < 0x40000; i++) {
+        a.step();
+        b.step();
+        ASSERT_EQ(a.getVal(), b.getVal()) << "sample " << i;
+    }
+}
+
+TEST(SPUNoise, legacyCountLoadsAsSamplesSinceTheLastClock) {
+    // An older state at shift 13 step 0, 3 samples after a clock: the next clock is 1 sample away.
+    PCSX::SPU::NoiseGenerator noise;
+    PCSX::Protobuf::UInt32 clock, legacyCount, value, position;
+    clock.value = 13 << 2;
+    legacyCount.value = 3 << 16;
+    value.value = 1;
+    noise.loadFrom(clock, legacyCount, value, position);
+    noise.step();
+    EXPECT_NE(noise.getVal(), 1);
+}

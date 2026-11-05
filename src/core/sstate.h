@@ -197,12 +197,14 @@ typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("reverbAltLeftTick"), 26> SPU
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("reverbCallCount"), 27> SPUReverbCallCount;
 // The reverb work-area address (REVERBInfo::CurrAddr), in samples. Zero in a state saved without it.
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("reverbCurrAddr"), 28> SPUReverbCurrAddr;
+// The noise clock's position in its period, in samples. Older states carry noiseCount instead.
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("noisePosition"), 29> SPUNoisePosition;
 
 typedef Protobuf::Message<TYPESTRING("SPU"), SPURam, SPUPorts, XAField, SPUIrq, SPUIrqPtr, Channels, SPUAddr, SPUCtrl,
                           SPUStat, CBStartIndex, CBCurrIndex, CBEndIndex, CBVoiceIndex, CBCDLeft, CBCDRight,
                           SPUNoiseClock, SPUNoiseCount, SPUNoiseVal, SPUEndx, SPUMainVolWritten, EnvelopeCheckpoints,
                           SPUReverbFirInL, SPUReverbFirInR, SPUReverbFirOutL, SPUReverbFirOutR, SPUReverbAltLeftTick,
-                          SPUReverbCallCount, SPUReverbCurrAddr>
+                          SPUReverbCallCount, SPUReverbCurrAddr, SPUNoisePosition>
     SPU;
 typedef Protobuf::MessageField<SPU, TYPESTRING("spu"), 6> SPUField;
 

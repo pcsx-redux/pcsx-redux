@@ -80,7 +80,7 @@ void PCSX::SPU::impl::save(SaveStates::SPU &spu) {
     spu.get<SaveStates::SPUMainVolWritten>().value = mixVolumeWrittenMask();
 
     m_noise.saveTo(spu.get<SaveStates::SPUNoiseClock>(), spu.get<SaveStates::SPUNoiseCount>(),
-                   spu.get<SaveStates::SPUNoiseVal>());
+                   spu.get<SaveStates::SPUNoiseVal>(), spu.get<SaveStates::SPUNoisePosition>());
 
     saveEnvelopeCheckpoints(spu.get<SaveStates::EnvelopeCheckpoints>());
 
@@ -150,7 +150,7 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
     spuEndx = spu.get<SaveStates::SPUEndx>().value & 0xffffff;
 
     m_noise.loadFrom(spu.get<SaveStates::SPUNoiseClock>(), spu.get<SaveStates::SPUNoiseCount>(),
-                     spu.get<SaveStates::SPUNoiseVal>());
+                     spu.get<SaveStates::SPUNoiseVal>(), spu.get<SaveStates::SPUNoisePosition>());
 
     // Repair some globals. The reverb unit is reset first so nothing from before the load
     // survives; the filter history and L/R parity come from the state (zero, a reset filter, when
