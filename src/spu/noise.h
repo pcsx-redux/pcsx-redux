@@ -30,9 +30,7 @@ namespace SPU {
 // The SPU's single global noise generator. One LFSR, shared by every voice
 // whose noise-mode bit is set: such a voice outputs the current noise level in
 // place of its decoded/interpolated ADPCM sample. The shift+step bits of
-// SPUCTRL select the clock that paces the LFSR. Extracted out of the MainThread
-// synthesis loop and the SPU impl; the (Dr. Hell / Xebra) arithmetic is
-// unchanged.
+// SPUCTRL select the clock that paces the LFSR.
 //
 // Unlike the per-voice ADPCM/ADSR/interpolation helpers this is a single
 // per-SPU instance, so it lives in the impl rather than in SPUCHAN. getVal()
@@ -76,7 +74,7 @@ class NoiseGenerator {
     static constexpr uint32_t kClockMask = 0x3f;
 
     uint32_t m_clock = 0;  // shift+step selector from SPUCTRL
-    uint32_t m_count = 0;  // fractional accumulator pacing the LFSR
+    uint32_t m_count = 0;  // position in the noise period, 16.16 samples
     uint32_t m_val = 1;    // LFSR state; the noise level lives in the low 16 bits
 };
 
