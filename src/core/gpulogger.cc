@@ -89,7 +89,7 @@ void main() {
     float x = float(inPos.x);
     float y = float(inPos.y);
     float xx = (x + vertexOffsets.x) / 512.0;
-    float yy = (y + vertexOffsets.y) / 256.0;
+    float yy = (y + vertexOffsets.y) / 512.0;
 
     // Normalize to [-1, 1]
     xx -= 1.0;
@@ -114,9 +114,16 @@ PCSX::GPULogger::GPULogger(bool followEmulator) : m_listener(g_system->m_eventBu
     m_listener.listen<Events::GPU::VSync>([this](auto event) {
         setFrame(m_frameCounter + 1);
         const unsigned rate = g_emulator->settings.get<Emulator::SettingVideo>() == Emulator::PSX_TYPE_PAL ? 50 : 60;
+        if (m_drawEnvFrameThisVSync) {
+            m_drawEnvFrameThisVSync = false;
+            m_drawEnvFrames++;
+        }
         if (++m_fpsVSyncs >= rate) {
-            m_guestFPS = float(m_displayStartChanges) * rate / m_fpsVSyncs;
+            const bool sameBuffer = m_displayStartChanges == 0 && m_interlaced480;
+            const unsigned frames = sameBuffer ? m_drawEnvFrames : m_displayStartChanges;
+            m_guestFPS = float(frames) * rate / m_fpsVSyncs;
             m_displayStartChanges = 0;
+            m_drawEnvFrames = 0;
             m_fpsVSyncs = 0;
         }
         if (m_breakOnVSync) {
@@ -142,12 +149,12 @@ void PCSX::GPULogger::enable() {
     m_vao.enableAttribute(0);
 
     if (!m_program.exists()) {
-        m_writtenHeatmapTex.create(1024, 512, GL_R32F);
-        m_readHeatmapTex.create(1024, 512, GL_R32F);
-        m_writtenHighlightTex.create(1024, 512, GL_R32F);
-        m_readHighlightTex.create(1024, 512, GL_R32F);
-        m_writtenAccumTex.create(1024, 512, GL_R32F);
-        m_readAccumTex.create(1024, 512, GL_R32F);
+        m_writtenHeatmapTex.create(1024, 1024, GL_R32F);
+        m_readHeatmapTex.create(1024, 1024, GL_R32F);
+        m_writtenHighlightTex.create(1024, 1024, GL_R32F);
+        m_readHighlightTex.create(1024, 1024, GL_R32F);
+        m_writtenAccumTex.create(1024, 1024, GL_R32F);
+        m_readAccumTex.create(1024, 1024, GL_R32F);
         if (!m_writtenAccumTex.exists()) return;
         if (!m_readAccumTex.exists()) return;
         m_writtenAccumFB.createWithTexture(m_writtenAccumTex);
@@ -320,10 +327,10 @@ void PCSX::GPULogger::addNodeInternal(GPU::Logged* node, GPU::Logged::Origin ori
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &oldReadFBO);
         m_writtenAccumFB.bind(OpenGL::ReadFramebuffer);
         m_writtenHeatmapFB.bind(OpenGL::DrawFramebuffer);
-        glBlitFramebuffer(0, 0, 1024, 512, 0, 0, 1024, 512, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        glBlitFramebuffer(0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         m_readAccumFB.bind(OpenGL::ReadFramebuffer);
         m_readHeatmapFB.bind(OpenGL::DrawFramebuffer);
-        glBlitFramebuffer(0, 0, 1024, 512, 0, 0, 1024, 512, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        glBlitFramebuffer(0, 0, 1024, 1024, 0, 0, 1024, 1024, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, oldReadFBO);
         OpenGL::setClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         m_writtenAccumFB.bind(OpenGL::DrawFramebuffer);
@@ -360,10 +367,10 @@ void PCSX::GPULogger::addNodeInternal(GPU::Logged* node, GPU::Logged::Origin ori
 }
 
 void PCSX::GPULogger::readOverdraw(OpenGL::Framebuffer& fb, OverdrawStats& stats, std::vector<float>& pixels) {
-    pixels.resize(1024 * 512);
+    pixels.resize(1024 * 1024);
     fb.bind(OpenGL::ReadFramebuffer);
     glPixelStorei(GL_PACK_ALIGNMENT, 4);
-    glReadPixels(0, 0, 1024, 512, GL_RED, GL_FLOAT, pixels.data());
+    glReadPixels(0, 0, 1024, 1024, GL_RED, GL_FLOAT, pixels.data());
     stats = {};
     for (float f : pixels) {
         unsigned count = unsigned(f + 0.5f);
@@ -378,9 +385,9 @@ void PCSX::GPULogger::readOverdraw(OpenGL::Framebuffer& fb, OverdrawStats& stats
 
 uint64_t PCSX::GPULogger::getOverdrawSum(bool read, int x, int y, int w, int h) const {
     auto& pixels = read ? m_readOverdrawPixels : m_writtenOverdrawPixels;
-    if (pixels.size() != 1024 * 512) return 0;
+    if (pixels.size() != 1024 * 1024) return 0;
     int x0 = std::max(x, 0), y0 = std::max(y, 0);
-    int x1 = int(std::min<int64_t>(int64_t(x) + w, 1024)), y1 = int(std::min<int64_t>(int64_t(y) + h, 512));
+    int x1 = int(std::min<int64_t>(int64_t(x) + w, 1024)), y1 = int(std::min<int64_t>(int64_t(y) + h, 1024));
     uint64_t sum = 0;
     for (int py = y0; py < y1; py++) {
         for (int px = x0; px < x1; px++) sum += unsigned(pixels[py * 1024 + px] + 0.5f);
@@ -393,7 +400,11 @@ PCSX::GPU* PCSX::GPULogger::gpu() const { return m_owner ? m_owner : g_emulator-
 void PCSX::GPULogger::startNewFrame() { m_vram = gpu()->getVRAM(GPU::Ownership::ACQUIRE); }
 
 void PCSX::GPULogger::replay(GPU* gpu) {
-    if (m_vram.data()) gpu->partialUpdateVRAM(0, 0, 1024, 512, m_vram.data<uint16_t>());
+    // The snapshot holds every row getVRAM() returned, which includes the 2MB bank.
+    if (m_vram.data()) {
+        const int rows = m_vram.size() / (1024 * sizeof(uint16_t));
+        gpu->partialUpdateVRAM(0, 0, 1024, rows, m_vram.data<uint16_t>());
+    }
     for (auto& node : m_list) {
         if (node.enabled) node.execute(gpu);
     }
@@ -660,8 +671,13 @@ void PCSX::GPU::BlitVramRam::cumulateStats(GPUStats* stats) { stats->pixelReads 
 
 void PCSX::GPU::FastFill::getVertices(AddTri&& add, PixelOp op) {
     if (op == PixelOp::READ) return;
-    add({int(x), int(y)}, {int(x + w), int(y)}, {int(x + w), int(y + h)});
-    add({int(x + w), int(y + h)}, {int(x), int(y + h)}, {int(x), int(y)});
+    Rect r[2];
+    unsigned n = rects(r);
+    for (unsigned i = 0; i < n; i++) {
+        int x0 = r[i].x, y0 = r[i].y, x1 = r[i].x + r[i].w, y1 = r[i].y + r[i].h;
+        add({x0, y0}, {x1, y0}, {x1, y1});
+        add({x1, y1}, {x0, y1}, {x0, y0});
+    }
 }
 void PCSX::GPU::BlitVramVram::getVertices(AddTri&& add, PixelOp op) {
     if (op == PixelOp::READ) {

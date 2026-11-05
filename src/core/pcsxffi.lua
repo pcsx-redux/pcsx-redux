@@ -117,10 +117,19 @@ void unloadGPUDumpPlayer();
 bool stepGPUDumpPlayer();
 void rewindGPUDumpPlayer();
 uint64_t getGPUDumpPlayerFrame();
+uint64_t getGPUDumpPlayerFrameCount();
+bool seekGPUDumpPlayer(uint64_t frame);
 void setGPUDumpPlayerLogging(bool enabled);
 uint32_t getGPUDumpPlayerLoggedCount();
 LuaSlice* getGPUDumpPlayerVRAM();
 LuaSlice* getVRAM();
+void setSPULoggerEnabled(bool);
+bool isSPULoggerEnabled();
+void clearSPULogger();
+uint64_t getSPULoggerEventCount();
+bool prepareSPULoggerSPD(uint32_t tickRate, bool fullRam);
+bool writeSPULoggerSPD(LuaFile*);
+const char* getSPULoggerExportError();
 
 LuaSlice* createSaveState();
 void loadSaveStateFromSlice(LuaSlice*);
@@ -258,6 +267,7 @@ PCSX = {
     invalidateCache = function() C.invalidateCache() end,
     log = function(...) printLike(function(msg) C.luaLog(msg .. '\n') end, ...) end,
     GUI = { jumpToPC = jumpToPC, jumpToMemory = jumpToMemory },
+    WebServer = { Handlers = {} },
     CPU = {
         -- Binary CPU trace. Records are fixed PCSX_TraceEntry structs; the store is
         -- chunked, so read() flattens a range into a fresh FFI array
@@ -295,6 +305,29 @@ PCSX = {
             f()
         end
     end,
+    SPU = {
+        Logger = {
+            enable = function() C.setSPULoggerEnabled(true) end,
+            disable = function() C.setSPULoggerEnabled(false) end,
+            isEnabled = function() return C.isSPULoggerEnabled() end,
+            clear = function() C.clearSPULogger() end,
+            getEventCount = function() return tonumber(C.getSPULoggerEventCount()) end,
+            -- Writes the captured register stream as an SPU dump. tickRate is 16.16 Hz and
+            -- defaults to 1/16th of the hblank rate. Returns true, or false and the reason.
+            exportSPD = function(file, tickRate, fullRam)
+                local isName = type(file) == 'string'
+                if not isName and (type(file) ~= 'table' or file._type ~= 'File') then
+                    error('exportSPD: requires a File or a filename')
+                end
+                if not C.prepareSPULoggerSPD(tickRate or 0, fullRam and true or false) then
+                    return false, ffi.string(C.getSPULoggerExportError())
+                end
+                if isName then file = Support.File.open(file, 'TRUNCATE') end
+                if C.writeSPULoggerSPD(file._wrapper) then return true end
+                return false, ffi.string(C.getSPULoggerExportError())
+            end,
+        },
+    },
     GPU = {
         takeScreenShot = function()
             local ss = C.takeScreenShot()
@@ -344,6 +377,9 @@ PCSX = {
             step = function() return C.stepGPUDumpPlayer() end,
             rewind = function() C.rewindGPUDumpPlayer() end,
             getFrame = function() return tonumber(C.getGPUDumpPlayerFrame()) end,
+            getFrameCount = function() return tonumber(C.getGPUDumpPlayerFrameCount()) end,
+            -- Ends up where rewind() then that many step() calls would. False past the last frame.
+            seek = function(frame) return C.seekGPUDumpPlayer(frame) end,
             -- The player's own GPU logger, holding the commands of the last frame played.
             setLogging = function(enabled) C.setGPUDumpPlayerLogging(enabled) end,
             getLoggedCount = function() return C.getGPUDumpPlayerLoggedCount() end,

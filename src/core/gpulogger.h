@@ -86,12 +86,28 @@ class GPULogger {
     void addNode(const T& data, GPU::Logged::Origin origin, uint32_t value, uint32_t length) {
         if constexpr (std::is_same_v<T, GPU::CtrlDisplayStart>) {
             // A game flips buffers by moving the display start, so counting the moves gives its framerate.
-            // This does not work for interlaced games that keep displaying the same buffer.
+            // 480i games that keep displaying the same buffer are counted from the draw environment below.
             uint32_t start = data.x | (data.y << 16);
             if (start != m_lastDisplayStart) {
                 m_lastDisplayStart = start;
                 m_displayStartChanges++;
             }
+        }
+        // A 480i game can keep displaying the buffer it draws into, so its display start never moves. It still
+        // sets up its draw environment at the start of each frame, so a drawing area or offset write that follows
+        // some primitives marks a finished frame. At most one is counted per vsync, so a game switching draw
+        // environments several times in a frame counts once, and a field that redraws the same frame without
+        // touching the draw environment does not count.
+        if constexpr (std::is_same_v<T, GPU::CtrlDisplayMode>) {
+            m_interlaced480 = data.interlace && data.vres == GPU::CtrlDisplayMode::VR_480;
+        } else if constexpr (std::is_same_v<T, GPU::DrawingAreaStart> || std::is_same_v<T, GPU::DrawingAreaEnd> ||
+                             std::is_same_v<T, GPU::DrawingOffset>) {
+            if (m_primitivesSinceDrawEnv) {
+                m_primitivesSinceDrawEnv = false;
+                m_drawEnvFrameThisVSync = true;
+            }
+        } else if constexpr (requires { data.offset; }) {
+            m_primitivesSinceDrawEnv = true;
         }
         // Track the drawing area even while disabled, so the heatmap clips correctly as soon as it is enabled.
         if constexpr (std::is_same_v<T, GPU::DrawingAreaStart>) {
@@ -102,6 +118,8 @@ class GPULogger {
             m_drawingAreaY1 = data.y;
         } else if constexpr (std::is_same_v<T, GPU::CtrlReset>) {
             m_drawingAreaX0 = m_drawingAreaY0 = m_drawingAreaX1 = m_drawingAreaY1 = 0;
+            m_interlaced480 = false;
+            m_primitivesSinceDrawEnv = false;
         }
         if (m_enabled) {
             // Only primitives are clipped to the drawing area; fills and blits ignore it.
@@ -154,6 +172,10 @@ class GPULogger {
     bool m_pendingNewFrame = false;
     uint32_t m_lastDisplayStart = 0xffffffff;
     unsigned m_displayStartChanges = 0;
+    bool m_interlaced480 = false;
+    bool m_primitivesSinceDrawEnv = false;
+    bool m_drawEnvFrameThisVSync = false;
+    unsigned m_drawEnvFrames = 0;
     unsigned m_fpsVSyncs = 0;
     float m_guestFPS = 0.0f;
     OverdrawStats m_writtenOverdraw, m_readOverdraw;

@@ -79,3 +79,9 @@ function TestBasic:test_unknown_event_name()
     lu.assertFalse(ok)
     lu.assertStrContains(err, "'GPU::VSync'")
 end
+
+function TestBasic:test_webserver_handlers_table_exists()
+    -- The web server looks handlers up in PCSX.WebServer.Handlers, so a script can add one directly.
+    lu.assertEquals(type(PCSX.WebServer), 'table')
+    lu.assertEquals(type(PCSX.WebServer.Handlers), 'table')
+end

@@ -143,6 +143,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\src\supportpsx\adpcm.cc" />
     <ClCompile Include="..\..\src\supportpsx\adpcmlua.cc" />
+    <ClCompile Include="..\..\src\supportpsx\spu-sample-layout.cc" />
     <ClCompile Include="..\..\src\supportpsx\assembler.cc" />
     <ClCompile Include="..\..\src\supportpsx\binloader.cc" />
     <ClCompile Include="..\..\src\supportpsx\binlua.cc" />
@@ -177,6 +178,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\src\supportpsx\adpcm.h" />
     <ClInclude Include="..\..\src\supportpsx\adpcmlua.h" />
+    <ClInclude Include="..\..\src\supportpsx\spu-sample-layout.h" />
     <ClInclude Include="..\..\src\supportpsx\assembler.h" />
     <ClInclude Include="..\..\src\supportpsx\binloader.h" />
     <ClInclude Include="..\..\src\supportpsx\binlua.h" />

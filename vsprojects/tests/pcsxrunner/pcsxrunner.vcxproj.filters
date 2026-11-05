@@ -99,6 +99,9 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat10.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat26.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat-480i.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -159,7 +162,13 @@
     <ClCompile Include="..\..\..\tests\core\pocketstation-flash-sync.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\core\spdwriter.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-threaded.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\sio1-misc.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

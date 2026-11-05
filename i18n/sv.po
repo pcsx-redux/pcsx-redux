@@ -2,10 +2,10 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
+# 
 # Translators:
 # Daniel Nylander <po@danielnylander.se>, 2026
-#
+# 
 #, fuzzy
 msgid ""
 msgstr ""
@@ -13,12 +13,11 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "PO-Revision-Date: 2021-03-27 04:53+0000\n"
 "Last-Translator: Daniel Nylander <po@danielnylander.se>, 2026\n"
-"Language-Team: Swedish (https://app.transifex.com/grumpycoders/teams/99251/"
-"sv/)\n"
-"Language: sv\n"
+"Language-Team: Swedish (https://app.transifex.com/grumpycoders/teams/99251/sv/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: sv\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: src/cdrom/cdriso-ecm.cc:282
@@ -93,7 +92,7 @@ msgstr "Visa horisontellt intervall: %d-%d"
 #: src/core/OpenGL_GPU/gpu_opengl.cc:539
 #, c-format
 msgid "Display vertical range: %d-%d"
-msgstr "Vertikalt visningsområde: %d-%d"
+msgstr "Visa vertikalt intervall: %d - %d"
 
 #: src/core/OpenGL_GPU/gpu_opengl.cc:540
 #, c-format
@@ -230,8 +229,8 @@ msgstr "GDB-server: kan inte lyssna på port %i: %s\n"
 #: src/core/gdb-server.cc:655
 #, c-format
 msgid ""
-"GDB server: refusing breakpoint at %08x, the debugger is disabled (use -"
-"debugger)\n"
+"GDB server: refusing breakpoint at %08x, the debugger is disabled (use "
+"-debugger)\n"
 msgstr ""
 "GDB-server: vägrar brytpunkt vid %08x eftersom felsökaren är inaktiverad "
 "(använd -debugger)\n"
@@ -299,11 +298,11 @@ msgstr "läs"
 #: src/core/gpulogger.cc:239
 #, c-format
 msgid ""
-"VRAM breakpoint %i triggered: %.*s did a %s intersecting %ix%i at %i,%i - PC "
-"= 0x%08x\n"
+"VRAM breakpoint %i triggered: %.*s did a %s intersecting %ix%i at %i,%i - PC"
+" = 0x%08x\n"
 msgstr ""
-"VRAM-brytpunkten %i utlöstes: %.*s gjorde en %s som skär %ix%i vid %i,%i. PC "
-"= 0x%08x\n"
+"VRAM-brytpunkten %i utlöstes: %.*s gjorde en %s som skär %ix%i vid %i,%i. PC"
+" = 0x%08x\n"
 
 #: src/core/gpulogger.cc:433
 #, c-format
@@ -669,7 +668,7 @@ msgstr "Typ av kontroll"
 
 #: src/core/pad.cc:1601
 msgid "Multitap"
-msgstr ""
+msgstr "Multitap"
 
 #: src/core/pad.cc:1603
 msgid ""
@@ -677,6 +676,9 @@ msgid ""
 "three slots only take input from a host application, through the shared "
 "display memory."
 msgstr ""
+"Ansluter en multitap till den här porten, med den här handkontrollen i plats"
+" A. De övriga tre platserna tar endast emot inmatning från en "
+"värdapplikation via det delade bildskärmsminnet."
 
 #: src/core/pad.cc:1609
 msgid "Device type"
@@ -753,8 +755,7 @@ msgstr "Försök till ojusterad JR till 0x%08x från 0x%08x, utlöser undantag!\
 #: src/core/psxinterpreter.cc:917
 #, c-format
 msgid "Attempted unaligned JALR to 0x%08x from 0x%08x, firing exception!\n"
-msgstr ""
-"Försök till ojusterad JALR till 0x%08x från 0x%08x, utlöser undantag!\n"
+msgstr "Försök till ojusterad JALR till 0x%08x från 0x%08x, utlöser undantag!\n"
 
 #: src/core/psxinterpreter.cc:957
 #, c-format
@@ -825,12 +826,10 @@ msgstr "Ingen BIOS har lästs in, emuleringen har stoppats."
 
 #: src/core/psxmem.cc:220
 msgid ""
-"Set a BIOS file into the configuration, and do a hard reset of the "
-"emulator.\n"
+"Set a BIOS file into the configuration, and do a hard reset of the emulator.\n"
 "The distributed OpenBIOS.bin file can be an appropriate BIOS replacement."
 msgstr ""
-"Ange en BIOS-fil i konfigurationen och gör en hård återställning av "
-"emulatorn.\n"
+"Ange en BIOS-fil i konfigurationen och gör en hård återställning av emulatorn.\n"
 "Den distribuerade filen OpenBIOS.bin kan vara ett lämpligt BIOS-alternativ."
 
 #: src/core/psxmem.cc:233
@@ -844,8 +843,7 @@ msgid ""
 "Could not open OpenBIOS fallback. Things won't work properly.\n"
 "Add a valid BIOS in the configuration and hard reset.\n"
 msgstr ""
-"Det gick inte att öppna OpenBIOS-fallback. Det kommer inte att fungera som "
-"det ska.\n"
+"Det gick inte att öppna OpenBIOS-fallback. Det kommer inte att fungera som det ska.\n"
 "Lägg till ett giltigt BIOS i konfigurationen och gör en hård omstart.\n"
 
 #: src/core/psxmem.cc:258
@@ -1058,8 +1056,8 @@ msgid ""
 "Dithering tables are cached in memory for faster processing. Dithering will "
 "be done much faster, at the cost of a 512MB cache."
 msgstr ""
-"Ditheringtabeller cachas i minnet för snabbare bearbetning. Dithering kommer "
-"att utföras mycket snabbare, till priset av 512 MB cache."
+"Ditheringtabeller cachas i minnet för snabbare bearbetning. Dithering kommer"
+" att utföras mycket snabbare, till priset av 512 MB cache."
 
 #: src/gpu/soft/gpu.cc:323
 msgid "Render on a separate thread"
@@ -1083,137 +1081,132 @@ msgstr "Inaktivera texturer för sprites"
 
 #: src/gpu/soft/gpu.cc:345
 msgid "Video mode"
-msgstr ""
+msgstr "Videoläge"
 
 #: src/gpu/soft/gpu.cc:346
 #, c-format
 msgid "GP1(08h): %06x"
-msgstr ""
+msgstr "GP1(08h): %06x"
 
 #: src/gpu/soft/gpu.cc:347
-#, fuzzy, c-format
+#, c-format
 msgid "Resolution: %s x %s, %s, %s"
-msgstr "Upplösning: %dx%d"
+msgstr "Upplösning: %s x %s, %s, %s"
 
 #: src/gpu/soft/gpu.cc:351
-#, fuzzy, c-format
+#, c-format
 msgid "Interlace: %s"
-msgstr "Sammanflätad: %s"
+msgstr "Sammanflätning: %s"
 
 #: src/gpu/soft/gpu.cc:351 src/gpu/soft/gpu.cc:367 src/gpu/soft/gpu.cc:368
 #: src/gpu/soft/gpu.cc:369 src/gpu/soft/gpu.cc:370
-#, fuzzy
 msgid "off"
-msgstr "Av"
+msgstr "av"
 
 #: src/gpu/soft/gpu.cc:351 src/gpu/soft/gpu.cc:367 src/gpu/soft/gpu.cc:368
 #: src/gpu/soft/gpu.cc:369 src/gpu/soft/gpu.cc:370
-#, fuzzy
 msgid "on"
-msgstr "Ingen"
+msgstr "på"
 
 #: src/gpu/soft/gpu.cc:352
 #, c-format
 msgid "Display (GPUSTAT.23): %s"
-msgstr ""
+msgstr "Visning (GPUSTAT.23): %s"
 
 #: src/gpu/soft/gpu.cc:352
-#, fuzzy
 msgid "disabled"
-msgstr "Aktiverad"
+msgstr "inaktiverad"
 
 #: src/gpu/soft/gpu.cc:352
-#, fuzzy
 msgid "enabled"
-msgstr "Aktiverad"
+msgstr "aktiverad"
 
 #: src/gpu/soft/gpu.cc:356
-#, fuzzy
 msgid "Display area"
-msgstr "Endast visningsområde"
+msgstr "Visningsområde"
 
 #: src/gpu/soft/gpu.cc:358
 #, c-format
 msgid "Start (GP1(05h)): %u, %u"
-msgstr ""
+msgstr "Start (GP1(05h)): %u, %u"
 
 #: src/gpu/soft/gpu.cc:359
-#, fuzzy, c-format
+#, c-format
 msgid "Horizontal range (GP1(06h)): %d - %d"
-msgstr "Visa horisontellt intervall: %d-%d"
+msgstr "Horisontellt intervall (GP1(06h)): %d - %d"
 
 #: src/gpu/soft/gpu.cc:360
-#, fuzzy, c-format
+#, c-format
 msgid "Vertical range (GP1(07h)): %d - %d"
-msgstr "Vertikalt visningsområde: %d-%d"
+msgstr "Vertikalt intervall (GP1(07h)): %d - %d"
 
 #: src/gpu/soft/gpu.cc:361
 #, c-format
 msgid "Shown rectangle: %d, %d, %d x %d"
-msgstr ""
+msgstr "Visad rektangel: %d, %d, %d x %d"
 
 #: src/gpu/soft/gpu.cc:366
 msgid "Drawing"
-msgstr ""
+msgstr "Ritning"
 
 #: src/gpu/soft/gpu.cc:367
 #, c-format
 msgid "Draw to display area (E1h.10): %s"
-msgstr ""
+msgstr "Rita till visningsområdet (E1h.10): %s"
 
 #: src/gpu/soft/gpu.cc:368
-#, fuzzy, c-format
+#, c-format
 msgid "Dither (E1h.9): %s"
-msgstr "Dithering: %s"
+msgstr "Dithering (E1h.9): %s"
 
 #: src/gpu/soft/gpu.cc:369
 #, c-format
 msgid "Mask: set %s, check %s"
-msgstr ""
+msgstr "Mask: ställ in %s, kontrollera %s"
 
 #: src/gpu/soft/gpu.cc:374
-#, fuzzy, c-format
+#, c-format
 msgid "Drawing area: %u, %u - %u, %u"
-msgstr "Ritningsområdets förskjutning: (%d, %d)"
+msgstr "Ritområde: %u, %u - %u, %u"
 
 #: src/gpu/soft/gpu.cc:379
-#, fuzzy, c-format
+#, c-format
 msgid "Drawing offset: %d, %d"
-msgstr "Ritningsområdets förskjutning: (%d, %d)"
+msgstr "Ritområdesförskjutning: %d, %d"
 
 #: src/gpu/soft/gpu.cc:383
 msgid "480i row skip"
-msgstr ""
+msgstr "Hoppa över 480i-rad"
 
 #: src/gpu/soft/gpu.cc:384
 #, c-format
 msgid "GPUSTAT.31: %u, GPUSTAT.13: %u"
-msgstr ""
+msgstr "GPUSTAT.31: %u, GPUSTAT.13: %u"
 
 #: src/gpu/soft/gpu.cc:386
 msgid "Skip parity at the last draw: none, every row drawn"
-msgstr ""
+msgstr "Överhoppningsparitet vid senaste ritningen: ingen, varje rad ritades"
 
 #: src/gpu/soft/gpu.cc:388
 msgid ""
 "Skip parity at the last draw: no draw since the last reset or threading "
 "change"
 msgstr ""
+"Överhoppningsparitet vid senaste ritningen: ingen ritning sedan senaste "
+"återställningen eller ändringen av trådning"
 
 #: src/gpu/soft/gpu.cc:390
 #, c-format
 msgid "Skip parity at the last draw: %s rows skipped"
-msgstr ""
+msgstr "Överhoppningsparitet vid senaste ritningen: %s rader hoppades över"
 
 #: src/gpu/soft/gpu.cc:390
-#, fuzzy
 msgid "even"
-msgstr "{} händelser"
+msgstr "jämn"
 
 #: src/gpu/soft/gpu.cc:390
-#, fuzzy
 msgid "odd"
-msgstr "Lägg till"
+msgstr "udda"
 
 #: src/gpu/soft/gpu.cc:395
 msgid "Soft GPU debugger"
@@ -1284,8 +1277,8 @@ msgid ""
 "The argument to the setText* functions need to be convertible to a string, "
 "or be a File object"
 msgstr ""
-"Argumentet till setText*-funktionerna måste kunna konverteras till en sträng "
-"eller vara ett File-objekt"
+"Argumentet till setText*-funktionerna måste kunna konverteras till en sträng"
+" eller vara ett File-objekt"
 
 #: src/gui/gui.cc:448
 msgid "Error compiling new shader code: {}"
@@ -1553,12 +1546,10 @@ msgstr "Visa DynaRec Disassembly"
 
 #: src/gui/gui.cc:1527
 msgid ""
-"DynaRec Disassembler is not available in Interpreted CPU mode. Try enabling "
-"[Dynarec CPU]\n"
+"DynaRec Disassembler is not available in Interpreted CPU mode. Try enabling [Dynarec CPU]\n"
 "in Configuration->Emulation, restart PCSX-Redux, then try again."
 msgstr ""
-"DynaRec Disassembler är inte tillgängligt i tolkat CPU-läge. Försök att "
-"aktivera [Dynarec CPU]\n"
+"DynaRec Disassembler är inte tillgängligt i tolkat CPU-läge. Försök att aktivera [Dynarec CPU]\n"
 "i Konfiguration->Emulering, starta om PCSX-Redux och försök igen."
 
 #: src/gui/gui.cc:1530
@@ -2106,17 +2097,13 @@ msgstr "Återställ inställningar"
 
 #: src/gui/gui.cc:2203
 msgid ""
-"This will restore every setting to its default value, including the window "
-"layout, the input bindings, the paths to the BIOS and the memory cards, and "
-"the contents of the shader editors.\n"
+"This will restore every setting to its default value, including the window layout, the input bindings, the paths to the BIOS and the memory cards, and the contents of the shader editors.\n"
 "\n"
 "Save states and memory card contents are left alone.\n"
 "\n"
 "The emulator will reboot to complete the operation."
 msgstr ""
-"Detta återställer alla inställningar till sina standardvärden, inklusive "
-"fönsterlayouten, inmatningsbindningarna, sökvägarna till BIOS och "
-"minneskorten samt innehållet i skuggredigerarna.\n"
+"Detta återställer alla inställningar till sina standardvärden, inklusive fönsterlayouten, inmatningsbindningarna, sökvägarna till BIOS och minneskorten samt innehållet i skuggredigerarna.\n"
 "\n"
 "Sparade lägen och minneskortens innehåll lämnas orörda.\n"
 "\n"
@@ -2134,7 +2121,8 @@ msgstr "Emuleringskonfiguration"
 msgid "Idle Swap Interval"
 msgstr "Intervall för idle swap"
 
-#. Emulation speed now lives at the audio sink (SPU::Speed), set in the SPU configuration window.
+#. Emulation speed now lives at the audio sink (SPU::Speed), set in the SPU
+#. configuration window.
 #: src/gui/gui.cc:2281
 msgid "Enable XA decoder"
 msgstr "Aktivera XA-avkodare"
@@ -2261,8 +2249,7 @@ msgstr ""
 "Sparar ett tillstånd i minnet var N:e bildruta\n"
 "och behåller de senaste M tillstånden. Tryck på Backspace eller\n"
 "Emulering -> Återspola för att stegvis gå bakåt genom dem.\n"
-"Varje ögonblicksbild är för närvarande ett fullständigt tillstånd (cirka 18 "
-"MB), så\n"
+"Varje ögonblicksbild är för närvarande ett fullständigt tillstånd (cirka 18 MB), så\n"
 "djup × 18 MB är ungefärlig minneskostnad. Ställ\n"
 "intervallet till 0 för att inaktivera funktionen."
 
@@ -2431,8 +2418,8 @@ msgid ""
 "performance of this software, but user code such as the shader editor won't "
 "be able to properly report problems accurately."
 msgstr ""
-"OpenGL-felrapportering har inaktiverats eftersom din OpenGL-drivrutin är för "
-"gammal. Felrapportering kräver minst OpenGL 4.3. Uppdatera dina "
+"OpenGL-felrapportering har inaktiverats eftersom din OpenGL-drivrutin är för"
+" gammal. Felrapportering kräver minst OpenGL 4.3. Uppdatera dina "
 "grafikkortdrivrutiner eller kontakta din GPU-leverantör för att få "
 "uppdaterade OpenGL-drivrutiner. Inaktiverad OpenGL-felrapportering påverkar "
 "inte prestandan för denna programvara, men användarkod som shader-"
@@ -2604,8 +2591,8 @@ msgid ""
 "When two instructions are detected to be a single pseudo-instruction, "
 "combine them into the actual pseudo-instruction."
 msgstr ""
-"När två instruktioner upptäcks vara en enda pseudoinstruktion, kombinera dem "
-"till den faktiska pseudoinstruktionen."
+"När två instruktioner upptäcks vara en enda pseudoinstruktion, kombinera dem"
+" till den faktiska pseudoinstruktionen."
 
 #: src/gui/widgets/assembly.cc:526
 msgid "Pseudo-instructions filling"
@@ -2695,7 +2682,8 @@ msgstr "Kör till markören"
 
 #: src/gui/widgets/assembly.cc:806
 msgid ""
-"Run the emulation until the program counter reaches this address, then pause."
+"Run the emulation until the program counter reaches this address, then "
+"pause."
 msgstr ""
 "Kör emuleringen tills programräknaren når den här adressen och pausa sedan."
 
@@ -2705,13 +2693,13 @@ msgstr "Hoppa till markören"
 
 #: src/gui/widgets/assembly.cc:817
 msgid ""
-"Set the program counter to this address. This will skip over any instruction "
-"between the current one and the one you're selecting. This can cause "
+"Set the program counter to this address. This will skip over any instruction"
+" between the current one and the one you're selecting. This can cause "
 "inconsistencies, so use with caution."
 msgstr ""
 "Ställ programräknaren på den här adressen. Alla instruktioner mellan den "
-"aktuella och den valda hoppas över. Det kan ge inkonsekvenser, så använd med "
-"försiktighet."
+"aktuella och den valda hoppas över. Det kan ge inkonsekvenser, så använd med"
+" försiktighet."
 
 #: src/gui/widgets/assembly.cc:823
 msgid "Toggle Breakpoint"
@@ -2745,7 +2733,8 @@ msgstr "Assemble"
 #: src/gui/widgets/assembly.cc:999 src/gui/widgets/breakpoints.cc:181
 #: src/gui/widgets/memory_observer.cc:171
 #: src/gui/widgets/memory_observer.cc:372
-#: src/gui/widgets/memory_observer.cc:482 src/gui/widgets/typed_debugger.cc:929
+#: src/gui/widgets/memory_observer.cc:482
+#: src/gui/widgets/typed_debugger.cc:929
 msgid "Address"
 msgstr "Adress"
 
@@ -3281,7 +3270,8 @@ msgstr "Glöm en sparad nod"
 #: src/gui/widgets/dalos.cc:625
 msgid "Save this node's setup under a name. It then shows up in the add menu."
 msgstr ""
-"Spara nodens inställningar under ett namn. Den visas sedan i menyn Lägg till."
+"Spara nodens inställningar under ett namn. Den visas sedan i menyn Lägg "
+"till."
 
 #: src/gui/widgets/dalos.cc:627 src/gui/widgets/isobrowser.cc:822
 #: src/gui/widgets/typed_debugger.cc:827 src/gui/widgets/typed_debugger.cc:873
@@ -3364,9 +3354,8 @@ msgid "Open GPU dump"
 msgstr "Öppna GPU-dump"
 
 #: src/gui/widgets/gpudump.cc:51
-#, fuzzy
 msgid "GPU Dump Logger"
-msgstr "GPU-logger"
+msgstr "GPU-dumploggning"
 
 #: src/gui/widgets/gpudump.cc:58
 msgid "Unable to create the dump file."
@@ -3398,10 +3387,11 @@ msgid "Start recording..."
 msgstr "Starta inspelning…"
 
 #: src/gui/widgets/gpudump.cc:93
-msgid "The capture starts at the next vsync, with the full VRAM and GPU state."
+msgid ""
+"The capture starts at the next vsync, with the full VRAM and GPU state."
 msgstr ""
-"Insamlingen börjar vid nästa vertikala synkronisering med hela VRAM- och GPU-"
-"tillståndet."
+"Insamlingen börjar vid nästa vertikala synkronisering med hela VRAM- och "
+"GPU-tillståndet."
 
 #: src/gui/widgets/gpudump.cc:100
 msgid "Player"
@@ -3447,9 +3437,8 @@ msgid "Loop"
 msgstr "Slinga"
 
 #: src/gui/widgets/gpudump.cc:124
-#, fuzzy
 msgid "Logger"
-msgstr "GPU-logger"
+msgstr "Loggning"
 
 #: src/gui/widgets/gpudump.cc:126
 msgid "Display area only"
@@ -3481,14 +3470,14 @@ msgstr "GPU-loggning"
 
 #: src/gui/widgets/gpulogger.cc:78
 msgid ""
-"Logs each frame's draw calls. When enabled, all the commands sent to the GPU "
-"will be logged and displayed here. This will contain only a single frame "
+"Logs each frame's draw calls. When enabled, all the commands sent to the GPU"
+" will be logged and displayed here. This will contain only a single frame "
 "worth of commands. The feature can be pretty demanding in CPU and memory."
 msgstr ""
-"Loggar varje bildrutas ritningskommandon. När funktionen är aktiverad loggas "
-"alla kommandon som skickas till GPU:n och visas här. Detta innehåller endast "
-"kommandon för en enda bildruta. Funktionen kan vara ganska krävande för CPU "
-"och minne."
+"Loggar varje bildrutas ritningskommandon. När funktionen är aktiverad loggas"
+" alla kommandon som skickas till GPU:n och visas här. Detta innehåller "
+"endast kommandon för en enda bildruta. Funktionen kan vara ganska krävande "
+"för CPU och minne."
 
 #: src/gui/widgets/gpulogger.cc:82
 msgid "Breakpoint on vsync"
@@ -3502,10 +3491,10 @@ msgstr "Uppspelningsram"
 msgid ""
 "When enabled, the framebuffer will be constantly redrawned using the "
 "selected commands, allowing to see the resulting output immediately. This "
-"doesn't make sense to have this enabled when: (1) the CPU is running and (2) "
-"the GPU logging isn't enabled. Selection of which commands to replay is done "
-"using the first checkbox in the logger display below. The [T] button will "
-"select all commands for replay from the top and until this command."
+"doesn't make sense to have this enabled when: (1) the CPU is running and (2)"
+" the GPU logging isn't enabled. Selection of which commands to replay is "
+"done using the first checkbox in the logger display below. The [T] button "
+"will select all commands for replay from the top and until this command."
 msgstr ""
 "När denna funktion är aktiverad kommer framebuffern att ritas om "
 "kontinuerligt med hjälp av de valda kommandona, vilket gör att du kan se "
@@ -3526,8 +3515,8 @@ msgid ""
 "clutter the logger view."
 msgstr ""
 "När funktionen är aktiverad visar loggarens display även var kommandot kom "
-"ifrån, vilket kan vara användbart för felsökning eller bakåtkompilering, men "
-"också göra loggarens vy rörig."
+"ifrån, vilket kan vara användbart för felsökning eller bakåtkompilering, men"
+" också göra loggarens vy rörig."
 
 #: src/gui/widgets/gpulogger.cc:110
 msgid "Collapse all nodes"
@@ -3555,10 +3544,10 @@ msgstr "Markera vid muspekning"
 
 #: src/gui/widgets/gpulogger.cc:130
 msgid ""
-"When enabled, hovering a command in the logger view will highlight it in the "
-"vram display. Individual commands can be selected for highlight by using the "
-"second checkbox in the logger view. The [B] and [E] buttons can be used to "
-"specify the beginning and the end of a span of commands to highlight."
+"When enabled, hovering a command in the logger view will highlight it in the"
+" vram display. Individual commands can be selected for highlight by using "
+"the second checkbox in the logger view. The [B] and [E] buttons can be used "
+"to specify the beginning and the end of a span of commands to highlight."
 msgstr ""
 "När denna funktion är aktiverad markeras kommandot i VRAM-displayen när du "
 "håller muspekaren över det i loggvisningen. Enskilda kommandon kan markeras "
@@ -3572,8 +3561,8 @@ msgstr "Filtrera efter pixel"
 
 #: src/gui/widgets/gpulogger.cc:135
 msgid ""
-"When enabled, only the commands that are related to the specified pixel will "
-"be shown. The pixel location is specified in the next input fields. The "
+"When enabled, only the commands that are related to the specified pixel will"
+" be shown. The pixel location is specified in the next input fields. The "
 "[Probe VRAM] button can be used to set the pixel location by hovering and "
 "clicking inside the VRAM viewer."
 msgstr ""
@@ -3598,7 +3587,8 @@ msgstr ""
 "När funktionen är aktiverad kommer du genom att hålla muspekaren över och "
 "sedan klicka i VRAM-visaren att ställa in pixelplatsen för filtreringen."
 
-#. Breakpoints pause the emulator, so they only make sense on the emulator's own logger.
+#. Breakpoints pause the emulator, so they only make sense on the emulator's
+#. own logger.
 #: src/gui/widgets/gpulogger.cc:149
 msgid "VRAM breakpoints"
 msgstr "VRAM-brytpunkter"
@@ -3608,8 +3598,8 @@ msgid ""
 "Pauses emulation when a command reads from or writes to one of these VRAM "
 "rectangles. Handy to catch the texture upload that stomped an area, since "
 "those are hard to spot in a frame that redraws everything. The command that "
-"triggered gets highlighted in the logger view below. Note the footprints are "
-"unclipped, so a primitive that ends up entirely outside the drawing area "
+"triggered gets highlighted in the logger view below. Note the footprints are"
+" unclipped, so a primitive that ends up entirely outside the drawing area "
 "still counts as a write."
 msgstr ""
 "Pausar emuleringen när ett kommando läser från eller skriver till en av "
@@ -3933,7 +3923,8 @@ msgstr "ISO-ersättning: kunde inte öppna ersättningsfilen.\n"
 #: src/gui/widgets/isobrowser.cc:760
 #, c-format
 msgid ""
-"ISO replace: replacement file is larger than target (%zu > %u). Truncating.\n"
+"ISO replace: replacement file is larger than target (%zu > %u). "
+"Truncating.\n"
 msgstr ""
 "ISO-ersättning: ersättningsfilen är större än målet (%zu > %u). Kortar av.\n"
 
@@ -4068,7 +4059,8 @@ msgstr "Senaste"
 msgid "Clear Undo buffer"
 msgstr "Rensa ångringsbuffert"
 
-#. Insert or remove memory cards. Send a SIO IRQ to the emulator if this happens as well.
+#. Insert or remove memory cards. Send a SIO IRQ to the emulator if this
+#. happens as well.
 #: src/gui/widgets/memcard_manager.cc:161
 msgid "Memory Card 1 inserted"
 msgstr "Minneskort 1 inmatat"
@@ -4088,8 +4080,8 @@ msgid ""
 "Pocketstation commands, possibly allowing apps to be saved/exported."
 msgstr ""
 "Experimentellt. Emulatorn kommer att försöka skicka artificiella svar på "
-"Pocketstation-kommandon, vilket eventuellt gör det möjligt att spara/"
-"exportera appar."
+"Pocketstation-kommandon, vilket eventuellt gör det möjligt att "
+"spara/exportera appar."
 
 #: src/gui/widgets/memcard_manager.cc:178
 msgid "Card 2 Pocketstation"
@@ -4221,7 +4213,7 @@ msgstr "Visa i minnesredigeraren##{}"
 #: src/gui/widgets/memory_observer.cc:194
 #: src/gui/widgets/memory_observer.cc:437
 msgid "╳##{}"
-msgstr ""
+msgstr "╳##{}"
 
 #: src/gui/widgets/memory_observer.cc:208
 msgid "Delta-over-time search"
@@ -4244,51 +4236,44 @@ msgid "Scan type"
 msgstr "Skanningstyp"
 
 #: src/gui/widgets/memory_observer.cc:312
-#, fuzzy
 msgid "Next"
-msgstr "Nästa skanning"
+msgstr "Nästa"
 
 #: src/gui/widgets/memory_observer.cc:353
-#, fuzzy
 msgid "Freeze all"
-msgstr "Nollställ allt"
+msgstr "Frys alla"
 
 #: src/gui/widgets/memory_observer.cc:361
 msgid "Unfreeze all"
-msgstr ""
+msgstr "Frigör alla"
 
 #: src/gui/widgets/memory_observer.cc:367
 msgid "Remove frozen addresses"
-msgstr ""
+msgstr "Ta bort frysta adresser"
 
 #: src/gui/widgets/memory_observer.cc:373
-#, fuzzy
 msgid "Current"
-msgstr "Aktuellt värde"
+msgstr "Aktuell"
 
 #: src/gui/widgets/memory_observer.cc:374
 msgid "Previous"
-msgstr ""
+msgstr "Föregående"
 
 #: src/gui/widgets/memory_observer.cc:375
-#, fuzzy
 msgid "Freeze"
-msgstr "Frys##{}"
+msgstr "Frys"
 
 #: src/gui/widgets/memory_observer.cc:414
-#, fuzzy
 msgid "##{}"
-msgstr "Kopiera##{}"
+msgstr "##{}"
 
 #: src/gui/widgets/memory_observer.cc:425
-#, fuzzy
 msgid "Read##{}"
-msgstr "Läs"
+msgstr "Read##{}"
 
 #: src/gui/widgets/memory_observer.cc:431
-#, fuzzy
 msgid "Write##{}"
-msgstr "Skriv"
+msgstr "Write##{}"
 
 #: src/gui/widgets/memory_observer.cc:452
 msgid "Pattern search"
@@ -4739,10 +4724,11 @@ msgstr "Automatisk uppdatering"
 
 #: src/gui/widgets/spusamples.cc:137
 msgid ""
-"Sample starts come from key on events. Enable the SPU logger to collect them."
+"Sample starts come from key on events. Enable the SPU logger to collect "
+"them."
 msgstr ""
-"Samplingsstarter kommer från tangenttryckningar. Aktivera SPU-loggningen för "
-"att samla in dem."
+"Samplingsstarter kommer från tangenttryckningar. Aktivera SPU-loggningen för"
+" att samla in dem."
 
 #: src/gui/widgets/spusamples.cc:139
 msgid "{} samples"
@@ -4813,11 +4799,13 @@ msgstr "Skrivpaus"
 msgid "Display log entries##{}{}"
 msgstr "Visa loggposter##{}{}"
 
-#: src/gui/widgets/typed_debugger.cc:315 src/gui/widgets/typed_debugger.cc:1033
+#: src/gui/widgets/typed_debugger.cc:315
+#: src/gui/widgets/typed_debugger.cc:1033
 msgid "Re-enable##{}"
 msgstr "Återaktivera##{}"
 
-#: src/gui/widgets/typed_debugger.cc:316 src/gui/widgets/typed_debugger.cc:1034
+#: src/gui/widgets/typed_debugger.cc:316
+#: src/gui/widgets/typed_debugger.cc:1034
 msgid "Disable##{}"
 msgstr "Inaktivera##{}"
 
@@ -4833,12 +4821,9 @@ msgstr "Lägg till i fliken \"Titta på\"##{}{}"
 #: src/gui/widgets/typed_debugger.cc:623
 msgid ""
 "\n"
-"Data types can be imported from Ghidra using tools/ghidra_scripts/"
-"export_redux.py, which will\n"
-"generate a redux_data_types.txt file in its folder, or from any text file "
-"where each line specifies the\n"
-"data type's name and fields, separated by semi-colons; fields are specified "
-"in type-name-size tuples\n"
+"Data types can be imported from Ghidra using tools/ghidra_scripts/export_redux.py, which will\n"
+"generate a redux_data_types.txt file in its folder, or from any text file where each line specifies the\n"
+"data type's name and fields, separated by semi-colons; fields are specified in type-name-size tuples\n"
 "whose elements are separated by commas.\n"
 "\n"
 "For example:\n"
@@ -4849,12 +4834,9 @@ msgid ""
 "Arrays are specified as `type[number]` and pointers as `type *`."
 msgstr ""
 "\n"
-"Datatyper kan importeras från Ghidra med tools/ghidra_scripts/export_redux."
-"py, vilket\n"
-"genererar en redux_data_types.txt-fil i sin mapp, eller från en textfil där "
-"varje rad anger\n"
-"datatypens namn och fält, separerade med semikolon; fälten anges i typnamn-"
-"storlek-tupler\n"
+"Datatyper kan importeras från Ghidra med tools/ghidra_scripts/export_redux.py, vilket\n"
+"genererar en redux_data_types.txt-fil i sin mapp, eller från en textfil där varje rad anger\n"
+"datatypens namn och fält, separerade med semikolon; fälten anges i typnamn-storlek-tupler\n"
 "vars element separeras med kommatecken.\n"
 "\n"
 "Till exempel:\n"
@@ -4867,12 +4849,9 @@ msgstr ""
 #: src/gui/widgets/typed_debugger.cc:653
 msgid ""
 "\n"
-"Functions can be imported from Ghidra using tools/ghidra_scripts/"
-"export_redux.py, which will generate\n"
-"a redux_funcs.txt file in its folder, or from any text file where each line "
-"specifies the function\n"
-"address, name and arguments, separated by semi-colons; arguments are "
-"specified in type-name-size tuples\n"
+"Functions can be imported from Ghidra using tools/ghidra_scripts/export_redux.py, which will generate\n"
+"a redux_funcs.txt file in its folder, or from any text file where each line specifies the function\n"
+"address, name and arguments, separated by semi-colons; arguments are specified in type-name-size tuples\n"
 "whose elements are separated by commas.\n"
 "\n"
 "For example:\n"
@@ -4883,12 +4862,9 @@ msgid ""
 "Arrays and pointers are specified as for data types"
 msgstr ""
 "\n"
-"Funktioner kan importeras från Ghidra med hjälp av tools/ghidra_scripts/"
-"export_redux.py, som genererar\n"
-"en redux_funcs.txt-fil i sin mapp, eller från valfri textfil där varje rad "
-"anger funktionens adress, namn och\n"
-"argument, separerade med semikolon. Argumenten anges i typ-namn-storlek-"
-"tupler vars element är\n"
+"Funktioner kan importeras från Ghidra med hjälp av tools/ghidra_scripts/export_redux.py, som genererar\n"
+"en redux_funcs.txt-fil i sin mapp, eller från valfri textfil där varje rad anger funktionens adress, namn och\n"
+"argument, separerade med semikolon. Argumenten anges i typ-namn-storlek-tupler vars element är\n"
 "separerade med kommatecken.\n"
 "\n"
 "Exempel:\n"
@@ -5136,13 +5112,11 @@ msgstr "Hastighetsmultiplikator"
 #: src/spu/cfg.cc:83
 msgid ""
 "Emulation speed, applied at the audio sink (the master clock).\n"
-"1 = realtime, N = N times faster. Frames are skipped, not resampled, so "
-"pitch is preserved.\n"
+"1 = realtime, N = N times faster. Frames are skipped, not resampled, so pitch is preserved.\n"
 "0 or less = unbounded: run as fast as the host allows."
 msgstr ""
 "Emuleringshastighet som tillämpas vid ljudutmatningen (huvudklockan).\n"
-"1 = realtid, N = N gånger snabbare. Bildrutor hoppas över i stället för "
-"omsampling, så tonhöjden bevaras.\n"
+"1 = realtid, N = N gånger snabbare. Bildrutor hoppas över i stället för omsampling, så tonhöjden bevaras.\n"
 "0 eller mindre = obegränsad: kör så snabbt som värden tillåter."
 
 #: src/spu/cfg.cc:86
@@ -5162,39 +5136,3 @@ msgstr ""
 #: src/spu/debug.cc:594
 msgid "SPU Debug"
 msgstr "SPU-felsökning"
-
-#~ msgid ""
-#~ "Debugging features are not supported when using the software renderer "
-#~ "yet\n"
-#~ "Consider enabling the OpenGL GPU option instead."
-#~ msgstr ""
-#~ "Felsökningsfunktioner stöds ännu inte när du använder "
-#~ "programvarurenderaren.\n"
-#~ "Överväg istället att aktivera alternativet OpenGL GPU."
-
-#~ msgid "Network servers and clients now live in their own window."
-#~ msgstr "Nätverksservrar och klienter finns nu i ett eget fönster."
-
-#~ msgid "Open Network settings"
-#~ msgstr "Öppna nätverksinställningar"
-
-#~ msgid "First scan"
-#~ msgstr "Första skanning"
-
-#~ msgid "Current value"
-#~ msgstr "Aktuellt värde"
-
-#~ msgid "Scanned value"
-#~ msgstr "Skannat värde"
-
-#~ msgid "Read breakpoint"
-#~ msgstr "Läs brytpunkt"
-
-#~ msgid "Write breakpoint"
-#~ msgstr "Skriv brytpunkt"
-
-#~ msgid "Add read breakpoint##{}"
-#~ msgstr "Lägg till läsbrytpunkt##{}"
-
-#~ msgid "Add write breakpoint##{}"
-#~ msgstr "Lägg till skrivbrytpunkt##{}"

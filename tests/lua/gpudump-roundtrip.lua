@@ -96,6 +96,45 @@ local function checkEmptyFrame(path)
     return busiest > 0 and last == 0
 end
 
+-- seek(k) lands where rewind() and k steps land, both from a snapshot (after a full play has cached
+-- them) and going forward from the current frame. The dump ends on a frame that changed VRAM, so
+-- seeking to the frame before the last one must not match the last one.
+local function checkSeek(path)
+    if not PCSX.GPU.DumpPlayer.load(path) then return false end
+    local player = PCSX.GPU.DumpPlayer
+    player.setLogging(true)
+    local total = player.getFrameCount()
+    while player.step() do end
+    local final = player.getVRAM()
+    local finalLogged = player.getLoggedCount()
+    local bad = 0
+    local targets = { total - 1, 1, total, 31, 61, 45, 2 }
+    for _, k in ipairs(targets) do
+        if k >= 0 and k <= total then
+            local sought = player.seek(k) and player.getFrame() == k
+            local vram, logged = player.getVRAM(), player.getLoggedCount()
+            player.rewind()
+            for i = 1, k do player.step() end
+            local diffs = countDiffs(vram, player.getVRAM())
+            if not sought or diffs ~= 0 or logged ~= player.getLoggedCount() then
+                print(string.format('%s: seek(%d) differs: %d pixels, %d vs %d commands', path, k, diffs, logged,
+                                    player.getLoggedCount()))
+                bad = bad + 1
+            end
+        end
+    end
+    player.seek(total - 1)
+    local control = countDiffs(final, player.getVRAM())
+    player.seek(total)
+    local back = countDiffs(final, player.getVRAM())
+    local logged = player.getLoggedCount()
+    local past = player.seek(total + 1)
+    player.setLogging(false)
+    print(string.format('%s: seek over %d frames, %d mismatches, last frame %d pixels from the one before, %d after a seek back',
+                        path, total, bad, control, back))
+    return total > 0 and bad == 0 and control > 0 and back == 0 and logged == finalLogged and not past
+end
+
 local tmp = os.tmpname()
 os.remove(tmp)
 local first, second = tmp .. '-1.gpd', tmp .. '-2.gpd'
@@ -121,6 +160,7 @@ Listener = PCSX.Events.createEventListener('GPU::Vsync', function()
         ok = check(first) and ok
         ok = checkLogger(first) and ok
         ok = checkEmptyFrame(first) and ok
+        ok = checkSeek(first) and ok
         stage = 2
     elseif stage == 2 and vsyncs >= 150 then
         -- The player keeps its GPU while the emulated one runs on.

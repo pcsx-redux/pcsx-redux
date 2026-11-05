@@ -196,6 +196,8 @@ class GdbClient : public Intrusive::List<GdbClient>::Node {
     bool m_multiprocess = false;
     bool m_waitingForTrap = false;
     bool m_waitingForShell = false;
+    bool m_restartRewindOnResume = false;
+    bool m_rewindWasInUse = false;
     bool m_exception = false;
     // Not sure about the logic here; we need to keep an eye on when
     // gdb complains about invalid responses, and toggle this accordingly.

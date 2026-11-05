@@ -502,7 +502,7 @@ class GUI final : public UI {
     Widgets::SIO1 m_sio1 = {settings.get<ShowSIO1>().value};
 
     Widgets::GPULogger m_gpuLogger{settings.get<ShowGPULogger>().value};
-    Widgets::SPULogger m_spuLoggerWidget{settings.get<ShowSPULogger>().value, settings.get<SPULoggerEnabled>().value};
+    Widgets::SPULogger m_spuLoggerWidget;
     Widgets::SPUSamples m_spuSamplesWidget;
     Widgets::HeapViewer m_heapViewer{settings.get<ShowHeapViewer>().value};
     Widgets::PocketStationLCD m_pocketStationLCD{settings.get<ShowPocketStationLCD>().value};

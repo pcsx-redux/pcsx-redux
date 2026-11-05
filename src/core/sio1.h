@@ -40,6 +40,7 @@ struct SIO1Registers {
     uint16_t mode;
     uint16_t control;
     uint16_t baud;
+    uint16_t guizmo;
 };
 
 typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("dxr"), 1> FlowControlDXR;
@@ -147,6 +148,10 @@ class SIO1 {
     uint16_t readStat16();
     uint32_t readStat32();
 
+    uint8_t readGuizmo8() { return m_regs.guizmo; }
+    uint16_t readGuizmo16() { return m_regs.guizmo; }
+    uint32_t readGuizmo32() { return ((uint32_t) m_regs.guizmo) | ((uint32_t) m_regs.baud << 16); }
+
     void writeBaud8(uint8_t v) { writeBaud16(v); }
     void writeBaud16(uint16_t v);
 
@@ -161,6 +166,8 @@ class SIO1 {
     void writeStat8(uint8_t v) { writeStat32(v); }
     void writeStat16(uint16_t v) { writeStat32(v); }
     void writeStat32(uint32_t v);
+
+    void writeGuizmo(uint16_t v);
 
     void receiveCallback();
     void sio1StateMachine();

@@ -101,3 +101,28 @@ function TestFile:test_downloadAndWait()
     local f = Support.File.open('http://127.0.0.1:1/', 'DOWNLOAD_URL_AND_WAIT')
     lu.assertTrue(f:failed())
 end
+
+-- Reading past the end returns -1 from the file; every read form has to turn that into nothing read.
+function TestFile:test_read_past_the_end_is_empty()
+    local f = Support.File.buffer()
+    lu.assertEquals(f:readAt(16, 0).size, 0)
+    lu.assertEquals(f:read(16).size, 0)
+    lu.assertEquals(f:readAtToSlice(16, 0).size, 0)
+    lu.assertEquals(f:readToSlice(16).size, 0)
+end
+
+function TestFile:test_loading_an_empty_file_does_not_throw()
+    local ok, err = pcall(PCSX.loadSaveState, Support.File.buffer())
+    lu.assertTrue(ok, tostring(err))
+end
+
+function TestFile:test_readToSlice()
+    local buf = Support.File.buffer()
+    buf:write('hello world')
+    local slice = buf:readToSlice(5)
+    lu.assertEquals(slice.size, 5)
+    lu.assertEquals(ffi.string(slice.data, slice.size), 'hello')
+    slice = buf:readToSlice(16)
+    lu.assertEquals(slice.size, 6)
+    lu.assertEquals(ffi.string(slice.data, slice.size), ' world')
+end

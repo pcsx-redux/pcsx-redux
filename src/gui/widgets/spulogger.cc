@@ -21,6 +21,7 @@
 
 #include "core/system.h"
 #include "imgui.h"
+#include "support/file.h"
 
 void PCSX::Widgets::SPULogger::draw(PCSX::SPULogger *logger, const char *title) {
     if (!ImGui::Begin(title, &m_show)) {
@@ -33,6 +34,9 @@ void PCSX::Widgets::SPULogger::draw(PCSX::SPULogger *logger, const char *title) 
     if (ImGui::Button(_("Clear"))) logger->clear();
     ImGui::SameLine();
     ImGui::Checkbox(_("Follow"), &m_followTail);
+    ImGui::SameLine();
+    if (ImGui::Button(_("Export SPD..."))) m_exportDialog.openDialog();
+    if (!m_exportStatus.empty()) ImGui::TextUnformatted(m_exportStatus.c_str());
 
     const size_t count = logger->size();
     const uint64_t seen = logger->seen();
@@ -46,7 +50,7 @@ void PCSX::Widgets::SPULogger::draw(PCSX::SPULogger *logger, const char *title) 
 
     if (ImGui::TreeNode(_("Filter"))) {
         ImGui::Checkbox(_("Filter by kind"), &m_filterEnabled);
-        for (unsigned i = 0; i <= unsigned(PCSX::SPULogger::Kind::ReverbAddr); i++) {
+        for (unsigned i = 0; i <= unsigned(PCSX::SPULogger::Kind::RegWrite); i++) {
             bool on = m_kindMask & (1u << i);
             if (ImGui::Checkbox(PCSX::SPULogger::kindName(PCSX::SPULogger::Kind(i)), &on)) {
                 if (on) {
@@ -131,4 +135,36 @@ void PCSX::Widgets::SPULogger::draw(PCSX::SPULogger *logger, const char *title) 
     ImGui::EndChild();
 
     ImGui::End();
+    drawExportDialog(logger);
+}
+
+void PCSX::Widgets::SPULogger::drawExportDialog(PCSX::SPULogger *logger) {
+    if (!m_exportDialog.draw()) return;
+    auto &selected = m_exportDialog.selected();
+    if (selected.empty()) return;
+    std::vector<uint8_t> data;
+    std::string error = logger->exportSPD(data, {});
+    if (!error.empty()) {
+        m_exportStatus = error;
+        return;
+    }
+    IO<File> file = new PosixFile(selected[0], FileOps::TRUNCATE);
+    if (file->failed()) {
+        m_exportStatus = _("Unable to create the SPD file.");
+        return;
+    }
+    if (file->write(data.data(), data.size()) != static_cast<ssize_t>(data.size())) {
+        m_exportStatus = _("Unable to write the whole SPD file.");
+        return;
+    }
+    m_exportStatus = fmt::format(f_("Exported {} bytes."), data.size());
+}
+
+void PCSX::Widgets::SPULogger::syncEnabled(PCSX::SPULogger *logger) {
+    if (m_enabled != m_pushedEnabled) {
+        logger->setEnabled(m_enabled);
+        m_pushedEnabled = m_enabled;
+    } else if (logger->enabled() != m_enabled) {
+        m_enabled = m_pushedEnabled = logger->enabled();
+    }
 }

@@ -283,6 +283,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\pcdrv.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\psyqo.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\rumble.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\sio1-misc.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\srwrite.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\timers.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-command.cc" />
@@ -291,6 +292,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-irq.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-dfe-480i.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat10.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat26.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat-480i.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-polyline.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-vram-move.cc" />
@@ -311,6 +313,7 @@
     <ClCompile Include="..\..\..\tests\core\pad-config.cc" />
     <ClCompile Include="..\..\..\tests\core\i18n.cc" />
     <ClCompile Include="..\..\..\tests\core\pocketstation-flash-sync.cc" />
+    <ClCompile Include="..\..\..\tests\core\spdwriter.cc" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
