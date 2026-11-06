@@ -124,6 +124,7 @@
     <ClCompile Include="..\..\src\spu\noise.cc" />
     <ClCompile Include="..\..\src\spu\registers.cc" />
     <ClCompile Include="..\..\src\spu\overlay.cc" />
+    <ClCompile Include="..\..\src\spu\samplepitch.cc" />
     <ClCompile Include="..\..\src\spu\reverb.cc" />
     <ClCompile Include="..\..\src\spu\playbacklua.cc" />
     <ClCompile Include="..\..\src\spu\sdlaudio.cc" />
@@ -141,6 +142,7 @@
     <ClInclude Include="..\..\src\spu\noise.h" />
     <ClInclude Include="..\..\src\spu\registers.h" />
     <ClInclude Include="..\..\src\spu\overlay.h" />
+    <ClInclude Include="..\..\src\spu\samplepitch.h" />
     <ClInclude Include="..\..\src\spu\reverb.h" />
     <ClInclude Include="..\..\src\spu\rounding-probe.h" />
     <ClInclude Include="..\..\src\spu\sdlaudio.h" />

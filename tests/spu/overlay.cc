@@ -24,6 +24,7 @@
 
 #include "gtest/gtest.h"
 #include "supportpsx/sf2.h"
+#include "supportpsx/rootkey.h"
 
 namespace {
 
@@ -117,4 +118,28 @@ TEST(SPUOverlay, LoopWraps) {
     std::vector<int32_t> out;
     for (int i = 0; i < 12; i++) out.push_back(voice.next(0x10000));
     EXPECT_EQ(out, (std::vector<int32_t>{0, 100, 200, 300, 400, 500, 200, 300, 400, 500, 200, 300}));
+}
+
+TEST(SPUOverlay, ReplacementIsTunedAgainstTheOriginal) {
+    // An exported sample comes back with the root key and correction the export measured, and
+    // the original measures the same note, so it plays unchanged: 300 Hz is note 62.37,
+    // written as key 62 with -37 cents. Tuned against note 60 it would play at 0.87.
+    auto exported = ramp("0000000000000001", 100);
+    const auto measured = PCSX::RootKey::fromFundamental({true, 300.0});
+    exported.rootKey = measured.key;
+    exported.correction = measured.correction;
+    auto overlay = pack({exported});
+    PCSX::SPU::OverlayVoice same;
+    same.start(overlay, overlay->find(1), measured.note);
+    same.next(0x10000);
+    EXPECT_NEAR(same.next(0x10000), 100, 1);
+
+    // A replacement on A4 standing in for an original that sounds A3 plays an octave down.
+    auto a4 = ramp("0000000000000002", 100);
+    a4.rootKey = 69;
+    overlay = pack({a4});
+    PCSX::SPU::OverlayVoice down;
+    down.start(overlay, overlay->find(2), 57.0);
+    down.next(0x10000);
+    EXPECT_EQ(down.next(0x10000), 50);
 }

@@ -23,10 +23,13 @@
 
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "core/spulogger.h"
 #include "gui/widgets/filedialog.h"
+#include "supportpsx/fundamental.h"
+#include "supportpsx/rootkey.h"
 #include "supportpsx/spusample.h"
 
 namespace PCSX {
@@ -49,19 +52,24 @@ class SPUSamples {
         uint64_t signature = 0;
         uint32_t keyOns = 0;
         uint32_t voiceMask = 0;  // voices seen keying it on
+        std::vector<uint16_t> pitches;  // pitch register at each logged key-on
+        RootKey::Result root;
     };
 
     // Decodes a sample from its start, with the filter history cleared as key-on does.
     static void decode(const uint8_t* spuRam, const Sample& sample, std::vector<float>& out);
-    // Every sample that ends in sound RAM, decoded, as one preset each. The SPU has no notion
-    // of a root key, so each sample plays at its stored rate on MIDI note 60 (pitch 1000h,
-    // 44100 Hz), and the bank comment says so.
+    // Every sample that ends in sound RAM, decoded, as one preset each. The root key comes
+    // from the sample's fundamental at its stored rate (pitch 1000h, 44100 Hz), checked
+    // against the key-on pitches in `pitches`; the bank comment names the convention and
+    // lists the samples that need a human.
     static std::vector<uint8_t> exportSF2(const uint8_t* spuRam, const std::map<uint32_t, Sample>& samples);
 
   private:
     void rebuild(PCSX::SPULogger* logger, const uint8_t* spuRam);
 
     std::map<uint32_t, Sample> m_samples;
+    // By signature, so a sample is only measured once.
+    std::unordered_map<uint64_t, Fundamental::Estimate> m_fundamentals;
     uint64_t m_lastSeen = ~uint64_t(0);
     uint64_t m_lastClears = 0;
     bool m_autoRefresh = true;
