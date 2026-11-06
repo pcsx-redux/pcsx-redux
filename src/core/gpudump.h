@@ -156,6 +156,7 @@ class GPUDumpPlayer {
     uint64_t m_snapshotInterval = c_snapshotInterval;
     struct Snapshot {
         size_t position;
+        int8_t fieldOverride;
         GPU::Snapshot gpu;
     };
     std::map<uint64_t, Snapshot> m_snapshots;

@@ -657,7 +657,7 @@ void PCSX::GPU::write1(CtrlQuery *ctrl) {
 }
 
 void PCSX::GPU::dumpField() {
-    if ((m_statusControl[8] & 0x2c) == 0x24) m_dumper->field(readStatusFromBus() >> 31);
+    if (m_dumper->recording() && ((m_statusControl[8] & 0x2c) == 0x24)) m_dumper->field(readStatusFromBus() >> 31);
 }
 
 void PCSX::GPU::writeData(uint32_t value) {

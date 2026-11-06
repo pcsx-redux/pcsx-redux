@@ -302,6 +302,7 @@ void PCSX::GPUDumpPlayer::cacheSnapshot() {
     }
     auto& snapshot = m_snapshots[m_frame];
     snapshot.position = m_reader.position();
+    snapshot.fieldOverride = m_gpu->m_fieldOverride;
     m_gpu->snapshot(snapshot.gpu);
 }
 
@@ -323,6 +324,7 @@ bool PCSX::GPUDumpPlayer::seek(uint64_t frame) {
         } else {
             auto& snapshot = std::prev(it)->second;
             m_gpu->restore(snapshot.gpu);
+            m_gpu->m_fieldOverride = snapshot.fieldOverride;
             m_reader.setPosition(snapshot.position);
             m_frame = from;
             m_logger.clearFrameLog();
