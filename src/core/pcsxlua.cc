@@ -24,12 +24,12 @@
 
 #include "core/callstacks.h"
 #include "core/cputrace.h"
-#include "core/hwevents.h"
 #include "core/debug.h"
 #include "core/disr3000a.h"
 #include "core/gpu.h"
 #include "core/gpudump.h"
 #include "core/gpulogger.h"
+#include "core/hwevents.h"
 #include "core/psxemulator.h"
 #include "core/psxmem.h"
 #include "core/r3000a.h"

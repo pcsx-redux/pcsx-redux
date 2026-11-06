@@ -94,30 +94,32 @@ TEST(HWEvents, IRQAndDMAEventsAreStampedInOrder) {
     std::filesystem::remove(luaOut);
     // Arms from Lua before the exe runs, and reads the whole store back through
     // PCSX.HWEvents.read when the emulator quits.
-    std::string lua = "PCSX.HWEvents.arm('IRQ', 'DMA') "
-                      "hwEventsQuit = PCSX.Events.createEventListener('Quitting', function() "
-                      "local arr, n = PCSX.HWEvents.read() "
-                      "local f = io.open('" +
-                      luaOut.generic_string() +
-                      "', 'w') "
-                      "local sized = PCSX.HWEvents.size() == n "
-                      "PCSX.HWEvents.clear() "
-                      "local cleared = PCSX.HWEvents.size() == 0 and PCSX.HWEvents.read() == nil "
-                      "local armedMask = PCSX.HWEvents.mask() "
-                      "PCSX.HWEvents.disarm() "
-                      "local disarmed = PCSX.HWEvents.mask() == 0 "
-                      "f:write(string.format('%d %s %s %s %s %d %s', n, tostring(arr[0].cycle), "
-                      "tostring(arr[n - 1].cycle), tostring(sized), tostring(cleared), armedMask, "
-                      "tostring(disarmed))) "
-                      "f:close() end)";
+    std::string lua =
+        "PCSX.HWEvents.arm('IRQ', 'DMA') "
+        "hwEventsQuit = PCSX.Events.createEventListener('Quitting', function() "
+        "local arr, n = PCSX.HWEvents.read() "
+        "local f = io.open('" +
+        luaOut.generic_string() +
+        "', 'w') "
+        "local sized = PCSX.HWEvents.size() == n "
+        "PCSX.HWEvents.clear() "
+        "local cleared = PCSX.HWEvents.size() == 0 and PCSX.HWEvents.read() == nil "
+        "local armedMask = PCSX.HWEvents.mask() "
+        "PCSX.HWEvents.disarm() "
+        "local disarmed = PCSX.HWEvents.mask() == 0 "
+        "f:write(string.format('%d %s %s %s %s %d %s', n, tostring(arr[0].cycle), "
+        "tostring(arr[n - 1].cycle), tostring(sized), tostring(cleared), armedMask, "
+        "tostring(disarmed))) "
+        "f:close() end)";
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
                         "-exec", lua.c_str(), "-loadexe", "src/mips/tests/dma/dma.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
-    printf("hwevents: %llu events, %llu IRQ asserts (%llu VBlank), %llu DMA starts, %llu completes, channels %02x/%02x\n",
-           (unsigned long long)s_seen.total, (unsigned long long)s_seen.irqAsserts,
-           (unsigned long long)s_seen.vblankAsserts, (unsigned long long)s_seen.dmaStarts,
-           (unsigned long long)s_seen.dmaCompletes, s_seen.startedChannels, s_seen.completedChannels);
+    printf(
+        "hwevents: %llu events, %llu IRQ asserts (%llu VBlank), %llu DMA starts, %llu completes, channels %02x/%02x\n",
+        (unsigned long long)s_seen.total, (unsigned long long)s_seen.irqAsserts,
+        (unsigned long long)s_seen.vblankAsserts, (unsigned long long)s_seen.dmaStarts,
+        (unsigned long long)s_seen.dmaCompletes, s_seen.startedChannels, s_seen.completedChannels);
     EXPECT_GT(s_seen.total, 0u);
     EXPECT_EQ(s_seen.stampMismatches, 0u);
     EXPECT_EQ(s_seen.backwards, 0u);
