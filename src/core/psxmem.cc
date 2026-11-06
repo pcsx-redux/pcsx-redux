@@ -191,6 +191,7 @@ void PCSX::Memory::reset() {
     memset(m_bios, 0, bios_size);
     memset(m_sram, 0, 0x00200000);
     m_psyqoHeapMetadata = 0;
+    m_profilerHeader = 0;
     // Every tracked block, and every pending return capture, belongs to the
     // machine we are about to throw away.
     g_emulator->m_allocTracker->reset();
