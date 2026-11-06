@@ -138,6 +138,9 @@
     <ClCompile Include="..\..\..\tests\sstate-mdec.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\spu-noise.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\spu-volume.cc">
       <Filter>Source Files</Filter>
     </ClCompile>

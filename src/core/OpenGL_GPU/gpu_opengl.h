@@ -166,6 +166,7 @@ class OpenGL_GPU final : public GPU {
         if ((m_vertexCount + count) >= vertexBufferSize) renderBatch();
     }
     void renderBatch();
+    void syncVRAMForRead();
     void vramConfigChanged() override { m_vramConfigDirty = true; }
     void pushVRAMConfig();
     void clearVRAM(float r, float g, float b, float a = 1.0);
