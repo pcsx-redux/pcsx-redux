@@ -705,9 +705,100 @@ void PCSX::OpenGL_GPU::renderBatch() {
 
 void PCSX::OpenGL_GPU::setDisplayEnable(bool enabled) { m_display.enabled = enabled; }
 
+// Draws the pending batch so getVRAM() sees it. getVRAM() is called from the GP0(C0h) path with our
+// state bound, but also from the GUI, save states, Lua, the web server and the GPU dumper, which may
+// hold other bindings, so our state is bound for the draw and the caller's is put back afterwards.
+void PCSX::OpenGL_GPU::syncVRAMForRead() {
+    if (m_vertexCount == 0) return;
+
+    GLint program, vao, arrayBuffer, drawFB, readFB, activeTexture, tex2D;
+    GLint viewport[4], scissorBox[4];
+    // Core profiles may return a single value for GL_POLYGON_MODE.
+    GLint polygonMode[2] = {GL_FILL, -1};
+    GLint blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha, blendEqRGB, blendEqAlpha;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &arrayBuffer);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFB);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFB);
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    glGetIntegerv(GL_SCISSOR_BOX, scissorBox);
+    glGetIntegerv(GL_POLYGON_MODE, polygonMode);
+    if (polygonMode[1] == -1) polygonMode[1] = polygonMode[0];
+    glGetIntegerv(GL_BLEND_SRC_RGB, &blendSrcRGB);
+    glGetIntegerv(GL_BLEND_DST_RGB, &blendDstRGB);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &blendSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &blendDstAlpha);
+    glGetIntegerv(GL_BLEND_EQUATION_RGB, &blendEqRGB);
+    glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &blendEqAlpha);
+    const bool scissor = OpenGL::isEnabled(GL_SCISSOR_TEST);
+    const bool blend = OpenGL::isEnabled(GL_BLEND);
+    // The GPU never touches these and draws assuming their defaults.
+    const GLenum defaultedCaps[] = {GL_CULL_FACE, GL_DEPTH_TEST, GL_STENCIL_TEST};
+    bool capsEnabled[3];
+    for (unsigned i = 0; i < 3; i++) {
+        capsEnabled[i] = OpenGL::isEnabled(defaultedCaps[i]);
+        glDisable(defaultedCaps[i]);
+    }
+    GLboolean colorMask[4];
+    glGetBooleanv(GL_COLOR_WRITEMASK, colorMask);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glActiveTexture(GL_TEXTURE0);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex2D);
+
+    setOpenGLContext();
+    OpenGL::setFillMode(m_polygonMode);
+    setScissorArea();
+    if (m_lastTransparency == Transparency::Transparent) {
+        OpenGL::enableBlend();
+    } else {
+        OpenGL::disableBlend();
+    }
+    // Same blend state setBlendingModeFromTexpage() leaves; mode 2 sets its equations in renderBatch().
+    if (m_lastBlendingMode >= 0) {
+        OpenGL::setBlendFactor(GL_SRC1_COLOR, GL_SRC1_ALPHA, GL_ONE, GL_ZERO);
+        if (m_lastBlendingMode != 2) OpenGL::setBlendEquation(OpenGL::BlendEquation::Add);
+    }
+    renderBatch();
+
+    glUseProgram(program);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, arrayBuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFB);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, readFB);
+    glBindTexture(GL_TEXTURE_2D, tex2D);
+    glActiveTexture(activeTexture);
+    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    glScissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3]);
+    if (polygonMode[0] == polygonMode[1]) {
+        glPolygonMode(GL_FRONT_AND_BACK, polygonMode[0]);
+    } else {
+        glPolygonMode(GL_FRONT, polygonMode[0]);
+        glPolygonMode(GL_BACK, polygonMode[1]);
+    }
+    glBlendFuncSeparate(blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha);
+    glBlendEquationSeparate(blendEqRGB, blendEqAlpha);
+    if (scissor) {
+        OpenGL::enableScissor();
+    } else {
+        OpenGL::disableScissor();
+    }
+    if (blend) {
+        OpenGL::enableBlend();
+    } else {
+        OpenGL::disableBlend();
+    }
+    for (unsigned i = 0; i < 3; i++) {
+        if (capsEnabled[i]) glEnable(defaultedCaps[i]);
+    }
+    glColorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
+}
+
 PCSX::Slice PCSX::OpenGL_GPU::getVRAM(Ownership) {
     static constexpr uint32_t texSize = vramWidth * vramHeight * sizeof(uint16_t);
     uint16_t *pixels = (uint16_t *)malloc(texSize);
+    syncVRAMForRead();
     glFlush();
     const auto oldTex = OpenGL::getTex2D();
     glBindTexture(GL_TEXTURE_2D, getVRAMTexture());
