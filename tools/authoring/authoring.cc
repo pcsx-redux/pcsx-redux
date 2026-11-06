@@ -325,6 +325,12 @@ Usage: {} input.json [-h] -o output.bin
                     compressedSectorsCount = (outSize + 2047) / 2048;
                 }
                 const bool compressed = compressedSectorsCount < originalSectorsCount;
+                // The index holds a size of at most 1023 sectors; a stored file of 1024 would read as 0.
+                if (!compressed && originalSectorsCount > 1023) {
+                    workUnit.failed = true;
+                    workUnit.semaphore.release();
+                    continue;
+                }
 
                 // Only a compressed entry is decompressed in place, so only it needs a margin.
                 if (compressed) {
