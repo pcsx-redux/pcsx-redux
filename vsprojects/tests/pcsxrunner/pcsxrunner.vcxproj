@@ -304,6 +304,7 @@
     <ClCompile Include="..\..\..\tests\sstate-adpcm.cc" />
     <ClCompile Include="..\..\..\tests\sstate-cdrom.cc" />
     <ClCompile Include="..\..\..\tests\sstate-mdec.cc" />
+    <ClCompile Include="..\..\..\tests\spu-noise.cc" />
     <ClCompile Include="..\..\..\tests\spu-volume.cc" />
     <ClCompile Include="..\..\..\tests\modconv-layout.cc" />
     <ClCompile Include="..\..\..\tests\spu\overlay.cc" />
