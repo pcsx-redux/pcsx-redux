@@ -148,7 +148,7 @@ void PCSX::Widgets::ScopeProfiler::draw(const char* title, GUI* gui) {
 
     if (!m_header) {
         ImGui::TextWrapped(
-            _("No profiler registered. A psyqo program registers one by calling psyqo::Profiler::install()."));
+            "%s", _("No profiler registered. A psyqo program registers one by calling psyqo::Profiler::install()."));
         ImGui::End();
         return;
     }
