@@ -814,6 +814,14 @@ uint16_t PCSX::SPU::impl::readRegister(uint32_t reg) {
             } else {
                 stat &= ~StatusFlags::CBIndex;
             }
+            // Bits 7 and 9 rise together once a write DMA's data has landed in sound RAM, and read
+            // set again when DMA write mode comes back on before the next transfer. They are shown
+            // only while SPUSTAT's own bit 5 reads set, so they agree with the mode bits returned here:
+            // modplayer's SPUWaitIdle, which the OpenBIOS shell runs after its upload with the mode at
+            // stop, waits for (SPUSTAT & 0x7ff) == 0.
+            if ((stat & 0x20) && m_writeDMALandedCycle && readerCycle() >= m_writeDMALandedCycle) {
+                stat |= StatusFlags::DMARWRequest | StatusFlags::DMAReadRequest;
+            }
             PCSX::PSXSPU_LOGGER::Log("SPU.read, STAT = %04x\n", stat);
             return stat;
         }

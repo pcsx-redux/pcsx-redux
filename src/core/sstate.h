@@ -199,12 +199,14 @@ typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("reverbCallCount"), 27> SPUR
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("reverbCurrAddr"), 28> SPUReverbCurrAddr;
 // The noise clock's position in its period, in samples. Older states carry noiseCount instead.
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("noisePosition"), 29> SPUNoisePosition;
+// CPU cycle at which SPUSTAT bits 7 and 9 rise after a sound RAM write DMA; 0 while they are low
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("writeDMALandedCycle"), 30> SPUWriteDMALandedCycle;
 
 typedef Protobuf::Message<TYPESTRING("SPU"), SPURam, SPUPorts, XAField, SPUIrq, SPUIrqPtr, Channels, SPUAddr, SPUCtrl,
                           SPUStat, CBStartIndex, CBCurrIndex, CBEndIndex, CBVoiceIndex, CBCDLeft, CBCDRight,
                           SPUNoiseClock, SPUNoiseCount, SPUNoiseVal, SPUEndx, SPUMainVolWritten, EnvelopeCheckpoints,
                           SPUReverbFirInL, SPUReverbFirInR, SPUReverbFirOutL, SPUReverbFirOutR, SPUReverbAltLeftTick,
-                          SPUReverbCallCount, SPUReverbCurrAddr, SPUNoisePosition>
+                          SPUReverbCallCount, SPUReverbCurrAddr, SPUNoisePosition, SPUWriteDMALandedCycle>
     SPU;
 typedef Protobuf::MessageField<SPU, TYPESTRING("spu"), 6> SPUField;
 
