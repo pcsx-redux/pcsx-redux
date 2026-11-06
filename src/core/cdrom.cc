@@ -723,7 +723,7 @@ class CDRomImpl final : public PCSX::CDRom {
                 }
                 // CLRBFWRDY and CLRBFEMPT clear interrupt statuses that are not emulated, so on their own
                 // they have nothing to clear. psyqo's CDRomDevice writes 18h for them before using the drive.
-                if ((value & 0x07) == 0) return;
+                if ((value & ~0x18) == 0) return;
                 PCSX::g_system->log(PCSX::LogClass::CDROM, "CD-Rom: w3:1(%02x) not available yet\n", value);
                 PCSX::g_system->pause();
             } break;
