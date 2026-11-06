@@ -190,16 +190,19 @@ void doRegisterProfiler(uint32_t structAddress, uint32_t declaredSize) {
         setStatus(structAddress, PCSX_CMDSTATUS_OK);
         return;
     }
+    if (*header & 3) {
+        setStatus(structAddress, PCSX_CMDSTATUS_BAD_ARGUMENT);
+        return;
+    }
     auto magic = peek(*header + offsetof(pcsx_ProfHeader, magic));
     auto sizes = peek(*header + offsetof(pcsx_ProfHeader, version));
     auto capacity = peek(*header + offsetof(pcsx_ProfHeader, capacity));
-    if (!magic || !sizes || !capacity) {
+    auto entries = peek(*header + offsetof(pcsx_ProfHeader, entries));
+    if (!magic || !sizes || !capacity || !entries) {
         setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
         return;
     }
-    uint32_t entrySize = *sizes >> 16;
-    if ((*magic != PCSX_PROF_MAGIC) || (entrySize < sizeof(pcsx_ProfEntry)) || !*capacity ||
-        (*capacity & (*capacity - 1))) {
+    if (!pcsx_profHeaderValid(*magic, *sizes & 0xffff, *sizes >> 16, *capacity, *entries)) {
         setStatus(structAddress, PCSX_CMDSTATUS_BAD_ARGUMENT);
         return;
     }

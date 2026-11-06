@@ -73,6 +73,7 @@ class ScopeProfiler {
     uint64_t m_dropped = 0;
     unsigned m_maxDepth = 0;
     bool m_frozen = false;
+    bool m_resync = false;
     int m_window = 4;
     int m_scrollBack = 0;
 };

@@ -39,6 +39,8 @@ constexpr size_t c_history = 600;
 constexpr double c_cyclesPerUs = 33.8688;
 
 uint32_t peek32(uint32_t address) {
+    // Aligned, so the four bytes never straddle the end of a mapped page.
+    if (address & 3) return 0;
     auto* ptr = PCSX::g_emulator->m_mem->getPointer<uint32_t>(address);
     return ptr ? *ptr : 0;
 }
@@ -65,7 +67,12 @@ PCSX::Widgets::ScopeProfiler::ScopeProfiler(bool& show) : m_show(show), m_listen
         uint64_t oldest = m_vsyncs.front();
         while (!m_events.empty() && m_events.front().end < oldest) m_events.pop_front();
     });
-    m_listener.listen<PCSX::Events::ExecutionFlow::Reset>([this](const auto& event) { clear(); });
+    m_listener.listen<PCSX::Events::ExecutionFlow::Reset>([this](const auto& event) {
+        clear();
+        m_frozen = false;
+    });
+    // A loaded state holds another run's buffer and counters: start over from it.
+    m_listener.listen<PCSX::Events::ExecutionFlow::SaveStateLoaded>([this](const auto& event) { clear(); });
 }
 
 void PCSX::Widgets::ScopeProfiler::clear() {
@@ -86,15 +93,22 @@ void PCSX::Widgets::ScopeProfiler::drain() {
         if (header) m_cursor = peek32(header + offsetof(pcsx_ProfHeader, written));
     }
     if (!header) return;
-    if (peek32(header + offsetof(pcsx_ProfHeader, magic)) != PCSX_PROF_MAGIC) return;
+    uint32_t magic = peek32(header + offsetof(pcsx_ProfHeader, magic));
     uint32_t sizes = peek32(header + offsetof(pcsx_ProfHeader, version));
     uint32_t entrySize = sizes >> 16;
     uint32_t capacity = peek32(header + offsetof(pcsx_ProfHeader, capacity));
     uint32_t entries = peek32(header + offsetof(pcsx_ProfHeader, entries));
     uint32_t written = peek32(header + offsetof(pcsx_ProfHeader, written));
     m_cyclesPer16Lines = peek32(header + offsetof(pcsx_ProfHeader, cyclesPer16Lines));
-    if ((entrySize < sizeof(pcsx_ProfEntry)) || !capacity || (capacity & (capacity - 1))) return;
+    if (!pcsx_profHeaderValid(magic, sizes & 0xffff, entrySize, capacity, entries)) return;
 
+    // Reinstalled in place: the count restarted below where we left it.
+    if (int32_t(written - m_cursor) < 0) m_cursor = 0;
+    // After a freeze, whatever piled up is too old to place on the cycle axis.
+    if (m_resync) {
+        m_resync = false;
+        m_cursor = written;
+    }
     uint32_t pending = written - m_cursor;
     if (pending > capacity) {
         m_dropped += pending - capacity;
@@ -153,7 +167,7 @@ void PCSX::Widgets::ScopeProfiler::draw(const char* title, GUI* gui) {
         return;
     }
 
-    ImGui::Checkbox(_("Freeze"), &m_frozen);
+    if (ImGui::Checkbox(_("Freeze"), &m_frozen) && !m_frozen) m_resync = true;
     ImGui::SameLine();
     ImGui::SetNextItemWidth(200.0f);
     ImGui::SliderInt(_("VSyncs shown"), &m_window, 1, 60);

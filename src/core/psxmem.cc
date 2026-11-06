@@ -88,6 +88,8 @@ static const std::map<uint32_t, std::string_view> s_knownBioses = {
 
 PCSX::Memory::Memory() : m_listener(g_system->m_eventBus) {
     m_listener.listen<Events::ExecutionFlow::Reset>([this](auto &) {
+        // Soft resets too: the next program may reuse the memory.
+        m_profilerHeader = 0;
         free(m_msanRAM);
         free(m_msanUsableBitmap);
         free(m_msanInitializedBitmap);
