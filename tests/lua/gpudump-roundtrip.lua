@@ -135,6 +135,52 @@ local function checkSeek(path)
     return total > 0 and bad == 0 and control > 0 and back == 0 and logged == finalLogged and not past
 end
 
+-- An edited node replays with its edit, the logged list is left alone, and dropping the edit replays
+-- the frame as logged.
+local function checkOverlay(path)
+    if not PCSX.GPU.DumpPlayer.load(path) then return false end
+    local player = PCSX.GPU.DumpPlayer
+    player.setLogging(true)
+    player.rewind()
+    local busiest, busiestFrame = 0, 0
+    while player.step() do
+        local logged = player.getLoggedCount()
+        if logged > busiest then busiest, busiestFrame = logged, player.getFrame() end
+    end
+    player.seek(busiestFrame)
+    local count = player.getLoggedCount()
+    player.replay()
+    local a = player.getVRAM()
+    local names, found = {}, nil
+    for i = 0, count - 1 do
+        local name = player.getNodeName(i)
+        names[name] = (names[name] or 0) + 1
+        if not found and (name == 'Polygon' or name == 'Rectangle') then found = i end
+    end
+    local seen = {}
+    for name, n in pairs(names) do seen[#seen + 1] = string.format('%s x%d', name, n) end
+    table.sort(seen)
+    print(string.format('%s: overlay frame %d nodes: %s', path, busiestFrame, table.concat(seen, ', ')))
+    local edited, b, c = 0, -1, -1
+    if found then
+        -- Pure blue, against the shell's white-on-grey drawing.
+        for v = 0, 3 do
+            if player.setNodeColor(found, v, 0xff0000) then edited = edited + 1 end
+        end
+        player.replay()
+        b = countDiffs(a, player.getVRAM())
+        player.clearNodeOverlay(found)
+        player.replay()
+        c = countDiffs(a, player.getVRAM())
+    end
+    local after = player.getLoggedCount()
+    local name = found and player.getNodeName(found) or 'none'
+    player.setLogging(false)
+    print(string.format('%s: overlay logger node %s (%s) %d vertices edited, %d pixels changed, %d after revert, %d then %d commands',
+                        path, tostring(found), name, edited, b, c, count, after))
+    return found ~= nil and edited > 0 and b > 0 and c == 0 and after == count
+end
+
 local tmp = os.tmpname()
 os.remove(tmp)
 local first, second = tmp .. '-1.gpd', tmp .. '-2.gpd'
@@ -161,6 +207,7 @@ Listener = PCSX.Events.createEventListener('GPU::Vsync', function()
         ok = checkLogger(first) and ok
         ok = checkEmptyFrame(first) and ok
         ok = checkSeek(first) and ok
+        ok = checkOverlay(first) and ok
         stage = 2
     elseif stage == 2 and vsyncs >= 150 then
         -- The player keeps its GPU while the emulated one runs on.

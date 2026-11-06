@@ -46,10 +46,18 @@ void PCSX::Widgets::GPUDump::draw(const char* title) {
     drawPlayer();
     ImGui::End();
 
+    drawLogger();
+    handleSaveDialog();
+    handleOpenDialog();
+}
+
+void PCSX::Widgets::GPUDump::drawLogger() {
     // The dump's own GPU logger: frames are the dump's vsyncs, and a replay goes to the player's GPU.
     auto& player = g_emulator->m_gpuDumpPlayer;
     if (m_showLogger && player->loaded()) m_logger.draw(player->logger(), _("GPU Dump Logger"), !m_playing);
+}
 
+void PCSX::Widgets::GPUDump::handleSaveDialog() {
     if (m_saveDialog.draw()) {
         auto& selected = m_saveDialog.selected();
         if (!selected.empty()) {
@@ -62,6 +70,9 @@ void PCSX::Widgets::GPUDump::draw(const char* title) {
             }
         }
     }
+}
+
+void PCSX::Widgets::GPUDump::handleOpenDialog() {
     if (m_openDialog.draw()) {
         auto& selected = m_openDialog.selected();
         if (!selected.empty()) {
