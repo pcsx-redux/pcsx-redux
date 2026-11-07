@@ -24,8 +24,14 @@ for p in "${projects[@]}"; do
     done < <(grep -o '<ClCompile Include="[^"]*"' "$p" | sed 's/^<ClCompile Include="//; s/"$//') >> "$listed"
 done
 
+found=$(mktemp)
+trap 'rm -f "$listed" "$found"' EXIT
+if ! find tests -name '*.cc' -print0 > "$found"; then
+    echo "find tests failed" >&2
+    exit 2
+fi
 tests=()
-while IFS= read -r -d '' t; do tests+=("$t"); done < <(find tests -name '*.cc' -print0)
+while IFS= read -r -d '' t; do tests+=("$t"); done < "$found"
 if [ "${#tests[@]}" -eq 0 ]; then
     echo "found no tests/**/*.cc, the check is blind" >&2
     exit 2
