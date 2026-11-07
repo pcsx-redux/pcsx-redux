@@ -158,6 +158,7 @@ local meta = { __index = methods }
 
 PCSX.TextTable = {
     parse = function(src)
+        src = src:gsub('^\239\187\191', '')
         local self = { _byFirstByte = {}, _byFirstChar = {}, entries = {} }
         local seen = {}
         local lineNo = 0

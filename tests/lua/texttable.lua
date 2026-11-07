@@ -143,3 +143,8 @@ function TestTextTable:testWindowsLineEndings()
     local t = assert(PCSX.TextTable.parse('10=A\r\n11=B\r\n'))
     lu.assertEquals(t:decode(hex('1011')), 'AB')
 end
+
+function TestTextTable:testUtf8ByteOrderMark()
+    local t = assert(PCSX.TextTable.parse('\239\187\19110=A\n'))
+    lu.assertEquals(t:decode(hex('10')), 'A')
+end
