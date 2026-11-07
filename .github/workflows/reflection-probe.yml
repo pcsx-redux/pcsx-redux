@@ -149,7 +149,7 @@ jobs:
         if [ -z "$existing" ]; then
           gh issue create --title "$title" --body "The reflection probe passed on all three platforms in ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. The bespoke reflection systems (savestates, settings, binstruct, bitfield) can move to std::meta."
         fi
-    - if: needs.gcc.outputs.embed == 'true' && needs.msvc.outputs.embed == 'true' && needs.appleclang.outputs.embed == 'true'
+    - if: ${{ !cancelled() && needs.gcc.outputs.embed == 'true' && needs.msvc.outputs.embed == 'true' && needs.appleclang.outputs.embed == 'true' }}
       env:
         GH_TOKEN: ${{ github.token }}
         GH_REPO: ${{ github.repository }}
