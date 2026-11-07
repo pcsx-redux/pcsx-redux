@@ -300,7 +300,9 @@ class Memory {
 
       private:
         MemoryAsFile(Memory *memory) : File(File::FileType::RW_SEEKABLE), m_memory(memory) {}
-        constexpr static size_t c_size = 0x100000000ULL;
+        // The whole 32-bit address space. Where size_t is 32 bits (wasm32) 4GiB does not fit and
+        // would wrap to 0, refusing every access, so the file stops one byte short there.
+        constexpr static size_t c_size = sizeof(size_t) > 4 ? size_t(0x100000000ULL) : SIZE_MAX;
         constexpr static size_t c_blockSize = 64 * 1024;
         size_t m_ptrR = 0;
         size_t m_ptrW = 0;
