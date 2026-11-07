@@ -681,7 +681,15 @@ void PCSX::OpenGL_GPU::renderBatch() {
         pushVRAMConfig();
         if (m_syncVRAM) {
             m_syncVRAM = false;
-            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, vramWidth, vramHeight);
+            if (m_multisampled) {
+                // glCopyTexSubImage2D cannot read a multisampled framebuffer, so copy from the resolved one.
+                resolveMSAA(0, 0, vramWidth, vramHeight);
+                m_fboNoMSAA.bind(OpenGL::ReadFramebuffer);
+                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, vramWidth, vramHeight);
+                m_fbo.bind(OpenGL::ReadFramebuffer);
+            } else {
+                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, vramWidth, vramHeight);
+            }
         }
 
         if (m_updateDrawOffset) {
@@ -712,6 +720,35 @@ void PCSX::OpenGL_GPU::renderBatch() {
 }
 
 void PCSX::OpenGL_GPU::setDisplayEnable(bool enabled) { m_display.enabled = enabled; }
+
+// Resolves a rectangle of the multisampled VRAM into m_vramTextureNoMSAA. Framebuffer bindings and the
+// scissor test are put back afterwards, since this runs from both the draw path and getVRAM().
+void PCSX::OpenGL_GPU::resolveMSAA(GLint x, GLint y, GLint w, GLint h) {
+    GLint drawFB, readFB;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFB);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFB);
+    const bool scissor = OpenGL::scissorEnabled();
+    OpenGL::disableScissor();  // Scissor testing affects glBlitFramebuffer
+    m_fbo.bind(OpenGL::ReadFramebuffer);
+    m_fboNoMSAA.bind(OpenGL::DrawFramebuffer);
+    glBlitFramebuffer(x, y, x + w, y + h, x, y, x + w, y + h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFB);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, readFB);
+    if (scissor) OpenGL::enableScissor();
+}
+
+// Copies a rectangle of m_vramTextureNoMSAA into the multisampled VRAM. A blit from a single-sample
+// framebuffer writes each pixel to every sample. Leaves m_fbo bound for drawing and reading.
+void PCSX::OpenGL_GPU::blitFromResolved(GLint srcX, GLint srcY, GLint dstX, GLint dstY, GLint w, GLint h) {
+    const bool scissor = OpenGL::scissorEnabled();
+    OpenGL::disableScissor();
+    m_fboNoMSAA.bind(OpenGL::ReadFramebuffer);
+    m_fbo.bind(OpenGL::DrawFramebuffer);
+    glBlitFramebuffer(srcX, srcY, srcX + w, srcY + h, dstX, dstY, dstX + w, dstY + h, GL_COLOR_BUFFER_BIT,
+                      GL_NEAREST);
+    m_fbo.bind(OpenGL::DrawAndReadFramebuffer);
+    if (scissor) OpenGL::enableScissor();
+}
 
 // Draws the pending batch so getVRAM() sees it. getVRAM() is called from the GP0(C0h) path with our
 // state bound, but also from the GUI, save states, Lua, the web server and the GPU dumper, which may
@@ -807,6 +844,7 @@ PCSX::Slice PCSX::OpenGL_GPU::getVRAM(Ownership) {
     static constexpr uint32_t texSize = vramWidth * vramHeight * sizeof(uint16_t);
     uint16_t *pixels = (uint16_t *)malloc(texSize);
     syncVRAMForRead();
+    if (m_multisampled) resolveMSAA(0, 0, vramWidth, vramHeight);
     glFlush();
     const auto oldTex = OpenGL::getTex2D();
     glBindTexture(GL_TEXTURE_2D, getVRAMTexture());
@@ -821,6 +859,18 @@ PCSX::Slice PCSX::OpenGL_GPU::getVRAM(Ownership) {
 void PCSX::OpenGL_GPU::partialUpdateVRAM(int x, int y, int w, int h, const uint16_t *pixels,
                                          PartialUpdateVram updateType) {
     renderBatch();
+
+    if (m_multisampled) {
+        // A multisampled texture takes no texel uploads: upload into the resolved copy, then blit the
+        // rectangle into the multisampled VRAM.
+        const auto oldTex = OpenGL::getTex2D();
+        m_vramTextureNoMSAA.bind();
+        glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, pixels);
+        glBindTexture(GL_TEXTURE_2D, oldTex);
+        blitFromResolved(x, y, x, y, w, h);
+        m_syncVRAM = true;
+        return;
+    }
 
     OpenGL::bindScreenFramebuffer();
     const auto oldTex = updateType == PartialUpdateVram::Asynchronous ? OpenGL::getTex2D() : GLint(-1);
@@ -1095,8 +1145,15 @@ void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
     width = ((width - 1) & 0x3ff) + 1;
     height = ((height - 1) & 0x1ff) + 1;
 
-    glBlitFramebuffer(srcX, srcY, srcX + width, srcY + height, destX, destY, destX + width, destY + height,
-                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    if (m_multisampled) {
+        // A blit between two multisampled framebuffers needs identical source and destination rectangles,
+        // so go through the resolved copy.
+        resolveMSAA(srcX, srcY, width, height);
+        blitFromResolved(srcX, srcY, destX, destY, width, height);
+    } else {
+        glBlitFramebuffer(srcX, srcY, srcX + width, srcY + height, destX, destY, destX + width, destY + height,
+                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    }
     OpenGL::enableScissor();
 }
 
