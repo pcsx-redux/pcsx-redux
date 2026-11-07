@@ -101,6 +101,9 @@ class GPU {
     // GPUSTAT as the CPU reads it from 1F801814h: readStatus() plus the bits that follow the
     // beam position.
     uint32_t readStatusFromBus();
+    // When 0 or 1, readStatusFromBus() reports this as GPUSTAT.31 in NTSC 480i instead of following the
+    // emulated beam, and leaves GPUSTAT.13 clear. Set by the GPU dump player.
+    int8_t m_fieldOverride = -1;
     // Returns true when the transfer stopped part way, with MADR and BCR already set.
     bool dma(uint32_t madr, uint32_t bcr, uint32_t chcr);
     static void gpuInterrupt();
@@ -1036,6 +1039,9 @@ class GPU {
     uint32_t m_drawingOffsetRaw = 0;
     bool m_vram2MBGateOpen = false;  // GP1(09h).0: 1 opens the upper 1MB bank
     uint32_t m_dmaDirection = 0;     // GP1(04h).0-1
+
+    // Writes GPUSTAT.31 to the dump ahead of GP0 traffic, in NTSC 480i.
+    void dumpField();
 
     // GPUSTAT.28 with GP1(04h)=2: low while a polygon or line command is partially received.
     bool dmaBlockRequestLow() const;

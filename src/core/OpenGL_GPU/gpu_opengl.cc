@@ -29,6 +29,7 @@
 #include "core/system.h"
 #include "fmt/format.h"
 #include "gui/gui.h"
+#include "support/imgui-helpers.h"
 #include "tracy/Tracy.hpp"
 
 std::unique_ptr<PCSX::GPU> PCSX::GPU::getOpenGL() { return std::unique_ptr<PCSX::GPU>(new PCSX::OpenGL_GPU()); }
@@ -528,6 +529,13 @@ bool PCSX::OpenGL_GPU::configure() {
             changed = true;
             setLinearFiltering();
         }
+        if (ImGui::Checkbox(_("Deinterlace"), &g_emulator->settings.get<Emulator::SettingDeinterlace>().value)) {
+            changed = true;
+        }
+        ImGuiHelpers::ShowHelpMarker(
+            _("In 480i, draw every row. With drawing to the displayed area off, the console skips the rows of the "
+              "field being displayed, which makes moving images comb. Timing is unchanged."));
+
         ImGui::Checkbox(_("Edit OpenGL GPU shaders"), &m_shaderEditor.m_show);
         ImGui::End();
     }
@@ -973,7 +981,10 @@ void PCSX::OpenGL_GPU::write0(TPage *prim) {
 
 void PCSX::OpenGL_GPU::updateSkipParity() {
     int parity = -1;
-    if (!m_drawToDisplay && ((getStatusControl(8) & 0x2c) == 0x24)) parity = readStatusFromBus() >> 31;
+    if (!m_drawToDisplay && ((getStatusControl(8) & 0x2c) == 0x24) &&
+        !g_emulator->settings.get<Emulator::SettingDeinterlace>()) {
+        parity = readStatusFromBus() >> 31;
+    }
     if (parity == m_skipParity) return;
     renderBatch();
     m_skipParity = parity;

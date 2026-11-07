@@ -231,7 +231,7 @@ Stats runOne(const char* exe, bool debugger, uint64_t maxChecks) {
 TEST(CpuTrace, PlaybackMatchesLive) {
     // Each program is chosen for the operand classes it reaches: cpu (LWL/LWR,
     // HI/LO), cop0 (MFC0, debugger path), gte (MFC2/CFC2), psyqo (LH/LHU,
-    // LWC2/SWC2; runs ~15M instructions to completion), memcpy (SWL/SWR). Caps
+    // LWC2/SWC2; runs ~17.6M instructions to completion), memcpy (SWL/SWR). Caps
     // keep the run bounded.
     struct {
         const char* exe;
@@ -241,7 +241,7 @@ TEST(CpuTrace, PlaybackMatchesLive) {
         {"src/mips/tests/cpu/cpu.ps-exe", false, 8'000'000},
         {"src/mips/tests/cop0/cop0.ps-exe", true, 8'000'000},
         {"src/mips/tests/gte/gte.ps-exe", false, 8'000'000},
-        {"src/mips/tests/psyqo/psyqo-tests.ps-exe", false, 16'000'000},
+        {"src/mips/tests/psyqo/psyqo-tests.ps-exe", false, 24'000'000},
         {"src/mips/tests/memcpy/memcpy.ps-exe", false, 4'000'000},
     };
     uint64_t total = 0, totalMismatches = 0;
