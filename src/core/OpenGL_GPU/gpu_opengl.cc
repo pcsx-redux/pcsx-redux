@@ -625,19 +625,19 @@ void PCSX::OpenGL_GPU::vblank(bool fromGui) {
         OpenGL::disableBlend();
     }
 
+    // We can't draw the MSAA texture directly, so resolve it into the non-MSAA texture. This also runs with the
+    // display disabled, since the VRAM viewer reads the resolved texture.
+    if (m_multisampled) {
+        m_fbo.bind(OpenGL::ReadFramebuffer);
+        m_fboNoMSAA.bind(OpenGL::DrawFramebuffer);
+        glBlitFramebuffer(0, 0, vramWidth, vramHeight, 0, 0, vramWidth, vramHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    }
+
     GLuint texture;
     if (!m_display.enabled) {
         texture = m_blankTexture.handle();
     } else {
-        // We can't draw the MSAA texture directly. So if we're using MSAA, we copy the texture to a non-MSAA texture.
-        if (m_multisampled) {
-            m_fbo.bind(OpenGL::ReadFramebuffer);
-            m_fboNoMSAA.bind(OpenGL::DrawFramebuffer);
-            glBlitFramebuffer(0, 0, vramWidth, vramHeight, 0, 0, vramWidth, vramHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-            texture = m_vramTextureNoMSAA.handle();
-        } else {
-            texture = m_vramTexture.handle();
-        }
+        texture = m_multisampled ? m_vramTextureNoMSAA.handle() : m_vramTexture.handle();
     }
 
     float startX = m_display.startNormalized.x();
@@ -744,8 +744,7 @@ void PCSX::OpenGL_GPU::blitFromResolved(GLint srcX, GLint srcY, GLint dstX, GLin
     OpenGL::disableScissor();
     m_fboNoMSAA.bind(OpenGL::ReadFramebuffer);
     m_fbo.bind(OpenGL::DrawFramebuffer);
-    glBlitFramebuffer(srcX, srcY, srcX + w, srcY + h, dstX, dstY, dstX + w, dstY + h, GL_COLOR_BUFFER_BIT,
-                      GL_NEAREST);
+    glBlitFramebuffer(srcX, srcY, srcX + w, srcY + h, dstX, dstY, dstX + w, dstY + h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     m_fbo.bind(OpenGL::DrawAndReadFramebuffer);
     if (scissor) OpenGL::enableScissor();
 }
