@@ -59,6 +59,12 @@ void PCSX::GPUDumper::read(unsigned count) {
     m_pendingReads += count;
 }
 
+void PCSX::GPUDumper::writeField(uint32_t bit31) {
+    flushPending();
+    packet(InterlaceField, &bit31, 1);
+    m_lastField = bit31;
+}
+
 void PCSX::GPUDumper::vsync(GPU* gpu, uint64_t cycle) {
     switch (m_state) {
         case State::Idle:
@@ -82,6 +88,7 @@ void PCSX::GPUDumper::begin(GPU* gpu) {
     m_pending.clear();
     m_pendingReads = 0;
     m_pendingType = 0;
+    m_lastField = -1;
 
     uint32_t magic[4];
     memcpy(magic, c_magic, sizeof(magic));
@@ -246,6 +253,9 @@ void PCSX::GPUDumpPlayer::rewind() {
     m_reader.rewind();
     m_gpu->writeStatus(0x00000000);
     m_gpu->clearVRAM();
+    // The player's GPU has no beam of its own; GPUSTAT.31 comes from the dump's field packets.
+    // A dump recorded before field packets existed has none, and keeps the live value.
+    m_gpu->m_fieldOverride = -1;
     GPUDumpReader::Packet packet;
     // Everything before the trace begin marker is state restoration. A dump without one starts live.
     size_t start = 4;
@@ -292,6 +302,7 @@ void PCSX::GPUDumpPlayer::cacheSnapshot() {
     }
     auto& snapshot = m_snapshots[m_frame];
     snapshot.position = m_reader.position();
+    snapshot.fieldOverride = m_gpu->m_fieldOverride;
     m_gpu->snapshot(snapshot.gpu);
 }
 
@@ -313,6 +324,7 @@ bool PCSX::GPUDumpPlayer::seek(uint64_t frame) {
         } else {
             auto& snapshot = std::prev(it)->second;
             m_gpu->restore(snapshot.gpu);
+            m_gpu->m_fieldOverride = snapshot.fieldOverride;
             m_reader.setPosition(snapshot.position);
             m_frame = from;
             m_logger.clearFrameLog();
@@ -341,6 +353,9 @@ void PCSX::GPUDumpPlayer::execute(const GPUDumpReader::Packet& packet) {
                 uint32_t count = std::min<uint32_t>(packet.words[0], 1024 * 1024 / 2);
                 for (uint32_t i = 0; i < count; i++) m_gpu->readData();
             }
+            break;
+        case GPUDumper::InterlaceField:
+            if (packet.length >= 1) m_gpu->m_fieldOverride = packet.words[0] & 1;
             break;
         case GPUDumper::GameID:
             m_gameID = packetString(packet);

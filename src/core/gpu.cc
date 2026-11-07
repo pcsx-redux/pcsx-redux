@@ -406,6 +406,7 @@ uint32_t PCSX::GPU::readStatusFromBus() {
         uint32_t line = counters->linesSinceVBlank();
         bool longField = counters->longField();
         ret &= ~0x80002000;
+        if (m_fieldOverride >= 0) return ret | (uint32_t(m_fieldOverride) << 31);
         if (longField && (line >= 23)) ret |= 0x80000000;
         if (longField ? (line < 6) : (line >= 5)) ret |= 0x00002000;
     }
@@ -655,14 +656,24 @@ void PCSX::GPU::write1(CtrlQuery *ctrl) {
     }
 }
 
+void PCSX::GPU::dumpField() {
+    if (m_dumper->recording() && ((m_statusControl[8] & 0x2c) == 0x24)) m_dumper->field(readStatusFromBus() >> 31);
+}
+
 void PCSX::GPU::writeData(uint32_t value) {
-    if (m_dumper) m_dumper->gp0(value);
+    if (m_dumper) {
+        dumpField();
+        m_dumper->gp0(value);
+    }
     Buffer buf(value);
     m_processor->processWrite(buf, Logged::Origin::DATAWRITE, value, 1);
 }
 
 void PCSX::GPU::directDMAWrite(const uint32_t *feed, int transferSize, uint32_t hwAddr) {
-    if (m_dumper) m_dumper->gp0LE(feed, transferSize);
+    if (m_dumper) {
+        dumpField();
+        m_dumper->gp0LE(feed, transferSize);
+    }
     Buffer buf(feed, transferSize);
     while (!buf.isEmpty()) {
         m_processor->processWrite(buf, Logged::Origin::DIRECT_DMA, hwAddr, transferSize);
@@ -720,7 +731,10 @@ void PCSX::GPU::chainedDMAWrite(const uint32_t *memory, uint32_t hwAddr) {
 
         // # 32-bit blocks to transfer
         uint32_t transferWords = header >> 24;
-        if (m_dumper && transferWords) m_dumper->gp0LE(feed, transferWords);
+        if (m_dumper && transferWords) {
+            dumpField();
+            m_dumper->gp0LE(feed, transferWords);
+        }
         Buffer buf(feed, transferWords);
         while (!buf.isEmpty()) {
             m_processor->processWrite(buf, Logged::Origin::CHAIN_DMA, addr, transferWords);
