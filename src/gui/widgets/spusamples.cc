@@ -27,6 +27,7 @@
 #include "implot/implot.h"
 #include "spu/adpcm.h"
 #include "spu/overlay.h"
+#include "spu/samplepitch.h"
 #include "support/file.h"
 #include "support/imgui-helpers.h"
 #include "supportpsx/sf2.h"
@@ -58,20 +59,37 @@ void PCSX::Widgets::SPUSamples::decode(const uint8_t* spuRam, const Sample& samp
 std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
                                                           const std::map<uint32_t, Sample>& samples) {
     std::vector<SF2::Sample> out;
-    std::vector<float> pcm;
+    std::string unpitched, unconfirmed, disagrees;
+    auto note = [](std::string& list, const std::string& name) {
+        if (!list.empty()) list += ' ';
+        list += name;
+    };
     for (auto& [start, cached] : samples) {
         // Sound RAM may have changed since the map was last rebuilt.
         Sample s = cached;
         static_cast<SPUSample::Extent&>(s) = SPUSample::walk(spuRam, start);
         if (s.truncated) continue;
         s.signature = SPUSample::signature(spuRam, s);
-        decode(spuRam, s, pcm);
         SF2::Sample& o = out.emplace_back();
         o.name = fmt::format("{:016x}", s.signature);
-        o.pcm.reserve(pcm.size());
-        for (float v : pcm) o.pcm.push_back(int16_t(std::clamp(v, -32768.0f, 32767.0f)));
+        o.pcm = SPU::decodeSample(spuRam, s);
         o.sampleRate = 44100;
-        o.rootKey = 60;
+        const auto root = RootKey::combine(SPU::sampleFundamental(spuRam, s), s.pitches);
+        o.rootKey = root.key;
+        o.correction = root.correction;
+        switch (root.status) {
+            case RootKey::Status::Unpitched:
+                note(unpitched, o.name);
+                break;
+            case RootKey::Status::Unconfirmed:
+                note(unconfirmed, o.name);
+                break;
+            case RootKey::Status::Disagrees:
+                note(disagrees, o.name);
+                break;
+            case RootKey::Status::Agrees:
+                break;
+        }
         if (s.repeats && s.hasLoop) {
             o.loops = true;
             o.loopStart = (s.loop - s.start) / c_blockSize * c_samplesPerBlock;
@@ -79,11 +97,20 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         }
     }
     if (out.empty()) return {};
-    return SF2::write(out, "PCSX-Redux SPU samples",
-                      "Sample names are the SPU sample signatures. Root keys are unknown: every sample plays at "
-                      "its stored rate on note 60, which is SPU pitch 1000h (44100 Hz). Note 69 is 440 Hz (A4). "
-                      "Loops come from the ADPCM loop flags only; a loop address the game wrote to the voice "
-                      "register is not exported.");
+    std::string comment =
+        "Sample names are the SPU sample signatures. Each root key and pitch correction come from the sample's "
+        "fundamental frequency at its stored rate, which is SPU pitch 1000h (44100 Hz). Note numbers follow MIDI: "
+        "note 69 is 440 Hz, A4 in scientific pitch notation (A3 where middle C is C3). Unpitched samples have "
+        "root key 255 and play on note 60 at their stored rate. Each pitched sample's fundamental was checked "
+        "against the pitches the game keyed it on with, which land on whole notes when the game is tuned to A440; "
+        "an octave error is not caught by this check. Loops come from the ADPCM loop flags only; a loop address "
+        "the game wrote to the voice register is not exported.";
+    if (!disagrees.empty()) comment += "\nKey-on pitches disagree, check by ear: " + disagrees;
+    if (!unconfirmed.empty()) comment += "\nNo key-on pitch to check against: " + unconfirmed;
+    if (!unpitched.empty()) comment += "\nUnpitched: " + unpitched;
+    // ICMT is limited to 65536 bytes, terminator included.
+    if (comment.size() > 65535) comment.resize(65535);
+    return SF2::write(out, "PCSX-Redux SPU samples", comment);
 }
 
 void PCSX::Widgets::SPUSamples::rebuild(PCSX::SPULogger* logger, const uint8_t* spuRam) {
@@ -101,6 +128,7 @@ void PCSX::Widgets::SPUSamples::rebuild(PCSX::SPULogger* logger, const uint8_t* 
         if (ev.kind != PCSX::SPULogger::Kind::KeyOn) continue;
         auto& s = m_samples[ev.address];
         s.keyOns++;
+        s.pitches.push_back(uint16_t(ev.value));
         if (ev.voice < 32) s.voiceMask |= 1u << ev.voice;
     }
     m_lastSeen = seen;
@@ -109,6 +137,13 @@ void PCSX::Widgets::SPUSamples::rebuild(PCSX::SPULogger* logger, const uint8_t* 
     for (auto& [start, s] : m_samples) {
         static_cast<SPUSample::Extent&>(s) = SPUSample::walk(spuRam, start);
         s.signature = s.truncated ? 0 : SPUSample::signature(spuRam, s);
+        if (s.truncated) {
+            s.root = {};
+            continue;
+        }
+        auto f = m_fundamentals.find(s.signature);
+        if (f == m_fundamentals.end()) f = m_fundamentals.emplace(s.signature, SPU::sampleFundamental(spuRam, s)).first;
+        s.root = RootKey::combine(f->second, s.pitches);
     }
 
     if (m_selected) {
@@ -148,8 +183,9 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
     ImGui::TextUnformatted(fmt::format(f_("{} samples"), m_samples.size()).c_str());
     ImGui::SameLine();
     if (ImGui::Button(_("Export SoundFont..."))) m_exportDialog.openDialog();
-    ImGui::TextWrapped("%s", _("Root keys are unknown. The export plays every sample at its stored rate on note 60 "
-                               "(pitch 1000h, 44100 Hz)."));
+    ImGui::TextWrapped("%s", _("Root keys come from each sample's fundamental at pitch 1000h (44100 Hz), with note 69 = "
+                               "440 Hz = A4. The check column compares it with the pitches the game keyed the sample "
+                               "on with; a disagreement needs a human ear."));
     if (!m_exportStatus.empty()) ImGui::TextUnformatted(m_exportStatus.c_str());
 
     auto overlay = g_emulator->m_spu->getOverlay();
@@ -165,13 +201,14 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
     ImGuiHelpers::ShowHelpMarker(
         _("Load a SoundFont whose sample names are signatures, such as an edited export. Each key on of a "
           "sample with a matching signature plays the replacement instead; the original keeps running "
-          "underneath for everything but the sound. A replacement is tuned so that its root key plays at "
-          "pitch 1000h."));
+          "underneath for everything but the sound. A replacement is tuned from its root key and pitch "
+          "correction to sound the same note as the original, whose pitch is measured the same way as "
+          "the export measures it."));
     if (!m_overlayStatus.empty()) ImGui::TextUnformatted(m_overlayStatus.c_str());
 
     const float tableHeight = ImGui::GetContentRegionAvail().y * 0.4f;
     if (ImGui::BeginTable(
-            "SPUSamples", 8,
+            "SPUSamples", 10,
             ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit,
             ImVec2(0, tableHeight))) {
         ImGui::TableSetupScrollFreeze(0, 1);
@@ -182,6 +219,8 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
         ImGui::TableSetupColumn(_("Key ons"));
         ImGui::TableSetupColumn(_("Voices"));
         ImGui::TableSetupColumn(_("Signature"));
+        ImGui::TableSetupColumn(_("Root"));
+        ImGui::TableSetupColumn(_("Check"));
         ImGui::TableSetupColumn(_("Replaced"));
         ImGui::TableHeadersRow();
 
@@ -224,6 +263,28 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
                 ImGui::TextUnformatted(fmt::format("{:016x}", s.signature).c_str());
             }
             ImGui::TableSetColumnIndex(7);
+            if (!s.truncated && s.root.status != RootKey::Status::Unpitched) {
+                ImGui::TextUnformatted(
+                    fmt::format("{} {:+}c", RootKey::noteName(s.root.key), int(s.root.correction)).c_str());
+            }
+            ImGui::TableSetColumnIndex(8);
+            if (!s.truncated) {
+                switch (s.root.status) {
+                    case RootKey::Status::Unpitched:
+                        ImGui::TextUnformatted(_("unpitched"));
+                        break;
+                    case RootKey::Status::Unconfirmed:
+                        ImGui::TextUnformatted(_("no pitch logged"));
+                        break;
+                    case RootKey::Status::Agrees:
+                        ImGui::TextUnformatted(fmt::format(f_("agrees ({:+.0f}c)"), s.root.gridCents).c_str());
+                        break;
+                    case RootKey::Status::Disagrees:
+                        ImGui::TextUnformatted(fmt::format(f_("disagrees ({:+.0f}c)"), s.root.gridCents).c_str());
+                        break;
+                }
+            }
+            ImGui::TableSetColumnIndex(9);
             if (overlay && !s.truncated && overlay->find(s.signature)) ImGui::TextUnformatted(_("yes"));
         }
         ImGui::EndTable();
