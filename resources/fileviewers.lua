@@ -576,14 +576,20 @@ function PCSX.FileViewers.textViewer(openFile, opts)
                 if c then v.savePath = n end
                 imgui.SameLine()
                 if imgui.Button('Save') and v.savePath ~= '' then
-                    local f = Support.File.open(v.savePath, 'TRUNCATE')
-                    if f:failed() then
-                        v.saveInfo = 'cannot write ' .. v.savePath
-                    else
-                        f:write(v.encoded)
-                        v.saveInfo = string.format('wrote %d bytes to %s', #v.encoded, v.savePath)
+                    -- io rather than Support.File: its writes are synchronous,
+                    -- so an error is known before the result is shown.
+                    local f, err = io.open(v.savePath, 'wb')
+                    local ok
+                    if f then
+                        ok, err = f:write(v.encoded)
+                        local closed, closeErr = f:close()
+                        if ok and not closed then ok, err = nil, closeErr end
                     end
-                    f:close()
+                    if ok then
+                        v.saveInfo = string.format('wrote %d bytes to %s', #v.encoded, v.savePath)
+                    else
+                        v.saveInfo = 'cannot write: ' .. tostring(err)
+                    end
                 end
                 if v.saveInfo then imgui.TextUnformatted(v.saveInfo) end
             end
