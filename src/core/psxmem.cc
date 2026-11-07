@@ -88,6 +88,8 @@ static const std::map<uint32_t, std::string_view> s_knownBioses = {
 
 PCSX::Memory::Memory() : m_listener(g_system->m_eventBus) {
     m_listener.listen<Events::ExecutionFlow::Reset>([this](auto &) {
+        // Soft resets too: the next program may reuse the memory.
+        m_profilerHeader = 0;
         free(m_msanRAM);
         free(m_msanUsableBitmap);
         free(m_msanInitializedBitmap);
@@ -191,6 +193,7 @@ void PCSX::Memory::reset() {
     memset(m_bios, 0, bios_size);
     memset(m_sram, 0, 0x00200000);
     m_psyqoHeapMetadata = 0;
+    m_profilerHeader = 0;
     // Every tracked block, and every pending return capture, belongs to the
     // machine we are about to throw away.
     g_emulator->m_allocTracker->reset();

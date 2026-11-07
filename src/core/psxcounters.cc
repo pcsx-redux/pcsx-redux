@@ -417,6 +417,8 @@ uint32_t PCSX::Counters::readCounter(uint32_t index) {
     return count;
 }
 
+uint32_t PCSX::Counters::peekCounter(uint32_t index) { return readCounterInternal(index); }
+
 uint32_t PCSX::Counters::readMode(uint32_t index) {
     update();
 

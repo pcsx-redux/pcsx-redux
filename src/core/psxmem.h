@@ -388,6 +388,9 @@ class Memory {
     // Address of the psyqo heap metadata struct in guest memory,
     // registered by the MIPS allocator via pcsxhw write to 0x1f8020a0.
     uint32_t m_psyqoHeapMetadata = 0;
+    // Guest address of a scoped-profiler ring buffer header (pcsxprof.h),
+    // registered with PCSX_CMD_REGISTER_PROFILER.
+    uint32_t m_profilerHeader = 0;
 
     std::unordered_map<uint32_t, uint32_t> m_msanAllocs;
     static constexpr uint32_t c_msanChainMarker = 0x7ffffd;
