@@ -1109,6 +1109,29 @@ static bool edgeOverLimit(int x0, int y0, int x1, int y1) {
     return std::abs(x1 - x0) >= 1024 || std::abs(y1 - y0) >= 512;
 }
 
+// The vertex plus draw offset sum is not wrapped, but the pixel address wraps
+// modulo 2048 on both axes before the drawing-area clip, as in the software
+// renderer's forEachPixelWrap. Sums range over -2048..2046, so only a
+// primitive reaching below -1024 has a copy that lands in VRAM, 2048 further
+// along. Calls draw(dx, dy) once per copy, with the shift to add to the raw
+// vertices; the shader adds the offset itself.
+template <typename Draw>
+static void forEachPixelWrap(uint32_t offsetWord, const int *xs, const int *ys, int n, Draw &&draw) {
+    const int offsetX = int32_t(offsetWord << 21) >> 21;
+    const int offsetY = int32_t(offsetWord << 10) >> 21;
+    int minX = xs[0], minY = ys[0];
+    for (int i = 1; i < n; i++) {
+        minX = std::min(minX, xs[i]);
+        minY = std::min(minY, ys[i]);
+    }
+    const bool wrapX = minX + offsetX < -1024;
+    const bool wrapY = minY + offsetY < -1024;
+    draw(0, 0);
+    if (wrapX) draw(2048, 0);
+    if (wrapY) draw(0, 2048);
+    if (wrapX && wrapY) draw(2048, 2048);
+}
+
 template <PCSX::GPU::Shading shading, PCSX::GPU::Shape shape, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend,
           PCSX::GPU::Modulation modulation>
 void PCSX::OpenGL_GPU::polyExec(Poly<shading, shape, textured, blend, modulation> *prim) {
@@ -1134,21 +1157,32 @@ void PCSX::OpenGL_GPU::polyExec(Poly<shading, shape, textured, blend, modulation
         if constexpr (blend == Blend::Semi) {
             setBlendingModeFromTexpage(m_rectTexpage);
         }
-        drawTri(&prim->x[0], &prim->y[0], &prim->colors[0]);
-        if constexpr (shape == Shape::Quad) {
-            drawTri(&prim->x[1], &prim->y[1], &prim->colors[1]);
-        }
     } else if constexpr (textured == Textured::Yes) {
         if constexpr (blend == Blend::Semi) {
             setBlendingModeFromTexpage(prim->tpage.raw);
         }
-        drawTriTextured(&prim->x[0], &prim->y[0], &prim->colors[0], prim->clutraw, prim->tpage.raw, &prim->u[0],
-                        &prim->v[0]);
-        if constexpr (shape == Shape::Quad) {
-            drawTriTextured(&prim->x[1], &prim->y[1], &prim->colors[1], prim->clutraw, prim->tpage.raw, &prim->u[1],
-                            &prim->v[1]);
-        }
     }
+
+    constexpr int n = shape == Shape::Quad ? 4 : 3;
+    forEachPixelWrap(m_lastDrawOffsetSetting, x, y, n, [&](int dx, int dy) {
+        int sx[n], sy[n];
+        for (int i = 0; i < n; i++) {
+            sx[i] = x[i] + dx;
+            sy[i] = y[i] + dy;
+        }
+        if constexpr (textured == Textured::No) {
+            drawTri(&sx[0], &sy[0], &prim->colors[0]);
+            if constexpr (shape == Shape::Quad) {
+                drawTri(&sx[1], &sy[1], &prim->colors[1]);
+            }
+        } else if constexpr (textured == Textured::Yes) {
+            drawTriTextured(&sx[0], &sy[0], &prim->colors[0], prim->clutraw, prim->tpage.raw, &prim->u[0], &prim->v[0]);
+            if constexpr (shape == Shape::Quad) {
+                drawTriTextured(&sx[1], &sy[1], &prim->colors[1], prim->clutraw, prim->tpage.raw, &prim->u[1],
+                                &prim->v[1]);
+            }
+        }
+    });
 }
 
 template <PCSX::GPU::Shading shading, PCSX::GPU::LineType lineType, PCSX::GPU::Blend blend>
@@ -1171,12 +1205,26 @@ void PCSX::OpenGL_GPU::lineExec(Line<shading, lineType, blend> *prim) {
         auto c1 = prim->colors[i];
 
         if (edgeOverLimit(x0, y0, x1, y1)) continue;
-        drawLine(x0, y0, c0, x1, y1, c1);
+        const int bx[2] = {x0, x1};
+        const int by[2] = {y0, y1};
+        forEachPixelWrap(m_lastDrawOffsetSetting, bx, by, 2,
+                         [&](int dx, int dy) { drawLine(x0 + dx, y0 + dy, c0, x1 + dx, y1 + dy, c1); });
     }
 }
 
 template <PCSX::GPU::Size size, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend, PCSX::GPU::Modulation modulation>
 void PCSX::OpenGL_GPU::rectExec(Rect<size, textured, blend, modulation> *prim) {
+    int w = prim->w;
+    int h = prim->h;
+    if constexpr (size == Size::Variable) {
+        // The variable-rect dimensions are masked to 10 bits of width and 9
+        // bits of height, with no size-0-means-max case: 1024 and 2048 wide
+        // draw nothing, 1025 draws one column. Same as the software renderer.
+        w &= 0x3ff;
+        h &= 0x1ff;
+        if (w == 0 || h == 0) return;
+    }
+
     updateSkipParity();
     if constexpr (blend == Blend::Off) {
         setTransparency<Transparency::Opaque>();
@@ -1184,15 +1232,19 @@ void PCSX::OpenGL_GPU::rectExec(Rect<size, textured, blend, modulation> *prim) {
         setTransparency<Transparency::Transparent>();
         setBlendingModeFromTexpage(m_rectTexpage);
     }
-    if constexpr (textured == Textured::No) {
-        drawRect(prim->x, prim->y, prim->w, prim->h, prim->color);
-    } else if constexpr (textured == Textured::Yes) {
-        uint32_t color = 0x808080;
-        if constexpr (modulation == Modulation::On) {
-            color = prim->color;
+    const int bx[1] = {prim->x};
+    const int by[1] = {prim->y};
+    forEachPixelWrap(m_lastDrawOffsetSetting, bx, by, 1, [&](int dx, int dy) {
+        if constexpr (textured == Textured::No) {
+            drawRect(prim->x + dx, prim->y + dy, w, h, prim->color);
+        } else if constexpr (textured == Textured::Yes) {
+            uint32_t color = 0x808080;
+            if constexpr (modulation == Modulation::On) {
+                color = prim->color;
+            }
+            drawRectTextured(prim->x + dx, prim->y + dy, w, h, color, prim->clutraw, prim->u, prim->v);
         }
-        drawRectTextured(prim->x, prim->y, prim->w, prim->h, color, prim->clutraw, prim->u, prim->v);
-    }
+    });
 }
 
 void PCSX::OpenGL_GPU::write1(CtrlReset *) {
