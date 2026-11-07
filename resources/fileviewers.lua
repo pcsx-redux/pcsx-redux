@@ -481,6 +481,123 @@ function PCSX.FileViewers.soundViewer(openFile, opts)
     return v
 end
 
+local MAX_TEXT_BYTES = 4 * 1024 * 1024
+
+local function readWholeFile(path)
+    local f = Support.File.open(path)
+    if f:failed() then
+        f:close()
+        return nil, 'cannot open ' .. path
+    end
+    local data = tostring(f:readAt(f:size(), 0))
+    f:close()
+    return data
+end
+
+-- Viewer that decodes the file's bytes to text through a PCSX.TextTable and
+-- lets the text be edited and encoded back. opts, all optional:
+--   table   a PCSX.TextTable to use instead of asking for a table file
+--   offset, length   the byte range to decode, length 0 meaning to the end
+--   onSave(bytes)    called with the encoded bytes; without it the viewer
+--                    offers to write them to a file
+function PCSX.FileViewers.textViewer(openFile, opts)
+    opts = opts or {}
+    local v = { name = 'Text', tbl = opts.table, tablePath = '', offset = opts.offset or 0,
+                length = opts.length or 0, savePath = '', text = '' }
+    local function encode()
+        v.encoded, v.encodeErr = v.tbl:encode(v.text)
+    end
+    local function decode()
+        local file = openFile()
+        local available = math.max(0, file:size() - v.offset)
+        local length = v.length == 0 and available or math.min(v.length, available)
+        if length > MAX_TEXT_BYTES then
+            v.decodeErr = string.format('%d bytes is more than the %d this viewer decodes', length, MAX_TEXT_BYTES)
+            return
+        end
+        v.original = tostring(file:readAt(length, v.offset))
+        v.text = v.tbl:decode(v.original)
+        v.decodeErr = nil
+        encode()
+    end
+    function v.draw()
+        local c, n
+        if not opts.table then
+            c, n = imgui.extra.InputText('table file', v.tablePath)
+            if c then v.tablePath = n end
+            imgui.SameLine()
+            if imgui.Button('Load table') then
+                local src, err = readWholeFile(v.tablePath)
+                local tbl
+                if src then tbl, err = PCSX.TextTable.parse(src) end
+                v.tableErr = err
+                if tbl then
+                    v.tbl = tbl
+                    v.dirty = true
+                end
+            end
+            if v.tableErr then imgui.TextUnformatted('Error: ' .. v.tableErr) end
+        end
+        if not v.tbl then
+            imgui.TextUnformatted('Load a table file to decode this file as text.')
+            return
+        end
+        imgui.PushItemWidth(200)
+        c, n = imgui.InputInt('offset', v.offset, 1, 16)
+        if c then v.offset, v.dirty = math.max(0, n), true end
+        imgui.SameLine()
+        c, n = imgui.InputInt('length (0 = to the end)', v.length, 1, 16)
+        if c then v.length, v.dirty = math.max(0, n), true end
+        imgui.PopItemWidth()
+        if v.dirty or not v.original then
+            local ok, err = pcall(decode)
+            if not ok then v.decodeErr = tostring(err) end
+            v.dirty = false
+        end
+        if v.decodeErr then
+            imgui.TextUnformatted('Error: ' .. v.decodeErr)
+            return
+        end
+        if v.encodeErr then
+            imgui.TextUnformatted('Cannot encode: ' .. v.encodeErr)
+        elseif v.encoded == v.original then
+            imgui.TextUnformatted(string.format('%d bytes, unchanged', #v.encoded))
+        else
+            imgui.TextUnformatted(string.format('%d bytes, was %d', #v.encoded, #v.original))
+        end
+        if v.encoded and not v.encodeErr then
+            if opts.onSave then
+                imgui.SameLine()
+                if imgui.Button('Apply') then opts.onSave(v.encoded) end
+            else
+                imgui.PushItemWidth(300)
+                c, n = imgui.extra.InputText('save to', v.savePath)
+                imgui.PopItemWidth()
+                if c then v.savePath = n end
+                imgui.SameLine()
+                if imgui.Button('Save') and v.savePath ~= '' then
+                    local f = Support.File.open(v.savePath, 'TRUNCATE')
+                    if f:failed() then
+                        v.saveInfo = 'cannot write ' .. v.savePath
+                    else
+                        f:write(v.encoded)
+                        v.saveInfo = string.format('wrote %d bytes to %s', #v.encoded, v.savePath)
+                    end
+                    f:close()
+                end
+                if v.saveInfo then imgui.TextUnformatted(v.saveInfo) end
+            end
+        end
+        c, n = imgui.extra.InputTextMultiline('##text', v.text, -1, -1)
+        if c then
+            v.text = n
+            encode()
+        end
+    end
+    function v.close() end
+    return v
+end
+
 -- Entry point for the ISO browser. `file` is the LuaFile pointer it hands
 -- over. Returns an object with draw() and close().
 function PCSX.FileViewers.open(file)
@@ -490,6 +607,7 @@ function PCSX.FileViewers.open(file)
     local tim = PCSX.FileViewers.parseTim(file)
     if tim then viewers[#viewers + 1] = PCSX.FileViewers.timViewer(openFile, tim) end
     viewers[#viewers + 1] = PCSX.FileViewers.rawViewer(openFile)
+    if PCSX.TextTable then viewers[#viewers + 1] = PCSX.FileViewers.textViewer(openFile) end
     if PCSX.Adpcm and PCSX.SPU and PCSX.SPU.playAudio then
         viewers[#viewers + 1] = PCSX.FileViewers.soundViewer(openFile)
     end

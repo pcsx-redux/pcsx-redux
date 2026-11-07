@@ -187,6 +187,38 @@ void PCSX::LuaFFI::open_imguiextra(GUI* gui, Lua L) {
         },
         -1);
     L.declareFunc(
+        "InputTextMultiline",
+        [](lua_State* L_) -> int {
+            Lua L(L_);
+            int n = L.gettop();
+            if (n < 2) {
+                return L.error("InputTextMultiline: not enough arguments");
+            }
+            if (n > 5) {
+                return L.error("InputTextMultiline: too many arguments");
+            }
+            if (!L.isstring(1)) {
+                return L.error("InputTextMultiline: argument 1 must be a string");
+            }
+            if (!L.isstring(2)) {
+                return L.error("InputTextMultiline: argument 2 must be a string");
+            }
+            for (int i = 3; i <= n; i++) {
+                if (!L.isnumber(i)) {
+                    return L.error("InputTextMultiline: arguments 3 to 5 must be numbers");
+                }
+            }
+            std::string label = L.tostring(1);
+            std::string str = L.tostring(2);
+            ImVec2 size(n >= 3 ? L.tonumber(3) : 0.0f, n >= 4 ? L.tonumber(4) : 0.0f);
+            ImGuiInputTextFlags flags = n == 5 ? L.tonumber(5) : 0;
+            bool ret = ImGui::InputTextMultiline(label.c_str(), &str, size, flags);
+            L.push(ret);
+            L.push(str);
+            return 2;
+        },
+        -1);
+    L.declareFunc(
         "ColorEdit3",
         [](lua_State* L_) -> int {
             Lua L(L_);
