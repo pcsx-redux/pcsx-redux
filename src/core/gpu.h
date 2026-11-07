@@ -104,6 +104,11 @@ class GPU {
     // When 0 or 1, readStatusFromBus() reports this as GPUSTAT.31 in NTSC 480i instead of following the
     // emulated beam, and leaves GPUSTAT.13 clear. Set by the GPU dump player.
     int8_t m_fieldOverride = -1;
+    // True when the Deinterlace setting draws both fields of a 480i frame. GPU dumps record the
+    // accurate path: the dump player's GPU sets m_neverDeinterlace, and the emulated GPU draws one
+    // field at a time while a dump is armed, so the dump's initial VRAM upload holds accurate fields.
+    bool deinterlace();
+    bool m_neverDeinterlace = false;
     // Returns true when the transfer stopped part way, with MADR and BCR already set.
     bool dma(uint32_t madr, uint32_t bcr, uint32_t chcr);
     static void gpuInterrupt();

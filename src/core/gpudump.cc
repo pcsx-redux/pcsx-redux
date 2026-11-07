@@ -33,6 +33,7 @@ void PCSX::GPUDumper::start(IO<File> file) {
     if (!file || file->failed()) return;
     m_file = file;
     m_frames = 0;
+    m_armedVsyncs = 0;
     m_state = State::Armed;
 }
 
@@ -70,6 +71,11 @@ void PCSX::GPUDumper::vsync(GPU* gpu, uint64_t cycle) {
         case State::Idle:
             return;
         case State::Armed:
+            // While armed the GPU draws one 480i field at a time (GPU::deinterlace()). With the Deinterlace
+            // setting on, VRAM holds both fields drawn together until two whole fields have been drawn since
+            // arming, so the snapshot waits for the third vsync.
+            if (m_armedVsyncs < 3) m_armedVsyncs++;
+            if ((m_armedVsyncs < 3) && g_emulator->settings.get<Emulator::SettingDeinterlace>()) return;
             // Wait until the GP0 parser is between commands, or the replay would start mid-packet.
             if (gpu->isIdle()) begin(gpu);
             return;
@@ -232,6 +238,7 @@ bool PCSX::GPUDumpPlayer::load(IO<File> file) {
     unload();
     if (!m_reader.open(file)) return false;
     m_gpu = GPU::getSoft();
+    m_gpu->m_neverDeinterlace = true;
     m_gpu->detach(&m_logger);
     m_logger.setOwner(m_gpu.get());
     // No UI: a detached GPU must not draw into the main window. Callers read its VRAM instead.
