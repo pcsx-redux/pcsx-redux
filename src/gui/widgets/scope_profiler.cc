@@ -72,7 +72,10 @@ PCSX::Widgets::ScopeProfiler::ScopeProfiler(bool& show) : m_show(show), m_listen
         m_frozen = false;
     });
     // A loaded state holds another run's buffer and counters: start over from it.
-    m_listener.listen<PCSX::Events::ExecutionFlow::SaveStateLoaded>([this](const auto& event) { clear(); });
+    m_listener.listen<PCSX::Events::ExecutionFlow::SaveStateLoaded>([this](const auto& event) {
+        clear();
+        m_frozen = false;
+    });
 }
 
 void PCSX::Widgets::ScopeProfiler::clear() {
