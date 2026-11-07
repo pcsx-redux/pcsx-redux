@@ -316,6 +316,17 @@
     <ClCompile Include="..\..\..\tests\core\i18n.cc" />
     <ClCompile Include="..\..\..\tests\core\pocketstation-flash-sync.cc" />
     <ClCompile Include="..\..\..\tests\core\spdwriter.cc" />
+    <ClCompile Include="..\..\..\tests\core\commandline.cc" />
+    <ClCompile Include="..\..\..\tests\core\gpulogger-hittest.cc" />
+    <ClCompile Include="..\..\..\tests\core\mdec-decoder.cc" />
+    <ClCompile Include="..\..\..\tests\core\memorycard.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\multitap.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-cdrom-flags.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-pad.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\stack-bounds.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\tapcard.cc" />
+    <ClCompile Include="..\..\..\tests\spu\adsr.cc" />
+    <ClCompile Include="..\..\..\tests\spu\reverbstate.cc" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
