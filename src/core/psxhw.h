@@ -21,6 +21,7 @@
 
 #include "core/psxcounters.h"
 #include "core/psxdma.h"
+#include "core/hwevents.h"
 #include "core/psxemulator.h"
 #include "core/psxmem.h"
 #include "core/r3000a.h"
@@ -53,6 +54,10 @@ class HW {
         mem->setCHCR<n>(chcr);
         if ((chcr & 0x01000000) && mem->template isDMAEnabled<n>()) {
             uint32_t madr = mem->template getMADR<n>();
+            auto &events = *g_emulator->m_hwEvents;
+            if (events.armed(HWEvents::Source::DMA)) [[unlikely]] {
+                events.record(HWEvents::DMAStart, n, madr, mem->template getBCR<n>(), chcr);
+            }
             bool usingMsan = g_emulator->m_mem->msanInitialized();
             if (usingMsan && PCSX::Memory::inMsanRange(madr)) {
                 madr &= 0xfffffffc;
