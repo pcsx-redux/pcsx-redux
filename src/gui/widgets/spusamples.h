@@ -69,7 +69,7 @@ class SPUSamples {
 
     std::map<uint32_t, Sample> m_samples;
     // By signature, so a sample is only measured once.
-    std::unordered_map<uint64_t, Fundamental::Estimate> m_fundamentals;
+    std::unordered_map<uint64_t, std::optional<double>> m_fundamentals;
     uint64_t m_lastSeen = ~uint64_t(0);
     uint64_t m_lastClears = 0;
     bool m_autoRefresh = true;

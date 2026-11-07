@@ -22,13 +22,13 @@
 #include <stdint.h>
 
 #include <cmath>
+#include <optional>
 #include <vector>
 
 #include "gtest/gtest.h"
 
 using namespace PCSX::RootKey;
 using PCSX::Fundamental::c_maxInput;
-using PCSX::Fundamental::Estimate;
 
 namespace {
 
@@ -46,25 +46,25 @@ TEST(RootKey, NoteNumbering) {
 }
 
 TEST(RootKey, FromFundamental) {
-    auto r = fromFundamental({true, 440.0});
+    auto r = fromFundamental(440.0);
     EXPECT_EQ(r.status, Status::Unconfirmed);
     EXPECT_EQ(r.key, 69);
     EXPECT_EQ(r.correction, 0);
 
     // 263.8 Hz sits 14 cents above C4: the correction lowers it back onto 60.
-    r = fromFundamental({true, 263.8});
+    r = fromFundamental(263.8);
     EXPECT_EQ(r.key, 60);
     EXPECT_EQ(r.correction, -14);
     EXPECT_NEAR(r.note, 60.1435, 1e-3);
 
     // 30 cents below A4 rounds to A4 and is corrected upwards.
-    r = fromFundamental({true, 440.0 * std::exp2(-0.3 / 12.0)});
+    r = fromFundamental(440.0 * std::exp2(-0.3 / 12.0));
     EXPECT_EQ(r.key, 69);
     EXPECT_EQ(r.correction, 30);
 }
 
 TEST(RootKey, UnpitchedStaysOnTheNativeFrame) {
-    for (Estimate e : {Estimate{false, 0.0}, Estimate{true, 0.0}, Estimate{false, 440.0}}) {
+    for (std::optional<double> e : {std::optional<double>{}, std::optional<double>{0.0}, std::optional<double>{-1.0}}) {
         auto r = combine(e, {0x1000, 0x2000});
         EXPECT_EQ(r.status, Status::Unpitched);
         EXPECT_EQ(r.key, c_unpitched);
@@ -73,12 +73,12 @@ TEST(RootKey, UnpitchedStaysOnTheNativeFrame) {
         EXPECT_EQ(r.keyOns, 0u);
     }
     // Outside the MIDI range.
-    EXPECT_EQ(fromFundamental({true, 5.0}).status, Status::Unpitched);
-    EXPECT_EQ(fromFundamental({true, 20000.0}).status, Status::Unpitched);
+    EXPECT_EQ(fromFundamental(5.0).status, Status::Unpitched);
+    EXPECT_EQ(fromFundamental(20000.0).status, Status::Unpitched);
 }
 
 TEST(RootKey, KeyOnsOnTheGridAgree) {
-    const Estimate f{true, 263.8};
+    const std::optional<double> f = 263.8;
     const double note = noteOf(263.8);
     std::vector<uint16_t> pitches;
     for (int target : {48, 55, 60, 62, 64, 67, 72, 79}) pitches.push_back(pitchFor(note, target));
@@ -94,7 +94,7 @@ TEST(RootKey, KeyOnsOnTheGridAgree) {
 TEST(RootKey, KeyOnsOffTheGridDisagree) {
     // The game tunes as if the sample sounded 69.4, so with a fundamental of 69 every
     // played note comes out 40 cents flat.
-    const Estimate f{true, 440.0};
+    const std::optional<double> f = 440.0;
     std::vector<uint16_t> pitches;
     for (int target : {60, 64, 67, 69}) pitches.push_back(pitchFor(69.4, target));
     auto r = combine(f, pitches);
@@ -109,7 +109,7 @@ TEST(RootKey, KeyOnsThatDisagreeWithEachOther) {
     // Half 20 cents sharp, half 20 cents flat: each within the agreement bound on its own,
     // and the mean is on the grid, but the spread is not. (At 40 either way the circular
     // mean would sit at the half-semitone instead, which is nearer to both.)
-    const Estimate f{true, 440.0};
+    const std::optional<double> f = 440.0;
     std::vector<uint16_t> pitches = {pitchFor(69.2, 69), pitchFor(68.8, 69), pitchFor(69.2, 72), pitchFor(68.8, 72)};
     auto r = combine(f, pitches);
     EXPECT_NEAR(r.gridCents, 0.0, 1.0);
@@ -119,7 +119,7 @@ TEST(RootKey, KeyOnsThatDisagreeWithEachOther) {
 
 TEST(RootKey, GridDistanceWrapsAroundTheSemitone) {
     // 49 cents sharp and 49 cents flat are 2 cents apart, not 98.
-    const Estimate f{true, 440.0};
+    const std::optional<double> f = 440.0;
     auto r = combine(f, {pitchFor(69.49, 69), pitchFor(68.51, 69)});
     EXPECT_NEAR(std::abs(r.gridCents), 50.0, 1.5);
     EXPECT_GT(r.coherence, 0.99);
@@ -127,7 +127,7 @@ TEST(RootKey, GridDistanceWrapsAroundTheSemitone) {
 }
 
 TEST(RootKey, MutedKeyOnsAreSkipped) {
-    auto r = combine({true, 440.0}, {0, 0});
+    auto r = combine(440.0, {0, 0});
     EXPECT_EQ(r.status, Status::Unconfirmed);
     EXPECT_EQ(r.keyOns, 0u);
 }

@@ -39,11 +39,11 @@ std::vector<int16_t> PCSX::SPU::decodeSample(const uint8_t* spuRam, const SPUSam
     return out;
 }
 
-PCSX::Fundamental::Estimate PCSX::SPU::sampleFundamental(const uint8_t* spuRam, const SPUSample::Extent& extent) {
-    if (extent.truncated) return {};
+std::optional<double> PCSX::SPU::sampleFundamental(const uint8_t* spuRam, const SPUSample::Extent& extent) {
+    if (extent.truncated) return std::nullopt;
     const auto pcm = decodeSample(spuRam, extent);
     const bool loops = extent.repeats && extent.hasLoop;
     const uint32_t loopStart = (extent.loop - extent.start) / SPUSample::c_blockSize * SPUSample::c_samplesPerBlock;
     const auto window = RootKey::analysisWindow(pcm, loops, loopStart);
-    return Fundamental::estimate(window.data(), window.size(), 44100);
+    return Fundamental::estimate(window, 44100);
 }

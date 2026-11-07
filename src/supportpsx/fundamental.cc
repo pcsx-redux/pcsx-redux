@@ -19,7 +19,7 @@
 
 #include "supportpsx/fundamental.h"
 
-PCSX::Fundamental::Estimate PCSX::Fundamental::estimate(const int16_t* pcm, size_t count, uint32_t rate) {
+std::optional<double> PCSX::Fundamental::estimate(std::span<const int16_t> pcm, uint32_t rate) {
     // Not implemented yet: everything reads as unpitched.
-    return {};
+    return std::nullopt;
 }

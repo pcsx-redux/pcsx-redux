@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -67,13 +68,13 @@ struct Result {
 
 // From the fundamental of a sample decoded at its stored rate, which SPU pitch 1000h plays
 // unchanged.
-Result fromFundamental(const Fundamental::Estimate& fundamental);
+Result fromFundamental(std::optional<double> fundamental);
 
 // Same, then checked against the pitch registers the game keyed the sample on with. Each
 // pitch p plays the sample at note + 12 log2(p / 1000h); a game tuned to A440 equal
 // temperament puts those on whole notes. An octave error in the fundamental (or a pick of the
 // third harmonic, two cents off a twelfth) is invisible to this check. Pitch 0 is skipped.
-Result combine(const Fundamental::Estimate& fundamental, const std::vector<uint16_t>& keyOnPitches);
+Result combine(std::optional<double> fundamental, const std::vector<uint16_t>& keyOnPitches);
 
 // The stretch of a decoded sample to estimate the fundamental from: a loop repeated up to
 // Fundamental::c_maxInput points, or a one-shot past its attack. `loopStart` is in points,

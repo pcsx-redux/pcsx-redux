@@ -125,7 +125,7 @@ TEST(SPUOverlay, ReplacementIsTunedAgainstTheOriginal) {
     // the original measures the same note, so it plays unchanged: 300 Hz is note 62.37,
     // written as key 62 with -37 cents. Tuned against note 60 it would play at 0.87.
     auto exported = ramp("0000000000000001", 100);
-    const auto measured = PCSX::RootKey::fromFundamental({true, 300.0});
+    const auto measured = PCSX::RootKey::fromFundamental(300.0);
     exported.rootKey = measured.key;
     exported.correction = measured.correction;
     auto overlay = pack({exported});

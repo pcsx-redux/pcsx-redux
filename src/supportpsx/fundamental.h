@@ -22,6 +22,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <optional>
+#include <span>
+
 namespace PCSX {
 
 namespace Fundamental {
@@ -32,15 +35,11 @@ constexpr size_t c_maxInput = 16384;
 constexpr double c_lowestHz = 27.5;
 constexpr double c_highestHz = 4186.01;
 
-struct Estimate {
-    bool pitched = false;  // false for noise, percussion and silence
-    double hz = 0.0;       // the fundamental, meaningful only when pitched
-};
-
-// Fundamental frequency of a mono sample, `count` points (at most c_maxInput) at `rate` Hz.
-// The caller picks the stretch to analyse, normally the sustained or looped part. Runs on
-// the SPU mixer thread, once per replaced sample.
-Estimate estimate(const int16_t* pcm, size_t count, uint32_t rate);
+// Fundamental frequency in Hz of a mono sample, at most c_maxInput points at `rate` Hz, or
+// nullopt when it has none: noise, percussion, silence. The caller picks the stretch to
+// analyse, normally the sustained or looped part. Runs on the SPU mixer thread, once per
+// replaced sample.
+std::optional<double> estimate(std::span<const int16_t> pcm, uint32_t rate);
 
 }  // namespace Fundamental
 

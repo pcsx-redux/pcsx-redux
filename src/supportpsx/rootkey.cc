@@ -32,10 +32,10 @@ constexpr size_t c_attack = 2048;
 
 double PCSX::RootKey::noteOf(double hz) { return c_a4Note + 12.0 * std::log2(hz / c_a4Hz); }
 
-PCSX::RootKey::Result PCSX::RootKey::fromFundamental(const Fundamental::Estimate& fundamental) {
+PCSX::RootKey::Result PCSX::RootKey::fromFundamental(std::optional<double> fundamental) {
     Result r;
-    if (!fundamental.pitched || !(fundamental.hz > 0.0)) return r;
-    const double note = noteOf(fundamental.hz);
+    if (!fundamental || !(*fundamental > 0.0)) return r;
+    const double note = noteOf(*fundamental);
     const double key = std::round(note);
     if (key < 0.0 || key > 127.0) return r;
     r.status = Status::Unconfirmed;
@@ -45,7 +45,7 @@ PCSX::RootKey::Result PCSX::RootKey::fromFundamental(const Fundamental::Estimate
     return r;
 }
 
-PCSX::RootKey::Result PCSX::RootKey::combine(const Fundamental::Estimate& fundamental,
+PCSX::RootKey::Result PCSX::RootKey::combine(std::optional<double> fundamental,
                                              const std::vector<uint16_t>& keyOnPitches) {
     Result r = fromFundamental(fundamental);
     if (r.status == Status::Unpitched) return r;

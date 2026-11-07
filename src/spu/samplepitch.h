@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <vector>
 
 #include "supportpsx/fundamental.h"
@@ -36,7 +37,7 @@ std::vector<int16_t> decodeSample(const uint8_t* spuRam, const SPUSample::Extent
 
 // The fundamental of a sample of sound RAM at its stored rate, which is what SPU pitch 1000h
 // plays: estimated over its loop, or past its attack if it does not loop.
-Fundamental::Estimate sampleFundamental(const uint8_t* spuRam, const SPUSample::Extent& extent);
+std::optional<double> sampleFundamental(const uint8_t* spuRam, const SPUSample::Extent& extent);
 
 }  // namespace SPU
 

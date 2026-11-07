@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cmath>
 #include <initializer_list>
+#include <span>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -66,9 +67,9 @@ double noise() {
 double cents(double hz, double expected) { return 1200.0 * std::log2(hz / expected); }
 
 void expectPitch(const std::vector<int16_t>& pcm, double expected, double tolerance = 5.0, uint32_t rate = c_rate) {
-    auto e = estimate(pcm.data(), pcm.size(), rate);
-    ASSERT_TRUE(e.pitched) << "expected " << expected << " Hz";
-    EXPECT_NEAR(cents(e.hz, expected), 0.0, tolerance) << "expected " << expected << " Hz, got " << e.hz;
+    auto e = estimate(pcm, rate);
+    ASSERT_TRUE(e.has_value()) << "expected " << expected << " Hz";
+    EXPECT_NEAR(cents(*e, expected), 0.0, tolerance) << "expected " << expected << " Hz, got " << *e;
 }
 
 }  // namespace
@@ -125,7 +126,7 @@ TEST(Fundamental, NoiseIsUnpitched) {
     std::vector<double> v(c_maxInput);
     for (auto& x : v) x = 16000.0 * noise();
     auto pcm = quantise(v);
-    EXPECT_FALSE(estimate(pcm.data(), pcm.size(), c_rate).pitched);
+    EXPECT_FALSE(estimate(pcm, c_rate).has_value());
 }
 
 TEST(Fundamental, DecayingNoiseBurstIsUnpitched) {
@@ -133,13 +134,13 @@ TEST(Fundamental, DecayingNoiseBurstIsUnpitched) {
     std::vector<double> v(c_maxInput);
     for (size_t i = 0; i < v.size(); i++) v[i] = 30000.0 * noise() * std::exp(-double(i) / 3000.0);
     auto pcm = quantise(v);
-    EXPECT_FALSE(estimate(pcm.data(), pcm.size(), c_rate).pitched);
+    EXPECT_FALSE(estimate(pcm, c_rate).has_value());
 }
 
 TEST(Fundamental, SilenceIsUnpitched) {
     std::vector<int16_t> pcm(c_maxInput, 0);
-    EXPECT_FALSE(estimate(pcm.data(), pcm.size(), c_rate).pitched);
+    EXPECT_FALSE(estimate(pcm, c_rate).has_value());
     std::vector<int16_t> dc(c_maxInput, 1234);
-    EXPECT_FALSE(estimate(dc.data(), dc.size(), c_rate).pitched);
-    EXPECT_FALSE(estimate(pcm.data(), 0, c_rate).pitched);
+    EXPECT_FALSE(estimate(dc, c_rate).has_value());
+    EXPECT_FALSE(estimate(std::span<const int16_t>{}, c_rate).has_value());
 }
