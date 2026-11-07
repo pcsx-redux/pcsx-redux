@@ -2740,10 +2740,15 @@ bool PCSX::GUI::saveSaveState(std::filesystem::path filename) {
         filename = g_system->getPersistentDir() / filename;
     }
     // TODO: yeet this to libuv's threadpool.
-    ZWriter save(new UvFile(filename, FileOps::TRUNCATE), ZWriter::GZIP);
-    bool success = !save.failed();
-    if (success) save.writeString(SaveStates::save());
-    save.close();
+    IO<UvFile> file(new UvFile(filename, FileOps::TRUNCATE));
+    bool success = !file->failed();
+    if (success) {
+        ZWriter save(file, ZWriter::GZIP);
+        save.writeString(SaveStates::save());
+        save.close();
+    }
+    // The writes are queued; only the close reports whether they landed.
+    if (file->closeAndWait() != 0) success = false;
     if (success) {
         addNotice(fmt::format(f_("State saved to {}"), filename.filename().string()), NoticeKind::Info);
     } else {

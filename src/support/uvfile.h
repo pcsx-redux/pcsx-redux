@@ -205,6 +205,11 @@ class UvFile : public File, public UvThreadOp {
     void startCaching() { startCaching(nullptr, nullptr); }
     virtual void startCaching(std::function<void()>&& completed, uv_loop_t* loop) override;
 
+    // Close the file and block until every queued write and the close itself
+    // have completed. Returns 0 on success, or the first libuv error code.
+    // close() alone returns before the writes have landed.
+    int closeAndWait();
+
   private:
     virtual void closeInternal() final override;
     virtual bool canCache() const override { return true; }
@@ -237,9 +242,23 @@ class UvFile : public File, public UvThreadOp {
     struct PendingCloseInfo {
         unsigned pendingWrites = 0;
         bool closePending = false;
+        // First error from a queued write, or 0.
+        int error = 0;
+        // Set by closeAndWait(), fulfilled once the handle is closed.
+        std::promise<int>* closeDone = nullptr;
     };
+    struct WriteInfo {
+        uv_buf_t buf;
+        uv_fs_t req;
+        Slice slice;
+        uv_file handle;
+        PendingCloseInfo* pendingCloseInfo;
+    };
+    static void queueWrite(uv_loop_s* loop, WriteInfo* info, size_t offset);
+    static void writeDone(WriteInfo* info, uv_loop_s* loop, ssize_t result);
     static void closeUVHandle(uv_file handle, uv_loop_s* loop, PendingCloseInfo* pendingCloseInfo);
     PendingCloseInfo* m_pendingCloseInfo = nullptr;
+    std::promise<int>* m_closeWaiter = nullptr;
 };
 
 class UvFifo : public File, public UvThreadOp {

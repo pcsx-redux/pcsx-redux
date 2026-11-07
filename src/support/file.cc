@@ -271,8 +271,21 @@ ssize_t PCSX::PosixFile::write(const void *src, size_t size) {
     if (ret < 0) throw std::runtime_error("Error seeking file...");
     ret = fwrite(src, 1, size, m_handle);
     if (ret < 0) throw std::runtime_error("Error writing file...");
+    if (size_t(ret) != size) m_writeFailed = true;
     m_ptrW += ret;
     return ret;
+}
+
+int PCSX::PosixFile::closeChecked() {
+    if (!m_handle) {
+        close();
+        return -1;
+    }
+    bool bad = m_writeFailed || ferror(m_handle);
+    if (fclose(m_handle) != 0) bad = true;
+    m_handle = nullptr;
+    close();
+    return bad ? -1 : 0;
 }
 
 ssize_t PCSX::SubFile::rSeek(ssize_t pos, int wheel) {
