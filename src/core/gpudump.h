@@ -98,6 +98,7 @@ class GPUDumper {
     std::vector<uint32_t> m_out;
     uint64_t m_frames = 0;
     int32_t m_lastField = -1;
+    unsigned m_armedVsyncs = 0;
 };
 
 // Sequential reader for GPU dump files. It only splits the stream into packets; interpreting them is

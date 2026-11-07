@@ -393,6 +393,11 @@ uint32_t PCSX::GPU::readStatus() {
     return ret;
 }
 
+bool PCSX::GPU::deinterlace() {
+    if (m_neverDeinterlace || (m_dumper && m_dumper->armed())) return false;
+    return g_emulator->settings.get<Emulator::SettingDeinterlace>();
+}
+
 uint32_t PCSX::GPU::readStatusFromBus() {
     uint32_t ret = readStatus();
     // NTSC 480i: GP1(08h) bits 2 and 5 set, bit 3 clear. Timeline measured on a v2 GPU (SCPH-1001)

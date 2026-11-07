@@ -981,8 +981,7 @@ void PCSX::OpenGL_GPU::write0(TPage *prim) {
 
 void PCSX::OpenGL_GPU::updateSkipParity() {
     int parity = -1;
-    if (!m_drawToDisplay && ((getStatusControl(8) & 0x2c) == 0x24) &&
-        !g_emulator->settings.get<Emulator::SettingDeinterlace>()) {
+    if (!m_drawToDisplay && ((getStatusControl(8) & 0x2c) == 0x24) && !deinterlace()) {
         parity = readStatusFromBus() >> 31;
     }
     if (parity == m_skipParity) return;
