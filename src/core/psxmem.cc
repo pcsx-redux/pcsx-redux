@@ -798,35 +798,30 @@ std::string_view PCSX::Memory::getBiosVersionString() {
     return it->second;
 }
 
-ssize_t PCSX::Memory::MemoryAsFile::rSeek(ssize_t pos, int wheel) {
+// In 64 bits, so that a seek past either end clamps rather than wrapping a 32-bit size_t.
+size_t PCSX::Memory::MemoryAsFile::seekTo(size_t current, ssize_t pos, int wheel) {
+    int64_t target = int64_t(current);
     switch (wheel) {
         case SEEK_SET:
-            m_ptrR = pos;
+            target = pos;
             break;
         case SEEK_END:
-            m_ptrR = c_size - pos;
+            target = int64_t(c_size) - pos;
             break;
         case SEEK_CUR:
-            m_ptrR += pos;
+            target += pos;
             break;
     }
-    m_ptrR = std::max(std::min(m_ptrR, c_size), size_t(0));
+    return size_t(std::clamp<int64_t>(target, 0, int64_t(c_size)));
+}
+
+ssize_t PCSX::Memory::MemoryAsFile::rSeek(ssize_t pos, int wheel) {
+    m_ptrR = seekTo(m_ptrR, pos, wheel);
     return m_ptrR;
 }
 
 ssize_t PCSX::Memory::MemoryAsFile::wSeek(ssize_t pos, int wheel) {
-    switch (wheel) {
-        case SEEK_SET:
-            m_ptrW = pos;
-            break;
-        case SEEK_END:
-            m_ptrW = c_size - pos;
-            break;
-        case SEEK_CUR:
-            m_ptrW += pos;
-            break;
-    }
-    m_ptrW = std::max(std::min(m_ptrW, c_size), size_t(0));
+    m_ptrW = seekTo(m_ptrW, pos, wheel);
     return m_ptrW;
 }
 

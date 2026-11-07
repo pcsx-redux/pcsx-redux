@@ -307,6 +307,7 @@ class Memory {
         size_t m_ptrR = 0;
         size_t m_ptrW = 0;
         size_t cappedSize(size_t size, size_t ptr) const { return std::min(size, c_size - ptr); }
+        static size_t seekTo(size_t current, ssize_t pos, int wheel);
         Memory *m_memory;
 
         void readBlock(void *dest, size_t size, size_t ptr);
