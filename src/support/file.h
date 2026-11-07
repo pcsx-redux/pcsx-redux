@@ -445,12 +445,17 @@ class PosixFile : public File {
     PosixFile(const char* filename, FileOps::Create);
     PosixFile(const char* filename, FileOps::ReadWrite);
 
+    // Close the file. Returns 0, or -1 if it never opened, a write came up
+    // short, or flushing and closing it failed.
+    int closeChecked();
+
   private:
     virtual void closeInternal() final override;
     const std::filesystem::path m_filename;
     FILE* m_handle = nullptr;
     size_t m_ptrR = 0;
     size_t m_ptrW = 0;
+    bool m_writeFailed = false;
 };
 
 class SubFile : public File {

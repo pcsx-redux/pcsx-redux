@@ -105,12 +105,7 @@ class UvFile : public PosixFile, public UvThreadOp {
     virtual bool canCache() const override { return true; }
 
     // Writes here are synchronous, so there is nothing queued to wait for.
-    // Write errors are not tracked; only a file that failed to open reports one.
-    int closeAndWait() {
-        bool wasFailed = failed();
-        close();
-        return wasFailed ? -1 : 0;
-    }
+    int closeAndWait() { return closeChecked(); }
 };
 
 // SIO1 over TCP needs a socket. Without one the fifo is a file that failed to

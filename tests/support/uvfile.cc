@@ -54,4 +54,24 @@ TEST(UvFile, CloseAndWaitReportsQueuedWriteError) {
     }
     EXPECT_EQ(file->closeAndWait(), UV_ENOSPC);
 }
+
+// The wasm build's UvFile is a PosixFile, and closes through this.
+TEST(PosixFile, CloseCheckedReportsWriteError) {
+    IO<PosixFile> file(new PosixFile("/dev/full", FileOps::TRUNCATE));
+    ASSERT_FALSE(file->failed());
+    std::string payload(200000, 'x');
+    file->write(payload.data(), payload.size());
+    EXPECT_EQ(file->closeChecked(), -1);
+}
 #endif
+
+TEST(PosixFile, CloseCheckedReportsSuccess) {
+    auto path = std::filesystem::temp_directory_path() / "pcsx-redux-posixfile-close-ok.bin";
+    IO<PosixFile> file(new PosixFile(path, FileOps::TRUNCATE));
+    ASSERT_FALSE(file->failed());
+    std::string payload(200000, 'x');
+    file->write(payload.data(), payload.size());
+    EXPECT_EQ(file->closeChecked(), 0);
+    EXPECT_EQ(std::filesystem::file_size(path), payload.size());
+    std::filesystem::remove(path);
+}
