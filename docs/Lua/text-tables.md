@@ -31,3 +31,9 @@ FB07=<WAIT %d>
 `tbl:decode(bytes)` takes a Lua string of bytes and returns the text. At each position it takes the longest entry that matches. A byte no entry covers becomes `<$XX>`, and so does an entry whose parameter bytes would run past the end of the input.
 
 `tbl:encode(text)` returns the bytes as a Lua string, or `nil` and an error naming the offset of the first text it cannot encode. It also takes the longest match, `<$XX>` turns back into that byte, and when two entries share a text the first one in the table wins. Text produced by `decode()` encodes back to the same bytes as long as the table is unambiguous: no two entries share a text, and no entry's text can also be spelled by a run of other entries (`10=A`, `11=B` and `12=AB` would turn `10 11` into `12`). Unknown bytes never break this, so a table can be built up a few entries at a time while the script still round-trips.
+
+## The Text viewer
+
+The file viewers the ISO browser opens have a Text tab: it asks for a table file, decodes the file (or a byte range of it) into an editable text box, and shows whether the edited text encodes, and to how many bytes. The encoded bytes can be written to a file.
+
+`PCSX.FileViewers.textViewer(openFile, opts)` builds the same viewer from Lua, for a script that knows where a game keeps its text. `openFile()` returns the file to decode. `opts` can carry `table` (a parsed table, so the viewer does not ask for one), `offset` and `length` (0 meaning to the end), and `onSave(bytes)`, which replaces the write-to-file field with an Apply button that hands the encoded bytes to the script, for example to put them back into the game's own archive.
