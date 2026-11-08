@@ -24,9 +24,10 @@ Every failure raises a Lua error. The message is SQLite's own, followed by its e
 
 - `db:exec(sql)` runs one or more statements separated by semicolons. It takes no parameters and discards any rows.
 - `db:run(sql, ...)` prepares one statement, binds the extra arguments to its parameters in order, runs it to completion, and returns the number of rows it changed.
-- `db:rows(sql, ...)` prepares one statement, binds the extra arguments, and returns an iterator over its result rows. Each row is a table keyed by column name.
+- `db:rows(sql, ...)` prepares one statement, binds the extra arguments, and returns an iterator over its result rows. Each row is a table keyed by column name. A loop that exits early keeps the statement, and on a file its read lock, until the garbage collector finalizes it.
+- `db:first(sql, ...)` returns the first result row as a table keyed by column name, or `nil` if there is none, and finalizes the statement.
 - `db:prepare(sql)` returns a statement object, described below.
-- `db:transaction(fn, ...)` calls `fn(...)` inside a transaction. If `fn` returns, the transaction is committed and its return values are returned. If `fn` raises an error, the transaction is rolled back and the error is raised again. Called inside another transaction, it uses a savepoint, so only the inner part is rolled back.
+- `db:transaction(fn, ...)` calls `fn(...)` inside a transaction. If `fn` returns, the transaction is committed and its return values are returned. If `fn` raises an error, the transaction is rolled back and the error is raised again. If the commit itself fails, for example on a deferred foreign key, the transaction is rolled back and the error is raised. Called inside another transaction, it uses a savepoint, so only the inner part is rolled back. If SQLite ends the transaction on its own, as `INSERT OR ROLLBACK` does, every statement until `transaction()` returns raises an error, and so does `transaction()`.
 - `db:changes()` is the number of rows changed by the most recent statement.
 - `db:lastInsertRowId()` is the rowid of the most recent insertion.
 - `db:busyTimeout(ms)` sets how long a statement waits for a lock held by another connection before failing.
@@ -41,7 +42,7 @@ Every failure raises a Lua error. The message is SQLite's own, followed by its e
 - `stmt:row()` returns the current row as a table keyed by column name, and `stmt:values()` as an array.
 - `stmt:columnCount()` is the number of columns in the result.
 - `stmt:reset()` rewinds the statement so it can run again, and `stmt:clearBindings()` sets every parameter back to `NULL`.
-- `stmt:finalize()` releases the statement.
+- `stmt:finalize()` releases the statement. Once its database is closed, finalizing is the only thing a statement can still do.
 
 ## Values
 
