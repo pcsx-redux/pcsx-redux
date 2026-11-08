@@ -562,9 +562,10 @@ bool PCSX::Widgets::Assembly::draw(GUI* gui, psxRegisters* registers, Memory* me
     if (ImGui::Checkbox(_("Enable Debugger"), &debugSettings.get<Emulator::DebugSettings::Debug>().value)) {
         if (g_emulator->settings.get<Emulator::SettingDynarec>() &&
             debugSettings.get<Emulator::DebugSettings::Debug>()) {
-            gui->addNotification(R"(Debugger and dynarec enabled at the same time.
+            gui->addNotice(R"(Debugger and dynarec enabled at the same time.
 Consider turning the dynarec off in the main Emulation
-settings, otherwise debugging features may not work.)");
+settings, otherwise debugging features may not work.)",
+                           GUI::NoticeKind::Warning);
         }
     }
     ImGui::SameLine();
