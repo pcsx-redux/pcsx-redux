@@ -109,7 +109,7 @@ local function dbHandle(db)
 end
 
 local function checkColumn(h, i)
-    if type(i) ~= 'number' or i < 1 or i > C.sqlite3_column_count(h) then
+    if type(i) ~= 'number' or i % 1 ~= 0 or i < 1 or i > C.sqlite3_column_count(h) then
         error('SQLite column index out of range: ' .. tostring(i), 3)
     end
     return i - 1
@@ -120,6 +120,8 @@ local function bindOne(stmt, h, index, value)
         local named = C.sqlite3_bind_parameter_index(h, index)
         if named == 0 then error('SQLite bind: no parameter named ' .. index, 3) end
         index = named
+    elseif type(index) ~= 'number' or index % 1 ~= 0 then
+        error('SQLite bind: parameter index must be an integer or a name', 3)
     end
     local t = type(value)
     local rc

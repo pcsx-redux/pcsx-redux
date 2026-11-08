@@ -158,12 +158,16 @@ function TestSQLite:test_first_and_column_bounds()
     local stmt = db:prepare 'SELECT a FROM t'
     lu.assertTrue(stmt:step())
     lu.assertEquals(stmt:columnName(1), 'a')
-    for _, bad in ipairs { 0, 2 } do
+    for _, bad in ipairs { 0, 2, 1.5, 0 / 0 } do
         lu.assertErrorMsgContains('out of range', function() stmt:columnName(bad) end)
         lu.assertErrorMsgContains('out of range', function() stmt:column(bad) end)
         lu.assertErrorMsgContains('out of range', function() stmt:columnType(bad) end)
     end
     stmt:finalize()
+    local insert = db:prepare 'INSERT INTO t VALUES (?)'
+    lu.assertErrorMsgContains('must be an integer', function() insert:bind(1.5, 'x') end)
+    lu.assertErrorMsgContains('must be an integer', function() insert:bind(0 / 0, 'x') end)
+    insert:finalize()
     db:close()
 end
 
