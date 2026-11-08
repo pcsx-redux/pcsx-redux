@@ -883,6 +883,16 @@ void PCSX::OpenGL_GPU::partialUpdateVRAM(int x, int y, int w, int h, const uint1
     m_syncVRAM = true;
 }
 
+void PCSX::OpenGL_GPU::uploadVRAM(int x, int y, int w, int h, const uint16_t *pixels, PartialUpdateVram updateType) {
+    if (!m_setMask) {
+        partialUpdateVRAM(x, y, w, h, pixels, updateType);
+        return;
+    }
+    std::vector<uint16_t> masked(pixels, pixels + (size_t)w * h);
+    for (auto &pixel : masked) pixel |= 0x8000;
+    partialUpdateVRAM(x, y, w, h, masked.data(), updateType);
+}
+
 template <PCSX::OpenGL_GPU::Transparency setting>
 void PCSX::OpenGL_GPU::setTransparency() {
     // Check if we had transparency previously disabled and it just got enabled or vice versa
@@ -1063,7 +1073,7 @@ void PCSX::OpenGL_GPU::setTexWindow(uint32_t cmd) {
 
 void PCSX::OpenGL_GPU::write0(TWindow *prim) { setTexWindow(prim->raw); }
 
-void PCSX::OpenGL_GPU::write0(MaskBit *) {}
+void PCSX::OpenGL_GPU::write0(MaskBit *prim) { m_setMask = prim->set; }
 
 void PCSX::OpenGL_GPU::write0(DrawingAreaStart *prim) {
     m_drawAreaLeft = prim->x;
@@ -1306,6 +1316,7 @@ void PCSX::OpenGL_GPU::write1(CtrlReset *) {
     // TODO: This should perform some more operations
     // GP1(00h) clears GP0(E1h), DFE included.
     m_drawToDisplay = false;
+    m_setMask = false;
     m_display.reset();
     setDisplayEnable(false);
     acknowledgeIRQ1();

@@ -245,6 +245,9 @@ class GPU {
     enum class PartialUpdateVram : bool { Synchronous, Asynchronous };
     virtual void partialUpdateVRAM(int x, int y, int w, int h, const uint16_t *pixels,
                                    PartialUpdateVram = PartialUpdateVram::Asynchronous) = 0;
+    // GP0(A0h) CPU-to-VRAM upload. Unlike partialUpdateVRAM, it obeys the GP0(E6h) mask setting.
+    virtual void uploadVRAM(int x, int y, int w, int h, const uint16_t *pixels,
+                            PartialUpdateVram = PartialUpdateVram::Asynchronous) = 0;
 
     struct ScreenShot {
         Slice data;
