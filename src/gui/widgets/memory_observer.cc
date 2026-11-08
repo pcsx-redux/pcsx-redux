@@ -212,6 +212,7 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
 
             if (ImGui::Button(_("New scan"))) {
                 if (m_addressValuePairs.empty()) {
+                    m_value = getValueAsSelectedType(m_value);
                     int64_t memValue = 0;
 
                     for (uint32_t i = 0; i < memSize; ++i) {
@@ -281,6 +282,14 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
                     }
                 }
                 ImGui::EndCombo();
+            }
+
+            if (!m_addressValuePairs.empty()) {
+                const auto resultsTypeName = magic_enum::enum_name(activeType);
+                ImGui::TextDisabled(
+                    "%s", fmt::format(f_("Results were scanned as {}. The Value type above applies to the next scan."),
+                                      resultsTypeName)
+                              .c_str());
             }
 
             const auto currentScanType = magic_enum::enum_name(m_scanType);
