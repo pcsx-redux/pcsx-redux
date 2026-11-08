@@ -286,10 +286,13 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
 
             if (!m_addressValuePairs.empty()) {
                 const auto resultsTypeName = magic_enum::enum_name(activeType);
+                ImGui::PushTextWrapPos(0.0f);
                 ImGui::TextDisabled(
-                    "%s", fmt::format(f_("Results were scanned as {}. The Value type above applies to the next scan."),
+                    "%s", fmt::format(f_("Results were scanned as {}, and Next keeps using that type. The Value type "
+                                         "above applies to the next New scan."),
                                       resultsTypeName)
                               .c_str());
+                ImGui::PopTextWrapPos();
             }
 
             const auto currentScanType = magic_enum::enum_name(m_scanType);
@@ -316,7 +319,9 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
 
             ImGui::InputScalar(_("Value"), ImGuiDataType_S64, &m_value, NULL, NULL, m_hex ? "%x" : "%i",
                                m_hex ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
-            m_value = getValueAsType(activeType, m_value);
+            if (m_addressValuePairs.empty()) {
+                m_value = getValueAsSelectedType(m_value);
+            }
 
             if (InputDisabled) {
                 ImGui::EndDisabled();
