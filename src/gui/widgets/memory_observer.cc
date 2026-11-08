@@ -206,6 +206,9 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
 
         if (ImGui::BeginTabItem(_("Delta-over-time search"))) {
             const auto stride = getStrideFromValueType(m_scanValueType);
+            // With results on screen, the value input and the display options follow the type they were scanned as.
+            const auto activeType =
+                m_addressValuePairs.empty() ? m_scanValueType : m_addressValuePairs.front().valueType;
 
             if (ImGui::Button(_("New scan"))) {
                 if (m_addressValuePairs.empty()) {
@@ -260,7 +263,7 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
 
             ImGui::Checkbox(_("Hex"), &m_hex);
 
-            if (!m_hex && stride > 1) {
+            if (!m_hex && getStrideFromValueType(activeType) > 1) {
                 ImGui::SameLine();
                 ImGui::Checkbox(_("Display as fixed-point values"), &m_fixedPoint);
             }
@@ -304,7 +307,7 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
 
             ImGui::InputScalar(_("Value"), ImGuiDataType_S64, &m_value, NULL, NULL, m_hex ? "%x" : "%i",
                                m_hex ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
-            m_value = getValueAsSelectedType(m_value);
+            m_value = getValueAsType(activeType, m_value);
 
             if (InputDisabled) {
                 ImGui::EndDisabled();
