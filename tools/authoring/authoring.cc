@@ -24,6 +24,7 @@
 #include <memory>
 #include <semaphore>
 #include <span>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -64,7 +65,8 @@ union IndexEntry {
         NONE = 0,
         UCL_NRV2E = 1,
         LZ4 = 2,
-        COUNT = 3,
+        STREAM = 3,
+        COUNT = 4,
     };
     typedef Utilities::BitSpan<uint32_t, 21> DecompSizeField;
     typedef Utilities::BitSpan<uint32_t, 11> PaddingField;
@@ -83,6 +85,9 @@ union IndexEntry {
     void setSectorOffset(uint32_t v) { entry.set<SectorOffsetField>(v); }
     void setCompressedSize(uint32_t v) { entry.set<CompressedSizeField>(v); }
     void setMethod(Method v) { entry.set<MethodField>(v); }
+    // A STREAM entry holds its sector count in the whole first 32-bit field, over decompSize and padding.
+    uint32_t getStreamSectors() const { return asArray[2]; }
+    void setStreamSectors(uint32_t v) { asArray[2] = v; }
     uint32_t asArray[4];
     struct {
         uint64_t hash;
@@ -258,6 +263,7 @@ Usage: {} input.json [-h] -o output.bin
         std::vector<uint8_t> sectorData;
         nlohmann::json fileInfo;
         uint32_t margin = 0;
+        std::string error;
         bool failed;
     };
     static WorkUnit work[c_maximumSectorCount];
@@ -295,6 +301,70 @@ Usage: {} input.json [-h] -o output.bin
                     continue;
                 }
                 unsigned size = file->size();
+
+                // "stream": true stores the file as the raw CD-XA sectors it is made of, such as an STR movie
+                // with interleaved XA audio, out of psxavenc's str / strcd modes: 2336-byte sectors, subheader
+                // first, or 2352-byte sectors with sync and header. Their EDC / ECC and MSF are rebuilt.
+                const bool stream = workUnit.fileInfo.contains("stream") && workUnit.fileInfo["stream"].is_boolean() &&
+                                    workUnit.fileInfo["stream"].get<bool>();
+                if (stream) {
+                    static constexpr uint8_t c_sync[12] = {0x00, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                                           0xff, 0xff, 0xff, 0xff, 0xff, 0x00};
+                    std::vector<uint8_t> dataIn;
+                    dataIn.resize(size);
+                    file->read(dataIn.data(), dataIn.size());
+                    unsigned sectorSize = 0;
+                    if (size > 0 && (size % 2352) == 0 && memcmp(dataIn.data(), c_sync, sizeof(c_sync)) == 0) {
+                        sectorSize = 2352;
+                    } else if (size > 0 && (size % 2336) == 0) {
+                        sectorSize = 2336;
+                    }
+                    const unsigned sectorCount = sectorSize ? size / sectorSize : 0;
+                    if (sectorSize == 0) {
+                        workUnit.error =
+                            fmt::format("size {} is not a whole number of 2336 or 2352-byte sectors", size);
+                    } else if (sectorCount > c_maximumSectorCount) {
+                        workUnit.error = fmt::format("{} sectors do not fit on a disc", sectorCount);
+                    }
+                    workUnit.sectorData.resize(sectorCount * 2352);
+                    for (unsigned sector = 0; workUnit.error.empty() && sector < sectorCount; sector++) {
+                        uint8_t* dest = workUnit.sectorData.data() + sector * 2352;
+                        const uint8_t* src = dataIn.data() + sector * sectorSize;
+                        if (sectorSize == 2352) {
+                            if (memcmp(src, c_sync, sizeof(c_sync)) != 0 || src[15] != 2) {
+                                workUnit.error = fmt::format("sector {} is not a mode 2 sector", sector);
+                                break;
+                            }
+                            src += 16;
+                        }
+                        // The subheader is written twice.
+                        if (memcmp(src, src + 4, 4) != 0) {
+                            workUnit.error = fmt::format("sector {} has no valid CD-XA subheader", sector);
+                            break;
+                        }
+                        memcpy(dest, c_sync, sizeof(c_sync));
+                        dest[15] = 2;
+                        memcpy(dest + 16, src, 2336);
+                        PCSX::IEC60908b::computeEDCECC(dest);
+                    }
+                    if (!workUnit.error.empty()) {
+                        workUnit.failed = true;
+                        workUnit.semaphore.release();
+                        continue;
+                    }
+                    IndexEntry* entry = &indexEntryData[workUnitIndex];
+                    if (workUnit.fileInfo["name"].is_string()) {
+                        entry->hash = PCSX::djb::hash(workUnit.fileInfo["name"].get<std::string>());
+                    } else {
+                        entry->hash = PCSX::djb::hash(filePath);
+                    }
+                    entry->setStreamSectors(sectorCount);
+                    entry->setCompressedSize(0);
+                    entry->setMethod(IndexEntry::Method::STREAM);
+                    workUnit.semaphore.release();
+                    continue;
+                }
+
                 if (size >= 2 * 1024 * 1024) {
                     workUnit.failed = true;
                     workUnit.semaphore.release();
@@ -394,11 +464,20 @@ Usage: {} input.json [-h] -o output.bin
         workUnit.semaphore.acquire();
         std::atomic_thread_fence(std::memory_order_acq_rel);
         if (workUnit.failed) {
-            fmt::print("Error processing file: {}\n", workUnit.fileInfo["path"].get<std::string>());
+            if (workUnit.error.empty()) {
+                fmt::print("Error processing file: {}\n", workUnit.fileInfo["path"].get<std::string>());
+            } else {
+                fmt::print("Error processing file: {}: {}\n", workUnit.fileInfo["path"].get<std::string>(),
+                           workUnit.error);
+            }
             return -1;
         }
         IndexEntry* entry = &indexEntryData[workUnitIndex];
-        if (!quiet) {
+        if (!quiet && entry->getCompressionMethod() == IndexEntry::Method::STREAM) {
+            fmt::print("Processed file: {}\n", workUnit.fileInfo["path"].get<std::string>());
+            fmt::print("  Stream sectors: {}\n", entry->getStreamSectors());
+            fmt::print("  Sector offset: {}\n", currentSector);
+        } else if (!quiet) {
             fmt::print("Processed file: {}\n", workUnit.fileInfo["path"].get<std::string>());
             fmt::print("  Original size: {}\n", entry->getDecompSize());
             fmt::print("  Compressed size: {}\n", entry->getCompressedSize() * 2048);
@@ -407,7 +486,11 @@ Usage: {} input.json [-h] -o output.bin
             fmt::print("  Margin: {}\n", workUnit.margin);
         }
         entry->setSectorOffset(currentSector);
-        unsigned sectorCount = entry->getCompressedSize();
+        unsigned sectorCount = workUnit.sectorData.size() / 2352;
+        if (currentSector + sectorCount > c_maximumSectorCount) {
+            fmt::print("Error processing file: {}: the disc is full\n", workUnit.fileInfo["path"].get<std::string>());
+            return -1;
+        }
         for (unsigned sector = 0; sector < sectorCount; sector++) {
             uint8_t* dest = workUnit.sectorData.data() + sector * 2352;
             putSectorLBA(dest, currentSector);

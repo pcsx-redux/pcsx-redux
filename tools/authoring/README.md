@@ -16,6 +16,10 @@ The tool takes a json file as input, which can have the following structure:
         {
             "path": "path/to/file2.bin",
             "name": "custom_name.bin"
+        },
+        {
+            "path": "path/to/movie.str",
+            "stream": true
         }
     ],
     "pvd": {
@@ -34,7 +38,7 @@ The tool takes a json file as input, which can have the following structure:
 
 Comments are allowed in the json file, and will be ignored.
 
-All the file lookups will be relative to base directory, which is the same as the json file if the option `-basedir` isn't specified. The files will be stored into the archive in their order of appearance. The `executable` field is mandatory, and it should point to a valid PSX executable file. The `files` field is an array of objects, each containing a `path` field that points to a file to be included in the CD image. The attached `name` field for each object is optional, and will default to the `path` field. It represents the final string which will be hashed into the archive index, and can be virtually any string. The `compress` field is optional too: set it to `false` to store a file uncompressed, so its sectors can be read directly, for instance to stream it. The `pvd` field is an optional object that contains the PVD (Primary Volume Descriptor) information for the CD image. All fields in the `pvd` object are optional. The `system_id` field defaults to "PLAYSTATION", and all other fields default to empty strings. The `volume_id` field is often used by emulators to identify the CD image, and it is recommended to set it to a unique value.
+All the file lookups will be relative to base directory, which is the same as the json file if the option `-basedir` isn't specified. The files will be stored into the archive in their order of appearance. The `executable` field is mandatory, and it should point to a valid PSX executable file. The `files` field is an array of objects, each containing a `path` field that points to a file to be included in the CD image. The attached `name` field for each object is optional, and will default to the `path` field. It represents the final string which will be hashed into the archive index, and can be virtually any string. The `compress` field is optional too: set it to `false` to store a file uncompressed, so its sectors can be read directly, for instance to stream it. The `stream` field is optional as well: set it to `true` to store a file made of raw CD-XA sectors, such as an STR movie with interleaved XA-ADPCM audio, as a `STREAM` entry. The file must be a whole number of 2336-byte sectors, each starting with its subheader, as `psxavenc -t str` or `-t xa` write them, or of 2352-byte sectors with sync and header, as `psxavenc -t strcd` or `-t xacd` write them. The sectors are stored as they are, Mode 2 Form 1 or Form 2 as their subheader says, with their header, EDC and ECC rebuilt for where they land on the disc. The entry's first 32-bit field holds the sector count, and such an entry can't be loaded with `readFile`: its sectors are meant to be streamed, for instance with `resolveMovie` and the `StrPlayer`. The `pvd` field is an optional object that contains the PVD (Primary Volume Descriptor) information for the CD image. All fields in the `pvd` object are optional. The `system_id` field defaults to "PLAYSTATION", and all other fields default to empty strings. The `volume_id` field is often used by emulators to identify the CD image, and it is recommended to set it to a unique value.
 
 The tool accepts the following command line arguments:
 
