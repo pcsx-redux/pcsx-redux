@@ -628,24 +628,27 @@ Formula One 2001
         memset(m_regs.iCacheCode, 0xff, sizeof(m_regs.iCacheCode));
     }
 
+    /* The i-cache is 256 lines of four words. Each line has one tag holding the physical page
+       (bits 31-12) of the code it caches and a valid bit per word (bits 3-0); the tag sits in the
+       first word of the line's slot in iCacheAddr, the other three are unused. A fetch hits when
+       the page matches and the word is valid. A miss on another page replaces the tag and clears
+       every valid bit. The refill runs from the missed word to the end of the line, or to the end
+       of its two-word half when BIU_CONFIG.IBLKSZ (bit 8) is clear, and sets the valid bits of the
+       words it fetched. A fill entered at word 0 with the tag matching and some words invalid is
+       a full-line refill, as the nugget tests/icache suite measures; a tag-matching miss at words
+       1 to 3 refills from that word on, which is the same rule and is not measured on its own. */
+    static constexpr uint32_t c_iCachePageMask = 0x1ffff000;
+    uint32_t *iCacheTag(uint32_t addr) { return reinterpret_cast<uint32_t *>(m_regs.iCacheAddr) + (addr & 0xff0) / 4; }
+    uint32_t *iCacheLine(uint32_t addr) {
+        return reinterpret_cast<uint32_t *>(m_regs.iCacheCode) + (addr & 0xff0) / 4;
+    }
+
+    // Used by DMA into RAM, which drops the lines it overwrites. CPU stores do not get here.
     inline void flushICacheLine(uint32_t pc) {
         uint32_t pcBank = pc >> 24;
         if (pcBank == 0x00 || pcBank == 0x80) {
-            uint32_t pcCache = pc & 0xfff;
-            pcCache &= ~0xf;
-
-            uint8_t *iAddr = m_regs.iCacheAddr;
-            uint8_t *iCode = m_regs.iCacheCode;
-
-            *(uint32_t *)(iAddr + pcCache + 0x0) = 0xff;
-            *(uint32_t *)(iAddr + pcCache + 0x4) = 0xff;
-            *(uint32_t *)(iAddr + pcCache + 0x8) = 0xff;
-            *(uint32_t *)(iAddr + pcCache + 0xc) = 0xff;
-
-            *(uint32_t *)(iCode + pcCache + 0x0) = 0xff;
-            *(uint32_t *)(iCode + pcCache + 0x4) = 0xff;
-            *(uint32_t *)(iCode + pcCache + 0x8) = 0xff;
-            *(uint32_t *)(iCode + pcCache + 0xc) = 0xff;
+            uint32_t *tag = iCacheTag(pc);
+            *tag = SWAP_LE32(SWAP_LE32(*tag) & ~0xf);
         }
     }
 
@@ -654,44 +657,57 @@ Formula One 2001
 
         // cached - RAM
         if (pcBank == 0x00 || pcBank == 0x80) {
-            uint32_t pcOffset = pc & 0xffffff;
-            uint32_t pcCache = pc & 0xfff;
-
-            uint8_t *iAddr = m_regs.iCacheAddr;
-            uint8_t *iCode = m_regs.iCacheCode;
-            if (SWAP_LE32(*(uint32_t *)(iAddr + pcCache)) == pcOffset) {
-                // Cache hit - return last opcode used
-                return SWAP_LE32(*((uint32_t *)(iCode + pcCache)));
-            } else {
-                // Cache miss - addresses don't match
-                // - default: 0xffffffff (not init)
-
-                // cache line is 4 words wide
-                pcOffset &= ~0xf;
-                pcCache &= ~0xf;
-
-                // address line
-                *(uint32_t *)(iAddr + pcCache + 0x0) = SWAP_LE32(pcOffset + 0x0);
-                *(uint32_t *)(iAddr + pcCache + 0x4) = SWAP_LE32(pcOffset + 0x4);
-                *(uint32_t *)(iAddr + pcCache + 0x8) = SWAP_LE32(pcOffset + 0x8);
-                *(uint32_t *)(iAddr + pcCache + 0xc) = SWAP_LE32(pcOffset + 0xc);
-
-                // opcode line
-                pcOffset = pc & ~0xf;
-                *(uint32_t *)(iCode + pcCache + 0x0) =
-                    g_emulator->m_mem->read32(pcOffset + 0x0, Memory::ReadType::Instr);
-                *(uint32_t *)(iCode + pcCache + 0x4) =
-                    g_emulator->m_mem->read32(pcOffset + 0x4, Memory::ReadType::Instr);
-                *(uint32_t *)(iCode + pcCache + 0x8) =
-                    g_emulator->m_mem->read32(pcOffset + 0x8, Memory::ReadType::Instr);
-                *(uint32_t *)(iCode + pcCache + 0xc) =
-                    g_emulator->m_mem->read32(pcOffset + 0xc, Memory::ReadType::Instr);
+            uint32_t *tagPtr = iCacheTag(pc);
+            uint32_t *line = iCacheLine(pc);
+            const uint32_t word = (pc >> 2) & 3;
+            const uint32_t page = pc & c_iCachePageMask;
+            uint32_t tag = SWAP_LE32(*tagPtr);
+            if ((tag & ~0xfff) != page) {
+                tag = page;
+            } else if (tag & (1 << word)) {
+                return SWAP_LE32(line[word]);
             }
+            const uint32_t last = (g_emulator->m_mem->getBIU() & 0x100) ? 3 : (word | 1);
+            const uint32_t base = pc & ~0xf;
+            for (uint32_t w = word; w <= last; w++) {
+                line[w] = SWAP_LE32(g_emulator->m_mem->read32(base + w * 4, Memory::ReadType::Instr));
+                tag |= 1 << w;
+            }
+            *tagPtr = SWAP_LE32(tag);
+            return SWAP_LE32(line[word]);
         }
 
         // default
         return g_emulator->m_mem->read32(pc, Memory::ReadType::Instr);
     }
+
+    /* A 32-bit load or store with COP0 SR.IsC set and BIU_CONFIG.IS1 set reaches the i-cache
+       instead of memory. With BIU_CONFIG.TAG (bit 2) set it reaches the line's tag: a store sets
+       the tag to the store address' page and the low four bits of the data, and a load returns the
+       valid bits, bit 4 set when the tag's page matches the load address' page, and the upper bits
+       of the addressed code word. Without TAG it reaches the addressed code word, and a store
+       leaves the valid bits alone. */
+    uint32_t readICacheIsolated(uint32_t addr, bool tagMode) {
+        const uint32_t code = SWAP_LE32(iCacheLine(addr)[(addr >> 2) & 3]);
+        if (!tagMode) return code;
+        const uint32_t tag = SWAP_LE32(*iCacheTag(addr));
+        const uint32_t match = (tag & ~0xfff) == (addr & c_iCachePageMask) ? 0x10 : 0;
+        return (code & ~0x1f) | match | (tag & 0xf);
+    }
+    void writeICacheIsolated(uint32_t addr, uint32_t value, bool tagMode) {
+        if (tagMode) {
+            *iCacheTag(addr) = SWAP_LE32((addr & c_iCachePageMask) | (value & 0xf));
+        } else {
+            iCacheLine(addr)[(addr >> 2) & 3] = SWAP_LE32(value);
+        }
+    }
+
+    // A CPU store reached RAM. The i-cache ignores stores; a recompiler drops the blocks it built
+    // from that word.
+    virtual void ClearStore(uint32_t addr) { Clear(addr, 1); }
+    // The guest wrote one of the BIU_CONFIG values cache flush routines use. The recompilers do not
+    // run code through the i-cache model and drop all their blocks here instead.
+    virtual void biuCacheFlush() { invalidateCache(); }
 
   private:
     const std::string m_name;

@@ -129,6 +129,10 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     }
     virtual RunUntilResult RunUntil(uint32_t stopPC, uint64_t cycleBudget) override;
     virtual void Clear(uint32_t Addr, uint32_t Size) override;
+    // The interpreter fetches through the i-cache model, so a store leaves the cached copy alone
+    // and a flush routine's own isolated tag stores invalidate the lines.
+    virtual void ClearStore(uint32_t addr) override {}
+    virtual void biuCacheFlush() override {}
     virtual void Shutdown() override;
     virtual void SetPGXPMode(uint32_t pgxpMode) override;
     virtual bool isDynarec() override { return false; }

@@ -398,8 +398,23 @@ uint16_t PCSX::Memory::read16(uint32_t address) {
     return 0xffff;
 }
 
+/* COP0 SR.IsC set with BIU_CONFIG.IS1 set sends a 32-bit load or store to a KUSEG or KSEG0
+   address into the i-cache (see R3000Acpu::readICacheIsolated). Only RAM addresses and a
+   non-default BIU_CONFIG are modelled, which is how cache flush routines and the nugget
+   tests/icache probes use it. Isolation under the default 1E988h, sub-word accesses, and other
+   addresses keep reaching memory as they do without isolation. */
+bool PCSX::Memory::isolatedToICache(uint32_t address) const {
+    if ((m_BIU & 0x800) == 0) return false;
+    if (address >= 0xa0000000) return false;
+    if ((address & 0x1fffffff) >= 0x00800000) return false;
+    return (g_emulator->m_cpu->m_regs.CP0.n.Status & 0x10000) != 0;
+}
+
 uint32_t PCSX::Memory::read32(uint32_t address, ReadType readType) {
     if (readType == ReadType::Data) g_emulator->m_cpu->m_regs.cycle += 1;
+    if ((m_BIU != 0x1e988) && (readType == ReadType::Data) && isolatedToICache(address)) [[unlikely]] {
+        return g_emulator->m_cpu->readICacheIsolated(address, m_BIU & 4);
+    }
     const uint32_t page = address >> 16;
     const auto pointer = (uint8_t *)m_readLUT[page];
     countNonRamAccess(address, page);
@@ -542,7 +557,7 @@ void PCSX::Memory::write8(uint32_t address, uint32_t value) {
         [[likely]];
         const uint32_t offset = address & 0xffff;
         *(pointer + offset) = static_cast<uint8_t>(value);
-        g_emulator->m_cpu->Clear((address & (~3)), 1);
+        g_emulator->m_cpu->ClearStore(address & (~3));
     } else if (page == 0x1f80 || page == 0x9f80 || page == 0xbf80) {
         if ((address & 0xffff) < 0x400) {
             m_hard[address & 0x3ff] = value;
@@ -553,7 +568,7 @@ void PCSX::Memory::write8(uint32_t address, uint32_t value) {
         g_emulator->m_pioCart->write8(address, value);
     } else if (sendWriteToLua(address, 1, value)) {
     } else if (isiCacheEnabled()) {
-        g_emulator->m_cpu->Clear(address, 1);
+        g_emulator->m_cpu->ClearStore(address);
         g_system->log(LogClass::CPU, _("8-bit write to unknown address: %8.8lx\n"), address);
         if (g_emulator->settings.get<Emulator::SettingDebugSettings>().get<Emulator::DebugSettings::Debug>()) {
             g_system->pause();
@@ -580,7 +595,7 @@ void PCSX::Memory::write16(uint32_t address, uint32_t value) {
         [[likely]];
         const uint32_t offset = address & 0xffff;
         *(uint16_t *)(pointer + offset) = SWAP_LEu16(static_cast<uint16_t>(value));
-        g_emulator->m_cpu->Clear((address & (~3)), 1);
+        g_emulator->m_cpu->ClearStore(address & (~3));
     } else if (page == 0x1f80 || page == 0x9f80 || page == 0xbf80) {
         if ((address & 0xffff) < 0x400) {
             uint16_t *ptr = (uint16_t *)&m_hard[address & 0x3ff];
@@ -592,7 +607,7 @@ void PCSX::Memory::write16(uint32_t address, uint32_t value) {
         g_emulator->m_pioCart->write16(address, value);
     } else if (sendWriteToLua(address, 2, value)) {
     } else if (isiCacheEnabled()) {
-        g_emulator->m_cpu->Clear(address, 1);
+        g_emulator->m_cpu->ClearStore(address);
         g_system->log(LogClass::CPU, _("16-bit write to unknown address: %8.8lx\n"), address);
         if (g_emulator->settings.get<Emulator::SettingDebugSettings>().get<Emulator::DebugSettings::Debug>()) {
             g_system->pause();
@@ -602,6 +617,10 @@ void PCSX::Memory::write16(uint32_t address, uint32_t value) {
 
 void PCSX::Memory::write32(uint32_t address, uint32_t value) {
     g_emulator->m_cpu->m_regs.cycle += 1;
+    if ((m_BIU != 0x1e988) && isolatedToICache(address)) [[unlikely]] {
+        g_emulator->m_cpu->writeICacheIsolated(address, value, m_BIU & 4);
+        return;
+    }
     const uint32_t page = address >> 16;
     const auto pointer = (uint8_t *)m_writeLUT[page];
     countNonRamAccess(address, page);
@@ -619,7 +638,7 @@ void PCSX::Memory::write32(uint32_t address, uint32_t value) {
         [[likely]];
         const uint32_t offset = address & 0xffff;
         *(uint32_t *)(pointer + offset) = SWAP_LEu32(value);
-        g_emulator->m_cpu->Clear((address & (~3)), 1);
+        g_emulator->m_cpu->ClearStore(address & (~3));
     } else if (page == 0x1f80 || page == 0x9f80 || page == 0xbf80) {
         if ((address & 0xffff) < 0x400) {
             uint32_t *ptr = (uint32_t *)&m_hard[address & 0x3ff];
@@ -635,7 +654,7 @@ void PCSX::Memory::write32(uint32_t address, uint32_t value) {
             case 0x00000800:
             case 0x00000804:
             case 0x0001e90c:  // TOCA World Touring Cars, SLES-02572, FlushCache at 0xa002f79c
-                g_emulator->m_cpu->invalidateCache();
+                g_emulator->m_cpu->biuCacheFlush();
                 [[fallthrough]];
             case 0x0001e988:
                 setLuts();
@@ -649,7 +668,7 @@ void PCSX::Memory::write32(uint32_t address, uint32_t value) {
         }
     } else if (sendWriteToLua(address, 4, value)) {
     } else if (isiCacheEnabled()) {
-        g_emulator->m_cpu->Clear(address, 1);
+        g_emulator->m_cpu->ClearStore(address);
         g_system->log(LogClass::CPU, _("32-bit write to unknown address: %8.8lx\n"), address);
         if (g_emulator->settings.get<Emulator::SettingDebugSettings>().get<Emulator::DebugSettings::Debug>()) {
             g_system->pause();
@@ -685,7 +704,7 @@ void PCSX::Memory::write32Masked(uint32_t address, uint32_t value, uint32_t byte
             g_system->testQuit(c_msanExitCode);
         }
         *(uint32_t *)&m_msanRAM[address - c_msanStart] = SWAP_LEu32(value);
-        g_emulator->m_cpu->Clear(address, 1);
+        g_emulator->m_cpu->ClearStore(address);
         return;
     }
     write32(address, value);
