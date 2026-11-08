@@ -1428,9 +1428,7 @@ void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawEditor(Ov
         ImGui::PushID(i);
         ImGui::Separator();
         ImGui::Text(_("Vertex %i"), i);
-        if constexpr ((textured == Textured::No) || (modulation == Modulation::On)) {
-            if ((shading == Shading::Gouraud) || (i == 0)) editColor(overlay, i, colors[i]);
-        }
+        if (colorEditable(i)) editColor(overlay, i, colors[i]);
         editXY(overlay, i, x[i], y[i]);
         ImGui::PopID();
     }
@@ -1487,7 +1485,7 @@ void PCSX::GPU::Line<shading, lineType, blend>::drawEditor(Overlay& overlay) {
         ImGui::PushID(i);
         ImGui::Separator();
         ImGui::Text(_("Vertex %i"), i);
-        if ((shading == Shading::Gouraud) || (i == 0)) editColor(overlay, i, colors[i]);
+        if (colorEditable(i)) editColor(overlay, i, colors[i]);
         editXY(overlay, i, x[i], y[i]);
         ImGui::PopID();
     }
@@ -1549,6 +1547,7 @@ void PCSX::GPU::Rect<size, textured, blend, modulation>::drawLogNode(unsigned it
 
 template <PCSX::GPU::Size size, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend, PCSX::GPU::Modulation modulation>
 void PCSX::GPU::Rect<size, textured, blend, modulation>::drawEditor(Overlay& overlay) {
+    // A textured rectangle without modulation has no colour field, so this cannot be a runtime test.
     if constexpr ((textured == Textured::No) || (modulation == Modulation::On)) {
         editColor(overlay, 0, color);
     }

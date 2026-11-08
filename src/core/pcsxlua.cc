@@ -226,7 +226,7 @@ const char* getGPUDumpPlayerNodeName(unsigned index) {
 }
 bool setGPUDumpPlayerNodeColor(unsigned index, unsigned vertex, uint32_t color) {
     auto node = getGPUDumpPlayerNode(index);
-    if (!node || !node->editable() || (vertex >= 4)) return false;
+    if (!node || !node->editable() || (vertex >= 4) || !node->colorEditable(vertex)) return false;
     if (!node->overlay) node->overlay = std::make_unique<PCSX::GPU::Logged::Overlay>();
     node->overlay->colors[vertex] = color & 0xffffff;
     return true;

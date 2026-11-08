@@ -335,6 +335,8 @@ class GPU {
         virtual void getVertices(AddTri &&, PixelOp) = 0;
         virtual bool isInside(unsigned x, unsigned y) { return false; }
         virtual bool editable() const { return false; }
+        // Whether replay reads an edited colour in this slot.
+        virtual bool colorEditable(unsigned slot) const { return false; }
         virtual void executeEdited(GPU* gpu, const Overlay&) { execute(gpu); }
         virtual void drawEditor(Overlay&) {}
         void addLine(AddTri &&, int x1, int y1, int x2, int y2);
@@ -741,6 +743,10 @@ class GPU {
         void drawLogNode(unsigned itemIndex, const DrawLogSettings &) override;
         void execute(GPU *gpu) override { gpu->write0(this); }
         bool editable() const override { return true; }
+        bool colorEditable(unsigned slot) const override {
+            if constexpr ((textured == Textured::Yes) && (modulation == Modulation::Off)) return false;
+            return shading == Shading::Gouraud ? slot < count : slot == 0;
+        }
         void executeEdited(GPU* gpu, const Overlay& edits) override {
             auto copy = *this;
             for (unsigned i = 0; i < count; i++) {
@@ -826,6 +832,9 @@ class GPU {
         bool editable() const override { return true; }
         // A poly-line only has its first four vertices editable.
         unsigned editableCount() const { return std::min<size_t>(4, x.size()); }
+        bool colorEditable(unsigned slot) const override {
+            return shading == Shading::Gouraud ? slot < std::min<size_t>(editableCount(), colors.size()) : slot == 0;
+        }
         void executeEdited(GPU* gpu, const Overlay& edits) override {
             auto copy = *this;
             if constexpr (shading == Shading::Flat) {
@@ -892,6 +901,9 @@ class GPU {
         void drawLogNode(unsigned itemIndex, const DrawLogSettings &) override;
         void execute(GPU *gpu) override { gpu->write0(this); }
         bool editable() const override { return true; }
+        bool colorEditable(unsigned slot) const override {
+            return ((textured == Textured::No) || (modulation == Modulation::On)) && (slot == 0);
+        }
         // No blend function edit: the renderers draw a rectangle with the current texture page, not this one.
         void executeEdited(GPU* gpu, const Overlay& edits) override {
             auto copy = *this;

@@ -172,6 +172,19 @@ local function checkOverlay(path)
         player.clearNodeOverlay(found)
         player.replay()
         c = countDiffs(a, player.getVRAM())
+        -- Every colour slot the node accepts has to change what replay draws.
+        for v = 0, 3 do
+            if player.setNodeColor(found, v, 0xff0000) then
+                player.replay()
+                local d = countDiffs(a, player.getVRAM())
+                if d == 0 then
+                    print(string.format('%s: colour slot %d accepted but ignored by replay', path, v))
+                    edited = 0
+                end
+            end
+            player.clearNodeOverlay(found)
+        end
+        player.replay()
     end
     local after = player.getLoggedCount()
     local name = found and player.getNodeName(found) or 'none'
