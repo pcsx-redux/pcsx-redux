@@ -92,7 +92,7 @@ function TestSQLite:test_named_parameters()
     stmt:bind(':b', 'second'):bind(':a', 'first')
     lu.assertFalse(stmt:step())
     stmt:finalize()
-    local row = db:rows 'SELECT a, b FROM t' ()
+    local row = db:first 'SELECT a, b FROM t'
     lu.assertEquals(row, { a = 'first', b = 'second' })
     lu.assertEquals(db:lastInsertRowId(), 1)
     db:close()
@@ -114,7 +114,7 @@ end
 function TestSQLite:test_transaction_rollback()
     local db = PCSX.SQLite.open()
     db:exec 'CREATE TABLE t (k TEXT UNIQUE)'
-    local function count() return db:rows 'SELECT count(*) AS c FROM t' ().c end
+    local function count() return db:first 'SELECT count(*) AS c FROM t'.c end
 
     lu.assertEquals(db:transaction(function(a) db:run('INSERT INTO t VALUES (?)', a) return 'done', 2 end, 'x'), 'done')
     lu.assertEquals(count(), 1)
@@ -147,6 +147,79 @@ function TestSQLite:test_transaction_rollback()
     for row in db:rows 'SELECT k FROM t ORDER BY k' do keys[#keys + 1] = row.k end
     lu.assertEquals(keys, { 'outer', 'x' })
     db:close()
+end
+
+function TestSQLite:test_first_and_column_bounds()
+    local db = PCSX.SQLite.open()
+    db:exec 'CREATE TABLE t (a)'
+    lu.assertNil(db:first 'SELECT a FROM t')
+    db:run('INSERT INTO t VALUES (?)', 7)
+    lu.assertEquals(db:first('SELECT a FROM t WHERE a = ?', 7), { a = 7 })
+    local stmt = db:prepare 'SELECT a FROM t'
+    lu.assertTrue(stmt:step())
+    lu.assertEquals(stmt:columnName(1), 'a')
+    for _, bad in ipairs { 0, 2 } do
+        lu.assertErrorMsgContains('out of range', function() stmt:columnName(bad) end)
+        lu.assertErrorMsgContains('out of range', function() stmt:column(bad) end)
+        lu.assertErrorMsgContains('out of range', function() stmt:columnType(bad) end)
+    end
+    stmt:finalize()
+    db:close()
+end
+
+function TestSQLite:test_failed_commit_rolls_back()
+    local db = PCSX.SQLite.open()
+    db:exec [[
+        PRAGMA foreign_keys = ON;
+        CREATE TABLE parent (id INTEGER PRIMARY KEY);
+        CREATE TABLE child (p INTEGER REFERENCES parent (id) DEFERRABLE INITIALLY DEFERRED);
+    ]]
+    lu.assertErrorMsgContains('FOREIGN KEY constraint failed', function()
+        db:transaction(function() db:run('INSERT INTO child VALUES (?)', 42) end)
+    end)
+    -- The transaction is gone, not left open for the next one to inherit.
+    lu.assertEquals(db:first 'SELECT count(*) AS c FROM child'.c, 0)
+    db:transaction(function() db:run('INSERT INTO parent VALUES (?)', 1) end)
+    lu.assertEquals(db:first 'SELECT count(*) AS c FROM parent'.c, 1)
+    db:close()
+end
+
+function TestSQLite:test_transaction_lost_to_sqlite()
+    local db = PCSX.SQLite.open()
+    db:exec 'CREATE TABLE t (k TEXT UNIQUE)'
+    db:run('INSERT INTO t VALUES (?)', 'a')
+    lu.assertErrorMsgContains('rolled back by SQLite', function()
+        db:transaction(function()
+            db:run('INSERT INTO t VALUES (?)', 'b')
+            -- OR ROLLBACK ends the whole transaction, not only the inner savepoint.
+            pcall(db.transaction, db, function() db:run('INSERT OR ROLLBACK INTO t VALUES (?)', 'a') end)
+            db:run('INSERT INTO t VALUES (?)', 'c')
+        end)
+    end)
+    local keys = {}
+    for row in db:rows 'SELECT k FROM t ORDER BY k' do keys[#keys + 1] = row.k end
+    lu.assertEquals(keys, { 'a' })
+    db:close()
+end
+
+function TestSQLite:test_close_inside_transaction()
+    local db = PCSX.SQLite.open()
+    lu.assertErrorMsgContains('callback failed', function()
+        db:transaction(function()
+            db:close()
+            error 'callback failed'
+        end)
+    end)
+    lu.assertErrorMsgContains('after close', function() db:exec 'SELECT 1' end)
+end
+
+function TestSQLite:test_statement_outliving_its_database()
+    local db = PCSX.SQLite.open()
+    local stmt = db:prepare 'SELECT ?'
+    db:close()
+    lu.assertErrorMsgContains('database was closed', function() stmt:bind(1, 'x') end)
+    lu.assertErrorMsgContains('database was closed', function() stmt:step() end)
+    stmt:finalize()
 end
 
 function TestSQLite:test_use_after_close_is_an_error()

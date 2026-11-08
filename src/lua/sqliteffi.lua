@@ -73,6 +73,18 @@ local function fail(db, level)
     error(string.format('sqlite: %s (%d)', ffi.string(C.sqlite3_errmsg(db)), C.sqlite3_extended_errcode(db)), level + 1)
 end
 
+-- A statement whose database was closed is unusable: close_v2 keeps the
+-- connection alive only so the statement can still be finalized.
+local function checkOpen(db, level)
+    if db._db == nil then error('SQLite database used after close', level + 1) end
+    -- SQLite can end a transaction on its own (INSERT OR ROLLBACK, some I/O
+    -- errors). Writing on as if it were still open would autocommit work the
+    -- surrounding transaction() means to roll back.
+    if db._txDepth > 0 and C.sqlite3_get_autocommit(db._db) ~= 0 then
+        error('SQLite transaction was rolled back by SQLite; it cannot be used until transaction() unwinds', level + 1)
+    end
+end
+
 local blobMeta = { __index = { _type = 'SQLiteBlob' } }
 local function blob(data)
     if type(data) ~= 'string' then error('SQLite.blob: needs a string', 2) end
@@ -87,13 +99,20 @@ local dbMeta = { __index = dbMethods }
 local function stmtHandle(stmt)
     local h = stmt._stmt
     if h == nil then error('SQLite statement used after finalize', 3) end
+    if stmt._owner._db == nil then error('SQLite statement used after its database was closed', 3) end
     return h
 end
 
 local function dbHandle(db)
-    local h = db._db
-    if h == nil then error('SQLite database used after close', 3) end
-    return h
+    checkOpen(db, 3)
+    return db._db
+end
+
+local function checkColumn(h, i)
+    if type(i) ~= 'number' or i < 1 or i > C.sqlite3_column_count(h) then
+        error('SQLite column index out of range: ' .. tostring(i), 3)
+    end
+    return i - 1
 end
 
 local function bindOne(stmt, h, index, value)
@@ -143,6 +162,7 @@ end
 
 function stmtMethods:step()
     local h = stmtHandle(self)
+    checkOpen(self._owner, 2)
     local rc = C.sqlite3_step(h)
     if rc == SQLITE_ROW then return true end
     if rc == SQLITE_DONE then return false end
@@ -162,9 +182,15 @@ end
 
 function stmtMethods:columnCount() return C.sqlite3_column_count(stmtHandle(self)) end
 
-function stmtMethods:columnName(i) return ffi.string(C.sqlite3_column_name(stmtHandle(self), i - 1)) end
+function stmtMethods:columnName(i)
+    local h = stmtHandle(self)
+    return ffi.string(C.sqlite3_column_name(h, checkColumn(h, i)))
+end
 
-function stmtMethods:columnType(i) return typeNames[C.sqlite3_column_type(stmtHandle(self), i - 1)] end
+function stmtMethods:columnType(i)
+    local h = stmtHandle(self)
+    return typeNames[C.sqlite3_column_type(h, checkColumn(h, i))]
+end
 
 local function column(h, i)
     local t = C.sqlite3_column_type(h, i)
@@ -180,7 +206,10 @@ local function column(h, i)
     return nil
 end
 
-function stmtMethods:column(i) return column(stmtHandle(self), i - 1) end
+function stmtMethods:column(i)
+    local h = stmtHandle(self)
+    return column(h, checkColumn(h, i))
+end
 
 function stmtMethods:row()
     local h = stmtHandle(self)
@@ -198,6 +227,8 @@ end
 
 function stmtMethods:finalize()
     local h = self._stmt
+    -- No owner check here: finalizing is the one thing a statement may still
+    -- do after its database was closed, and it is what frees the connection.
     if h == nil then return end
     self._stmt = nil
     ffi.gc(h, nil)
@@ -229,6 +260,9 @@ function dbMethods:run(sql, ...)
     return C.sqlite3_changes(self._db)
 end
 
+-- A loop that leaves early keeps its statement, and on a file its read lock,
+-- until the garbage collector finalizes it. Use first() for a single row, or
+-- prepare() and finalize() for explicit control.
 function dbMethods:rows(sql, ...)
     local stmt = self:prepare(sql)
     stmt:bindAll(...)
@@ -242,6 +276,17 @@ function dbMethods:rows(sql, ...)
         if more then return stmt:row() end
         stmt:finalize()
     end
+end
+
+function dbMethods:first(sql, ...)
+    local stmt = self:prepare(sql)
+    local ok, row = pcall(function(...)
+        stmt:bindAll(...)
+        if stmt:step() then return stmt:row() end
+    end, ...)
+    stmt:finalize()
+    if not ok then error(row, 2) end
+    return row
 end
 
 function dbMethods:changes() return C.sqlite3_changes(dbHandle(self)) end
@@ -271,12 +316,27 @@ function dbMethods:transaction(fn, ...)
         rollback = 'ROLLBACK TO ' .. name .. '; RELEASE ' .. name
     end
     self:exec(begin)
+    self._txDepth = self._txDepth + 1
     local results = pack(pcall(fn, ...))
-    if results[1] then
-        self:exec(commit)
-        return unpackResults(results, 2, results.n)
+    self._txDepth = self._txDepth - 1
+    if self._db == nil then
+        -- fn closed the database, which already rolled back anything open.
+        if results[1] then error('SQLite transaction: the database was closed inside it', 2) end
+        error(results[2], 0)
     end
-    C.sqliteExec(h, rollback)
+    -- SQLite ended the transaction itself; there is nothing left to commit or roll back.
+    local lost = C.sqlite3_get_autocommit(h) ~= 0
+    if results[1] and lost then
+        error('SQLite transaction was rolled back by SQLite before it could commit', 2)
+    end
+    if results[1] then
+        if C.sqliteExec(h, commit) == SQLITE_OK then return unpackResults(results, 2, results.n) end
+        -- A failed COMMIT (a deferred constraint, say) leaves the transaction open.
+        local err = string.format('sqlite: %s (%d)', ffi.string(C.sqlite3_errmsg(h)), C.sqlite3_extended_errcode(h))
+        C.sqliteExec(h, rollback)
+        error(err, 2)
+    end
+    if not lost then C.sqliteExec(h, rollback) end
     error(results[2], 0)
 end
 
@@ -300,7 +360,7 @@ local function open(path, options)
         error(string.format('sqlite: %s (%d)', msg, rc), 2)
     end
     local db = ffi.gc(out[0], function(p) C.sqlite3_close_v2(p) end)
-    return setmetatable({ _type = 'SQLiteDatabase', _db = db }, dbMeta)
+    return setmetatable({ _type = 'SQLiteDatabase', _db = db, _txDepth = 0 }, dbMeta)
 end
 
 PCSX.SQLite = {
