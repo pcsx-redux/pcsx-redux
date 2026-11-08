@@ -267,6 +267,9 @@
     <ProjectReference Include="..\md4c\md4c.vcxproj">
       <Project>{b90d7510-9ab2-47e9-a1d8-bc307902a0a6}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\sqlite\sqlite.vcxproj">
+      <Project>{66fe20a8-3bd7-5ae5-b930-1306e6c0426a}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\multipart-parser\multipart-parser.vcxproj">
       <Project>{de9d9c53-5caa-4542-8c27-72d84334f9e3}</Project>
     </ProjectReference>

@@ -52,6 +52,7 @@
 #include "lua/luafile.h"
 #include "lua/luawrapper.h"
 #include "lua/luv-glue.h"
+#include "lua/sqliteffi.h"
 #include "lua/zlibffi.h"
 #include "luafilesystem/src/lfs.h"
 #include "spu/interface.h"
@@ -173,6 +174,7 @@ void PCSX::Emulator::setLua() {
     LuaFFI::open_extra(L);
     LuaBindings::open_events(L);
     LuaFFI::open_compression(L);
+    LuaFFI::open_sqlite(L);
     LuaSupportPSX::open_adpcm(L);
     LuaSupportPSX::open_assembler(L);
     LuaSupportPSX::open_binaries(L);

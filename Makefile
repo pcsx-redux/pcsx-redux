@@ -164,6 +164,7 @@ SRCS += third_party/imgui_memory_editor/imgui_memory_editor.cpp
 SRCS_pkg_libllhttp += $(wildcard third_party/llhttp/*.c)
 SRCS += $(wildcard third_party/lpeg/*.c)
 SRCS += third_party/lua-protobuf/pb.c
+SRCS += third_party/sqlite/sqlite3.c
 SRCS += third_party/luafilesystem/src/lfs.c
 SRCS_pkg_libluv += third_party/luv/src/luv.c
 SRCS_pkg_md4c += third_party/md4c/src/md4c.c

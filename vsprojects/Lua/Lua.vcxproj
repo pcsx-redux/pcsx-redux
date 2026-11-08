@@ -25,6 +25,7 @@
     <ClCompile Include="..\..\src\lua\luafile.cc" />
     <ClCompile Include="..\..\src\lua\luv-glue.cc" />
     <ClCompile Include="..\..\src\lua\luawrapper.cc" />
+    <ClCompile Include="..\..\src\lua\sqliteffi.cc" />
     <ClCompile Include="..\..\src\lua\zlibffi.cc" />
     <ClCompile Include="..\..\third_party\lua-protobuf\pb.c" />
     <ClCompile Include="..\..\third_party\luafilesystem\src\lfs.c" />
@@ -35,6 +36,7 @@
     <ClInclude Include="..\..\src\lua\glffi.h" />
     <ClInclude Include="..\..\src\lua\luafile.h" />
     <ClInclude Include="..\..\src\lua\luawrapper.h" />
+    <ClInclude Include="..\..\src\lua\sqliteffi.h" />
     <ClInclude Include="..\..\src\lua\zlibffi.h" />
     <ClInclude Include="..\..\third_party\lua-protobuf\pb.h" />
     <ClInclude Include="..\..\third_party\luafilesystem\src\lfs.h" />
@@ -53,6 +55,7 @@
     <None Include="..\..\third_party\glffi\glffi-enum2.lua" />
     <None Include="..\..\third_party\glffi\glffi-enum3.lua" />
     <None Include="..\..\src\lua\compressionffi-cdef.lua" />
+    <None Include="..\..\src\lua\sqliteffi.lua" />
     <None Include="..\..\src\lua\compressionffi.lua" />
     <None Include="..\..\third_party\glffi\glffi-typedefs.lua" />
     <None Include="..\..\third_party\lua-protobuf\descriptor.pb.lua" />
