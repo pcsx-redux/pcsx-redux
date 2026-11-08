@@ -97,10 +97,13 @@ typedef Protobuf::MessageField<GtePendingWriteInfo, TYPESTRING("gte_pending_3"),
 typedef Protobuf::FieldRef<Protobuf::UInt32, TYPESTRING("gte_pending_count"), 24> GtePendingCount;
 typedef Protobuf::FieldRef<Protobuf::Bool, TYPESTRING("next_is_branch_slot"), 25> NextIsBranchSlot;
 typedef Protobuf::FieldRef<Protobuf::UInt32, TYPESTRING("next_slot_branch_pc"), 26> NextSlotBranchPC;
+// Set by every save made since the i-cache keeps one tag per line. Without it, icache_addr holds the
+// older per-word addresses and is converted on load.
+typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("icache_line_tags"), 27> ICacheLineTags;
 typedef Protobuf::Message<TYPESTRING("Registers"), GPR, CP0, CP2D, CP2C, PC, Code, Cycle, ScheduleMask, ICacheAddr,
                           ICacheCode, NextIsDelaySlot, DelaySlotInfo1, DelaySlotInfo2, CurrentDelayedLoad,
                           ScheduleTargetsField, InISR, MulDivReady, GteReady, GtePending1, GtePending2, GtePending3,
-                          GtePendingCount, NextIsBranchSlot, NextSlotBranchPC>
+                          GtePendingCount, NextIsBranchSlot, NextSlotBranchPC, ICacheLineTags>
     Registers;
 typedef Protobuf::MessageField<Registers, TYPESTRING("registers"), 4> RegistersField;
 

@@ -286,6 +286,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\rumble.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\sio1-misc.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\srwrite.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\icache.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\timers.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-command.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-dma-dreq.cc" />
