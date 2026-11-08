@@ -1323,8 +1323,9 @@ void PCSX::GPU::Logged::editColor(Overlay& overlay, unsigned i, uint32_t current
 void PCSX::GPU::Logged::editXY(Overlay& overlay, unsigned i, int currentX, int currentY) {
     int x = overlay.x[i].value_or(currentX);
     int y = overlay.y[i].value_or(currentY);
-    if (ImGui::InputInt("X", &x)) overlay.x[i] = x;
-    if (ImGui::InputInt("Y", &y)) overlay.y[i] = y;
+    // A GP0 vertex carries a signed 11-bit coordinate, so an edit cannot leave that range.
+    if (ImGui::InputInt("X", &x)) overlay.x[i] = std::clamp(x, -1024, 1023);
+    if (ImGui::InputInt("Y", &y)) overlay.y[i] = std::clamp(y, -1024, 1023);
 }
 
 void PCSX::GPU::Logged::editBlendFunction(Overlay& overlay, BlendFunction current) {
