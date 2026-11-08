@@ -32,8 +32,9 @@ namespace PCSX {
 namespace SPU {
 
 // Decodes a sample of sound RAM from its start through its loop-end block, with the filter
-// history cleared as key-on does.
-std::vector<int16_t> decodeSample(const uint8_t* spuRam, const SPUSample::Extent& extent);
+// history cleared as key-on does. A looping sample keeps going round its loop, the filter
+// history carrying over as it does on hardware, until there are at least `minPoints`.
+std::vector<int16_t> decodeSample(const uint8_t* spuRam, const SPUSample::Extent& extent, size_t minPoints = 0);
 
 // The fundamental of a sample of sound RAM at its stored rate, which is what SPU pitch 1000h
 // plays: estimated over its loop, or past its attack if it does not loop.

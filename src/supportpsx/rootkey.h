@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -74,7 +75,13 @@ Result fromFundamental(std::optional<double> fundamental);
 // pitch p plays the sample at note + 12 log2(p / 1000h); a game tuned to A440 equal
 // temperament puts those on whole notes. An octave error in the fundamental (or a pick of the
 // third harmonic, two cents off a twelfth) is invisible to this check. Pitch 0 is skipped.
+// The offset it measures is the sample's own detune plus the game's fine tuning.
 Result combine(std::optional<double> fundamental, const std::vector<uint16_t>& keyOnPitches);
+
+// Key-on count by pitch register value.
+using PitchCounts = std::map<uint16_t, uint32_t>;
+// Same as combine(), from counts.
+Result combineCounts(std::optional<double> fundamental, const PitchCounts& keyOnPitches);
 
 // The stretch of a decoded sample to estimate the fundamental from: a loop repeated up to
 // Fundamental::c_maxInput points, or a one-shot past its attack. `loopStart` is in points,

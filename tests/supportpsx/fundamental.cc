@@ -50,7 +50,11 @@ std::vector<int16_t> tone(double hz, std::initializer_list<double> amps, double 
     std::vector<double> v(count);
     for (size_t i = 0; i < count; i++) {
         unsigned k = 1;
-        for (double a : amps) v[i] += a * std::sin(2.0 * c_pi * hz * k++ * double(i) / rate + 0.3 * k);
+        for (double a : amps) {
+            // Harmonic k starts at phase 0.3 k.
+            v[i] += a * std::sin(2.0 * c_pi * hz * k * double(i) / rate + 0.3 * k);
+            k++;
+        }
     }
     double m = 0;
     for (double x : v) m = std::max(m, std::abs(x));

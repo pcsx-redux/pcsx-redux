@@ -175,3 +175,16 @@ TEST(RootKey, NoteNames) {
     EXPECT_EQ(noteName(127), "G9");
     EXPECT_EQ(noteName(61), "C#4");
 }
+
+TEST(RootKey, CountsWeighLikeRepeatedKeyOns) {
+    std::vector<uint16_t> flat;
+    for (int i = 0; i < 30; i++) flat.push_back(pitchFor(69.2, 69));
+    for (int i = 0; i < 10; i++) flat.push_back(pitchFor(68.8, 72));
+    const auto a = combine(440.0, flat);
+    const auto b = combineCounts(440.0, {{pitchFor(69.2, 69), 30}, {pitchFor(68.8, 72), 10}});
+    EXPECT_EQ(a.keyOns, 40u);
+    EXPECT_EQ(b.keyOns, 40u);
+    EXPECT_DOUBLE_EQ(a.gridCents, b.gridCents);
+    EXPECT_DOUBLE_EQ(a.coherence, b.coherence);
+    EXPECT_EQ(a.status, b.status);
+}

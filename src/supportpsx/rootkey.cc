@@ -47,17 +47,23 @@ PCSX::RootKey::Result PCSX::RootKey::fromFundamental(std::optional<double> funda
 
 PCSX::RootKey::Result PCSX::RootKey::combine(std::optional<double> fundamental,
                                              const std::vector<uint16_t>& keyOnPitches) {
+    PitchCounts counts;
+    for (uint16_t p : keyOnPitches) counts[p]++;
+    return combineCounts(fundamental, counts);
+}
+
+PCSX::RootKey::Result PCSX::RootKey::combineCounts(std::optional<double> fundamental, const PitchCounts& keyOnPitches) {
     Result r = fromFundamental(fundamental);
     if (r.status == Status::Unpitched) return r;
     // Distances to the grid are circular: 0.49 and -0.49 semitones are neighbours.
     double c = 0.0, s = 0.0;
-    for (uint16_t p : keyOnPitches) {
+    for (auto [p, n] : keyOnPitches) {
         if (p == 0) continue;
         const double played = r.note + 12.0 * std::log2(double(p) / 0x1000);
         const double off = played - std::round(played);
-        c += std::cos(2.0 * c_pi * off);
-        s += std::sin(2.0 * c_pi * off);
-        r.keyOns++;
+        c += n * std::cos(2.0 * c_pi * off);
+        s += n * std::sin(2.0 * c_pi * off);
+        r.keyOns += n;
     }
     if (r.keyOns == 0) return r;
     c /= r.keyOns;

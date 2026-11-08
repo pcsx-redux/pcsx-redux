@@ -52,7 +52,8 @@ class SPUSamples {
         uint64_t signature = 0;
         uint32_t keyOns = 0;
         uint32_t voiceMask = 0;  // voices seen keying it on
-        std::vector<uint16_t> pitches;  // pitch register at each logged key-on
+        RootKey::PitchCounts pitches;  // key-ons by pitch register, for the content in pitchesSignature
+        uint64_t pitchesSignature = 0;
         RootKey::Result root;
     };
 

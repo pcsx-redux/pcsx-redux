@@ -74,7 +74,10 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         o.name = fmt::format("{:016x}", s.signature);
         o.pcm = SPU::decodeSample(spuRam, s);
         o.sampleRate = 44100;
-        const auto root = RootKey::combine(SPU::sampleFundamental(spuRam, s), s.pitches);
+        // Key-ons logged against other content at this address say nothing about this sample.
+        static const RootKey::PitchCounts none;
+        const auto& pitches = s.signature == cached.pitchesSignature ? s.pitches : none;
+        const auto root = RootKey::combineCounts(SPU::sampleFundamental(spuRam, s), pitches);
         o.rootKey = root.key;
         o.correction = root.correction;
         switch (root.status) {
@@ -123,12 +126,13 @@ void PCSX::Widgets::SPUSamples::rebuild(PCSX::SPULogger* logger, const uint8_t* 
         m_lastClears = logger->clears();
     }
     const size_t fresh = size_t(std::min<uint64_t>(seen - m_lastSeen, count));
+    std::map<uint32_t, RootKey::PitchCounts> freshPitches;
     for (size_t i = count - fresh; i < count; i++) {
         const auto& ev = (*logger)[i];
         if (ev.kind != PCSX::SPULogger::Kind::KeyOn) continue;
         auto& s = m_samples[ev.address];
         s.keyOns++;
-        s.pitches.push_back(uint16_t(ev.value));
+        freshPitches[ev.address][uint16_t(ev.value)]++;
         if (ev.voice < 32) s.voiceMask |= 1u << ev.voice;
     }
     m_lastSeen = seen;
@@ -141,9 +145,18 @@ void PCSX::Widgets::SPUSamples::rebuild(PCSX::SPULogger* logger, const uint8_t* 
             s.root = {};
             continue;
         }
+        // New content at this address restarts the pitch history. Key-ons logged since the last
+        // refresh are all credited to what is there now.
+        if (s.pitchesSignature != s.signature) {
+            s.pitches.clear();
+            s.pitchesSignature = s.signature;
+        }
+        if (auto p = freshPitches.find(start); p != freshPitches.end()) {
+            for (auto [pitch, n] : p->second) s.pitches[pitch] += n;
+        }
         auto f = m_fundamentals.find(s.signature);
         if (f == m_fundamentals.end()) f = m_fundamentals.emplace(s.signature, SPU::sampleFundamental(spuRam, s)).first;
-        s.root = RootKey::combine(f->second, s.pitches);
+        s.root = RootKey::combineCounts(f->second, s.pitches);
     }
 
     if (m_selected) {

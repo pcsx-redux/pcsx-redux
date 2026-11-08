@@ -24,7 +24,7 @@
 #include "spu/adpcm.h"
 #include "supportpsx/rootkey.h"
 
-std::vector<int16_t> PCSX::SPU::decodeSample(const uint8_t* spuRam, const SPUSample::Extent& extent) {
+std::vector<int16_t> PCSX::SPU::decodeSample(const uint8_t* spuRam, const SPUSample::Extent& extent, size_t minPoints) {
     using SPUSample::c_blockSize;
     std::vector<int16_t> out;
     out.reserve(extent.blocks() * SPUSample::c_samplesPerBlock);
@@ -32,18 +32,26 @@ std::vector<int16_t> PCSX::SPU::decodeSample(const uint8_t* spuRam, const SPUSam
     uint8_t* ram = const_cast<uint8_t*>(spuRam);
     AdpcmDecoder decoder;
     decoder.reset();
-    for (uint32_t addr = extent.start; addr + c_blockSize <= extent.end; addr += c_blockSize) {
-        decoder.decodeBlock(ram + addr);
-        while (!decoder.bufferExhausted()) out.push_back(int16_t(std::clamp(decoder.takeSample(), -32768, 32767)));
+    auto decodeRange = [&](uint32_t from) {
+        for (uint32_t addr = from; addr + c_blockSize <= extent.end; addr += c_blockSize) {
+            decoder.decodeBlock(ram + addr);
+            while (!decoder.bufferExhausted()) out.push_back(int16_t(std::clamp(decoder.takeSample(), -32768, 32767)));
+        }
+    };
+    decodeRange(extent.start);
+    if (extent.repeats && extent.hasLoop && extent.loop < extent.end) {
+        while (out.size() < minPoints) decodeRange(extent.loop);
     }
     return out;
 }
 
 std::optional<double> PCSX::SPU::sampleFundamental(const uint8_t* spuRam, const SPUSample::Extent& extent) {
     if (extent.truncated) return std::nullopt;
-    const auto pcm = decodeSample(spuRam, extent);
     const bool loops = extent.repeats && extent.hasLoop;
     const uint32_t loopStart = (extent.loop - extent.start) / SPUSample::c_blockSize * SPUSample::c_samplesPerBlock;
+    // Decoded on round the loop rather than repeating its first pass, so a filtered loop
+    // keeps the history it really plays with.
+    const auto pcm = decodeSample(spuRam, extent, loops ? loopStart + Fundamental::c_maxInput : 0);
     const auto window = RootKey::analysisWindow(pcm, loops, loopStart);
     return Fundamental::estimate(window, 44100);
 }

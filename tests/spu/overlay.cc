@@ -19,12 +19,16 @@
 
 #include "spu/overlay.h"
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
 #include "gtest/gtest.h"
 #include "supportpsx/sf2.h"
+#include "spu/adpcm.h"
+#include "spu/samplepitch.h"
 #include "supportpsx/rootkey.h"
+#include "supportpsx/spusample.h"
 
 namespace {
 
@@ -142,4 +146,43 @@ TEST(SPUOverlay, ReplacementIsTunedAgainstTheOriginal) {
     down.start(overlay, overlay->find(2), 57.0);
     down.next(0x10000);
     EXPECT_EQ(down.next(0x10000), 50);
+}
+
+TEST(SPUSamplePitch, LoopDecodeKeepsTheFilterHistory) {
+    // Block 0 is the attack, blocks 1-2 loop. Filter 1 feeds each block the previous one's
+    // last samples, so the second pass round the loop differs from the first.
+    using namespace PCSX::SPUSample;
+    std::vector<uint8_t> ram(c_ramSize);
+    const uint32_t start = 0x1000;
+    for (unsigned b = 0; b < 3; b++) {
+        uint8_t* block = ram.data() + start + b * c_blockSize;
+        block[0] = 0x14;  // filter 1, shift 4
+        for (unsigned i = 2; i < c_blockSize; i++) block[i] = uint8_t(0x11 * (b + i));
+    }
+    ram[start + 1 * c_blockSize + 1] = c_flagLoopStart;
+    ram[start + 2 * c_blockSize + 1] = c_flagLoopEnd | c_flagRepeat;
+    const auto extent = walk(ram.data(), start);
+    ASSERT_TRUE(extent.repeats && extent.hasLoop);
+
+    const auto pcm = PCSX::SPU::decodeSample(ram.data(), extent, 200);
+    ASSERT_GE(pcm.size(), 200u);
+    EXPECT_EQ(pcm.size() % c_samplesPerBlock, 0u);
+
+    // Reference: one decoder walking blocks 0, 1, 2, 1, 2, ...
+    PCSX::SPU::AdpcmDecoder decoder;
+    decoder.reset();
+    std::vector<int16_t> expected;
+    for (unsigned b = 0; expected.size() < pcm.size(); b = b == 2 ? 1 : b + 1) {
+        decoder.decodeBlock(ram.data() + start + b * c_blockSize);
+        while (!decoder.bufferExhausted()) expected.push_back(int16_t(std::clamp(decoder.takeSample(), -32768, 32767)));
+    }
+    EXPECT_EQ(pcm, expected);
+
+    // And the loop's second pass is not a copy of its first.
+    const size_t loopStart = c_samplesPerBlock, loopLength = 2 * c_samplesPerBlock;
+    EXPECT_NE(std::vector<int16_t>(pcm.begin() + loopStart, pcm.begin() + loopStart + loopLength),
+              std::vector<int16_t>(pcm.begin() + loopStart + loopLength, pcm.begin() + loopStart + 2 * loopLength));
+
+    // Without a minimum, one pass.
+    EXPECT_EQ(PCSX::SPU::decodeSample(ram.data(), extent).size(), 3 * c_samplesPerBlock);
 }
