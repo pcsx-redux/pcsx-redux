@@ -64,7 +64,7 @@ struct Result {
     // how consistent they are (1 = all at the same distance). Only set from key-ons.
     double gridCents = 0.0;
     double coherence = 0.0;
-    unsigned keyOns = 0;
+    uint64_t keyOns = 0;
 };
 
 // From the fundamental of a sample decoded at its stored rate, which SPU pitch 1000h plays

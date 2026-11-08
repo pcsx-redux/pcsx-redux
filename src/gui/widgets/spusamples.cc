@@ -20,6 +20,7 @@
 #include "gui/widgets/spusamples.h"
 
 #include <algorithm>
+#include <string_view>
 
 #include "core/spu.h"
 #include "core/system.h"
@@ -111,8 +112,12 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
     if (!disagrees.empty()) comment += "\nKey-on pitches disagree, check by ear: " + disagrees;
     if (!unconfirmed.empty()) comment += "\nNo key-on pitch to check against: " + unconfirmed;
     if (!unpitched.empty()) comment += "\nUnpitched: " + unpitched;
-    // ICMT is limited to 65536 bytes, terminator included.
-    if (comment.size() > 65535) comment.resize(65535);
+    // ICMT is limited to 65536 bytes, terminator included. Cut at a whole name and say so.
+    if (comment.size() > 65535) {
+        constexpr std::string_view cut = " (list truncated)";
+        comment.resize(comment.find_last_of(" \n", 65535 - cut.size()));
+        comment += cut;
+    }
     return SF2::write(out, "PCSX-Redux SPU samples", comment);
 }
 
@@ -145,14 +150,19 @@ void PCSX::Widgets::SPUSamples::rebuild(PCSX::SPULogger* logger, const uint8_t* 
             s.root = {};
             continue;
         }
-        // New content at this address restarts the pitch history. Key-ons logged since the last
-        // refresh are all credited to what is there now.
+        // New content at this address restarts the pitch history. The key-ons logged since the
+        // last refresh may have played either the old content or the new one, so they are dropped
+        // rather than credited to the wrong sample.
+        const bool replaced = s.pitchesSignature != 0 && s.pitchesSignature != s.signature;
         if (s.pitchesSignature != s.signature) {
             s.pitches.clear();
             s.pitchesSignature = s.signature;
         }
-        if (auto p = freshPitches.find(start); p != freshPitches.end()) {
-            for (auto [pitch, n] : p->second) s.pitches[pitch] += n;
+        if (auto p = freshPitches.find(start); !replaced && p != freshPitches.end()) {
+            for (auto [pitch, n] : p->second) {
+                auto& count = s.pitches[pitch];
+                count = n > UINT32_MAX - count ? UINT32_MAX : count + n;
+            }
         }
         auto f = m_fundamentals.find(s.signature);
         if (f == m_fundamentals.end()) f = m_fundamentals.emplace(s.signature, SPU::sampleFundamental(spuRam, s)).first;
