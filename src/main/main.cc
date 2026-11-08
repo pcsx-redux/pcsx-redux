@@ -37,6 +37,7 @@
 #include "core/logger.h"
 #include "core/psxemulator.h"
 #include "core/r3000a.h"
+#include "core/sio.h"
 #include "core/sstate.h"
 #include "core/ui.h"
 #include "fmt/chrono.h"
@@ -632,6 +633,12 @@ runner.init({
                     // it's running, meaning if we want our UI to work, we have to manually
                     // call "update" when the emulator is paused.
                     s_ui->update();
+                    // Core is not executing, so branchTest (and with it stepPocketstation) is not
+                    // running. Advance any enabled PocketStation off real wall-clock time so it runs
+                    // fully standalone (keeps time, runs its GUI, sleeps cheaply via CLK_STOP). This
+                    // branch is mutually exclusive with the running() one above, so the device is
+                    // never double-clocked.
+                    emulator->m_sio->stepPocketstationWallClock();
                 }
             };
 

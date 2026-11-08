@@ -148,21 +148,24 @@ class File {
         }
     }
 
+    // A failed or empty read gives an empty slice: read() returns -1 at the end of the file.
     Slice read(ssize_t size) {
         void* data = malloc(size);
-        size = read(data, size);
-        data = realloc(data, size);
-        Slice slice;
-        slice.acquire(data, size);
-        return slice;
+        return acquireRead(data, read(data, size));
     }
 
     Slice readAt(ssize_t size, ssize_t pos) {
         void* data = malloc(size);
-        size = readAt(data, size, pos);
-        data = realloc(data, size);
+        return acquireRead(data, readAt(data, size, pos));
+    }
+
+    static Slice acquireRead(void* data, ssize_t got) {
         Slice slice;
-        slice.acquire(data, size);
+        if (got <= 0) {
+            free(data);
+            return slice;
+        }
+        slice.acquire(realloc(data, got), got);
         return slice;
     }
 
@@ -442,12 +445,17 @@ class PosixFile : public File {
     PosixFile(const char* filename, FileOps::Create);
     PosixFile(const char* filename, FileOps::ReadWrite);
 
+    // Close the file. Returns 0, or -1 if it never opened, a write came up
+    // short, or flushing and closing it failed.
+    int closeChecked();
+
   private:
     virtual void closeInternal() final override;
     const std::filesystem::path m_filename;
     FILE* m_handle = nullptr;
     size_t m_ptrR = 0;
     size_t m_ptrW = 0;
+    bool m_writeFailed = false;
 };
 
 class SubFile : public File {

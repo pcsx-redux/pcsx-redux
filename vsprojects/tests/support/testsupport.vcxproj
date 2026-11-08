@@ -93,6 +93,7 @@
     <ClCompile Include="..\..\..\tests\support\network.cc" />
     <ClCompile Include="..\..\..\tests\support\uvfifolistener.cc" />
     <ClCompile Include="..\..\..\tests\support\uvthread.cc" />
+    <ClCompile Include="..\..\..\tests\support\uvfile.cc" />
     <ClCompile Include="..\..\..\tests\support\tree.cc" />
     <ClCompile Include="..\..\..\tests\dct-pack.cc" />
     <ClCompile Include="..\..\..\tests\support\protobuf-fieldptr.cc" />

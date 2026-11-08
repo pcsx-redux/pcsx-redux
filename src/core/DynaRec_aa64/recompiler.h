@@ -151,6 +151,23 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
         uint32_t value;
     } m_runtimeLoadDelay;
 
+    // GTE register writes (MTC2, CTC2, LWC2) compiled in the current block that have not reached the GTE yet,
+    // oldest first. A write lands once two more instructions have run, as in the interpreter. Between blocks,
+    // writes still in flight live in R3000Acpu::m_gtePending.
+    struct GTEQueuedWrite {
+        uint32_t value;  // The value, when isConst
+        uint8_t reg;
+        uint8_t slot;  // Index into m_gteWriteValues
+        uint8_t countdown;
+        bool ctrl;
+        bool isConst;
+    };
+    struct {
+        GTEQueuedWrite writes[3];
+        unsigned count;
+    } m_gteQueue;
+    uint32_t m_gteWriteValues[3];  // Values of the queued writes, captured at issue
+
     enum class LoadDelayDependencyType { NoDependency, DependencyInsideBlock, DependencyAcrossBlocks };
 
     enum class RegState { Unknown, Constant };
@@ -282,9 +299,9 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
     static void recErrorWrapper(DynaRecCPU* that) { that->error(); }
 
     static void signalShellReached(DynaRecCPU* that);
-    static DynarecCallback recRecompileWrapper(DynaRecCPU* that, DynarecCallback* callback,
-                                               bool fullLoadDelayEmulation) {
-        return that->recompile(callback, that->m_regs.pc, true, fullLoadDelayEmulation);
+    static DynarecCallback recRecompileWrapper(DynaRecCPU* that, bool fullLoadDelayEmulation) {
+        const uint32_t pc = that->m_regs.pc;
+        return that->recompile(that->getBlockPointer(pc), pc, true, fullLoadDelayEmulation);
     }
 
     template <uint32_t pc>
@@ -567,6 +584,16 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
     void testSoftwareInterrupt();
 
     void loadGTEDataRegister(Register dest, int index);
+    void emitGTEWrite(bool ctrl, unsigned reg);
+    void emitGTECommit(const GTEQueuedWrite& write);
+    void emitGTESpillQueue();
+    void emitGTEFlushQueue(bool commitAll);
+    void makeRoomForGTEWrite();
+    void queueGTEWrite(bool ctrl, unsigned reg, bool isConst, uint32_t value, Register src);
+    void tickGTEWrites();
+    static void gteCommandWrapper(DynaRecCPU* that, uint32_t code);
+    void drainGTEWrites();
+    static void drainGTEWritesWrapper(DynaRecCPU* that) { that->drainGTEWrites(); }
 
     template <int size, bool signExtend>
     void recompileLoad(uint32_t code);

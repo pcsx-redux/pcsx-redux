@@ -116,3 +116,6 @@
 [submodule "third_party/args"]
 	path = third_party/args
 	url = https://github.com/Taywee/args.git
+[submodule "src/pocketstation"]
+	path = src/pocketstation
+	url = https://github.com/pcsx-redux/pocketstation.git

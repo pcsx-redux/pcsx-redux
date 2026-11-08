@@ -208,7 +208,11 @@ static SDL_Window* getSDLWindowFromImGuiViewport(ImGuiViewport* viewport) {
 PCSX::GUI* PCSX::g_gui = nullptr;
 
 // Sink for ThorVG's TVGERR / TVGLOG, wired in third_party/thorvg-config/config.h.
+// Only errors are kept. TVGLOG is informational chatter (loader probing, missing
+// optional font tables, ...) that fires on every load and would otherwise end up
+// on stdout with -stdout.
 void pcsxThorVGLog(bool error, const char* tag, const char* file, int line, const char* fmt, ...) {
+    if (!error) return;
     va_list args, copy;
     va_start(args, fmt);
     va_copy(copy, args);
@@ -218,12 +222,11 @@ void pcsxThorVGLog(bool error, const char* tag, const char* file, int line, cons
     if (len > 0) vsnprintf(buffer.data(), len + 1, fmt, args);
     va_end(args);
     if (!PCSX::g_system) {
-        fprintf(stderr, "[ThorVG %s] %s (%s:%d): %s\n", error ? "error" : "log", tag, file, line, buffer.c_str());
+        fprintf(stderr, "[ThorVG error] %s (%s:%d): %s\n", tag, file, line, buffer.c_str());
         return;
     }
     auto base = std::filesystem::path(file).filename().string();
-    PCSX::g_system->log(PCSX::LogClass::UI, "[ThorVG %s] %s (%s:%d): %s\n", error ? "error" : "log", tag, base, line,
-                        buffer);
+    PCSX::g_system->log(PCSX::LogClass::UI, "[ThorVG error] %s (%s:%d): %s\n", tag, base, line, buffer);
 }
 
 void PCSX::GUI::setFullscreen(bool fullscreen) {
@@ -1573,6 +1576,8 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
                     ImGui::EndMenu();
                 }
                 ImGui::MenuItem(_("Show PSYQo heap viewer"), nullptr, &m_heapViewer.m_show);
+                ImGui::MenuItem(_("Show PSYQo scope profiler"), nullptr, &m_scopeProfiler.m_show);
+                ImGui::MenuItem(_("Show PocketStation LCD"), nullptr, &m_pocketStationLCD.m_show);
                 ImGui::MenuItem(_("Show allocator tracker"), nullptr, &m_allocTrackerViewer.m_show);
                 ImGui::Separator();
                 if (ImGui::BeginMenu(_("Kernel"))) {
@@ -1926,7 +1931,19 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
         m_spuSamplesWidget.draw(g_emulator->m_spuLogger.get(), g_emulator->m_spu->getSpuRam(), _("SPU Samples"));
     }
     if (m_heapViewer.m_show) m_heapViewer.draw(g_emulator->m_mem.get(), _("PSYQo Heap Viewer"));
+    if (m_scopeProfiler.m_show) m_scopeProfiler.draw(_("PSYQo Scope Profiler"), this);
     if (m_allocTrackerViewer.m_show) m_allocTrackerViewer.draw(_("Allocator Tracker"));
+
+    if (m_pocketStationLCD.m_show) {
+        // Show whichever slot has a PocketStation (slot 0 takes precedence). The card is passed
+        // rather than the device because the window also drives that slot's dock control.
+        unsigned psSlot = 0;
+        if (g_emulator->m_sio->getPocketstation(0) == nullptr) psSlot = 1;
+        PCSX::MemoryCard* psCard = g_emulator->m_sio->getPocketstation(psSlot) != nullptr
+                                       ? g_emulator->m_sio->getMemoryCard(psSlot)
+                                       : nullptr;
+        m_pocketStationLCD.draw(psCard, psSlot, _("PocketStation LCD"));
+    }
 
     if (m_showUiCfg) {
         if (ImGui::Begin(_("UI Configuration"), &m_showUiCfg)) {
@@ -2725,10 +2742,15 @@ bool PCSX::GUI::saveSaveState(std::filesystem::path filename) {
         filename = g_system->getPersistentDir() / filename;
     }
     // TODO: yeet this to libuv's threadpool.
-    ZWriter save(new UvFile(filename, FileOps::TRUNCATE), ZWriter::GZIP);
-    bool success = !save.failed();
-    if (success) save.writeString(SaveStates::save());
-    save.close();
+    IO<UvFile> file(new UvFile(filename, FileOps::TRUNCATE));
+    bool success = !file->failed();
+    if (success) {
+        ZWriter save(file, ZWriter::GZIP);
+        save.writeString(SaveStates::save());
+        save.close();
+    }
+    // The writes are queued; only the close reports whether they landed.
+    if (file->closeAndWait() != 0) success = false;
     if (success) {
         addNotice(fmt::format(f_("State saved to {}"), filename.filename().string()), NoticeKind::Info);
     } else {

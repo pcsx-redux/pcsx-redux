@@ -108,6 +108,9 @@ class Counters {
     uint32_t readCounter(uint32_t index);
     uint32_t readMode(uint32_t index);
     uint32_t readTarget(uint32_t index);
+    // The value a guest read of the counter would return right now, without
+    // updating any counter state, so debugger views can call it.
+    uint32_t peekCounter(uint32_t index);
 
     // Brings the scanline position up to date, then returns the hblanks elapsed since the
     // last vblank start. Only call from the CPU side: it can raise the vblank IRQ.

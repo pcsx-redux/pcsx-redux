@@ -88,6 +88,8 @@ static const std::map<uint32_t, std::string_view> s_knownBioses = {
 
 PCSX::Memory::Memory() : m_listener(g_system->m_eventBus) {
     m_listener.listen<Events::ExecutionFlow::Reset>([this](auto &) {
+        // Soft resets too: the next program may reuse the memory.
+        m_profilerHeader = 0;
         free(m_msanRAM);
         free(m_msanUsableBitmap);
         free(m_msanInitializedBitmap);
@@ -191,6 +193,7 @@ void PCSX::Memory::reset() {
     memset(m_bios, 0, bios_size);
     memset(m_sram, 0, 0x00200000);
     m_psyqoHeapMetadata = 0;
+    m_profilerHeader = 0;
     // Every tracked block, and every pending return capture, belongs to the
     // machine we are about to throw away.
     g_emulator->m_allocTracker->reset();
@@ -795,35 +798,33 @@ std::string_view PCSX::Memory::getBiosVersionString() {
     return it->second;
 }
 
-ssize_t PCSX::Memory::MemoryAsFile::rSeek(ssize_t pos, int wheel) {
+// In 64 bits, so that a seek past either end clamps rather than wrapping a 32-bit size_t.
+// An offset is first held to [-c_size, c_size], so no sum can overflow.
+size_t PCSX::Memory::MemoryAsFile::seekTo(size_t current, ssize_t pos, int wheel) {
+    const int64_t size = int64_t(c_size);
+    const int64_t offset = std::clamp<int64_t>(pos, -size, size);
+    int64_t target = int64_t(current);
     switch (wheel) {
         case SEEK_SET:
-            m_ptrR = pos;
+            target = offset;
             break;
         case SEEK_END:
-            m_ptrR = c_size - pos;
+            target = size - offset;
             break;
         case SEEK_CUR:
-            m_ptrR += pos;
+            target += offset;
             break;
     }
-    m_ptrR = std::max(std::min(m_ptrR, c_size), size_t(0));
+    return size_t(std::clamp<int64_t>(target, 0, int64_t(c_size)));
+}
+
+ssize_t PCSX::Memory::MemoryAsFile::rSeek(ssize_t pos, int wheel) {
+    m_ptrR = seekTo(m_ptrR, pos, wheel);
     return m_ptrR;
 }
 
 ssize_t PCSX::Memory::MemoryAsFile::wSeek(ssize_t pos, int wheel) {
-    switch (wheel) {
-        case SEEK_SET:
-            m_ptrW = pos;
-            break;
-        case SEEK_END:
-            m_ptrW = c_size - pos;
-            break;
-        case SEEK_CUR:
-            m_ptrW += pos;
-            break;
-    }
-    m_ptrW = std::max(std::min(m_ptrW, c_size), size_t(0));
+    m_ptrW = seekTo(m_ptrW, pos, wheel);
     return m_ptrW;
 }
 

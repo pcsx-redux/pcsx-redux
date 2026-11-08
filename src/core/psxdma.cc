@@ -55,7 +55,11 @@ void dma4(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // SPU
             // Harry Potter and the Philosopher's Stone - max 0.5x DMA length
             // uint32_t dmalen=64 + ((bcr >> 18) * (bcr & 0xffff)); // less linear to DMA length which should work with
             // both games above?
-            scheduleSPUDMAIRQ((bcr >> 16) * (bcr & 0xffff) / 2);
+            {
+                const uint32_t cycles = (bcr >> 16) * (bcr & 0xffff) / 2;
+                scheduleSPUDMAIRQ(cycles);
+                PCSX::g_emulator->m_spu->writeDMAEndsAt(PCSX::g_emulator->m_cpu->m_regs.cycle + cycles);
+            }
             return;
 
         case 0x01000200:  // spu to cpu transfer

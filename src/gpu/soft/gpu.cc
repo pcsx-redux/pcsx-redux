@@ -329,6 +329,13 @@ bool PCSX::SoftGPU::impl::configure() {
             _("Rasterize on a worker thread while the emulation keeps running. VRAM readbacks and frame presentation "
               "wait for the worker to catch up."));
 
+        if (ImGui::Checkbox(_("Deinterlace"), &g_emulator->settings.get<Emulator::SettingDeinterlace>().value)) {
+            changed = true;
+        }
+        ImGuiHelpers::ShowHelpMarker(
+            _("In 480i, draw every row. With drawing to the displayed area off, the console skips the rows of the "
+              "field being displayed, which makes moving images comb. Timing is unchanged."));
+
         ImGui::Checkbox(_("Disable textures for polygons"), &m_disableTexturesInPolygons);
         ImGui::Checkbox(_("Disable textures for sprites"), &m_disableTexturesInRectangles);
 
@@ -853,7 +860,9 @@ void PCSX::SoftGPU::impl::dispatchPoly(Poly<shading, shape, textured, blend, mod
 
 void PCSX::SoftGPU::impl::updateSkipParity() {
     int8_t parity = -1;
-    if (!m_drawToDisplay && ((getStatusControl(8) & 0x2c) == 0x24)) parity = readStatusFromBus() >> 31;
+    if (!m_drawToDisplay && ((getStatusControl(8) & 0x2c) == 0x24) && !deinterlace()) {
+        parity = readStatusFromBus() >> 31;
+    }
     if (parity == m_pushedSkipParity) return;
     m_pushedSkipParity = parity;
     if (m_queue.running()) {

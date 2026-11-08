@@ -20,12 +20,14 @@ local ffi = require 'ffi'
 
 TestAudioPlayback = {}
 
--- Polls until the sound stops, returning the time waited in milliseconds.
+-- Polls until the sound stops, returning the wall-clock time waited in milliseconds. Measured
+-- with hrtime because a 10ms sleep can take several times that on a loaded runner.
 local function waitUntilStopped(sound, timeoutMs)
+    local start = luv.hrtime()
     local waited = 0
     while sound:isPlaying() and waited < timeoutMs do
         luv.sleep(10)
-        waited = waited + 10
+        waited = math.floor((luv.hrtime() - start) / 1e6)
     end
     return waited
 end
@@ -162,7 +164,7 @@ function TestAudioPlayback:test_spuLoop()
     -- 16 blocks at 44100Hz is about 10ms; still playing half a second later means it loops.
     local sound = PCSX.SPU.playAudio(data, { format = 'spu', rate = 44100 })
     local waited = waitUntilStopped(sound, 500)
-    lu.assertEquals(waited, 500)
+    lu.assertTrue(waited >= 500)
     lu.assertTrue(sound:isPlaying())
     sound:stop()
     lu.assertFalse(sound:isPlaying())

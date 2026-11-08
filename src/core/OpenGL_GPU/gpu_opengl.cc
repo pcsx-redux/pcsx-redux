@@ -29,6 +29,7 @@
 #include "core/system.h"
 #include "fmt/format.h"
 #include "gui/gui.h"
+#include "support/imgui-helpers.h"
 #include "tracy/Tracy.hpp"
 
 std::unique_ptr<PCSX::GPU> PCSX::GPU::getOpenGL() { return std::unique_ptr<PCSX::GPU>(new PCSX::OpenGL_GPU()); }
@@ -528,6 +529,13 @@ bool PCSX::OpenGL_GPU::configure() {
             changed = true;
             setLinearFiltering();
         }
+        if (ImGui::Checkbox(_("Deinterlace"), &g_emulator->settings.get<Emulator::SettingDeinterlace>().value)) {
+            changed = true;
+        }
+        ImGuiHelpers::ShowHelpMarker(
+            _("In 480i, draw every row. With drawing to the displayed area off, the console skips the rows of the "
+              "field being displayed, which makes moving images comb. Timing is unchanged."));
+
         ImGui::Checkbox(_("Edit OpenGL GPU shaders"), &m_shaderEditor.m_show);
         ImGui::End();
     }
@@ -617,19 +625,19 @@ void PCSX::OpenGL_GPU::vblank(bool fromGui) {
         OpenGL::disableBlend();
     }
 
+    // We can't draw the MSAA texture directly, so resolve it into the non-MSAA texture. This also runs with the
+    // display disabled, since the VRAM viewer reads the resolved texture.
+    if (m_multisampled) {
+        m_fbo.bind(OpenGL::ReadFramebuffer);
+        m_fboNoMSAA.bind(OpenGL::DrawFramebuffer);
+        glBlitFramebuffer(0, 0, vramWidth, vramHeight, 0, 0, vramWidth, vramHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    }
+
     GLuint texture;
     if (!m_display.enabled) {
         texture = m_blankTexture.handle();
     } else {
-        // We can't draw the MSAA texture directly. So if we're using MSAA, we copy the texture to a non-MSAA texture.
-        if (m_multisampled) {
-            m_fbo.bind(OpenGL::ReadFramebuffer);
-            m_fboNoMSAA.bind(OpenGL::DrawFramebuffer);
-            glBlitFramebuffer(0, 0, vramWidth, vramHeight, 0, 0, vramWidth, vramHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-            texture = m_vramTextureNoMSAA.handle();
-        } else {
-            texture = m_vramTexture.handle();
-        }
+        texture = m_multisampled ? m_vramTextureNoMSAA.handle() : m_vramTexture.handle();
     }
 
     float startX = m_display.startNormalized.x();
@@ -673,7 +681,15 @@ void PCSX::OpenGL_GPU::renderBatch() {
         pushVRAMConfig();
         if (m_syncVRAM) {
             m_syncVRAM = false;
-            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, vramWidth, vramHeight);
+            if (m_multisampled) {
+                // glCopyTexSubImage2D cannot read a multisampled framebuffer, so copy from the resolved one.
+                resolveMSAA(0, 0, vramWidth, vramHeight);
+                m_fboNoMSAA.bind(OpenGL::ReadFramebuffer);
+                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, vramWidth, vramHeight);
+                m_fbo.bind(OpenGL::ReadFramebuffer);
+            } else {
+                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, vramWidth, vramHeight);
+            }
         }
 
         if (m_updateDrawOffset) {
@@ -705,9 +721,129 @@ void PCSX::OpenGL_GPU::renderBatch() {
 
 void PCSX::OpenGL_GPU::setDisplayEnable(bool enabled) { m_display.enabled = enabled; }
 
+// Resolves a rectangle of the multisampled VRAM into m_vramTextureNoMSAA. Framebuffer bindings and the
+// scissor test are put back afterwards, since this runs from both the draw path and getVRAM().
+void PCSX::OpenGL_GPU::resolveMSAA(GLint x, GLint y, GLint w, GLint h) {
+    GLint drawFB, readFB;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFB);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFB);
+    const bool scissor = OpenGL::scissorEnabled();
+    OpenGL::disableScissor();  // Scissor testing affects glBlitFramebuffer
+    m_fbo.bind(OpenGL::ReadFramebuffer);
+    m_fboNoMSAA.bind(OpenGL::DrawFramebuffer);
+    glBlitFramebuffer(x, y, x + w, y + h, x, y, x + w, y + h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFB);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, readFB);
+    if (scissor) OpenGL::enableScissor();
+}
+
+// Copies a rectangle of m_vramTextureNoMSAA into the multisampled VRAM. A blit from a single-sample
+// framebuffer writes each pixel to every sample. Leaves m_fbo bound for drawing and reading.
+void PCSX::OpenGL_GPU::blitFromResolved(GLint srcX, GLint srcY, GLint dstX, GLint dstY, GLint w, GLint h) {
+    const bool scissor = OpenGL::scissorEnabled();
+    OpenGL::disableScissor();
+    m_fboNoMSAA.bind(OpenGL::ReadFramebuffer);
+    m_fbo.bind(OpenGL::DrawFramebuffer);
+    glBlitFramebuffer(srcX, srcY, srcX + w, srcY + h, dstX, dstY, dstX + w, dstY + h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    m_fbo.bind(OpenGL::DrawAndReadFramebuffer);
+    if (scissor) OpenGL::enableScissor();
+}
+
+// Draws the pending batch so getVRAM() sees it. getVRAM() is called from the GP0(C0h) path with our
+// state bound, but also from the GUI, save states, Lua, the web server and the GPU dumper, which may
+// hold other bindings, so our state is bound for the draw and the caller's is put back afterwards.
+void PCSX::OpenGL_GPU::syncVRAMForRead() {
+    if (m_vertexCount == 0) return;
+
+    GLint program, vao, arrayBuffer, drawFB, readFB, activeTexture, tex2D;
+    GLint viewport[4], scissorBox[4];
+    // Core profiles may return a single value for GL_POLYGON_MODE.
+    GLint polygonMode[2] = {GL_FILL, -1};
+    GLint blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha, blendEqRGB, blendEqAlpha;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &arrayBuffer);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFB);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFB);
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    glGetIntegerv(GL_SCISSOR_BOX, scissorBox);
+    glGetIntegerv(GL_POLYGON_MODE, polygonMode);
+    if (polygonMode[1] == -1) polygonMode[1] = polygonMode[0];
+    glGetIntegerv(GL_BLEND_SRC_RGB, &blendSrcRGB);
+    glGetIntegerv(GL_BLEND_DST_RGB, &blendDstRGB);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &blendSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &blendDstAlpha);
+    glGetIntegerv(GL_BLEND_EQUATION_RGB, &blendEqRGB);
+    glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &blendEqAlpha);
+    const bool scissor = OpenGL::isEnabled(GL_SCISSOR_TEST);
+    const bool blend = OpenGL::isEnabled(GL_BLEND);
+    // The GPU never touches these and draws assuming their defaults.
+    const GLenum defaultedCaps[] = {GL_CULL_FACE, GL_DEPTH_TEST, GL_STENCIL_TEST};
+    bool capsEnabled[3];
+    for (unsigned i = 0; i < 3; i++) {
+        capsEnabled[i] = OpenGL::isEnabled(defaultedCaps[i]);
+        glDisable(defaultedCaps[i]);
+    }
+    GLboolean colorMask[4];
+    glGetBooleanv(GL_COLOR_WRITEMASK, colorMask);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glActiveTexture(GL_TEXTURE0);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex2D);
+
+    setOpenGLContext();
+    OpenGL::setFillMode(m_polygonMode);
+    setScissorArea();
+    if (m_lastTransparency == Transparency::Transparent) {
+        OpenGL::enableBlend();
+    } else {
+        OpenGL::disableBlend();
+    }
+    // Same blend state setBlendingModeFromTexpage() leaves; mode 2 sets its equations in renderBatch().
+    if (m_lastBlendingMode >= 0) {
+        OpenGL::setBlendFactor(GL_SRC1_COLOR, GL_SRC1_ALPHA, GL_ONE, GL_ZERO);
+        if (m_lastBlendingMode != 2) OpenGL::setBlendEquation(OpenGL::BlendEquation::Add);
+    }
+    renderBatch();
+
+    glUseProgram(program);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, arrayBuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFB);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, readFB);
+    glBindTexture(GL_TEXTURE_2D, tex2D);
+    glActiveTexture(activeTexture);
+    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    glScissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3]);
+    if (polygonMode[0] == polygonMode[1]) {
+        glPolygonMode(GL_FRONT_AND_BACK, polygonMode[0]);
+    } else {
+        glPolygonMode(GL_FRONT, polygonMode[0]);
+        glPolygonMode(GL_BACK, polygonMode[1]);
+    }
+    glBlendFuncSeparate(blendSrcRGB, blendDstRGB, blendSrcAlpha, blendDstAlpha);
+    glBlendEquationSeparate(blendEqRGB, blendEqAlpha);
+    if (scissor) {
+        OpenGL::enableScissor();
+    } else {
+        OpenGL::disableScissor();
+    }
+    if (blend) {
+        OpenGL::enableBlend();
+    } else {
+        OpenGL::disableBlend();
+    }
+    for (unsigned i = 0; i < 3; i++) {
+        if (capsEnabled[i]) glEnable(defaultedCaps[i]);
+    }
+    glColorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
+}
+
 PCSX::Slice PCSX::OpenGL_GPU::getVRAM(Ownership) {
     static constexpr uint32_t texSize = vramWidth * vramHeight * sizeof(uint16_t);
     uint16_t *pixels = (uint16_t *)malloc(texSize);
+    syncVRAMForRead();
+    if (m_multisampled) resolveMSAA(0, 0, vramWidth, vramHeight);
     glFlush();
     const auto oldTex = OpenGL::getTex2D();
     glBindTexture(GL_TEXTURE_2D, getVRAMTexture());
@@ -722,6 +858,18 @@ PCSX::Slice PCSX::OpenGL_GPU::getVRAM(Ownership) {
 void PCSX::OpenGL_GPU::partialUpdateVRAM(int x, int y, int w, int h, const uint16_t *pixels,
                                          PartialUpdateVram updateType) {
     renderBatch();
+
+    if (m_multisampled) {
+        // A multisampled texture takes no texel uploads: upload into the resolved copy, then blit the
+        // rectangle into the multisampled VRAM.
+        const auto oldTex = OpenGL::getTex2D();
+        m_vramTextureNoMSAA.bind();
+        glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, pixels);
+        glBindTexture(GL_TEXTURE_2D, oldTex);
+        blitFromResolved(x, y, x, y, w, h);
+        m_syncVRAM = true;
+        return;
+    }
 
     OpenGL::bindScreenFramebuffer();
     const auto oldTex = updateType == PartialUpdateVram::Asynchronous ? OpenGL::getTex2D() : GLint(-1);
@@ -882,7 +1030,9 @@ void PCSX::OpenGL_GPU::write0(TPage *prim) {
 
 void PCSX::OpenGL_GPU::updateSkipParity() {
     int parity = -1;
-    if (!m_drawToDisplay && ((getStatusControl(8) & 0x2c) == 0x24)) parity = readStatusFromBus() >> 31;
+    if (!m_drawToDisplay && ((getStatusControl(8) & 0x2c) == 0x24) && !deinterlace()) {
+        parity = readStatusFromBus() >> 31;
+    }
     if (parity == m_skipParity) return;
     renderBatch();
     m_skipParity = parity;
@@ -994,14 +1144,64 @@ void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
     width = ((width - 1) & 0x3ff) + 1;
     height = ((height - 1) & 0x1ff) + 1;
 
-    glBlitFramebuffer(srcX, srcY, srcX + width, srcY + height, destX, destY, destX + width, destY + height,
-                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    if (m_multisampled) {
+        // A blit between two multisampled framebuffers needs identical source and destination rectangles,
+        // so go through the resolved copy.
+        resolveMSAA(srcX, srcY, width, height);
+        blitFromResolved(srcX, srcY, destX, destY, width, height);
+    } else {
+        glBlitFramebuffer(srcX, srcY, srcX + width, srcY + height, destX, destY, destX + width, destY + height,
+                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    }
     OpenGL::enableScissor();
+}
+
+// Hardware drops a polygon or line with an edge spanning more than 1023 pixels
+// horizontally or 511 vertically. Same test as the software renderer's
+// checkCoord3/checkCoord4/CheckCoordL. The draw offset is added unwrapped, so
+// it cancels out of the deltas and the raw vertices can be compared directly.
+static bool edgeOverLimit(int x0, int y0, int x1, int y1) {
+    return std::abs(x1 - x0) >= 1024 || std::abs(y1 - y0) >= 512;
+}
+
+// The vertex plus draw offset sum is not wrapped, but the pixel address wraps
+// modulo 2048 on both axes before the drawing-area clip, as in the software
+// renderer's forEachPixelWrap. Sums range over -2048..2046, so only a
+// primitive reaching below -1024 has a copy that lands in VRAM, 2048 further
+// along. Calls draw(dx, dy) once per copy, with the shift to add to the raw
+// vertices; the shader adds the offset itself.
+template <typename Draw>
+static void forEachPixelWrap(uint32_t offsetWord, const int *xs, const int *ys, int n, Draw &&draw) {
+    const int offsetX = int32_t(offsetWord << 21) >> 21;
+    const int offsetY = int32_t(offsetWord << 10) >> 21;
+    int minX = xs[0], minY = ys[0];
+    for (int i = 1; i < n; i++) {
+        minX = std::min(minX, xs[i]);
+        minY = std::min(minY, ys[i]);
+    }
+    const bool wrapX = minX + offsetX < -1024;
+    const bool wrapY = minY + offsetY < -1024;
+    draw(0, 0);
+    if (wrapX) draw(2048, 0);
+    if (wrapY) draw(0, 2048);
+    if (wrapX && wrapY) draw(2048, 2048);
 }
 
 template <PCSX::GPU::Shading shading, PCSX::GPU::Shape shape, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend,
           PCSX::GPU::Modulation modulation>
 void PCSX::OpenGL_GPU::polyExec(Poly<shading, shape, textured, blend, modulation> *prim) {
+    const auto &x = prim->x;
+    const auto &y = prim->y;
+    // A quad renders as (v0, v1, v2) and (v1, v2, v3), so its five triangle
+    // edges are checked; v0-v3 belongs to neither triangle.
+    if (edgeOverLimit(x[0], y[0], x[1], y[1]) || edgeOverLimit(x[1], y[1], x[2], y[2]) ||
+        edgeOverLimit(x[2], y[2], x[0], y[0])) {
+        return;
+    }
+    if constexpr (shape == Shape::Quad) {
+        if (edgeOverLimit(x[1], y[1], x[3], y[3]) || edgeOverLimit(x[3], y[3], x[2], y[2])) return;
+    }
+
     updateSkipParity();
     if constexpr (blend == Blend::Off) {
         setTransparency<Transparency::Opaque>();
@@ -1012,21 +1212,32 @@ void PCSX::OpenGL_GPU::polyExec(Poly<shading, shape, textured, blend, modulation
         if constexpr (blend == Blend::Semi) {
             setBlendingModeFromTexpage(m_rectTexpage);
         }
-        drawTri(&prim->x[0], &prim->y[0], &prim->colors[0]);
-        if constexpr (shape == Shape::Quad) {
-            drawTri(&prim->x[1], &prim->y[1], &prim->colors[1]);
-        }
     } else if constexpr (textured == Textured::Yes) {
         if constexpr (blend == Blend::Semi) {
             setBlendingModeFromTexpage(prim->tpage.raw);
         }
-        drawTriTextured(&prim->x[0], &prim->y[0], &prim->colors[0], prim->clutraw, prim->tpage.raw, &prim->u[0],
-                        &prim->v[0]);
-        if constexpr (shape == Shape::Quad) {
-            drawTriTextured(&prim->x[1], &prim->y[1], &prim->colors[1], prim->clutraw, prim->tpage.raw, &prim->u[1],
-                            &prim->v[1]);
-        }
     }
+
+    constexpr int n = shape == Shape::Quad ? 4 : 3;
+    forEachPixelWrap(m_lastDrawOffsetSetting, x, y, n, [&](int dx, int dy) {
+        int sx[n], sy[n];
+        for (int i = 0; i < n; i++) {
+            sx[i] = x[i] + dx;
+            sy[i] = y[i] + dy;
+        }
+        if constexpr (textured == Textured::No) {
+            drawTri(&sx[0], &sy[0], &prim->colors[0]);
+            if constexpr (shape == Shape::Quad) {
+                drawTri(&sx[1], &sy[1], &prim->colors[1]);
+            }
+        } else if constexpr (textured == Textured::Yes) {
+            drawTriTextured(&sx[0], &sy[0], &prim->colors[0], prim->clutraw, prim->tpage.raw, &prim->u[0], &prim->v[0]);
+            if constexpr (shape == Shape::Quad) {
+                drawTriTextured(&sx[1], &sy[1], &prim->colors[1], prim->clutraw, prim->tpage.raw, &prim->u[1],
+                                &prim->v[1]);
+            }
+        }
+    });
 }
 
 template <PCSX::GPU::Shading shading, PCSX::GPU::LineType lineType, PCSX::GPU::Blend blend>
@@ -1048,12 +1259,27 @@ void PCSX::OpenGL_GPU::lineExec(Line<shading, lineType, blend> *prim) {
         auto c0 = prim->colors[i - 1];
         auto c1 = prim->colors[i];
 
-        drawLine(x0, y0, c0, x1, y1, c1);
+        if (edgeOverLimit(x0, y0, x1, y1)) continue;
+        const int bx[2] = {x0, x1};
+        const int by[2] = {y0, y1};
+        forEachPixelWrap(m_lastDrawOffsetSetting, bx, by, 2,
+                         [&](int dx, int dy) { drawLine(x0 + dx, y0 + dy, c0, x1 + dx, y1 + dy, c1); });
     }
 }
 
 template <PCSX::GPU::Size size, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend, PCSX::GPU::Modulation modulation>
 void PCSX::OpenGL_GPU::rectExec(Rect<size, textured, blend, modulation> *prim) {
+    int w = prim->w;
+    int h = prim->h;
+    if constexpr (size == Size::Variable) {
+        // The variable-rect dimensions are masked to 10 bits of width and 9
+        // bits of height, with no size-0-means-max case: 1024 and 2048 wide
+        // draw nothing, 1025 draws one column. Same as the software renderer.
+        w &= 0x3ff;
+        h &= 0x1ff;
+        if (w == 0 || h == 0) return;
+    }
+
     updateSkipParity();
     if constexpr (blend == Blend::Off) {
         setTransparency<Transparency::Opaque>();
@@ -1061,15 +1287,19 @@ void PCSX::OpenGL_GPU::rectExec(Rect<size, textured, blend, modulation> *prim) {
         setTransparency<Transparency::Transparent>();
         setBlendingModeFromTexpage(m_rectTexpage);
     }
-    if constexpr (textured == Textured::No) {
-        drawRect(prim->x, prim->y, prim->w, prim->h, prim->color);
-    } else if constexpr (textured == Textured::Yes) {
-        uint32_t color = 0x808080;
-        if constexpr (modulation == Modulation::On) {
-            color = prim->color;
+    const int bx[1] = {prim->x};
+    const int by[1] = {prim->y};
+    forEachPixelWrap(m_lastDrawOffsetSetting, bx, by, 1, [&](int dx, int dy) {
+        if constexpr (textured == Textured::No) {
+            drawRect(prim->x + dx, prim->y + dy, w, h, prim->color);
+        } else if constexpr (textured == Textured::Yes) {
+            uint32_t color = 0x808080;
+            if constexpr (modulation == Modulation::On) {
+                color = prim->color;
+            }
+            drawRectTextured(prim->x + dx, prim->y + dy, w, h, color, prim->clutraw, prim->u, prim->v);
         }
-        drawRectTextured(prim->x, prim->y, prim->w, prim->h, color, prim->clutraw, prim->u, prim->v);
-    }
+    });
 }
 
 void PCSX::OpenGL_GPU::write1(CtrlReset *) {

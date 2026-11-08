@@ -984,6 +984,7 @@ bool PCSX::SPU::impl::openWith(bool startThread) {
     m_cdQueue.clear();
     irqAddress = 0;
     spuStat &= ~StatusFlags::IRQFlag;
+    m_writeDMALandedCycle = 0;
 
     // The mixer clock starts at sample 0; the first horizon the CPU publishes re-bases it if the
     // CPU is already far along.

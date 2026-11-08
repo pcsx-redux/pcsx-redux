@@ -257,7 +257,7 @@ Usage: {} input.json [-h] -o output.bin
         std::binary_semaphore semaphore;
         std::vector<uint8_t> sectorData;
         nlohmann::json fileInfo;
-        uint32_t margin;
+        uint32_t margin = 0;
         bool failed;
     };
     static WorkUnit work[c_maximumSectorCount];
@@ -305,30 +305,44 @@ Usage: {} input.json [-h] -o output.bin
                 dataIn.resize(originalSectorsCount * 2048);
                 file->read(dataIn.data(), dataIn.size());
 
-                std::vector<uint8_t> dataOut;
-                dataOut.resize(dataIn.size() * 1.2 + 2064 + 2048);
-                ucl_uint outSize;
-                int r;
+                // "compress": false keeps a file stored, so it can be read sector by sector.
+                const bool store = workUnit.fileInfo.contains("compress") &&
+                                   workUnit.fileInfo["compress"].is_boolean() &&
+                                   !workUnit.fileInfo["compress"].get<bool>();
 
-                r = ucl_nrv2e_99_compress(dataIn.data(), size, dataOut.data() + 2048, &outSize, nullptr, 10, nullptr,
-                                          nullptr);
-                if (r != UCL_E_OK) {
+                std::vector<uint8_t> dataOut;
+                ucl_uint outSize = 0;
+                unsigned compressedSectorsCount = originalSectorsCount;
+                if (!store) {
+                    dataOut.resize(dataIn.size() * 1.2 + 2064 + 2048);
+                    int r = ucl_nrv2e_99_compress(dataIn.data(), size, dataOut.data() + 2048, &outSize, nullptr, 10,
+                                                  nullptr, nullptr);
+                    if (r != UCL_E_OK) {
+                        workUnit.failed = true;
+                        workUnit.semaphore.release();
+                        continue;
+                    }
+                    compressedSectorsCount = (outSize + 2047) / 2048;
+                }
+                const bool compressed = compressedSectorsCount < originalSectorsCount;
+                // The index holds a size of at most 1023 sectors; a stored file of 1024 would read as 0.
+                if (!compressed && originalSectorsCount > 1023) {
                     workUnit.failed = true;
                     workUnit.semaphore.release();
                     continue;
                 }
 
-                ssize_t margin = PCSX::UCLUtils::inPlaceOverlapMargin(dataOut.data() + 2048, outSize, size);
-                ssize_t relMargin = margin - size + outSize;
-                workUnit.margin =
-                    std::clamp<uint32_t>(relMargin, 0L, static_cast<long>(std::numeric_limits<uint32_t>::max()));
-                do {
-                    auto oldOverlap = maxMargin.load();
-                    if (workUnit.margin <= oldOverlap) break;
-                    if (maxMargin.compare_exchange_weak(oldOverlap, workUnit.margin)) break;
-                } while (1);
-
-                unsigned compressedSectorsCount = (outSize + 2047) / 2048;
+                // Only a compressed entry is decompressed in place, so only it needs a margin.
+                if (compressed) {
+                    ssize_t margin = PCSX::UCLUtils::inPlaceOverlapMargin(dataOut.data() + 2048, outSize, size);
+                    ssize_t relMargin = margin - size + outSize;
+                    workUnit.margin = relMargin > 0 ? static_cast<uint32_t>(relMargin) : 0;
+                    do {
+                        auto oldOverlap = maxMargin.load();
+                        if (workUnit.margin <= oldOverlap) break;
+                        if (maxMargin.compare_exchange_weak(oldOverlap, workUnit.margin)) break;
+                    } while (1);
+                }
 
                 IndexEntry* entry = &indexEntryData[workUnitIndex];
 
@@ -340,7 +354,7 @@ Usage: {} input.json [-h] -o output.bin
                 entry->setDecompSize(size);
                 std::span<uint8_t> source;
                 unsigned sectorCount = 0;
-                if (compressedSectorsCount < originalSectorsCount) {
+                if (compressed) {
                     entry->setCompressedSize(compressedSectorsCount);
                     entry->setMethod(IndexEntry::Method::UCL_NRV2E);
                     unsigned padding = outSize % 2048;
@@ -422,6 +436,12 @@ Usage: {} input.json [-h] -o output.bin
     indexEntryDataBuffer[5] = 'R';
     indexEntryDataBuffer[6] = 'C';
     indexEntryDataBuffer[7] = '1';
+    // The reader allows (byte + 1) * 16 bytes, so 4095 is the largest margin the byte holds.
+    if (maxMargin.load() >= 4096) {
+        fmt::print("Decompression margin of {} bytes does not fit the archive header (4095 max).\n",
+                   maxMargin.load());
+        return -1;
+    }
     uint32_t maxMarginValue = maxMargin.load() >> 4;
     writeToBuffer(indexEntryDataBuffer.get() + 8, filesCount);
     writeToBuffer<uint8_t>(indexEntryDataBuffer.get() + 11, maxMarginValue);

@@ -152,6 +152,7 @@
     <ClCompile Include="..\..\src\gui\widgets\spusamples.cc" />
     <ClCompile Include="..\..\src\gui\widgets\handlers.cc" />
     <ClCompile Include="..\..\src\gui\widgets\heap_viewer.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\scope_profiler.cc" />
     <ClCompile Include="..\..\src\gui\widgets\hwregs.cc" />
     <ClCompile Include="..\..\src\gui\widgets\dalos.cc" />
     <ClCompile Include="..\..\src\gui\widgets\fileviewers.cc" />
@@ -167,6 +168,7 @@
     <ClCompile Include="..\..\src\gui\widgets\named_savestates.cc" />
     <ClCompile Include="..\..\src\gui\widgets\patches.cc" />
     <ClCompile Include="..\..\src\gui\widgets\pio-cart.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\pocketstation.cc" />
     <ClCompile Include="..\..\src\gui\widgets\ram-viewer.cc" />
     <ClCompile Include="..\..\src\gui\widgets\typed_debugger.cc" />
     <ClCompile Include="..\..\src\gui\widgets\registers.cc" />
@@ -201,6 +203,7 @@
     <ClInclude Include="..\..\src\gui\widgets\spusamples.h" />
     <ClInclude Include="..\..\src\gui\widgets\handlers.h" />
     <ClInclude Include="..\..\src\gui\widgets\heap_viewer.h" />
+    <ClInclude Include="..\..\src\gui\widgets\scope_profiler.h" />
     <ClInclude Include="..\..\src\gui\widgets\hwregs.h" />
     <ClInclude Include="..\..\src\gui\widgets\dalos.h" />
     <ClInclude Include="..\..\src\gui\widgets\fileviewers.h" />
@@ -216,6 +219,7 @@
     <ClInclude Include="..\..\src\gui\widgets\named_savestates.h" />
     <ClInclude Include="..\..\src\gui\widgets\patches.h" />
     <ClInclude Include="..\..\src\gui\widgets\pio-cart.h" />
+    <ClInclude Include="..\..\src\gui\widgets\pocketstation.h" />
     <ClInclude Include="..\..\src\gui\widgets\ram-viewer.h" />
     <ClInclude Include="..\..\src\gui\widgets\typed_debugger.h" />
     <ClInclude Include="..\..\src\gui\widgets\registers.h" />

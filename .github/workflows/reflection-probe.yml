@@ -1,10 +1,16 @@
-name: C++26 reflection probe
+name: C++26 feature probes
 
-# Non-blocking: weekly and on demand, never on PRs. Compiles a small use of
-# std::meta on the newest compiler of each platform. When all three pass, it
-# opens one issue saying the reflection refactor can start. The probe checks
-# __cpp_impl_reflection, and the GCC and Clang legs try without -freflection
-# before trying with it, so a pass means the feature works, whatever the flag.
+# Non-blocking: weekly and on demand, never on PRs. Each leg compiles two small
+# probes on the newest compiler of its platform:
+#  - reflection: a small use of std::meta. The probe checks __cpp_impl_reflection,
+#    and the GCC and Clang legs try without -freflection before trying with it,
+#    so a pass means the feature works, whatever the flag.
+#  - embed: #embed of a committed data file in C++. The probe requires
+#    __has_embed to find the file and static_asserts the embedded bytes. Each leg
+#    tries the C++ mode the project builds with first, then the newest one, and
+#    logs the mode that passed and whether that mode warns that #embed is an
+#    extension.
+# Each feature opens its own issue once it passes on all three platforms.
 
 on:
   schedule:
@@ -21,11 +27,14 @@ jobs:
     container:
       image: gcc:latest
     outputs:
-      ok: ${{ steps.probe.outputs.ok }}
+      reflection: ${{ steps.reflection.outputs.ok }}
+      embed: ${{ steps.embed.outputs.ok }}
+      embed-mode: ${{ steps.embed.outputs.mode }}
     steps:
     - uses: actions/checkout@v4
     - run: g++ --version
-    - id: probe
+    - id: reflection
+      continue-on-error: true
       run: |
         for flag in "" -freflection; do
           if g++ -std=c++26 $flag .github/reflection-probe/probe.cc -o probe; then
@@ -35,35 +44,82 @@ jobs:
           fi
         done
         exit 1
+    - id: embed
+      continue-on-error: true
+      run: |
+        for std in c++23 c++26; do
+          if g++ -std=$std .github/embed-probe/probe.cc -o embed-probe; then
+            g++ -std=$std -pedantic-errors -fsyntax-only .github/embed-probe/probe.cc || echo "-std=$std accepts #embed only as an extension"
+            echo "passed with -std=$std"
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            echo "mode=-std=$std" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+        done
+        exit 1
 
   msvc:
     runs-on: windows-latest
     continue-on-error: true
     outputs:
-      ok: ${{ steps.probe.outputs.ok }}
+      reflection: ${{ steps.reflection.outputs.ok }}
+      embed: ${{ steps.embed.outputs.ok }}
+      embed-mode: ${{ steps.embed.outputs.mode }}
     steps:
     - uses: actions/checkout@v4
     - uses: ilammy/msvc-dev-cmd@v1
-    - id: probe
+    - id: reflection
+      continue-on-error: true
       shell: cmd
       run: |
         cl /std:c++latest /EHsc .github\reflection-probe\probe.cc || exit /b 1
         echo ok=true>> "%GITHUB_OUTPUT%"
+    - id: embed
+      continue-on-error: true
+      shell: bash
+      # Dash-style cl options, so Git Bash does not rewrite them as paths.
+      # -Zc:preprocessor is the conforming preprocessor, where new directives land.
+      run: |
+        for mode in "-std:c++20" "-std:c++latest" "-std:c++latest -Zc:preprocessor"; do
+          if cl $mode -EHsc -Feembed-probe.exe .github/embed-probe/probe.cc; then
+            echo "passed with $mode"
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            echo "mode=$mode" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+        done
+        exit 1
 
   appleclang:
     runs-on: macos-latest
     continue-on-error: true
     outputs:
-      ok: ${{ steps.probe.outputs.ok }}
+      reflection: ${{ steps.reflection.outputs.ok }}
+      embed: ${{ steps.embed.outputs.ok }}
+      embed-mode: ${{ steps.embed.outputs.mode }}
     steps:
     - uses: actions/checkout@v4
     - run: clang++ --version
-    - id: probe
+    - id: reflection
+      continue-on-error: true
       run: |
         for flag in "" -freflection; do
           if clang++ -std=c++2c $flag .github/reflection-probe/probe.cc -o probe; then
             echo "passed with flags: '$flag'"
             echo "ok=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+        done
+        exit 1
+    - id: embed
+      continue-on-error: true
+      run: |
+        for std in c++2b c++2c; do
+          if clang++ -std=$std .github/embed-probe/probe.cc -o embed-probe; then
+            clang++ -std=$std -pedantic-errors -fsyntax-only .github/embed-probe/probe.cc || echo "-std=$std accepts #embed only as an extension"
+            echo "passed with -std=$std"
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            echo "mode=-std=$std" >> "$GITHUB_OUTPUT"
             exit 0
           fi
         done
@@ -75,14 +131,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-    # One report at a time across runs, so two that pass together can't both open the issue.
+    # One report at a time across runs, so two that pass together can't both open an issue.
     concurrency:
       group: reflection-probe-report
       cancel-in-progress: false
     steps:
     - run: |
-        echo "gcc=${{ needs.gcc.outputs.ok }} msvc=${{ needs.msvc.outputs.ok }} appleclang=${{ needs.appleclang.outputs.ok }}"
-    - if: needs.gcc.outputs.ok == 'true' && needs.msvc.outputs.ok == 'true' && needs.appleclang.outputs.ok == 'true'
+        echo "reflection: gcc=${{ needs.gcc.outputs.reflection }} msvc=${{ needs.msvc.outputs.reflection }} appleclang=${{ needs.appleclang.outputs.reflection }}"
+        echo "embed: gcc=${{ needs.gcc.outputs.embed }} (${{ needs.gcc.outputs.embed-mode }}) msvc=${{ needs.msvc.outputs.embed }} (${{ needs.msvc.outputs.embed-mode }}) appleclang=${{ needs.appleclang.outputs.embed }} (${{ needs.appleclang.outputs.embed-mode }})"
+    - if: needs.gcc.outputs.reflection == 'true' && needs.msvc.outputs.reflection == 'true' && needs.appleclang.outputs.reflection == 'true'
       env:
         GH_TOKEN: ${{ github.token }}
         GH_REPO: ${{ github.repository }}
@@ -91,4 +148,15 @@ jobs:
         existing=$(gh issue list --state all --search "in:title \"$title\"" --json number --jq '.[].number') || exit 1
         if [ -z "$existing" ]; then
           gh issue create --title "$title" --body "The reflection probe passed on all three platforms in ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. The bespoke reflection systems (savestates, settings, binstruct, bitfield) can move to std::meta."
+        fi
+    - if: ${{ !cancelled() && needs.gcc.outputs.embed == 'true' && needs.msvc.outputs.embed == 'true' && needs.appleclang.outputs.embed == 'true' }}
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        MODES: "GCC ${{ needs.gcc.outputs.embed-mode }}, MSVC ${{ needs.msvc.outputs.embed-mode }}, Apple Clang ${{ needs.appleclang.outputs.embed-mode }}"
+      run: |
+        title="C++ #embed now builds on GCC, MSVC and Apple Clang"
+        existing=$(gh issue list --state all --search "in:title \"$title\"" --json number --jq '.[].number') || exit 1
+        if [ -z "$existing" ]; then
+          gh issue create --title "$title" --body "The #embed probe passed on all three platforms in ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} ($MODES). #embed can now be used in the C++ sources."
         fi

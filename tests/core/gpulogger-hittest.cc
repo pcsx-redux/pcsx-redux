@@ -23,6 +23,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <initializer_list>
 #include <memory>
 #include <stdexcept>
@@ -317,4 +318,85 @@ TEST_F(GPULoggerHitTest, BlitRamVram) {
 TEST_F(GPULoggerHitTest, BlitVramVram) {
     gp0({0x02000000 | c_white, xy(0, 300), xy(48, 30)});
     expectExact(measure({0x80000000, xy(0, 300), xy(200, 200), xy(40, 30)}));
+}
+
+// GP0(02h) rows wrap at row 512 with the bank gate closed. Expected rows are the retail silicon
+// readings (SCPH-1000/1001/5501/7001) of a probe filling each rectangle on a cleared VRAM.
+TEST_F(GPULoggerHitTest, FastFillWrapsAtRow512) {
+    struct Arm {
+        unsigned y, h, wrappedRows;
+    };
+    for (auto arm : {Arm{256, 480, 224}, Arm{300, 300, 88}, Arm{500, 20, 8}}) {
+        clearVram();
+        auto c = measure({0x02000000 | c_white, xy(0, arm.y), xy(640, arm.h)});
+        auto v = vram();
+        for (unsigned y = 0; y < 512; y++) {
+            bool expected = y < arm.wrappedRows || y >= arm.y;
+            EXPECT_EQ(v[y * 1024 + 8] != 0, expected) << "fill y=" << arm.y << " h=" << arm.h << ", row " << y;
+        }
+        expectExact(c);
+
+        // The heatmap geometry covers the same rows: two rectangles, none past row 512.
+        unsigned tris = 0;
+        int minY = 1024, maxY = -1;
+        for (auto& n : logger()->frameLog()) {
+            n.getVertices(
+                [&](auto a, auto b, auto d) {
+                    tris++;
+                    for (auto p : {a, b, d}) {
+                        minY = std::min(minY, int(p.y()));
+                        maxY = std::max(maxY, int(p.y()));
+                    }
+                },
+                PCSX::GPU::Logged::PixelOp::WRITE);
+        }
+        EXPECT_EQ(tris, 4u) << "fill y=" << arm.y << " h=" << arm.h;
+        EXPECT_EQ(minY, 0) << "fill y=" << arm.y << " h=" << arm.h;
+        EXPECT_EQ(maxY, 512) << "fill y=" << arm.y << " h=" << arm.h;
+    }
+}
+
+// A fill logged with the bank gate closed replays with the wrap it had when logged, even if
+// the gate has opened since.
+TEST_F(GPULoggerHitTest, FastFillReplayKeepsLoggedWrap) {
+    clearVram();
+    logger()->clearFrameLog();
+    gp0({0x02000000 | c_white, xy(0, 500), xy(640, 20)});
+    clearVram();
+    gpu()->writeStatus(0x09000001);
+    // The two clearing fills after it are logged too; replay only the first node.
+    auto& list = logger()->frameLog();
+    ASSERT_NE(list.begin(), list.end());
+    list.begin()->execute(gpu());
+    auto v = vram();
+    for (unsigned y = 0; y < 512; y++) {
+        bool expected = y < 8 || y >= 500;
+        EXPECT_EQ(v[y * 1024 + 8] != 0, expected) << "replayed row " << y;
+    }
+}
+
+// Replay starts from the VRAM captured when the frame's first primitive was logged. getVRAM()
+// returns all 1024 rows, so the rows above 511 (the 2MB bank) have to come back too.
+TEST_F(GPULoggerHitTest, ReplayRestoresAllRows) {
+    auto pixel = [this](int x, int y) {
+        gpu()->drainRenderer();
+        auto slice = gpu()->getVRAM(PCSX::GPU::Ownership::ACQUIRE);
+        return slice.data<uint16_t>()[y * 1024 + x];
+    };
+    auto poke = [this](int x, int y, uint16_t value) {
+        gpu()->partialUpdateVRAM(x, y, 1, 1, &value);
+        gpu()->drainRenderer();
+    };
+    logger()->clearFrameLog();
+    poke(10, 100, 0x1234);
+    poke(10, 700, 0x2345);
+    poke(10, 1023, 0x3456);
+    gp0({0x02000000 | c_white, xy(0, 0), xy(16, 1)});
+    poke(10, 100, 0x5555);
+    poke(10, 700, 0x6666);
+    poke(10, 1023, 0x7777);
+    logger()->replay(gpu());
+    EXPECT_EQ(pixel(10, 100), 0x1234);
+    EXPECT_EQ(pixel(10, 700), 0x2345);
+    EXPECT_EQ(pixel(10, 1023), 0x3456);
 }

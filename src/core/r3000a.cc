@@ -28,6 +28,7 @@
 #include <chrono>
 #include <magic_enum/magic_enum_all.hpp>
 #include <memory>
+#include <optional>
 #include <thread>
 
 #include "core/cdrom.h"
@@ -36,6 +37,7 @@
 #include "core/gte.h"
 #include "core/mdec.h"
 #include "core/pgxp_mem.h"
+#include "core/psxmem.h"
 #include "core/sio.h"
 #include "core/sio1.h"
 #include "core/spu.h"
@@ -60,12 +62,90 @@ int PCSX::R3000Acpu::psxInit() {
     return g_emulator->m_cpu->Init();
 }
 
+void PCSX::R3000Acpu::stackBoundsViolation(uint32_t pc, uint32_t sp) {
+    const auto& bounds = m_stackBounds;
+    g_system->printf(_("Stack %s: instruction at 0x%08x moved $sp to 0x%08x, outside [0x%08x, 0x%08x]\n"),
+                     sp < bounds.low ? _("overflow") : _("underflow"), pc, sp, bounds.low, bounds.high);
+    if (g_system->getArgs().isTestModeEnabled()) {
+        // Nobody is there to look at a paused emulator. Stop checking so the
+        // instructions that run before the quit is seen do not print again.
+        clearStackBounds();
+        g_system->quit(c_stackBoundsExitCode);
+        return;
+    }
+    g_system->pause();
+    g_system->m_eventBus->signal(Events::GUI::JumpToPC{pc});
+}
+
+// The metadata layout is the one in nugget's common/libc/alloc.c, also read by
+// the heap viewer: head, bottom, top, then the end-of-list marker at +16. Free
+// blocks are { next, size }, 8-byte aligned, inside [bottom, top), and the list
+// is sorted by address. Memory between bottom and top that no free block covers
+// has been handed out. A list that does not look like that is left to the heap
+// viewer to report.
+bool PCSX::R3000Acpu::checkHeapAgainstStack(uint32_t pc) {
+    const uint32_t meta = g_emulator->m_mem->m_psyqoHeapMetadata;
+    // Only aligned words are read, so a word never straddles two memory pages.
+    auto read = [](uint32_t address) -> std::optional<uint32_t> {
+        if (address & 3) return std::nullopt;
+        auto* ptr = g_emulator->m_mem->getPointer<uint32_t>(address);
+        if (!ptr) return std::nullopt;
+        return *ptr;
+    };
+    auto head = read(meta);
+    auto bottom = read(meta + 4);
+    auto top = read(meta + 8);
+    if (!head || !bottom || !top || (*top <= *bottom)) return false;
+    // Same limit as the heap viewer: no heap is bigger than RAM.
+    if (*top - *bottom > 8 * 1024 * 1024) return false;
+    // The part of the bounds the heap covers, inclusive.
+    const uint32_t low = std::max(m_stackBounds.low, *bottom);
+    const uint32_t high = std::min(m_stackBounds.high, *top - 1);
+    if (low > high) return false;
+
+    const uint32_t marker = meta + 16;
+    // Everything below this address inside [low, high] is known to be free.
+    uint32_t freeUpTo = low;
+    uint32_t curr = *head;
+    uint32_t prev = 0;
+    // Each block is at least 8 bytes past the previous one and inside the heap,
+    // so the walk ends within (top - bottom) / 8 steps.
+    while (curr != marker) {
+        if ((curr & 7) || (curr <= prev) || (curr < *bottom) || (curr >= *top)) return false;
+        auto next = read(curr);
+        auto size = read(curr + 4);
+        if (!next || !size || (*size < 8) || (*size & 7)) return false;
+        const uint32_t end = curr + *size;
+        if ((end < curr) || (end > *top)) return false;
+        if (curr > freeUpTo) break;
+        freeUpTo = std::max(freeUpTo, end);
+        if (freeUpTo > high) return false;
+        prev = curr;
+        curr = *next;
+    }
+    const uint32_t usedEnd = (curr != marker) ? std::min(curr - 1, high) : high;
+
+    g_system->printf(
+        _("Heap over stack: memory at [0x%08x, 0x%08x] is allocated, inside stack bounds [0x%08x, 0x%08x], "
+          "seen when the instruction at 0x%08x moved $sp\n"),
+        freeUpTo, usedEnd, m_stackBounds.low, m_stackBounds.high, pc);
+    if (g_system->getArgs().isTestModeEnabled()) {
+        clearStackBounds();
+        g_system->quit(c_stackBoundsExitCode);
+        return true;
+    }
+    g_system->pause();
+    g_system->m_eventBus->signal(Events::GUI::JumpToPC{pc});
+    return true;
+}
+
 void PCSX::R3000Acpu::psxReset() {
     Reset();
 
     memset(&m_regs, 0, sizeof(m_regs));
     m_shellStarted = false;
     m_inISR = false;
+    clearStackBounds();
     m_delayedLoadInfo[0].active = false;
     m_delayedLoadInfo[1].active = false;
     m_currentDelayedLoad = false;
@@ -409,6 +489,12 @@ void PCSX::R3000Acpu::branchTest() {
 
 void PCSX::R3000Acpu::branchTestEvents() {
     const uint64_t cycle = m_regs.cycle;
+
+    // Advance any docked PocketStation by the elapsed R3000A cycles. This inter-burst boundary is
+    // where the ARM7 catch-up lives (see SIO::stepPocketstation / sio.h): it keeps the device
+    // within a few cycles of current so its COM/FIQ handler services each SIO byte in time. Cheap
+    // early-return when nothing is docked.
+    g_emulator->m_sio->stepPocketstation();
 
     if (cycle >= g_emulator->m_counters->m_psxNextCounter) g_emulator->m_counters->update();
     g_emulator->dispatchVSync();

@@ -300,11 +300,14 @@ class Memory {
 
       private:
         MemoryAsFile(Memory *memory) : File(File::FileType::RW_SEEKABLE), m_memory(memory) {}
-        constexpr static size_t c_size = 0x100000000ULL;
+        // The whole 32-bit address space. Where size_t is 32 bits (wasm32) 4GiB does not fit and
+        // would wrap to 0, refusing every access, so the file stops one byte short there.
+        constexpr static size_t c_size = sizeof(size_t) > 4 ? size_t(0x100000000ULL) : SIZE_MAX;
         constexpr static size_t c_blockSize = 64 * 1024;
         size_t m_ptrR = 0;
         size_t m_ptrW = 0;
         size_t cappedSize(size_t size, size_t ptr) const { return std::min(size, c_size - ptr); }
+        static size_t seekTo(size_t current, ssize_t pos, int wheel);
         Memory *m_memory;
 
         void readBlock(void *dest, size_t size, size_t ptr);
@@ -388,6 +391,9 @@ class Memory {
     // Address of the psyqo heap metadata struct in guest memory,
     // registered by the MIPS allocator via pcsxhw write to 0x1f8020a0.
     uint32_t m_psyqoHeapMetadata = 0;
+    // Guest address of a scoped-profiler ring buffer header (pcsxprof.h),
+    // registered with PCSX_CMD_REGISTER_PROFILER.
+    uint32_t m_profilerHeader = 0;
 
     std::unordered_map<uint32_t, uint32_t> m_msanAllocs;
     static constexpr uint32_t c_msanChainMarker = 0x7ffffd;

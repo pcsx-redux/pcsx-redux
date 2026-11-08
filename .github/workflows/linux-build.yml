@@ -35,6 +35,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           set-safe-directory: true
+      - name: Check tests are in the vcxproj
+        if: matrix.arch == 'x86_64'
+        run: ./.github/scripts/check-vcxproj-tests.sh
       - name: Fetch submodules
         run: ./.github/scripts/update-submodules.sh
       - run: |
@@ -51,6 +54,10 @@ jobs:
         run: |
           apt update
           apt install -y jq
+      - name: Build OpenPSK
+        run: |
+          apt install -y gcc-arm-none-eabi
+          make -C src/pocketstation/openpsk
       - name: Packaging
         env:
           APPDISTRIB_TOKEN: ${{ secrets[matrix.secret] }}

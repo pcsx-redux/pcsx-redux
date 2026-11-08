@@ -24,9 +24,11 @@
 #include "core/alloc-tracker.h"
 #include "core/psxemulator.h"
 #include "core/psxmem.h"
+#include "core/r3000a.h"
 #include "core/system.h"
 #include "mips/common/hardware/allocdesc.h"
 #include "mips/common/hardware/pcsxcmd.h"
+#include "mips/common/hardware/pcsxprof.h"
 
 namespace {
 
@@ -66,7 +68,8 @@ void doQuery(uint32_t structAddress, uint32_t declaredSize) {
     // One bit per implemented operation. Keep this in step with the dispatch
     // switch below: a bit set here is a promise the switch honors it.
     for (uint32_t op :
-         {uint32_t(PCSX_CMD_QUERY), uint32_t(PCSX_CMD_REGISTER_ALLOCATOR), uint32_t(PCSX_CMD_ALLOC_REPORT)}) {
+         {uint32_t(PCSX_CMD_QUERY), uint32_t(PCSX_CMD_REGISTER_ALLOCATOR), uint32_t(PCSX_CMD_ALLOC_REPORT),
+          uint32_t(PCSX_CMD_SET_STACK_BOUNDS), uint32_t(PCSX_CMD_REGISTER_PROFILER)}) {
         bitmap[op >> 5] |= 1u << (op & 31);
     }
     if (!poke(structAddress + c_headerSize + 0, PCSX_CMD_PROTOCOL_VERSION)) {
@@ -149,6 +152,64 @@ void doAllocReport(uint32_t structAddress, uint32_t declaredSize) {
     setStatus(structAddress, PCSX_CMDSTATUS_OK);
 }
 
+void doSetStackBounds(uint32_t structAddress, uint32_t declaredSize) {
+    // header(16) + low + high
+    constexpr uint32_t c_needed = c_headerSize + 8;
+    if (declaredSize < c_needed) {
+        setStatus(structAddress, PCSX_CMDSTATUS_SHORT_STRUCT);
+        return;
+    }
+    auto low = peek(structAddress + c_headerSize);
+    auto high = peek(structAddress + c_headerSize + 4);
+    if (!low || !high) {
+        setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
+        return;
+    }
+    if (*low > *high) {
+        setStatus(structAddress, PCSX_CMDSTATUS_BAD_ARGUMENT);
+        return;
+    }
+    PCSX::g_emulator->m_cpu->setStackBounds(*low, *high);
+    setStatus(structAddress, PCSX_CMDSTATUS_OK);
+}
+
+void doRegisterProfiler(uint32_t structAddress, uint32_t declaredSize) {
+    // header(16) + profHeader
+    constexpr uint32_t c_needed = c_headerSize + 4;
+    if (declaredSize < c_needed) {
+        setStatus(structAddress, PCSX_CMDSTATUS_SHORT_STRUCT);
+        return;
+    }
+    auto header = peek(structAddress + c_headerSize);
+    if (!header) {
+        setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
+        return;
+    }
+    if (*header == 0) {
+        PCSX::g_emulator->m_mem->m_profilerHeader = 0;
+        setStatus(structAddress, PCSX_CMDSTATUS_OK);
+        return;
+    }
+    if (*header & 3) {
+        setStatus(structAddress, PCSX_CMDSTATUS_BAD_ARGUMENT);
+        return;
+    }
+    auto magic = peek(*header + offsetof(pcsx_ProfHeader, magic));
+    auto sizes = peek(*header + offsetof(pcsx_ProfHeader, version));
+    auto capacity = peek(*header + offsetof(pcsx_ProfHeader, capacity));
+    auto entries = peek(*header + offsetof(pcsx_ProfHeader, entries));
+    if (!magic || !sizes || !capacity || !entries) {
+        setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
+        return;
+    }
+    if (!pcsx_profHeaderValid(*magic, *sizes & 0xffff, *sizes >> 16, *capacity, *entries)) {
+        setStatus(structAddress, PCSX_CMDSTATUS_BAD_ARGUMENT);
+        return;
+    }
+    PCSX::g_emulator->m_mem->m_profilerHeader = *header;
+    setStatus(structAddress, PCSX_CMDSTATUS_OK);
+}
+
 }  // namespace
 
 void PCSX::GuestCommand::dispatch(uint32_t structAddress) {
@@ -183,6 +244,12 @@ void PCSX::GuestCommand::dispatch(uint32_t structAddress) {
             break;
         case PCSX_CMD_ALLOC_REPORT:
             doAllocReport(structAddress, *size);
+            break;
+        case PCSX_CMD_SET_STACK_BOUNDS:
+            doSetStackBounds(structAddress, *size);
+            break;
+        case PCSX_CMD_REGISTER_PROFILER:
+            doRegisterProfiler(structAddress, *size);
             break;
         default:
             setStatus(structAddress, PCSX_CMDSTATUS_UNKNOWN_OP);

@@ -76,6 +76,7 @@ jobs:
         vsprojects/x64/ReleaseWithClangCL/exe2iso.exe
         vsprojects/x64/ReleaseWithClangCL/exe2sys573.exe
         vsprojects/x64/ReleaseWithClangCL/modconv.exe
+        vsprojects/x64/ReleaseWithClangCL/xmconv.exe
         vsprojects/x64/ReleaseWithClangCL/ps1-packer.exe
         vsprojects/x64/ReleaseWithClangCL/psyq-obj-parser.exe
         vsprojects/x64/ReleaseCLI/*.dll
@@ -100,6 +101,7 @@ jobs:
         !**\exe2sys573.exe
         !**\mdec.exe
         !**\modconv.exe
+        !**\xmconv.exe
         !**\midi2psm.exe
         !**\midi2spd.exe
         !**\pcsx-redux.exe
