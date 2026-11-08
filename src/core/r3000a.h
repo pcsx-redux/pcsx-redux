@@ -702,6 +702,18 @@ Formula One 2001
         }
     }
 
+    /* Save states from before the per-line tag kept an address per word. Word 0 of a line held the
+       line's address once all four words were fetched, 0xff once DMA had dropped the line, or
+       0xffffffff. Keep the filled lines and their code, drop the rest. */
+    void convertLegacyICache() {
+        uint32_t *tags = reinterpret_cast<uint32_t *>(m_regs.iCacheAddr);
+        for (unsigned line = 0; line < 256; line++) {
+            const uint32_t old = SWAP_LE32(tags[line * 4]);
+            const uint32_t tag = (old & 0xf) == 0 ? (old & c_iCachePageMask) | 0xf : 0xffffffff;
+            for (unsigned w = 0; w < 4; w++) tags[line * 4 + w] = SWAP_LE32(w == 0 ? tag : 0xffffffff);
+        }
+    }
+
     // A CPU store reached RAM. The i-cache ignores stores; a recompiler drops the blocks it built
     // from that word.
     virtual void ClearStore(uint32_t addr) { Clear(addr, 1); }

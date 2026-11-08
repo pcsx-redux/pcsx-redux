@@ -405,8 +405,8 @@ uint16_t PCSX::Memory::read16(uint32_t address) {
    addresses keep reaching memory as they do without isolation. */
 bool PCSX::Memory::isolatedToICache(uint32_t address) const {
     if ((m_BIU & 0x800) == 0) return false;
-    if (address >= 0xa0000000) return false;
-    if ((address & 0x1fffffff) >= 0x00800000) return false;
+    const uint32_t region = address & 0xff800000;
+    if ((region != 0x00000000) && (region != 0x80000000)) return false;
     return (g_emulator->m_cpu->m_regs.CP0.n.Status & 0x10000) != 0;
 }
 
