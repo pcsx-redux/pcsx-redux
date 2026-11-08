@@ -60,11 +60,8 @@ void PCSX::Widgets::SPUSamples::decode(const uint8_t* spuRam, const Sample& samp
 std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
                                                           const std::map<uint32_t, Sample>& samples) {
     std::vector<SF2::Sample> out;
-    std::string unpitched, unconfirmed, disagrees;
-    auto note = [](std::string& list, const std::string& name) {
-        if (!list.empty()) list += ' ';
-        list += name;
-    };
+    std::vector<std::string> unpitched, unconfirmed, disagrees;
+    auto note = [](std::vector<std::string>& list, const std::string& name) { list.push_back(name); };
     for (auto& [start, cached] : samples) {
         // Sound RAM may have changed since the map was last rebuilt.
         Sample s = cached;
@@ -109,15 +106,28 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         "against the pitches the game keyed it on with, which land on whole notes when the game is tuned to A440; "
         "an octave error is not caught by this check. Loops come from the ADPCM loop flags only; a loop address "
         "the game wrote to the voice register is not exported.";
-    if (!disagrees.empty()) comment += "\nKey-on pitches disagree, check by ear: " + disagrees;
-    if (!unconfirmed.empty()) comment += "\nNo key-on pitch to check against: " + unconfirmed;
-    if (!unpitched.empty()) comment += "\nUnpitched: " + unpitched;
-    // ICMT is limited to 65536 bytes, terminator included. Cut at a whole name and say so.
-    if (comment.size() > 65535) {
-        constexpr std::string_view cut = " (list truncated)";
-        comment.resize(comment.find_last_of(" \n", 65535 - cut.size()));
-        comment += cut;
-    }
+    // ICMT is limited to 65536 bytes, terminator included. The lists stop at a whole name, with
+    // room left to say so.
+    constexpr std::string_view cut = "\n(list truncated)";
+    constexpr size_t limit = 65535 - cut.size();
+    bool truncated = false;
+    auto list = [&](std::string_view heading, const std::vector<std::string>& names) {
+        if (names.empty() || truncated) return;
+        std::string line = fmt::format("\n{}:", heading);
+        for (auto& name : names) {
+            if (comment.size() + line.size() + 1 + name.size() > limit) {
+                truncated = true;
+                break;
+            }
+            line += ' ';
+            line += name;
+        }
+        if (line.find(' ', heading.size() + 1) != std::string::npos) comment += line;
+    };
+    list("Key-on pitches disagree, check by ear", disagrees);
+    list("No key-on pitch to check against", unconfirmed);
+    list("Unpitched", unpitched);
+    if (truncated) comment += cut;
     return SF2::write(out, "PCSX-Redux SPU samples", comment);
 }
 
@@ -131,6 +141,8 @@ void PCSX::Widgets::SPUSamples::rebuild(PCSX::SPULogger* logger, const uint8_t* 
         m_lastClears = logger->clears();
     }
     const size_t fresh = size_t(std::min<uint64_t>(seen - m_lastSeen, count));
+    // Events dropped by the ring since the last refresh hide any content swaps they covered.
+    const bool gap = seen - m_lastSeen > count;
     std::map<uint32_t, RootKey::PitchCounts> freshPitches;
     for (size_t i = count - fresh; i < count; i++) {
         const auto& ev = (*logger)[i];
@@ -152,16 +164,22 @@ void PCSX::Widgets::SPUSamples::rebuild(PCSX::SPULogger* logger, const uint8_t* 
         }
         // New content at this address restarts the pitch history. The key-ons logged since the
         // last refresh may have played either the old content or the new one, so they are dropped
-        // rather than credited to the wrong sample.
-        const bool replaced = s.pitchesSignature != 0 && s.pitchesSignature != s.signature;
-        if (s.pitchesSignature != s.signature) {
+        // rather than credited to the wrong sample. After a gap in the log, every address may have
+        // changed and changed back, so all histories restart.
+        const bool replaced = gap || (s.pitchesSignature != 0 && s.pitchesSignature != s.signature);
+        if (gap || s.pitchesSignature != s.signature) {
             s.pitches.clear();
             s.pitchesSignature = s.signature;
         }
-        if (auto p = freshPitches.find(start); !replaced && p != freshPitches.end()) {
-            for (auto [pitch, n] : p->second) {
-                auto& count = s.pitches[pitch];
-                count = n > UINT32_MAX - count ? UINT32_MAX : count + n;
+        if (auto p = freshPitches.find(start); p != freshPitches.end()) {
+            if (replaced) {
+                s.pitchesDropped = true;
+            } else {
+                for (auto [pitch, n] : p->second) {
+                    auto& count = s.pitches[pitch];
+                    count = n > UINT32_MAX - count ? UINT32_MAX : count + n;
+                }
+                s.pitchesDropped = false;
             }
         }
         auto f = m_fundamentals.find(s.signature);
@@ -206,9 +224,10 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
     ImGui::TextUnformatted(fmt::format(f_("{} samples"), m_samples.size()).c_str());
     ImGui::SameLine();
     if (ImGui::Button(_("Export SoundFont..."))) m_exportDialog.openDialog();
-    ImGui::TextWrapped("%s", _("Root keys come from each sample's fundamental at pitch 1000h (44100 Hz), with note 69 = "
-                               "440 Hz = A4. The check column compares it with the pitches the game keyed the sample "
-                               "on with; a disagreement needs a human ear."));
+    ImGui::TextWrapped("%s",
+                       _("Root keys come from each sample's fundamental at pitch 1000h (44100 Hz), with note 69 = "
+                         "440 Hz = A4. The check column compares it with the pitches the game keyed the sample "
+                         "on with; a disagreement needs a human ear."));
     if (!m_exportStatus.empty()) ImGui::TextUnformatted(m_exportStatus.c_str());
 
     auto overlay = g_emulator->m_spu->getOverlay();
@@ -297,7 +316,8 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
                         ImGui::TextUnformatted(_("unpitched"));
                         break;
                     case RootKey::Status::Unconfirmed:
-                        ImGui::TextUnformatted(_("no pitch logged"));
+                        ImGui::TextUnformatted(s.pitchesDropped ? _("key-ons dropped, content changed")
+                                                                : _("no pitch logged"));
                         break;
                     case RootKey::Status::Agrees:
                         ImGui::TextUnformatted(fmt::format(f_("agrees ({:+.0f}c)"), s.root.gridCents).c_str());
