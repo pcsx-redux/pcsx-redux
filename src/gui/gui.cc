@@ -2425,10 +2425,9 @@ debugging features may not work. Additionally,
 changing the dynarec option requires a restart
 of the emulator to take effect.)");
     } else if (showDynarecDebugWarning) {
-        addNotice(R"(Debugger and dynarec enabled at the same time.
+        addNotification(R"(Debugger and dynarec enabled at the same time.
 Consider turning either one off, otherwise
-debugging features may not work.)",
-                  NoticeKind::Warning);
+debugging features may not work.)");
     } else if (showDynarecWarning) {
         addNotification(R"(Toggling the Dynarec option requires a restart
 of the emulator to take effect.)");
