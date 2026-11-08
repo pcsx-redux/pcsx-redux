@@ -2065,13 +2065,14 @@ the update and manually apply it.)")));
                                 m_update.applyUpdate(g_system->getBinDir());
                                 g_system->quit();
                             } else {
-                                addNotification(
-                                    _("An error has occured while downloading\nand/or applying the update."));
+                                addNotice(_("An error has occured while downloading\nand/or applying the update."),
+                                          NoticeKind::Error);
                             }
                         },
                         g_system->getLoop());
                     if (!started) {
-                        addNotification(_("An error has occured while downloading\nand/or applying the update."));
+                        addNotice(_("An error has occured while downloading\nand/or applying the update."),
+                                  NoticeKind::Error);
                         m_updateAvailable = false;
                         m_updateDownloading = false;
                     }
@@ -2087,7 +2088,7 @@ the update and manually apply it.)")));
                         },
                         g_system->getLoop());
                     if (!started) {
-                        addNotification(_("An error has occured while downloading the update."));
+                        addNotice(_("An error has occured while downloading the update."), NoticeKind::Error);
                         m_updateAvailable = false;
                         m_updateDownloading = false;
                     }
@@ -2432,10 +2433,11 @@ debugging features may not work.)");
 of the emulator to take effect.)");
     }
     if (show2MBVRAMHardwareWarning) {
-        addNotification(R"(2MB VRAM is enabled together with the OpenGL GPU.
+        addNotice(R"(2MB VRAM is enabled together with the OpenGL GPU.
 The OpenGL renderer does not support the upper VRAM
 bank yet - only the software renderer does. Switch to
-the software renderer to make use of 2MB VRAM.)");
+the software renderer to make use of 2MB VRAM.)",
+                  NoticeKind::Warning);
     }
     return changed;
 }

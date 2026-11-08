@@ -316,7 +316,7 @@ bool PCSX::Widgets::MemcardManager::draw(GUI* gui, const char* title) {
                         auto latest = getLatest();
                         bool success = g_emulator->m_sio->copyMcdFile(block);
                         if (!success) {
-                            gui->addNotification("Error while copying save file");
+                            gui->addNotice("Error while copying save file", GUI::NoticeKind::Error);
                         } else {
                             saveUndoBuffer(
                                 std::move(latest),
@@ -338,7 +338,7 @@ bool PCSX::Widgets::MemcardManager::draw(GUI* gui, const char* title) {
                         auto latest = getLatest();
                         bool success = g_emulator->m_sio->copyMcdFile(block);
                         if (!success) {
-                            gui->addNotification("Error while copying save file");
+                            gui->addNotice("Error while copying save file", GUI::NoticeKind::Error);
                         } else {
                             g_emulator->m_sio->eraseMcdFile(block);
                             saveUndoBuffer(
