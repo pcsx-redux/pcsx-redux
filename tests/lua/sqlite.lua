@@ -167,6 +167,9 @@ function TestSQLite:test_first_and_column_bounds()
     local insert = db:prepare 'INSERT INTO t VALUES (?)'
     lu.assertErrorMsgContains('must be an integer', function() insert:bind(1.5, 'x') end)
     lu.assertErrorMsgContains('must be an integer', function() insert:bind(0 / 0, 'x') end)
+    for _, bad in ipairs { 0, 2, 4294967297 } do
+        lu.assertErrorMsgContains('out of range', function() insert:bind(bad, 'x') end)
+    end
     insert:finalize()
     db:close()
 end

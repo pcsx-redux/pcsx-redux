@@ -122,6 +122,8 @@ local function bindOne(stmt, h, index, value)
         index = named
     elseif type(index) ~= 'number' or index % 1 ~= 0 then
         error('SQLite bind: parameter index must be an integer or a name', 3)
+    elseif index < 1 or index > C.sqlite3_bind_parameter_count(h) then
+        error('SQLite bind: parameter index out of range: ' .. tostring(index), 3)
     end
     local t = type(value)
     local rc
