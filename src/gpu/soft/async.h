@@ -58,8 +58,9 @@ struct PrimOp final : SoftOp {
 struct VramWriteOp final : SoftOp {
     int x, y, w, h;
     std::vector<uint16_t> pixels;
-    VramWriteOp(int x_, int y_, int w_, int h_, const uint16_t *src)
-        : x(x_), y(y_), w(w_), h(h_), pixels(src, src + w_ * h_) {}
+    bool masked;
+    VramWriteOp(int x_, int y_, int w_, int h_, const uint16_t *src, bool masked_ = false)
+        : x(x_), y(y_), w(w_), h(h_), pixels(src, src + w_ * h_), masked(masked_) {}
     void run(impl &r) override;
 };
 

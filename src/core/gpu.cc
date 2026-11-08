@@ -1076,8 +1076,8 @@ void PCSX::GPU::BlitRamVram::processWrite(Buffer &buf, Logged::Origin origin, ui
                 // Drop writes to an opened-but-unpopulated upper bank (1MB
                 // fitment): they hit floating bus and are lost.
                 if (m_gpu->vramOpenBus(y + row)) continue;
-                m_gpu->partialUpdateVRAM(x, m_gpu->resolveVramY(y + row), w, 1, src + row * w,
-                                         PartialUpdateVram::Synchronous);
+                m_gpu->uploadVRAM(x, m_gpu->resolveVramY(y + row), w, 1, src + row * w,
+                                  PartialUpdateVram::Synchronous);
             }
         }
     }
@@ -1088,7 +1088,7 @@ void PCSX::GPU::BlitRamVram::execute(GPU *gpu) {
     for (int row = 0; row < h; row++) {
         // Drop writes to an opened-but-unpopulated upper bank (1MB fitment).
         if (gpu->vramOpenBus(y + row)) continue;
-        gpu->partialUpdateVRAM(x, gpu->resolveVramY(y + row), w, 1, src + row * w);
+        gpu->uploadVRAM(x, gpu->resolveVramY(y + row), w, 1, src + row * w);
     }
 }
 

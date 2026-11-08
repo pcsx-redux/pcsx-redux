@@ -21,7 +21,7 @@
 #include "main/main.h"
 
 // Boots the gpu-vram-move guest suite headless under OpenBIOS. ret == 0 means
-// every GP0(0x80) VRAM-to-VRAM copy assertion matched the soft GPU.
+// every GP0(0x80) copy and GP0(0xA0) upload assertion matched the soft GPU.
 TEST(GPUVRAMMove, Copy) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
                         "-loadexe", "src/mips/tests/gpu-vram-move/gpu-vram-move.ps-exe");
