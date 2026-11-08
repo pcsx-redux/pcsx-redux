@@ -878,8 +878,9 @@ void PCSX::SPU::impl::SoundOn(int start, int end, uint16_t val, uint64_t cycle) 
             cp.cachedOn = true;
             resetAdpcmWalk(ch);
             // One entry per voice actually keyed, carrying the address it is about to decode
-            // from: the only sample entry point that is ground truth rather than inference.
-            g_emulator->m_spuLogger->log(SPULogger::Kind::KeyOn, cp.keyOnBlock, 0, 1, ch);
+            // from: the only sample entry point that is ground truth rather than inference. The
+            // value is the pitch the voice starts at.
+            g_emulator->m_spuLogger->log(SPULogger::Kind::KeyOn, cp.keyOnBlock, 0, m_pitchShadow[ch], ch);
         }
     }
 }
