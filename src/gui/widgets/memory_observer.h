@@ -80,11 +80,14 @@ class MemoryObserver {
 
     enum class ScanValueType { Char, Uchar, Short, Ushort, Int, Uint };
     static uint8_t getStrideFromValueType(ScanValueType valueType);
-    int64_t getValueAsSelectedType(int64_t memValue);
+    static int64_t getValueAsType(ScanValueType valueType, int64_t memValue);
+    int64_t getValueAsSelectedType(int64_t memValue) { return getValueAsType(m_scanValueType, memValue); }
 
     struct AddressValuePair {
         uint32_t address = 0;
         int64_t scannedValue = 0;
+        // The type the address was scanned as. Results keep it when the Value type combo changes.
+        ScanValueType valueType = ScanValueType::Short;
 
         bool frozen = false;
         int64_t frozenValue = 0;
