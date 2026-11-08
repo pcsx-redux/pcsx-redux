@@ -799,17 +799,20 @@ std::string_view PCSX::Memory::getBiosVersionString() {
 }
 
 // In 64 bits, so that a seek past either end clamps rather than wrapping a 32-bit size_t.
+// An offset is first held to [-c_size, c_size], so no sum can overflow.
 size_t PCSX::Memory::MemoryAsFile::seekTo(size_t current, ssize_t pos, int wheel) {
+    const int64_t size = int64_t(c_size);
+    const int64_t offset = std::clamp<int64_t>(pos, -size, size);
     int64_t target = int64_t(current);
     switch (wheel) {
         case SEEK_SET:
-            target = pos;
+            target = offset;
             break;
         case SEEK_END:
-            target = int64_t(c_size) - pos;
+            target = size - offset;
             break;
         case SEEK_CUR:
-            target += pos;
+            target += offset;
             break;
     }
     return size_t(std::clamp<int64_t>(target, 0, int64_t(c_size)));
