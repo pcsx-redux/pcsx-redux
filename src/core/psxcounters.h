@@ -39,6 +39,8 @@ class Counters {
     void set();
     void reset(uint32_t index);
     void calculateHsync();
+    uint32_t nextLineLength();
+    uint32_t wholeCyclesPerLine() const { return m_lineNum / m_lineDen; }
     void recalculateRate(uint32_t index);
 
     struct Rcnt {
@@ -80,7 +82,6 @@ class Counters {
     static const uint32_t CountToOverflow = 0;
     static const uint32_t CountToTarget = 1;
 
-    static inline const uint32_t FrameRate[] = {60, 50};
     static inline const uint32_t VBlankStart[] = {243, 256};
 
     static const uint16_t JITTER_FLAGS = (Rc2OneEighthClock | RcIrqRegenerate | RcCountToTarget);
@@ -95,6 +96,9 @@ class Counters {
     static constexpr int32_t kMaxAudioLagFrames = 44100 / 4;
 
     uint32_t m_HSyncTotal[PCSX::Emulator::PSX_TYPE_PAL + 1];  // 2
+    // A scanline lasts m_lineNum / m_lineDen CPU cycles, which is not a whole number. Each line
+    // gets the floor or the ceiling, and m_lineRemainder carries the fraction to the next one.
+    uint64_t m_lineNum = 1, m_lineDen = 1, m_lineRemainder = 0;
   public:
     uint64_t m_psxNextCounter;
     bool m_pollSIO1 = false;

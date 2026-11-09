@@ -871,10 +871,10 @@ void PCSX::Counters::deserialize(const SaveStateWrapper* w) {
     m_fieldCount = counters.get<FieldCount>().value;
 
     calculateHsync();
-    // Recalculate rates from mode registers (handles overclock changes and dotclock)
-    m_rcnts[3].target =
-        (g_emulator->m_psxClockSpeed / (FrameRate[g_emulator->settings.get<Emulator::SettingVideo>()] *
-                                        m_HSyncTotal[g_emulator->settings.get<Emulator::SettingVideo>()]));
+    // Recalculate rates from mode registers (handles overclock changes and dotclock). The line in
+    // flight keeps its start and takes the current line length.
+    m_rcnts[3].target = nextLineLength();
+    if (m_rcnts[3].counterState == CountToTarget) m_rcnts[3].cycle = m_rcnts[3].target;
     for (unsigned i = 0; i < 3; i++) {
         recalculateRate(i);
     }
