@@ -122,6 +122,10 @@ uint64_t getGPUDumpPlayerFrameCount();
 bool seekGPUDumpPlayer(uint64_t frame);
 void setGPUDumpPlayerLogging(bool enabled);
 uint32_t getGPUDumpPlayerLoggedCount();
+const char* getGPUDumpPlayerNodeName(unsigned index);
+bool setGPUDumpPlayerNodeColor(unsigned index, unsigned vertex, uint32_t color);
+void clearGPUDumpPlayerNodeOverlay(unsigned index);
+void replayGPUDumpPlayer();
 LuaSlice* getGPUDumpPlayerVRAM();
 LuaSlice* getVRAM();
 void setSPULoggerEnabled(bool);
@@ -386,6 +390,12 @@ PCSX = {
             -- The player's own GPU logger, holding the commands of the last frame played.
             setLogging = function(enabled) C.setGPUDumpPlayerLogging(enabled) end,
             getLoggedCount = function() return C.getGPUDumpPlayerLoggedCount() end,
+            -- Nodes are indexed from 0 in the order they were logged. An edited node replays with the
+            -- edit; the logged node itself is left alone.
+            getNodeName = function(index) return ffi.string(C.getGPUDumpPlayerNodeName(index)) end,
+            setNodeColor = function(index, vertex, color) return C.setGPUDumpPlayerNodeColor(index, vertex, color) end,
+            clearNodeOverlay = function(index) C.clearGPUDumpPlayerNodeOverlay(index) end,
+            replay = function() C.replayGPUDumpPlayer() end,
             getVRAM = function() return Support.File._createSliceWrapper(C.getGPUDumpPlayerVRAM()) end,
         },
     },

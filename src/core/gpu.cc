@@ -1309,6 +1309,32 @@ void PCSX::GPU::Logged::drawColorBox(uint32_t color, unsigned itemIndex, unsigne
     }
 }
 
+void PCSX::GPU::Logged::editColor(Overlay& overlay, unsigned i, uint32_t current) {
+    // The colour word is 0x00BBGGRR.
+    const uint32_t color = overlay.colors[i].value_or(current);
+    float rgb[3] = {float(color & 0xff) / 255.0f, float((color >> 8) & 0xff) / 255.0f,
+                    float((color >> 16) & 0xff) / 255.0f};
+    if (ImGui::ColorEdit3(_("Color"), rgb)) {
+        auto channel = [](float c) { return uint32_t(std::clamp(c, 0.0f, 1.0f) * 255.0f + 0.5f); };
+        overlay.colors[i] = channel(rgb[0]) | (channel(rgb[1]) << 8) | (channel(rgb[2]) << 16);
+    }
+}
+
+void PCSX::GPU::Logged::editXY(Overlay& overlay, unsigned i, int currentX, int currentY) {
+    int x = overlay.x[i].value_or(currentX);
+    int y = overlay.y[i].value_or(currentY);
+    // A GP0 vertex carries a signed 11-bit coordinate, so an edit cannot leave that range.
+    if (ImGui::InputInt("X", &x)) overlay.x[i] = std::clamp(x, -1024, 1023);
+    if (ImGui::InputInt("Y", &y)) overlay.y[i] = std::clamp(y, -1024, 1023);
+}
+
+void PCSX::GPU::Logged::editBlendFunction(Overlay& overlay, BlendFunction current) {
+    const char* names[] = {_("50% Back + 50% Front"), _("100% Back + 100% Front"), _("100% Back - 100% Front"),
+                           _("100% Back + 25% Front")};
+    int function = int(overlay.blendFunction.value_or(current));
+    if (ImGui::Combo(_("Blending"), &function, names, 4)) overlay.blendFunction = BlendFunction(function);
+}
+
 template <PCSX::GPU::Shading shading, PCSX::GPU::Shape shape, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend,
           PCSX::GPU::Modulation modulation>
 void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawLogNode(unsigned itemIndex,
@@ -1395,6 +1421,23 @@ void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawLogNode(u
     }
 }
 
+template <PCSX::GPU::Shading shading, PCSX::GPU::Shape shape, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend,
+          PCSX::GPU::Modulation modulation>
+void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawEditor(Overlay& overlay) {
+    for (unsigned i = 0; i < count; i++) {
+        ImGui::PushID(i);
+        ImGui::Separator();
+        ImGui::Text(_("Vertex %i"), i);
+        if (colorEditable(i)) editColor(overlay, i, colors[i]);
+        editXY(overlay, i, x[i], y[i]);
+        ImGui::PopID();
+    }
+    if constexpr (textured == Textured::Yes) {
+        ImGui::Separator();
+        editBlendFunction(overlay, tpage.blendFunction);
+    }
+}
+
 template <PCSX::GPU::Shading shading, PCSX::GPU::LineType lineType, PCSX::GPU::Blend blend>
 void PCSX::GPU::Line<shading, lineType, blend>::drawLogNode(unsigned itemIndex, const DrawLogSettings &settings) {
     int minX = x[0], minY = y[0], maxX = x[0], maxY = y[0];
@@ -1433,6 +1476,18 @@ void PCSX::GPU::Line<shading, lineType, blend>::drawLogNode(unsigned itemIndex, 
     std::string label = fmt::format(f_("Go to primitive##{}"), itemIndex);
     if (ImGui::Button(label.c_str())) {
         g_system->m_eventBus->signal(Events::GUI::VRAMFocus{minX, minY, maxX, maxY});
+    }
+}
+
+template <PCSX::GPU::Shading shading, PCSX::GPU::LineType lineType, PCSX::GPU::Blend blend>
+void PCSX::GPU::Line<shading, lineType, blend>::drawEditor(Overlay& overlay) {
+    for (unsigned i = 0; i < editableCount(); i++) {
+        ImGui::PushID(i);
+        ImGui::Separator();
+        ImGui::Text(_("Vertex %i"), i);
+        if (colorEditable(i)) editColor(overlay, i, colors[i]);
+        editXY(overlay, i, x[i], y[i]);
+        ImGui::PopID();
     }
 }
 
@@ -1488,6 +1543,15 @@ void PCSX::GPU::Rect<size, textured, blend, modulation>::drawLogNode(unsigned it
             }
         }
     }
+}
+
+template <PCSX::GPU::Size size, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend, PCSX::GPU::Modulation modulation>
+void PCSX::GPU::Rect<size, textured, blend, modulation>::drawEditor(Overlay& overlay) {
+    // A textured rectangle without modulation has no colour field, so this cannot be a runtime test.
+    if constexpr ((textured == Textured::No) || (modulation == Modulation::On)) {
+        editColor(overlay, 0, color);
+    }
+    editXY(overlay, 0, x, y);
 }
 
 static float triangleArea(float x1, float x2, float x3, float y1, float y2, float y3) {

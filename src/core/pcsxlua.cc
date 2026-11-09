@@ -211,6 +211,34 @@ uint64_t getGPUDumpPlayerFrameCount() { return PCSX::g_emulator->m_gpuDumpPlayer
 bool seekGPUDumpPlayer(uint64_t frame) { return PCSX::g_emulator->m_gpuDumpPlayer->seek(frame); }
 void setGPUDumpPlayerLogging(bool enabled) { PCSX::g_emulator->m_gpuDumpPlayer->logger()->setLogging(enabled); }
 uint32_t getGPUDumpPlayerLoggedCount() { return PCSX::g_emulator->m_gpuDumpPlayer->logger()->loggedCount(); }
+// Index is the node's position in the player logger's list.
+static PCSX::GPU::Logged* getGPUDumpPlayerNode(unsigned index) {
+    for (auto& node : PCSX::g_emulator->m_gpuDumpPlayer->logger()->frameLog()) {
+        if (index-- == 0) return &node;
+    }
+    return nullptr;
+}
+const char* getGPUDumpPlayerNodeName(unsigned index) {
+    static std::string name;
+    auto node = getGPUDumpPlayerNode(index);
+    name = node ? std::string(node->getName()) : std::string();
+    return name.c_str();
+}
+bool setGPUDumpPlayerNodeColor(unsigned index, unsigned vertex, uint32_t color) {
+    auto node = getGPUDumpPlayerNode(index);
+    if (!node || !node->editable() || (vertex >= 4) || !node->colorEditable(vertex)) return false;
+    if (!node->overlay) node->overlay = std::make_unique<PCSX::GPU::Logged::Overlay>();
+    node->overlay->colors[vertex] = color & 0xffffff;
+    return true;
+}
+void clearGPUDumpPlayerNodeOverlay(unsigned index) {
+    auto node = getGPUDumpPlayerNode(index);
+    if (node) node->overlay.reset();
+}
+void replayGPUDumpPlayer() {
+    auto player = PCSX::g_emulator->m_gpuDumpPlayer.get();
+    if (player->gpu()) player->logger()->replay(player->gpu());
+}
 PCSX::Slice* getGPUDumpPlayerVRAM() {
     auto gpu = PCSX::g_emulator->m_gpuDumpPlayer->gpu();
     if (!gpu) return new PCSX::Slice();
@@ -363,6 +391,10 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, seekGPUDumpPlayer);
     REGISTER(L, setGPUDumpPlayerLogging);
     REGISTER(L, getGPUDumpPlayerLoggedCount);
+    REGISTER(L, getGPUDumpPlayerNodeName);
+    REGISTER(L, setGPUDumpPlayerNodeColor);
+    REGISTER(L, clearGPUDumpPlayerNodeOverlay);
+    REGISTER(L, replayGPUDumpPlayer);
     REGISTER(L, getGPUDumpPlayerVRAM);
     REGISTER(L, getVRAM);
     REGISTER(L, createSaveState);
