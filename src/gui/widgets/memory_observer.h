@@ -168,7 +168,7 @@ class MemoryObserver {
         }
 
         m_addresses.clear();
-        for (auto i = 0u; i + sequenceSize < memSize; i += m_step) {
+        for (auto i = 0u; i + sequenceSize <= memSize; i += m_step) {
             std::copy_n(memData + i, sequenceSize, buffer.data());
 
             bool allEqual = true;
