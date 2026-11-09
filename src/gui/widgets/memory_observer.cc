@@ -495,7 +495,9 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
             ImGui::InputInt(C_("Search increment", "Step"), &m_step);
 
             if (m_step >= 1 && ImGui::Button(_("Search"))) {
-                if (m_useSIMD && m_sequenceSize == 8) {
+                if (m_sequence[0] == '\0') {
+                    m_addresses.clear();
+                } else if (m_useSIMD && m_sequenceSize == 8) {
                     simd_populateAddressList<8>(memData, memBase, memSize);
                 } else if (m_useSIMD && m_sequenceSize == 16) {
                     simd_populateAddressList<16>(memData, memBase, memSize);
