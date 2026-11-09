@@ -80,6 +80,7 @@ TEST(LuaCallGuest, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.callguest")
 TEST(LuaCallGuest, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.callguest"), 0); }
 TEST(LuaCompression, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.compression"), 0); }
 TEST(LuaCompression, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.compression"), 0); }
+TEST(LuaHtml, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.html"), 0); }
 TEST(LuaRewind, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.rewind"), 0); }
 TEST(LuaRewind, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.rewind"), 0); }
 TEST(LuaGdbReverse, Interpreter) {
