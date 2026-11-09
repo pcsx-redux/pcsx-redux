@@ -655,6 +655,7 @@ void PCSX::Widgets::MemoryObserver::populateAddressList(const uint8_t* memData, 
     const auto patternShuffleResults = getShuffleResultsFor(buffer);
 
     m_addresses.clear();
+    if (sequenceSize == 0) return;
     for (auto i = 0; i + sequenceSize <= memSize; i += m_step) {
         std::copy_n(memData + i, sequenceSize, buffer.data());
 
