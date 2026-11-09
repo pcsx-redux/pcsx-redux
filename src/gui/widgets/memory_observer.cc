@@ -215,46 +215,46 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
                     m_value = getValueAsSelectedType(m_value);
                     int64_t memValue = 0;
 
-                    for (uint32_t i = 0; i < memSize; ++i) {
-                        if (i != 0 && i % stride == 0) {
-                            switch (m_scanType) {
-                                case ScanType::ExactValue:
-                                    if (memValue == m_value) {
-                                        m_addressValuePairs.push_back(
-                                            {memBase + i - stride, memValue, m_scanValueType});
-                                    }
-                                    break;
-                                case ScanType::GreaterThan:
-                                    if (memValue > m_value) {
-                                        m_addressValuePairs.push_back(
-                                            {memBase + i - stride, memValue, m_scanValueType});
-                                    }
-                                    break;
-                                case ScanType::LessThan:
-                                    if (memValue < m_value) {
-                                        m_addressValuePairs.push_back(
-                                            {memBase + i - stride, memValue, m_scanValueType});
-                                    }
-                                    break;
-                                case ScanType::Changed:
-                                case ScanType::Unchanged:
-                                case ScanType::Increased:
-                                case ScanType::Decreased:
-                                    break;
-                                case ScanType::UnknownInitialValue:
-                                    m_addressValuePairs.push_back({memBase + i - stride, memValue, m_scanValueType});
-                                    break;
-                            }
-
-                            memValue = 0;
+                    auto evaluateBlock = [this](uint32_t address, int64_t blockValue) {
+                        switch (m_scanType) {
+                            case ScanType::ExactValue:
+                                if (blockValue == m_value) {
+                                    m_addressValuePairs.push_back({address, blockValue, m_scanValueType});
+                                }
+                                break;
+                            case ScanType::GreaterThan:
+                                if (blockValue > m_value) {
+                                    m_addressValuePairs.push_back({address, blockValue, m_scanValueType});
+                                }
+                                break;
+                            case ScanType::LessThan:
+                                if (blockValue < m_value) {
+                                    m_addressValuePairs.push_back({address, blockValue, m_scanValueType});
+                                }
+                                break;
+                            case ScanType::Changed:
+                            case ScanType::Unchanged:
+                            case ScanType::Increased:
+                            case ScanType::Decreased:
+                                break;
+                            case ScanType::UnknownInitialValue:
+                                m_addressValuePairs.push_back({address, blockValue, m_scanValueType});
+                                break;
                         }
+                    };
 
+                    for (uint32_t i = 0; i < memSize; ++i) {
                         const uint8_t currentByte = memData[i];
                         const uint8_t leftShift = 8 * (i % stride);
                         const uint32_t mask = 0xffffffff ^ (0xff << leftShift);
                         const int byteToWrite = currentByte << leftShift;
                         memValue = (memValue & mask) | byteToWrite;
                         memValue = getValueAsSelectedType(memValue);
+
+                        if ((i + 1) % stride == 0) {
+                            evaluateBlock(memBase + i + 1 - stride, memValue);
+                            memValue = 0;
+                        }
                     }
                 } else {
                     m_addressValuePairs.clear();
@@ -495,7 +495,9 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
             ImGui::InputInt(C_("Search increment", "Step"), &m_step);
 
             if (m_step >= 1 && ImGui::Button(_("Search"))) {
-                if (m_useSIMD && m_sequenceSize == 8) {
+                if (m_sequence[0] == '\0') {
+                    m_addresses.clear();
+                } else if (m_useSIMD && m_sequenceSize == 8) {
                     simd_populateAddressList<8>(memData, memBase, memSize);
                 } else if (m_useSIMD && m_sequenceSize == 16) {
                     simd_populateAddressList<16>(memData, memBase, memSize);
@@ -655,7 +657,8 @@ void PCSX::Widgets::MemoryObserver::populateAddressList(const uint8_t* memData, 
     const auto patternShuffleResults = getShuffleResultsFor(buffer);
 
     m_addresses.clear();
-    for (auto i = 0; i + sequenceSize < memSize; i += m_step) {
+    if (sequenceSize == 0) return;
+    for (auto i = 0; i + sequenceSize <= memSize; i += m_step) {
         std::copy_n(memData + i, sequenceSize, buffer.data());
 
         if (matchesPattern(buffer, patternShuffleResults)) {
