@@ -353,7 +353,9 @@ typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("hsync_count"), 2> HSyncCou
 // CPU's scanline schedule. DO NOT REUSE FIELD NUMBER 3 in Counters.
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("psx_next_counter"), 4> PSXNextCounter;
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("field_count"), 5> FieldCount;
-typedef Protobuf::Message<TYPESTRING("Counters"), Rcnts, HSyncCount, PSXNextCounter, FieldCount> Counters;
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("line_remainder"), 6> LineRemainder;
+typedef Protobuf::Message<TYPESTRING("Counters"), Rcnts, HSyncCount, PSXNextCounter, FieldCount, LineRemainder>
+    Counters;
 typedef Protobuf::MessageField<Counters, TYPESTRING("counters"), 10> CountersField;
 
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("reg0"), 1> MDECReg0;

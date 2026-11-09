@@ -234,9 +234,12 @@ void PCSX::Counters::update() {
     // rcnt base.
     if (int64_t(cycle - m_rcnts[3].cycleStart) >= int64_t(m_rcnts[3].cycle)) {
         reset(3);
-        // reset() scheduled the next line with this line's length; give it its own.
+        // reset() scheduled the next line with this line's length; give it its own. When the CPU
+        // ran past the whole next line too, reset() picked the overflow event: keep counting to
+        // the target, so the overdue line fires on the next update instead of 65535 cycles later.
         m_rcnts[3].target = nextLineLength();
-        if (m_rcnts[3].counterState == CountToTarget) m_rcnts[3].cycle = m_rcnts[3].target;
+        m_rcnts[3].counterState = CountToTarget;
+        m_rcnts[3].cycle = m_rcnts[3].target;
 
         // Counter 1 on the hblank clock ticks every whole-cycle rate, while lines alternate
         // between two lengths. Re-anchor it on this hblank so it counts one tick per line.

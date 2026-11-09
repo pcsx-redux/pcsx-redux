@@ -580,6 +580,7 @@ void PCSX::Counters::serialize(SaveStateWrapper* w) {
     counters.get<HSyncCount>().value = m_hSyncCount;
     counters.get<PSXNextCounter>().value = m_psxNextCounter;
     counters.get<FieldCount>().value = m_fieldCount;
+    counters.get<LineRemainder>().value = m_lineRemainder;
 }
 
 static bool parseSaveState(std::string_view data, PCSX::SaveStates::SaveState& state) {
@@ -871,10 +872,11 @@ void PCSX::Counters::deserialize(const SaveStateWrapper* w) {
     m_fieldCount = counters.get<FieldCount>().value;
 
     calculateHsync();
-    // Recalculate rates from mode registers (handles overclock changes and dotclock). The line in
-    // flight keeps its start and takes the current line length.
-    m_rcnts[3].target = nextLineLength();
-    if (m_rcnts[3].counterState == CountToTarget) m_rcnts[3].cycle = m_rcnts[3].target;
+    // The line in flight keeps its saved length, and the remainder carries on from where it was,
+    // so a restored state replays the same hblank times. A state saved before the remainder was
+    // stored loads it as 0.
+    m_lineRemainder = counters.get<LineRemainder>().value % m_lineDen;
+    // Recalculate rates from mode registers (handles overclock changes and dotclock)
     for (unsigned i = 0; i < 3; i++) {
         recalculateRate(i);
     }
