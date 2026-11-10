@@ -254,6 +254,7 @@ typedef struct {
 
 - `.arm(source, ...)` arms one or more sources by name, `PCSX.HWEvents.arm('IRQ', 'DMA')`, and `.disarm()` turns them all off. `.mask()` and `.setMask(mask)` read and write the mask directly, one bit per source, at `1 << PCSX.HWEvents.Sources[name]`.
 - `.size()`, `.clear()`
+- `.save(path)` writes the store to a file, and `.load(path)` replaces the store with a saved one. Both return `true` on success; `load` leaves the store empty when the file is not a saved store or is cut short.
 - `.read([start[, count]])` copies events into a new FFI array of `PCSX_HWEvent`, and returns it with the number of events copied, like `PCSX.CPU.Trace.read`.
 
 ```c
