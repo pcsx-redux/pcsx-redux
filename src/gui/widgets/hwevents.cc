@@ -127,14 +127,18 @@ void PCSX::Widgets::HWEvents::drawView(GUI* gui, const PCSX::HWEvents& events, V
     }
 
     // A cleared or reloaded store, or a new filter, starts the row list over.
-    if (view.rowsFilter != view.shown || view.rowsStore != &events || view.scanned > count) {
+    if (view.rowsFilter != view.shown || view.rowsStore != &events || view.rowsGeneration != events.generation() ||
+        view.scanned > count) {
         view.rows.clear();
         view.scanned = 0;
         view.rowsFilter = view.shown;
         view.rowsStore = &events;
+        view.rowsGeneration = events.generation();
     }
     for (; view.scanned < count; view.scanned++) {
-        if (view.shown & (1u << (events[view.scanned].type >> 8))) view.rows.push_back(view.scanned);
+        // A loaded file can hold any type; sources past the mask's 32 bits are always shown.
+        unsigned source = events[view.scanned].type >> 8;
+        if (source >= 32 || (view.shown & (1u << source))) view.rows.push_back(view.scanned);
     }
 
     ImGui::Separator();

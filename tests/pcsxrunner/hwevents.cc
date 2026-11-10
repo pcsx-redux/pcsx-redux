@@ -604,6 +604,7 @@ TEST(HWEvents, Describe) {
     EXPECT_EQ(make(PCSX::HWEvents::CDCommand, 0x0302, 0x160200), "CD command 02, params 00 02 16");
     EXPECT_EQ(make(PCSX::HWEvents::CDResponse, 0x30103, 0x02), "CD response INT3, 02, IRQ");
     EXPECT_EQ(make(PCSX::HWEvents::CDResponse, 0x00101, 0x22), "CD response INT1, 22, queued");
+    EXPECT_EQ(make(PCSX::HWEvents::CDResponse, 0x40101, 0x22), "CD response INT1, 22, dropped");
     EXPECT_EQ(make(PCSX::HWEvents::CDSector, 166, 2048, 0x8002, 0x00080101),
               "CD sector 00:02:16, 2048 bytes to host, mode 2, Setmode 80, subheader 00080101");
     EXPECT_EQ(make(PCSX::HWEvents::GPUCommand, 0x20ff0000, 0, 0x20ff0000, 1), "GP0 20ff0000, port");

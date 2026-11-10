@@ -53,6 +53,7 @@ class HWEvents {
         size_t scanned = 0;
         uint32_t rowsFilter = 0;
         const PCSX::HWEvents* rowsStore = nullptr;
+        uint64_t rowsGeneration = 0;
     };
     struct Loaded {
         std::string name;

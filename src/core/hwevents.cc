@@ -102,7 +102,11 @@ std::string PCSX::HWEvents::describe(const HWEvent& e) {
             std::string out = fmt::format("CD response INT{}", p[0] & 0xff);
             if (count) out += fmt::format(", {}", packedBytes(e, count));
             if (count > 12) out += " ...";
-            if (!(p[0] & (1u << 16))) out += ", queued";
+            if (p[0] & (1u << 18)) {
+                out += ", dropped";
+            } else if (!(p[0] & (1u << 16))) {
+                out += ", queued";
+            }
             if (p[0] & (1u << 17)) out += ", IRQ";
             return out;
         }
@@ -139,6 +143,7 @@ std::string PCSX::HWEvents::describe(const HWEvent& e) {
 void PCSX::HWEvents::clear() {
     m_chunks.clear();
     m_count = 0;
+    m_generation++;
 }
 
 namespace {
