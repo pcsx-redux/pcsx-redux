@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <vector>
 
+#include "core/callprofiler.h"
 #include "core/callstacks.h"
 #include "core/cputrace.h"
 #include "core/debug.h"
@@ -29,7 +30,6 @@
 #include "core/gpu.h"
 #include "core/gpudump.h"
 #include "core/gpulogger.h"
-#include "core/profiler.h"
 #include "core/psxemulator.h"
 #include "core/psxmem.h"
 #include "core/r3000a.h"

@@ -32,10 +32,10 @@
 #include <string>
 
 #include "core/arguments.h"
+#include "core/callprofiler.h"
 #include "core/cdrom.h"
 #include "core/gpu.h"
 #include "core/logger.h"
-#include "core/profiler.h"
 #include "core/psxemulator.h"
 #include "core/r3000a.h"
 #include "core/sio.h"

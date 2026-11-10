@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "core/profiler.h"
+#include "core/callprofiler.h"
 
 namespace PCSX {
 

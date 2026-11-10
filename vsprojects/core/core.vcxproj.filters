@@ -4,10 +4,10 @@
     <ClCompile Include="..\..\src\core\callstacks.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\core\profiler.cc">
+    <ClCompile Include="..\..\src\core\callprofiler.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\core\profiler-callgrind.cc">
+    <ClCompile Include="..\..\src\core\callprofiler-callgrind.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\core\shmdisplay.cc">
@@ -315,7 +315,7 @@
     <ClInclude Include="..\..\src\core\callstacks.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\core\profiler.h">
+    <ClInclude Include="..\..\src\core\callprofiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\core\shmdisplay.h">

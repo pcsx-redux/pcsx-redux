@@ -20,6 +20,7 @@
 #include "core/psxemulator.h"
 
 #include "core/alloc-tracker.h"
+#include "core/callprofiler.h"
 #include "core/callstacks.h"
 #include "core/cdrom.h"
 #include "core/cdromlogger.h"
@@ -37,7 +38,6 @@
 #include "core/patchmanager.h"
 #include "core/pcsxlua.h"
 #include "core/pio-cart.h"
-#include "core/profiler.h"
 #include "core/r3000a.h"
 #include "core/ramlogger.h"
 #include "core/shmdisplay.h"

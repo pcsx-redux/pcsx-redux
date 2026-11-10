@@ -17,7 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#include "core/profiler.h"
+#include "core/callprofiler.h"
 
 // Not written yet. The output must be the callgrind format KCachegrind reads:
 // https://valgrind.org/docs/manual/cl-format.html

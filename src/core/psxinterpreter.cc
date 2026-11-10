@@ -17,6 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include "core/callprofiler.h"
 #include "core/callstacks.h"
 #include "core/cputrace.h"
 #include "core/debug.h"
@@ -25,7 +26,6 @@
 #include "core/pgxp_cpu.h"
 #include "core/pgxp_debug.h"
 #include "core/pgxp_gte.h"
-#include "core/profiler.h"
 #include "core/psxemulator.h"
 #include "core/r3000a.h"
 #include "tracy/Tracy.hpp"

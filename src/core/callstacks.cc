@@ -19,8 +19,8 @@
 
 #include "core/callstacks.h"
 
+#include "core/callprofiler.h"
 #include "core/logger.h"
-#include "core/profiler.h"
 #include "core/psxemulator.h"
 #include "core/r3000a.h"
 #include "core/system.h"

@@ -37,7 +37,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: tests
-        path: '**/*.ps-exe'
+        path: |
+          **/*.ps-exe
+          src/mips/tests/profiler/profiler.elf
 
   macos-arm-build-and-test:
     runs-on: macos-15
