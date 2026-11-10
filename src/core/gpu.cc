@@ -419,10 +419,8 @@ bool PCSX::GPU::dma(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // GPU
 
     switch (chcr) {
         case 0x01000200:  // vram2mem
-            PSXDMA_LOG("*** DMA2 GPU - vram2mem *** %lx addr = %lx size = %lx\n", chcr, madr, bcr);
             ptr = g_emulator->m_mem->getPointer<uint32_t>(madr);
             if (ptr == nullptr) {
-                PSXDMA_LOG("*** DMA2 GPU - vram2mem *** NULL Pointer!!!\n");
                 break;
             }
             // BA blocks * BS words (word = 32-bits)
@@ -445,11 +443,8 @@ bool PCSX::GPU::dma(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // GPU
         case 0x01000201:  // mem2vram
             bs = (bcr & 0xffff);
             size = (bcr >> 16) * bs;  // BA blocks * BS words (word = 32-bits)
-            PSXDMA_LOG("*** DMA 2 - GPU mem2vram *** %lx addr = %lxh, BCR %lxh => size %d = BA(%d) * BS(%xh)\n", chcr,
-                       madr, bcr, size, size / bs, size / (bcr >> 16));
             ptr = g_emulator->m_mem->getPointer<uint32_t>(madr);
             if (ptr == nullptr) {
-                PSXDMA_LOG("*** DMA2 GPU - mem2vram *** NULL Pointer!!!\n");
                 break;
             }
             if (g_emulator->settings.get<Emulator::SettingDebugSettings>().get<Emulator::DebugSettings::Debug>()) {
@@ -480,7 +475,6 @@ bool PCSX::GPU::dma(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // GPU
 
         case 0x00000401:  // Vampire Hunter D: title screen linked list update (see psxhw.c)
         case 0x01000401:  // dma chain
-            PSXDMA_LOG("*** DMA 2 - GPU dma chain *** %8.8lx addr = %lx size = %lx\n", chcr, madr, bcr);
 
             size = gpuDmaChainSize(madr);
             chainedDMAWrite((uint32_t *)PCSX::g_emulator->m_mem->m_wram, madr);
@@ -495,7 +489,6 @@ bool PCSX::GPU::dma(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // GPU
             return false;
 
         default:
-            PSXDMA_LOG("*** DMA 2 - GPU unknown *** %lx addr = %lx size = %lx\n", chcr, madr, bcr);
             break;
     }
 

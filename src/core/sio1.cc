@@ -137,7 +137,6 @@ void PCSX::SIO1::sio1StateMachine() {
 }
 
 void PCSX::SIO1::scheduledCallback() {
-    SIO1_LOG("SIO1 Interrupt (CP0.Status = %x)\n", PCSX::g_emulator->m_cpu->m_regs.CP0.n.Status);
     g_emulator->m_mem->setIRQ(IRQ8_SIO);
     m_regs.status |= SR_IRQ;
 
