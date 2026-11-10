@@ -55,6 +55,9 @@ end
 function TestHtml:test_raw_and_comment()
     lu.assertEquals(H.render(H.div { H.raw '<b>ok</b>', H.comment ' note ' }), '<div><b>ok</b><!-- note --></div>')
     lu.assertError(H.comment, 'a -- b')
+    lu.assertError(H.comment, '><script>x</script>')
+    lu.assertError(H.comment, '-><b>')
+    lu.assertError(H.comment, 'a <!-')
 end
 
 function TestHtml:test_whitespace_preserved()

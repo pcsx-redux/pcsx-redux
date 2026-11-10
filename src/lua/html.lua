@@ -119,7 +119,10 @@ local builders = {
     raw = function(s) return setmetatable({ raw = tostring(s) }, tagMeta) end,
     comment = function(s)
         s = tostring(s)
-        if s:find('--', 1, true) then error('PCSX.Html: a comment cannot contain --', 2) end
+        -- HTML comment text must not start with > or ->, contain --, or end with <!-.
+        if s:find('--', 1, true) or s:sub(1, 1) == '>' or s:sub(1, 2) == '->' or s:sub(-3) == '<!-' then
+            error('PCSX.Html: invalid comment text', 2)
+        end
         return setmetatable({ comment = s }, tagMeta)
     end,
     escape = escape,
