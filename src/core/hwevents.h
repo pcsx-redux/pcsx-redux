@@ -49,6 +49,7 @@ class HWEvents {
         DMA = 2,
         CDROM = 3,
         GPU = 4,
+        SPU = 5,
     };
 
     enum Type : uint16_t {
@@ -83,6 +84,13 @@ class HWEvents {
         GPUCommand = 0x0401,
         // A GP1 write. payload: the value written
         GPUControl = 0x0402,
+        // A CPU write to an SPU register, key on and key off included.
+        // payload: address, value, width in bits (8 or 16)
+        SPURegWrite = 0x0501,
+        // A write to KON or KOFF, recorded right after its SPURegWrite.
+        // payload: the voices it names, bit n for voice n, 24 bits
+        SPUKeyOn = 0x0502,
+        SPUKeyOff = 0x0503,
     };
 
     // Packs up to 12 bytes little-endian into three payload words.

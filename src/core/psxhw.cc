@@ -27,6 +27,7 @@
 #include "core/debug.h"
 #include "core/gpu.h"
 #include "core/guest-command.h"
+#include "core/hwevents.h"
 #include "core/logger.h"
 #include "core/mdec.h"
 #include "core/pio-cart.h"
@@ -421,6 +422,26 @@ uint32_t PCSX::HW::read32(uint32_t add) {
     return hard;
 }
 
+namespace {
+
+void recordSPUWrite(uint32_t hwadd, uint16_t value, uint32_t width) {
+    auto &events = *PCSX::g_emulator->m_hwEvents;
+    if (!events.armed(PCSX::HWEvents::Source::SPU)) [[likely]] return;
+    events.record(PCSX::HWEvents::SPURegWrite, hwadd, value, width);
+    // The upper halves of KON and KOFF hold voices 16 to 23 in their low byte.
+    const uint32_t voices = (uint32_t(value) << ((hwadd & 2) ? 16 : 0)) & 0xffffff;
+    switch (hwadd & ~3u) {
+        case 0x1f801d88:
+            events.record(PCSX::HWEvents::SPUKeyOn, voices);
+            break;
+        case 0x1f801d8c:
+            events.record(PCSX::HWEvents::SPUKeyOff, voices);
+            break;
+    }
+}
+
+}  // namespace
+
 void PCSX::HW::write8(uint32_t add, uint32_t rawvalue) {
     uint8_t value = (uint8_t)rawvalue;
     uint32_t hwadd = add & 0x1fffffff;
@@ -509,6 +530,7 @@ void PCSX::HW::write8(uint32_t add, uint32_t rawvalue) {
             break;
         default:
             if ((hwadd >= 0x1f801c00) && (hwadd < 0x1f801e00)) {
+                recordSPUWrite(hwadd, (uint16_t)rawvalue, 8);
                 g_emulator->m_spu->writeRegister(add, (uint16_t)rawvalue);
                 break;
             }
@@ -636,6 +658,7 @@ void PCSX::HW::write16(uint32_t add, uint32_t rawvalue) {
 
         default:
             if ((hwadd >= 0x1f801c00) && (hwadd < 0x1f801e00)) {
+                recordSPUWrite(hwadd, value, 16);
                 g_emulator->m_spu->writeRegister(add, value);
                 break;
             }

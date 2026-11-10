@@ -434,3 +434,92 @@ TEST(HWEvents, GPUCommandsCarryTheirWordAndOrigin) {
     EXPECT_EQ(s_gpu.wordNotInBlock, 0u);
     EXPECT_EQ(s_gpu.chainOutsideDMA, 0u);
 }
+
+namespace {
+
+struct SPUSeen {
+    uint64_t total = 0;
+    uint64_t stampMismatches = 0;
+    uint64_t writes = 0;
+    uint64_t outOfRange = 0;
+    uint64_t keyOns = 0;
+    uint64_t keyOffs = 0;
+    uint64_t unpairedKeys = 0;
+    uint64_t unkeyedKonWrites = 0;
+    uint32_t keyedOn = 0;
+    uint32_t keyedOff = 0;
+    bool pendingKey = false;
+    PCSX::HWEvent previous{};
+};
+
+SPUSeen s_spu;
+
+void observeSPU(const PCSX::HWEvent& e) {
+    auto& regs = PCSX::g_emulator->m_cpu->m_regs;
+    if (e.cycle != regs.cycle || e.pc != regs.pc) s_spu.stampMismatches++;
+    s_spu.total++;
+    // A KON or KOFF write is followed by its key event at once.
+    if (s_spu.pendingKey && e.type != PCSX::HWEvents::SPUKeyOn && e.type != PCSX::HWEvents::SPUKeyOff) {
+        s_spu.unkeyedKonWrites++;
+    }
+    s_spu.pendingKey = false;
+    switch (e.type) {
+        case PCSX::HWEvents::SPURegWrite: {
+            s_spu.writes++;
+            uint32_t addr = e.payload[0];
+            if (addr < 0x1f801c00 || addr >= 0x1f801e00) s_spu.outOfRange++;
+            uint32_t reg = addr & ~3u;
+            if (reg == 0x1f801d88 || reg == 0x1f801d8c) s_spu.pendingKey = true;
+        } break;
+        case PCSX::HWEvents::SPUKeyOn:
+        case PCSX::HWEvents::SPUKeyOff: {
+            bool on = e.type == PCSX::HWEvents::SPUKeyOn;
+            (on ? s_spu.keyOns : s_spu.keyOffs)++;
+            (on ? s_spu.keyedOn : s_spu.keyedOff) |= e.payload[0];
+            // The register write it came from, at the same instant, names the same voices.
+            const auto& w = s_spu.previous;
+            uint32_t base = on ? 0x1f801d88 : 0x1f801d8c;
+            uint32_t shift = (w.payload[0] == base + 2) ? 16 : 0;
+            if (w.type != PCSX::HWEvents::SPURegWrite || w.cycle != e.cycle || (w.payload[0] & ~3u) != base ||
+                ((w.payload[1] << shift) & 0xffffff) != e.payload[0]) {
+                s_spu.unpairedKeys++;
+            }
+        } break;
+        default:
+            break;
+    }
+    s_spu.previous = e;
+}
+
+struct SPUObserverScope {
+    SPUObserverScope() {
+        s_spu = SPUSeen{};
+        PCSX::HWEvents::s_recordObserver = observeSPU;
+    }
+    ~SPUObserverScope() { PCSX::HWEvents::s_recordObserver = nullptr; }
+};
+
+}  // namespace
+
+TEST(HWEvents, SPUWritesAndKeys) {
+    SPUObserverScope scope;
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        // MainInvoker probes each argument as a path, so a slash comes early.
+                        "-exec", "-- /\nPCSX.HWEvents.arm('SPU')", "-loadexe", "src/mips/tests/spu/spu.ps-exe");
+    int ret = invoker.invoke();
+    EXPECT_EQ(ret, 0);
+    printf("hwevents spu: %llu events, %llu register writes, %llu key ons (voices %06x), %llu key offs (voices %06x)\n",
+           (unsigned long long)s_spu.total, (unsigned long long)s_spu.writes, (unsigned long long)s_spu.keyOns,
+           s_spu.keyedOn, (unsigned long long)s_spu.keyOffs, s_spu.keyedOff);
+    EXPECT_EQ(s_spu.stampMismatches, 0u);
+    EXPECT_GT(s_spu.writes, 0u);
+    EXPECT_EQ(s_spu.outOfRange, 0u);
+    EXPECT_GT(s_spu.keyOns, 0u);
+    EXPECT_GT(s_spu.keyOffs, 0u);
+    // spu.ps-exe keys voices on both halves of KON, and there are only 24 voices.
+    EXPECT_NE(s_spu.keyedOn >> 16, 0u);
+    EXPECT_EQ(s_spu.keyedOn & ~0xffffffu, 0u);
+    EXPECT_EQ(s_spu.keyedOff & ~0xffffffu, 0u);
+    EXPECT_EQ(s_spu.unpairedKeys, 0u);
+    EXPECT_EQ(s_spu.unkeyedKonWrites, 0u);
+}
