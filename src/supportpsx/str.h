@@ -89,7 +89,8 @@ std::string check(const Settings &settings);
 
 // Appends whole Mode 2 sectors of 2352 bytes to `out`, EDC and ECC included,
 // addressed from 00:02:00 for a disc builder to restamp. Each frame gets the
-// sectors its rate leaves it, at the lowest q_scale whose frame fits them. `pcm`
+// sectors its rate leaves it, at the lowest q_scale whose frame fits them and
+// decodes to no more run-level than `rlHalfwords` and a BS header count. `pcm`
 // is 16-bit, interleaved per `channels`, at `rate`.
 Result encode(const Settings &settings, const FrameSource &frames, std::span<const int16_t> pcm,
               std::vector<uint8_t> &out);

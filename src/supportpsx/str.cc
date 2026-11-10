@@ -36,6 +36,10 @@ SOFTWARE.
 
 namespace {
 
+// The most run-level a BS header can count: its first word is the length in 32-bit words, 16 bits wide
+// (DCT::toContainer refuses a longer stream).
+constexpr unsigned c_bsMostRunLevel = 2u * 0xffff;
+
 // The 32 bytes in front of each 2016 of a frame in its sectors.
 void putChunkHeader(uint8_t *out, unsigned index, unsigned count, uint32_t frameNumber, uint32_t bytesUsed,
                     unsigned width, unsigned height, const uint8_t *bsHeader) {
@@ -138,7 +142,9 @@ PCSX::STR::Result PCSX::STR::encode(const Settings &settings, const FrameSource 
     const unsigned den = (interleave ? interleave : 1) * fps;
     if (num < den) return fail(fmt::format("{} fps at speed {} leaves a frame less than one sector", fps, speed));
 
-    DCT::Encoder encoder(0, settings.transform);
+    // One frame is in the encoder at a time, so one worker does all of it; 0 would start one per core to sit idle,
+    // for every movie the tool encodes at once.
+    DCT::Encoder encoder(1, settings.transform);
     ADPCM::Encoder xa;
     xa.reset(ADPCM::Encoder::Mode::XA);
 
@@ -175,27 +181,42 @@ PCSX::STR::Result PCSX::STR::encode(const Settings &settings, const FrameSource 
         chunks = carry / den;
         carry %= den;
         int q = 1;
+        unsigned runLevel = 0;
+        bool runLevelOver = false;
         for (; q <= 63; q++) {
             stream.clear();
             if (DCT::pack(coefficients, shape, settings.quant, q, stream).failed) {
                 error = fmt::format("frame {}: the packing stage refused it", number);
                 return -1;
             }
+            // The run-level a player decodes, as the BS header counts it: 32-bit words of the stream padded to 64
+            // halfwords, in a 16-bit field. A frame over that field or the player's limit is coarsened, as one over
+            // its sectors is, rather than ending the movie.
+            runLevel = static_cast<unsigned>((stream.size() + 0x3f) & ~size_t(0x3f));
+            runLevelOver = runLevel > c_bsMostRunLevel || (settings.rlHalfwords && runLevel > settings.rlHalfwords);
+            if (runLevelOver) continue;
             const auto wrap = DCT::toContainer(stream, DCT::Container::Bs, bs);
             if (wrap.failed) {
                 error = fmt::format("frame {}: {}", number, wrap.error);
                 return -1;
             }
-            // The BS header's first word counts the run-level's 32-bit words, which a player decodes into.
-            const unsigned runLevel = 2u * (bs[0] | (bs[1] << 8));
-            if (bs.size() <= chunks * 2016u && (!settings.rlHalfwords || runLevel <= settings.rlHalfwords)) break;
+            if (bs.size() <= chunks * 2016u) break;
+        }
+        if (q > 63 && runLevelOver) {
+            // Only a smaller picture decodes to less; more sectors do not help.
+            const bool header = !settings.rlHalfwords || settings.rlHalfwords > c_bsMostRunLevel;
+            error = fmt::format(
+                "frame {} decodes to {} run-level halfwords even at q_scale 63, more than {}: lower the size{}", number,
+                runLevel,
+                header ? fmt::format("a BS header counts ({})", c_bsMostRunLevel)
+                       : fmt::format("rlHalfwords ({})", settings.rlHalfwords),
+                header ? "" : ", or raise rlHalfwords for a player with a larger buffer");
+            return -1;
         }
         if (q > 63) {
             error = fmt::format(
-                "frame {} does not fit its {} sectors{} even at q_scale 63: lower the size or the frame rate{}", number,
-                chunks,
-                settings.rlHalfwords ? fmt::format(" and {} run-level halfwords", settings.rlHalfwords) : std::string(),
-                speed == 1 ? ", or stream it at double speed" : "");
+                "frame {} does not fit its {} sectors even at q_scale 63: lower the size or the frame rate{}", number,
+                chunks, speed == 1 ? ", or stream it at double speed" : "");
             return -1;
         }
         result.mostRunLevel = std::max(result.mostRunLevel, 2u * (bs[0] | (bs[1] << 8)));
@@ -265,7 +286,9 @@ PCSX::STR::Result PCSX::STR::encode(const Settings &settings, const FrameSource 
 
 PCSX::STR::Result PCSX::STR::fromSectors(std::span<const uint8_t> in, std::vector<uint8_t> &out) {
     Result result;
+    const size_t first = out.size();
     auto fail = [&](std::string error) {
+        out.resize(first);
         result.failed = true;
         result.error = std::move(error);
         return result;
@@ -299,10 +322,11 @@ PCSX::STR::Result PCSX::STR::fromSectors(std::span<const uint8_t> in, std::vecto
         return fail(fmt::format("{} bytes is not a whole number of {}-byte sectors", in.size(), stride));
     }
     const size_t count = in.size() / stride;
-    std::vector<uint8_t> sectors(count * 2352, 0);
+    // Written in place, as encode() writes: a whole movie held twice over is hundreds of megabytes.
+    out.resize(first + count * 2352, 0);
     for (size_t n = 0; n < count; n++) {
         const uint8_t *from = in.data() + n * stride;
-        uint8_t *sector = sectors.data() + n * 2352;
+        uint8_t *sector = out.data() + first + n * 2352;
         if (stride == 2352 && from[15] != 2) return fail(fmt::format("sector {} is not Mode 2", n));
         memcpy(sector, sync, sizeof(sync));
         IEC60908b::MSF(static_cast<uint32_t>(n) + 150).toBCD(sector + 12);
@@ -337,6 +361,5 @@ PCSX::STR::Result PCSX::STR::fromSectors(std::span<const uint8_t> in, std::vecto
     }
     if (result.width == 0) return fail("there is no STR video in it");
     result.sectors = static_cast<unsigned>(count);
-    out.insert(out.end(), sectors.begin(), sectors.end());
     return result;
 }
