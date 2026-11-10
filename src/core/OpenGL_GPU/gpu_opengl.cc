@@ -339,8 +339,10 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
                FragColor = sampleVRAM(texelCoord);
 
                if (FragColor.rgb == vec3(0.0, 0.0, 0.0)) discard;
-               FragColor = texBlend(FragColor, vertexColor, u_blending != 0);
-               BlendColor = u_blendFactors;
+               // As with CLUT entries, only texels with bit 15 set are semi-transparent.
+               bool semi = u_blending != 0 && FragColor.a >= 0.5;
+               BlendColor = FragColor.a >= 0.5 ? u_blendFactors : u_blendFactorsIfOpaque;
+               FragColor = texBlend(FragColor, vertexColor, semi);
            }
         }
     )";
