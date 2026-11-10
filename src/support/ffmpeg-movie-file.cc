@@ -130,7 +130,8 @@ class MovieVideo {
             if (!m_hasPending) {
                 const int got = decode(m_pending);
                 if (got < 0) {
-                    error = "ffmpeg failed decoding its video";
+                    error = m_readError ? "ffmpeg failed reading it: " + averror(m_readError)
+                                        : "ffmpeg failed decoding its video";
                     return -1;
                 }
                 if (got == 0) {
@@ -176,9 +177,14 @@ class MovieVideo {
                 continue;
             }
             if (ret != AVERROR(EAGAIN)) return -1;
-            if (av_read_frame(m_format, m_packet) < 0) {
+            const int read = av_read_frame(m_format, m_packet);
+            if (read == AVERROR_EOF) {
                 if (avcodec_send_packet(m_codec, nullptr) < 0) return 0;
                 continue;
+            }
+            if (read < 0) {
+                m_readError = read;
+                return -1;
             }
             ret = m_packet->stream_index == m_stream ? avcodec_send_packet(m_codec, m_packet) : 0;
             av_packet_unref(m_packet);
@@ -299,6 +305,7 @@ class MovieVideo {
     int64_t m_currentTime = 0, m_pendingTime = 0, m_frameDuration = 1;
     int m_stream = -1;
     unsigned m_damaged = 0;
+    int m_readError = 0;
     bool m_hasCurrent = false, m_hasPending = false, m_ended = false;
     unsigned m_fps = 0, m_width = 0, m_height = 0;
     int64_t m_index = 0;
@@ -389,10 +396,15 @@ bool readMovieAudio(const std::string& path, unsigned channels, unsigned rate, s
             error = "ffmpeg failed decoding its sound";
             return done(false);
         }
-        if (av_read_frame(format, packet) < 0) {
+        const int read = av_read_frame(format, packet);
+        if (read == AVERROR_EOF) {
             draining = true;
             avcodec_send_packet(codec, nullptr);
             continue;
+        }
+        if (read < 0) {
+            error = "ffmpeg failed reading it: " + averror(read);
+            return done(false);
         }
         ret = packet->stream_index == stream ? avcodec_send_packet(codec, packet) : 0;
         av_packet_unref(packet);

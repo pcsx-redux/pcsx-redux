@@ -50,7 +50,8 @@ class FFmpegMovieFile {
                                                std::string& error);
     // The sound of `path` as 16-bit PCM at `rate`, interleaved for `channels`: empty when it has none or
     // `channels` is 0, std::nullopt with `error` set when it cannot be read (sound ffmpeg has no decoder for among
-    // them) or `rate` is 0. Packets ffmpeg finds damaged are left out and added to `damaged`.
+    // them) or `rate` is 0. Packets ffmpeg finds damaged are left out and added to `damaged`; any other error
+    // reading the file fails it rather than cutting the sound short.
     static std::optional<std::vector<int16_t>> readAudio(const std::string& path, unsigned channels, unsigned rate,
                                                          unsigned& damaged, std::string& error);
 
@@ -59,7 +60,7 @@ class FFmpegMovieFile {
     ~FFmpegMovieFile();
 
     // The next frame, `width` * `height` * 3 bytes at `rgb`, valid until the next call: 1, 0 once there are no more,
-    // -1 on an error with `error` set.
+    // -1 on an error with `error` set, an error reading the file among them (it ends a movie only at its end).
     int nextFrame(const uint8_t*& rgb, std::string& error);
     // Video packets ffmpeg found damaged and left out, as its own tools do.
     unsigned damaged() const;
