@@ -2253,7 +2253,6 @@ bool PCSX::GUI::configure() {
     bool selectEXP1Dialog = false;
     bool showDynarecDebugWarning = false;
     bool showDynarecWarning = false;
-    bool show2MBVRAMHardwareWarning = false;
     auto& settings = g_emulator->settings;
     auto& debugSettings = settings.get<Emulator::SettingDebugSettings>();
 
@@ -2298,29 +2297,18 @@ This setting is useful for debugging purposes,
 to detect uninitialized memory reads that may
 cause issues in some cases.
 )"));
-        if (ImGui::Checkbox(_("OpenGL GPU *ALPHA STATE*"), &settings.get<Emulator::SettingHardwareRenderer>().value)) {
-            changed = true;
-            if (settings.get<Emulator::SettingHardwareRenderer>() && settings.get<Emulator::Setting2MBVRAM>()) {
-                show2MBVRAMHardwareWarning = true;
-            }
-        }
+        changed |= ImGui::Checkbox(_("OpenGL GPU *ALPHA STATE*"), &settings.get<Emulator::SettingHardwareRenderer>().value);
         ImGuiHelpers::ShowHelpMarker(_(R"(Enables the OpenGL GPU renderer.
 This is not recommended for normal use at the moment,
 as it is not fully implemented yet. It is recommended
 to use the software renderer instead. Requires a restart
 when changing this setting.)"));
-        if (ImGui::Checkbox(_("2MB VRAM"), &settings.get<Emulator::Setting2MBVRAM>().value)) {
-            changed = true;
-            if (settings.get<Emulator::SettingHardwareRenderer>() && settings.get<Emulator::Setting2MBVRAM>()) {
-                show2MBVRAMHardwareWarning = true;
-            }
-        }
+        changed |= ImGui::Checkbox(_("2MB VRAM"), &settings.get<Emulator::Setting2MBVRAM>().value);
         ImGuiHelpers::ShowHelpMarker(_(R"(Emulates a console fitted with 2MB of VRAM
 instead of the stock 1MB, exposing the upper bank through
 GP1(09h). Found on a handful of modded consoles and on
-some arcade boards. Only the software renderer supports
-it; the OpenGL GPU does not. Requires a restart when
-changing this setting.)"));
+some arcade boards. Requires a restart when changing
+this setting.)"));
 
         ImGui::Separator();
         {
@@ -2431,13 +2419,6 @@ debugging features may not work.)");
     } else if (showDynarecWarning) {
         addNotification(R"(Toggling the Dynarec option requires a restart
 of the emulator to take effect.)");
-    }
-    if (show2MBVRAMHardwareWarning) {
-        addNotice(R"(2MB VRAM is enabled together with the OpenGL GPU.
-The OpenGL renderer does not support the upper VRAM
-bank yet - only the software renderer does. Switch to
-the software renderer to make use of 2MB VRAM.)",
-                  NoticeKind::Warning);
     }
     return changed;
 }

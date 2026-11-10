@@ -1315,14 +1315,36 @@ void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
         return;
     }
 
-    if (m_multisampled) {
-        // A blit between two multisampled framebuffers needs identical source and destination rectangles,
-        // so go through the resolved copy.
-        resolveMSAA(srcX, srcY, width, height);
-        blitFromResolved(srcX, srcY, destX, destY, width, height);
-    } else {
-        glBlitFramebuffer(srcX, srcY, srcX + width, srcY + height, destX, destY, destX + width, destY + height,
-                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    const auto blit = [this, srcX, destX, width](GLint sy, GLint dy, GLint h) {
+        if (m_multisampled) {
+            // A blit between two multisampled framebuffers needs identical source and destination
+            // rectangles, so go through the resolved copy.
+            resolveMSAA(srcX, sy, width, h);
+            blitFromResolved(srcX, sy, destX, dy, width, h);
+        } else {
+            glBlitFramebuffer(srcX, sy, srcX + width, sy + h, destX, dy, destX + width, dy + h, GL_COLOR_BUFFER_BIT,
+                              GL_NEAREST);
+        }
+    };
+
+    // As in the masked path, source and destination Y each wrap per row through resolveVramY(), so the
+    // copy is split into runs of rows that are contiguous on both ends. Rows landing on an unpopulated
+    // upper bank (open bus on a 1MB fitment) are dropped.
+    uint32_t row = 0;
+    while (row < height) {
+        if (vramOpenBus(destY + row)) {
+            row++;
+            continue;
+        }
+        const unsigned sy = resolveVramY(srcY + row);
+        const unsigned dy = resolveVramY(destY + row);
+        uint32_t count = 1;
+        while ((row + count < height) && !vramOpenBus(destY + row + count) &&
+               (resolveVramY(srcY + row + count) == sy + count) && (resolveVramY(destY + row + count) == dy + count)) {
+            count++;
+        }
+        blit(sy, dy, count);
+        row += count;
     }
     OpenGL::enableScissor();
 }
