@@ -41,27 +41,28 @@ A file with a `movie` field is a video instead, in anything ffmpeg reads (an mp4
 ```json
 {
     "path": "intro.mp4",
-    "name": "INTRO",
+    "name": "MOVIES/INTRO.STR",
     "movie": {
         "fps": 15,
         "speed": 2,
         "width": 320,
         "height": 240,
         "channels": 2,
-        "rate": 37800
+        "rate": 37800,
+        "rlHalfwords": 28672
     }
 }
 ```
 
 All the `movie` fields are optional, and `"movie": true` takes the defaults shown above. `speed` is the drive speed it is streamed at, 1 or 2; each frame gets the sectors that speed and the frame rate leave it, at the finest quantization whose frame fits them. The picture is scaled to `width` by `height` without keeping its aspect. `channels` is 2 for stereo, 1 for mono, or 0 for no sound, and `rate` is 37800 or 18900; a video without sound gets no audio sectors. `file` and `channel`, 0 by default, are the XA file and channel numbers written in every sector's subheader. A movie is never compressed, and its `compress` field is ignored. Nor is it held to the 1023 sectors of a stored file, as its count does not go in the index's 10-bit compressed size. Any other field in `movie` is an error. psxsplash, for one, looks its movies up as `MOVIES/<NAME>.STR`.
 
-What plays it has to agree with it. The frames are the size given, rounded up to multiples of 16, as the MDEC decodes 16x16 macroblocks. The player reads at the movie's `speed` (the `StrPlayer`'s `doubleSpeed` option). And the `StrPlayer`, as it comes, drops a frame of more than 12 sectors (its `maxSectorsPerFrame`) or larger than 320x240 (its display): the tool prints how many sectors the largest frame takes, and warns of either. At double speed with the default sound, frame rates under 11 give frames over 12 sectors.
+What plays it has to agree with it. The frames are the size given, rounded up to multiples of 16, as the MDEC decodes 16x16 macroblocks. The player reads at the movie's `speed` (the `StrPlayer`'s `doubleSpeed` option). And the `StrPlayer`, as it comes, drops a frame of more than 12 sectors (its `maxSectorsPerFrame`, which goes to 32 at most), one decoding to more than 28672 run-level halfwords (its `rlHalfwords`), or one larger than 320x240 (its display). The tool prints how many sectors the largest frame takes and warns of each. At double speed with the default sound, frame rates under 11 give frames over 12 sectors. `rlHalfwords` is the most run-level a frame may decode to, 0 for no limit: the encoder coarsens a frame that would need more, as it does one that would need more sectors.
 
 Some things a source may carry are not followed. The sound is taken to start with the picture. A rotated video, such as a phone's portrait clip, is not turned upright, and HDR is not tone mapped; ffmpeg can do either first. A YUV video that does not name its colour matrix is taken as BT.601, as ffmpeg's own scaler takes it. Packets ffmpeg finds damaged are left out, and the tool says how many.
 
-Encoding movies needs ffmpeg's libavformat, libavcodec, libavutil and libswresample, when the tool is built and when it runs. Built with `AUTHORING_NO_FFMPEG` defined, as the support mirror's Makefile and the xmake build without those libraries do, the tool does everything else, `stream` entries included, and refuses movie entries.
+Encoding movies needs ffmpeg's libavformat, libavcodec, libavutil and libswresample when the tool is built, and the tool links them, so it needs them to start at all, with movies or without. Built with `AUTHORING_NO_FFMPEG` defined, as the support mirror's Makefile and the xmake build without those libraries do, the tool does everything else, `stream` entries included, and refuses movie entries.
 
-A movie already encoded, by `psxavenc -t str`, `strcd` or `strv` for instance, goes in as it is with `"stream": true` in place of `movie`. Its sectors may be raw (2352 bytes each), Mode 2 from the subheader on (2336 bytes each), or video alone (2048 bytes each, given a real-time data subheader on file 0, channel 0). They are stored as a `STREAM` entry the same way, addressed where they land on the disc and with their EDC and ECC computed again. A file with no STR video in it is refused.
+A movie already encoded, by `psxavenc -t str`, `strcd` or `strv` for instance, goes in as it is with `"stream": true` in place of `movie`. Its sectors may be raw (2352 bytes each), Mode 2 from the subheader on (2336 bytes each), or video alone (2048 bytes each, given a real-time data subheader on file 0, channel 0). They are stored as a `STREAM` entry the same way, addressed where they land on the disc and with their EDC and ECC computed again, and the tool warns of what the `StrPlayer` would drop as it does for a movie it encodes. A file with no STR video in it is refused. An STR movie given as a `movie` instead is decoded and encoded again, which the tool warns of.
 
 The tool accepts the following command line arguments:
 

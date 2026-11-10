@@ -50,6 +50,10 @@ struct Settings {
     unsigned rate = 37800;  // 37800 or 18900
     uint8_t fileNumber = 0;
     uint8_t channelNumber = 0;
+    // The most run-level a frame may decode to, in halfwords: psyqo-paths'
+    // StrPlayer drops a frame needing more than its rlHalfwords, 28672 by
+    // default. 0 for no limit.
+    unsigned rlHalfwords = 28672;
     DCT::Transform transform = DCT::Transform::ExactMatrix;
     DCT::QuantTables quant;
 };
@@ -75,6 +79,7 @@ struct Result {
     unsigned audioSectors = 0;
     unsigned width = 0, height = 0;
     unsigned mostSectorsAFrame = 0;  // a player that holds fewer drops the frames that take more
+    unsigned mostRunLevel = 0;       // halfwords the largest frame decodes to: its BS header's first word, twice
     double averageQScale = 0;
     int worstQScale = 0;
 };

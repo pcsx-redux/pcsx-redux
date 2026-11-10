@@ -111,6 +111,12 @@ union IndexEntry {
 static_assert(sizeof(IndexEntry) == 16);
 
 #ifndef AUTHORING_NO_FFMPEG
+static std::string averror(int error) {
+    char text[AV_ERROR_MAX_STRING_SIZE] = {};
+    av_strerror(error, text, sizeof(text));
+    return text;
+}
+
 // The video of a file, through ffmpeg: frames picked at the movie's rate, scaled
 // to its size, and handed over as 24-bit RGB.
 class MovieVideo {
@@ -127,9 +133,9 @@ class MovieVideo {
         m_fps = fps;
         m_width = width;
         m_height = height;
-        if (avformat_open_input(&m_format, path.c_str(), nullptr, nullptr) < 0 ||
-            avformat_find_stream_info(m_format, nullptr) < 0) {
-            error = "ffmpeg cannot read it";
+        int ret = avformat_open_input(&m_format, path.c_str(), nullptr, nullptr);
+        if (ret < 0 || (ret = avformat_find_stream_info(m_format, nullptr)) < 0) {
+            error = "ffmpeg cannot read it: " + averror(ret);
             return false;
         }
         const AVCodec* codec = nullptr;
@@ -204,6 +210,8 @@ class MovieVideo {
 
     // Packets ffmpeg found damaged and left out, as its own tools do.
     unsigned damaged() const { return m_damaged; }
+    // An STR movie read back is decoded and encoded again.
+    bool isStr() const { return m_format && m_format->iformat && strcmp(m_format->iformat->name, "psxstr") == 0; }
 
   private:
     int decode(AVFrame* frame) {
@@ -362,9 +370,9 @@ static bool readMovieAudio(const std::string& path, unsigned channels, unsigned 
         avformat_close_input(&format);
         return ok;
     };
-    if (!packet || !frame || avformat_open_input(&format, path.c_str(), nullptr, nullptr) < 0 ||
-        avformat_find_stream_info(format, nullptr) < 0) {
-        error = "ffmpeg cannot read it";
+    int opened = packet && frame ? avformat_open_input(&format, path.c_str(), nullptr, nullptr) : AVERROR(ENOMEM);
+    if (opened < 0 || (opened = avformat_find_stream_info(format, nullptr)) < 0) {
+        error = "ffmpeg cannot read it: " + averror(opened);
         return done(false);
     }
     const AVCodec* decoder = nullptr;
@@ -450,18 +458,36 @@ static bool readMovieAudio(const std::string& path, unsigned channels, unsigned 
 // sectors than its maxSectorsPerFrame, or larger than its display.
 static std::string playerWarning(const PCSX::STR::Result& result) {
     std::string warning;
-    if (result.mostSectorsAFrame > 12) {
-        warning = fmt::format(
-            "frames take up to {} sectors, and StrPlayer drops those over its maxSectorsPerFrame, 12 unless raised; "
-            "a higher frame rate, or speed 1, gives each frame fewer",
-            result.mostSectorsAFrame);
+    auto add = [&warning](std::string text) {
+        if (!warning.empty()) warning += "; ";
+        warning += text;
+    };
+    if (result.mostSectorsAFrame > 32) {
+        add(fmt::format(
+            "frames take up to {} sectors, more than StrPlayer holds at all (32); a higher frame rate, or speed 1, "
+            "gives each frame fewer",
+            result.mostSectorsAFrame));
+    } else if (result.mostSectorsAFrame > 12) {
+        add(fmt::format(
+            "frames take up to {} sectors, and StrPlayer drops those over its maxSectorsPerFrame, 12 unless raised "
+            "(to 32 at most); a higher frame rate, or speed 1, gives each frame fewer",
+            result.mostSectorsAFrame));
+    }
+    if (result.mostRunLevel > 28672) {
+        add(fmt::format(
+            "a frame decodes to {} run-level halfwords, and StrPlayer drops those over its rlHalfwords, 28672 "
+            "unless raised",
+            result.mostRunLevel));
+    }
+    if (result.width % 16 || result.height % 16) {
+        add(fmt::format("its frames are {}x{}, and StrPlayer plays only whole 16x16 macroblocks", result.width,
+                        result.height));
     }
     if (result.width > 320 || result.height > 240) {
-        if (!warning.empty()) warning += "; ";
-        warning += fmt::format(
-            "its {}x{} frames are larger than the 320x240 display StrPlayer plays into unless "
-            "given a larger one",
-            result.width, result.height);
+        add(
+            fmt::format("its {}x{} frames are larger than the 320x240 display StrPlayer plays into unless "
+                        "given a larger one",
+                        result.width, result.height));
     }
     return warning;
 }
@@ -476,7 +502,8 @@ static bool encodeMovie(const std::string& path, const nlohmann::json& options, 
         return false;
     }
     if (options.is_object()) {
-        static const char* const known[] = {"fps", "speed", "channels", "rate", "width", "height", "file", "channel"};
+        static const char* const known[] = {"fps",    "speed", "channels", "rate",       "width",
+                                            "height", "file",  "channel",  "rlHalfwords"};
         for (const auto& [key, value] : options.items()) {
             if (std::find(std::begin(known), std::end(known), key) == std::end(known)) {
                 summary = fmt::format("\"{}\" is not a movie option", key);
@@ -484,14 +511,19 @@ static bool encodeMovie(const std::string& path, const nlohmann::json& options, 
             }
         }
     }
-    bool wrongType = false;
-    auto get = [&](const char* key, unsigned fallback) {
+    // A whole number, written as one or as a float (15.0), up to StrPlayer's largest rlHalfwords.
+    const char* wrongKey = nullptr;
+    auto get = [&](const char* key, unsigned fallback) -> unsigned {
         if (!options.is_object() || !options.contains(key)) return fallback;
-        if (!options[key].is_number_unsigned()) {
-            wrongType = true;
-            return fallback;
+        const auto& value = options[key];
+        constexpr double largest = 1 << 22;
+        if (value.is_number_unsigned() && value.get<uint64_t>() <= largest) return value.get<unsigned>();
+        if (value.is_number_float()) {
+            const double d = value.get<double>();
+            if (d >= 0 && d <= largest && d == std::floor(d)) return static_cast<unsigned>(d);
         }
-        return options[key].get<unsigned>();
+        if (!wrongKey) wrongKey = key;
+        return fallback;
     };
     PCSX::STR::Settings settings;
     settings.fps = get("fps", 15);
@@ -500,8 +532,10 @@ static bool encodeMovie(const std::string& path, const nlohmann::json& options, 
     settings.rate = get("rate", 37800);
     const unsigned width = get("width", 320), height = get("height", 240);
     const unsigned fileNumber = get("file", 0), channelNumber = get("channel", 0);
-    if (wrongType) {
-        summary = "the movie options are whole numbers";
+    settings.rlHalfwords = get("rlHalfwords", settings.rlHalfwords);
+    if (wrongKey) {
+        summary =
+            fmt::format("the movie's \"{}\" is {}, where a whole number is wanted", wrongKey, options[wrongKey].dump());
         return false;
     }
     if (width < 16 || width > 640 || height < 16 || height > 480 || fileNumber > 255 || channelNumber > 31) {
@@ -543,6 +577,10 @@ static bool encodeMovie(const std::string& path, const nlohmann::json& options, 
         result.averageQScale, result.worstQScale,
         damaged ? fmt::format("; {} damaged packet{} of the source left out", damaged, damaged == 1 ? "" : "s") : "");
     warning = playerWarning(result);
+    if (video.isStr()) {
+        if (!warning.empty()) warning += "; ";
+        warning += "it is an STR movie already, encoded again here: \"stream\": true stores it as it is";
+    }
     return true;
 #endif
 }
@@ -964,9 +1002,10 @@ Usage: {} input.json [-h] -o output.bin
     }
 
     const unsigned totalSectorCount = currentSector;
-    if (totalSectorCount > 80 * 60 * 75) {
+    // The disc's first two seconds are the pregap before LBA 0.
+    if (totalSectorCount + 150 > 80 * 60 * 75) {
         fmt::print("Warning: the disc is {:.1f} minutes long, more than an 80-minute CD-R holds.\n",
-                   totalSectorCount / (60.0 * 75));
+                   (totalSectorCount + 150) / (60.0 * 75));
     }
 
     indexEntryDataBuffer[0] = 'P';

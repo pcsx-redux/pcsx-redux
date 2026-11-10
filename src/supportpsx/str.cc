@@ -186,15 +186,18 @@ PCSX::STR::Result PCSX::STR::encode(const Settings &settings, const FrameSource 
                 error = fmt::format("frame {}: {}", number, wrap.error);
                 return -1;
             }
-            if (bs.size() <= chunks * 2016u) break;
+            // The BS header's first word counts the run-level's 32-bit words, which a player decodes into.
+            const unsigned runLevel = 2u * (bs[0] | (bs[1] << 8));
+            if (bs.size() <= chunks * 2016u && (!settings.rlHalfwords || runLevel <= settings.rlHalfwords)) break;
         }
         if (q > 63) {
             error = fmt::format(
-                "frame {} does not fit its {} sectors even at q_scale 63: lower the size or the frame "
-                "rate{}",
-                number, chunks, speed == 1 ? ", or stream it at double speed" : "");
+                "frame {} does not fit its {} sectors and {} run-level halfwords even at q_scale 63: lower the size "
+                "or the frame rate{}",
+                number, chunks, settings.rlHalfwords, speed == 1 ? ", or stream it at double speed" : "");
             return -1;
         }
+        result.mostRunLevel = std::max(result.mostRunLevel, 2u * (bs[0] | (bs[1] << 8)));
         qsum += q;
         result.worstQScale = std::max(result.worstQScale, q);
         result.mostSectorsAFrame = std::max(result.mostSectorsAFrame, chunks);
@@ -268,17 +271,28 @@ PCSX::STR::Result PCSX::STR::fromSectors(std::span<const uint8_t> in, std::vecto
     };
     static const uint8_t sync[12] = {0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0};
     static const uint8_t videoChunk[4] = {0x60, 0x01, 0x01, 0x80};  // 0x0160, 0x8001: an MDEC frame's chunk
-    // The layout its first sector shows: `stride` bytes a sector, the subheader `skip` bytes in.
+    // The layout: `stride` bytes a sector, the subheader `skip` bytes in. Raw sectors open with the sync;
+    // otherwise it is the layout whose first sectors carry STR chunks where it puts them, so a blank or
+    // audio sector at the start does not decide it.
     size_t stride = 0, skip = 0;
+    auto chunksAt = [&](size_t size, size_t at) {
+        unsigned found = 0;
+        for (size_t n = 0; n < std::min<size_t>(in.size() / size, 64); n++) {
+            found += memcmp(in.data() + n * size + at, videoChunk, sizeof(videoChunk)) == 0;
+        }
+        return found;
+    };
     if (in.size() >= 2352 && memcmp(in.data(), sync, sizeof(sync)) == 0) {
         stride = 2352;
         skip = 16;
-    } else if (in.size() >= 2048 && memcmp(in.data(), videoChunk, sizeof(videoChunk)) == 0) {
-        stride = 2048;
-    } else if (in.size() >= 2336 && memcmp(in.data(), in.data() + 4, 4) == 0) {
-        stride = 2336;
     } else {
-        return fail("these are not STR sectors: no sync, subheader or STR chunk at the start");
+        const unsigned mode2 = chunksAt(2336, 8), video = chunksAt(2048, 0);
+        if (!mode2 && !video) {
+            return fail(
+                "these are not STR sectors: no sync at the start, and no STR chunk where 2336- or "
+                "2048-byte sectors would have one");
+        }
+        stride = mode2 >= video ? 2336 : 2048;
     }
     if (in.size() % stride != 0) {
         return fail(fmt::format("{} bytes is not a whole number of {}-byte sectors", in.size(), stride));
@@ -311,7 +325,10 @@ PCSX::STR::Result PCSX::STR::fromSectors(std::span<const uint8_t> in, std::vecto
                 result.width = data[16] | (data[17] << 8);
                 result.height = data[18] | (data[19] << 8);
             }
-            if ((data[4] | (data[5] << 8)) == 0) result.frames++;
+            if ((data[4] | (data[5] << 8)) == 0) {
+                result.frames++;
+                result.mostRunLevel = std::max(result.mostRunLevel, 2u * (data[32] | (data[33] << 8)));
+            }
             result.mostSectorsAFrame =
                 std::max(result.mostSectorsAFrame, static_cast<unsigned>(data[6] | (data[7] << 8)));
         }

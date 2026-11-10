@@ -108,6 +108,31 @@ TEST(Str, aMovieRunsPastTheSectorCountOfAStoredFile) {
     EXPECT_EQ(le32(last + 24 + 8), 103u);
 }
 
+// A frame decodes to the run-level its BS header counts, and the player drops one needing more than its buffer
+// holds, so the encoder trades detail for it as it does for sectors.
+TEST(Str, framesStayWithinTheRunLevelAPlayerHolds) {
+    PCSX::STR::Settings settings;
+    settings.rlHalfwords = 0;  // no limit
+    std::vector<uint8_t> loose;
+    const auto unlimited = PCSX::STR::encode(settings, frames(3, 64, 64), {}, loose);
+    ASSERT_FALSE(unlimited.failed) << unlimited.error;
+    ASSERT_GT(unlimited.mostRunLevel, 800u);  // else this tests nothing
+    settings.rlHalfwords = 800;
+    std::vector<uint8_t> out;
+    const auto r = PCSX::STR::encode(settings, frames(3, 64, 64), {}, out);
+    ASSERT_FALSE(r.failed) << r.error;
+    EXPECT_LE(r.mostRunLevel, 800u);
+    EXPECT_GT(r.averageQScale, unlimited.averageQScale);
+    for (unsigned frame = 0; frame < 3; frame++) {
+        const uint8_t *bs = out.data() + frame * 10 * 2352 + 24 + 32;
+        EXPECT_LE(2u * le16(bs), 800u) << "frame " << frame;
+    }
+    // A limit no frame can meet is an error, as a frame too big for its sectors is.
+    settings.rlHalfwords = 2;
+    std::vector<uint8_t> none;
+    EXPECT_TRUE(PCSX::STR::encode(settings, frames(1, 64, 64), {}, none).failed);
+}
+
 TEST(Str, theChunkHeaderRepeatsTheFramesBsHeader) {
     PCSX::STR::Settings settings;
     std::vector<uint8_t> out;
@@ -267,6 +292,8 @@ TEST(StrSectors, rawAndMode2SectorsComeBackByteForByte) {
     EXPECT_EQ(out, movie);
     EXPECT_EQ(r.sectors, encoded.sectors);
     EXPECT_EQ(r.audioSectors, encoded.audioSectors);
+    EXPECT_EQ(r.mostRunLevel, encoded.mostRunLevel);
+    EXPECT_EQ(r.mostSectorsAFrame, encoded.mostSectorsAFrame);
     EXPECT_EQ(r.frames, 4u);
     EXPECT_EQ(r.width, 32u);
     EXPECT_EQ(r.height, 32u);
@@ -304,6 +331,15 @@ TEST(StrSectors, videoAloneGetsTheSubheaderEncodeGivesVideo) {
     EXPECT_EQ(r.sectors, 30u);
     EXPECT_EQ(r.audioSectors, 0u);
     EXPECT_EQ(r.frames, 3u);
+
+    // A blank sector first does not make it look like another layout.
+    std::vector<uint8_t> blankFirst = video;
+    memset(blankFirst.data(), 0, 2048);
+    out.clear();
+    const auto b = PCSX::STR::fromSectors(blankFirst, out);
+    ASSERT_FALSE(b.failed) << b.error;
+    EXPECT_EQ(b.sectors, 30u);
+    EXPECT_EQ(memcmp(out.data() + 2352, movie.data() + 2352, movie.size() - 2352), 0);
 }
 
 TEST(StrSectors, whatIsNotAnStrMovieIsRefusedAndLeavesTheOutputAlone) {
