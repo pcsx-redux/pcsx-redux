@@ -89,7 +89,7 @@ Returns a node holding `tostring(s)` verbatim, with no escaping. Use it for mark
 PCSX.Html.comment(s)
 ```
 
-Returns a node that renders as `<!--s-->`, with `s` passed through `tostring` and not escaped. A string containing `--` is an error.
+Returns a node that renders as `<!--s-->`, with `s` passed through `tostring` and not escaped. A string that contains `--`, starts with `>` or `->`, or ends with `<!-` is an error, since any of those would end the comment early.
 
 ```lua
 PCSX.Html.escape(s)
