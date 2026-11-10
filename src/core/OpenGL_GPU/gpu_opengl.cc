@@ -718,6 +718,9 @@ void PCSX::OpenGL_GPU::setMaskBits(bool set, bool check) {
 // vertices. If the box overlaps the pending batch, the batch is drawn first.
 void PCSX::OpenGL_GPU::addCheckMaskBounds(const int *xs, const int *ys, int n) {
     if (!m_checkMask) return;
+    // A primitive adds at most 6 vertices. Flush now if they would not fit, so the primitive and its
+    // bounds land in the same batch.
+    maybeRenderBatch<6>();
     const int offsetX = int32_t(m_lastDrawOffsetSetting << 21) >> 21;
     const int offsetY = int32_t(m_lastDrawOffsetSetting << 10) >> 21;
     int minX = xs[0], maxX = xs[0], minY = ys[0], maxY = ys[0];
