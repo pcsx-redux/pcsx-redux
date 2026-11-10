@@ -59,7 +59,9 @@ What plays it has to agree with it. The frames are the size given, rounded up to
 
 Some things a source may carry are not followed. The sound is taken to start with the picture. A rotated video, such as a phone's portrait clip, is not turned upright, and HDR is not tone mapped; ffmpeg can do either first. A YUV video that does not name its colour matrix is taken as BT.601, as ffmpeg's own scaler takes it. Packets ffmpeg finds damaged are left out, and the tool says how many.
 
-Encoding movies needs ffmpeg's libavformat, libavcodec, libavutil and libswresample, when the tool is built and when it runs. Built with `AUTHORING_NO_FFMPEG` defined, as the support mirror's Makefile and the xmake build without those libraries do, the tool does everything else and refuses movie entries.
+Encoding movies needs ffmpeg's libavformat, libavcodec, libavutil and libswresample, when the tool is built and when it runs. Built with `AUTHORING_NO_FFMPEG` defined, as the support mirror's Makefile and the xmake build without those libraries do, the tool does everything else, `stream` entries included, and refuses movie entries.
+
+A movie already encoded, by `psxavenc -t str`, `strcd` or `strv` for instance, goes in as it is with `"stream": true` in place of `movie`. Its sectors may be raw (2352 bytes each), Mode 2 from the subheader on (2336 bytes each), or video alone (2048 bytes each, given a real-time data subheader on file 0, channel 0). They are stored as a `STREAM` entry the same way, addressed where they land on the disc and with their EDC and ECC computed again. A file with no STR video in it is refused.
 
 The tool accepts the following command line arguments:
 

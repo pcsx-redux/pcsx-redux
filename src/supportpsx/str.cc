@@ -258,3 +258,67 @@ PCSX::STR::Result PCSX::STR::encode(const Settings &settings, const FrameSource 
     result.averageQScale = static_cast<double>(qsum) / result.frames;
     return result;
 }
+
+PCSX::STR::Result PCSX::STR::fromSectors(std::span<const uint8_t> in, std::vector<uint8_t> &out) {
+    Result result;
+    auto fail = [&](std::string error) {
+        result.failed = true;
+        result.error = std::move(error);
+        return result;
+    };
+    static const uint8_t sync[12] = {0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0};
+    static const uint8_t videoChunk[4] = {0x60, 0x01, 0x01, 0x80};  // 0x0160, 0x8001: an MDEC frame's chunk
+    // The layout its first sector shows: `stride` bytes a sector, the subheader `skip` bytes in.
+    size_t stride = 0, skip = 0;
+    if (in.size() >= 2352 && memcmp(in.data(), sync, sizeof(sync)) == 0) {
+        stride = 2352;
+        skip = 16;
+    } else if (in.size() >= 2048 && memcmp(in.data(), videoChunk, sizeof(videoChunk)) == 0) {
+        stride = 2048;
+    } else if (in.size() >= 2336 && memcmp(in.data(), in.data() + 4, 4) == 0) {
+        stride = 2336;
+    } else {
+        return fail("these are not STR sectors: no sync, subheader or STR chunk at the start");
+    }
+    if (in.size() % stride != 0) {
+        return fail(fmt::format("{} bytes is not a whole number of {}-byte sectors", in.size(), stride));
+    }
+    const size_t count = in.size() / stride;
+    std::vector<uint8_t> sectors(count * 2352, 0);
+    for (size_t n = 0; n < count; n++) {
+        const uint8_t *from = in.data() + n * stride;
+        uint8_t *sector = sectors.data() + n * 2352;
+        if (stride == 2352 && from[15] != 2) return fail(fmt::format("sector {} is not Mode 2", n));
+        memcpy(sector, sync, sizeof(sync));
+        IEC60908b::MSF(static_cast<uint32_t>(n) + 150).toBCD(sector + 12);
+        sector[15] = 2;
+        if (stride == 2048) {
+            IEC60908b::SubHeaders sub;
+            sub.fileNumber = 0;
+            sub.channelNumber = 0;
+            sub.subMode = 0x48;
+            sub.codingInfo = 0;
+            sub.toBuffer(sector + 16);
+            memcpy(sector + 24, from, 2048);
+        } else {
+            memcpy(sector + 16, from + skip, 2336);
+        }
+        const uint8_t *data = sector + 24;
+        if (sector[18] & 0x04) {
+            result.audioSectors++;
+        } else if (memcmp(data, videoChunk, sizeof(videoChunk)) == 0) {
+            if (result.width == 0) {
+                result.width = data[16] | (data[17] << 8);
+                result.height = data[18] | (data[19] << 8);
+            }
+            if ((data[4] | (data[5] << 8)) == 0) result.frames++;
+            result.mostSectorsAFrame =
+                std::max(result.mostSectorsAFrame, static_cast<unsigned>(data[6] | (data[7] << 8)));
+        }
+        IEC60908b::computeEDCECC(sector);
+    }
+    if (result.width == 0) return fail("there is no STR video in it");
+    result.sectors = static_cast<unsigned>(count);
+    out.insert(out.end(), sectors.begin(), sectors.end());
+    return result;
+}
