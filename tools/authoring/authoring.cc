@@ -141,7 +141,7 @@ class MovieVideo {
         const AVCodec* codec = nullptr;
         m_stream = av_find_best_stream(m_format, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
         if (m_stream < 0) {
-            error = "it has no video";
+            error = m_stream == AVERROR_DECODER_NOT_FOUND ? "ffmpeg has no decoder for its video" : "it has no video";
             return false;
         }
         const AVStream* stream = m_format->streams[m_stream];
@@ -377,6 +377,11 @@ static bool readMovieAudio(const std::string& path, unsigned channels, unsigned 
     }
     const AVCodec* decoder = nullptr;
     const int stream = av_find_best_stream(format, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder, 0);
+    // Sound ffmpeg has no decoder for is an error: taken as no sound, the movie would be written silent, unsaid.
+    if (stream == AVERROR_DECODER_NOT_FOUND) {
+        error = "ffmpeg has no decoder for its sound";
+        return done(false);
+    }
     if (stream < 0) return done(true);
     codec = avcodec_alloc_context3(decoder);
     if (!codec || avcodec_parameters_to_context(codec, format->streams[stream]->codecpar) < 0 ||
@@ -455,7 +460,8 @@ static bool readMovieAudio(const std::string& path, unsigned channels, unsigned 
 #endif
 
 // What psyqo-paths' StrPlayer, as it comes, does not play of a movie: frames of more
-// sectors than its maxSectorsPerFrame, or larger than its display.
+// sectors than its maxSectorsPerFrame (32 at most), decoding to more run-level than its
+// rlHalfwords, not in whole macroblocks, or larger than its display.
 static std::string playerWarning(const PCSX::STR::Result& result) {
     std::string warning;
     auto add = [&warning](std::string text) {
@@ -640,7 +646,7 @@ Usage: {} input.json [-h] -o output.bin
   -basedir path     optional: base directory for the input files.
   -license file     optional: use this license file.
   -threads count    optional: number of threads to use for compression.
-  -q                optional: only print errors.
+  -q                optional: only print errors and warnings.
   -h                displays this help information and exit.
 )",
                    argv[0]);
