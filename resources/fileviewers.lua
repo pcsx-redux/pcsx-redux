@@ -577,13 +577,22 @@ function PCSX.FileViewers.textViewer(openFile, opts)
                 imgui.SameLine()
                 if imgui.Button('Save') and v.savePath ~= '' then
                     -- io rather than Support.File: its writes are synchronous,
-                    -- so an error is known before the result is shown.
-                    local f, err = io.open(v.savePath, 'wb')
+                    -- so an error is known before the result is shown. The
+                    -- bytes go to a temporary file first, so a failed save
+                    -- leaves the existing file alone.
+                    local tmp = v.savePath .. '.tmp'
+                    local f, err = io.open(tmp, 'wb')
                     local ok
                     if f then
                         ok, err = f:write(v.encoded)
                         local closed, closeErr = f:close()
                         if ok and not closed then ok, err = nil, closeErr end
+                        if ok then
+                            ok, err = os.rename(tmp, v.savePath)
+                            -- Windows refuses to rename over an existing file.
+                            if not ok and os.remove(v.savePath) then ok, err = os.rename(tmp, v.savePath) end
+                        end
+                        if not ok then os.remove(tmp) end
                     end
                     if ok then
                         v.saveInfo = string.format('wrote %d bytes to %s', #v.encoded, v.savePath)
