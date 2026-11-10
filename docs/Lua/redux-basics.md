@@ -248,6 +248,17 @@ typedef struct {
 
 `hilo` is `hi` or `lo`, and `cop` is the coprocessor register value, for the instructions that use them. `memValue` is the value read at the effective address, for loads and stores.
 
+## Profiler
+
+`PCSX.Profiler` counts every instruction the interpreter executes, by call path and pc. Call paths come from the same stack tracking as the Callstacks window. Code that switches stacks by hand can confuse it. It needs the interpreter: under the dynarec `start()` returns `false`.
+
+- `.start()`, `.stop()`, `.running()`, `.clear()`
+- `.totals()` returns `{ instructions = n, calls = n }`.
+- `.functions()` returns one entry per function, named from the loaded symbols: `{ name, address, self = { instructions, calls }, inclusive = { instructions, calls } }`. `calls` is the number of times the function was called. A recursive function counts each instruction once in its inclusive count.
+- `.savePprof(path)` writes a [pprof](https://github.com/google/pprof) profile for `go tool pprof`. `.saveCallgrind(path)` writes it for KCachegrind. Both return a boolean.
+
+The command line flags `-profile <file>` and `-callgrind <file>` profile from boot and write the file on exit. Debug > CPU > Show Profiler opens a window with the same controls.
+
 ## Disc and lid
 
 `PCSX.CDRom` swaps the disc and drives the lid of the emulated drive:
