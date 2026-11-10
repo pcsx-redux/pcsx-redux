@@ -233,7 +233,6 @@ PCSX::STR::Result PCSX::STR::encode(const Settings &settings, const FrameSource 
         return 1;
     };
 
-    static const uint8_t sync[12] = {0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0};
     for (unsigned lba = 0;; lba++) {
         if (chunk >= chunks) {
             const int got = nextFrame();
@@ -241,9 +240,9 @@ PCSX::STR::Result PCSX::STR::encode(const Settings &settings, const FrameSource 
             if (got == 0) break;
         }
         const size_t at = out.size();
-        out.resize(at + 2352, 0);
+        out.resize(at + IEC60908b::FRAMESIZE_RAW, 0);
         uint8_t *sector = out.data() + at;
-        memcpy(sector, sync, 12);
+        memcpy(sector, IEC60908b::SYNC, sizeof(IEC60908b::SYNC));
         IEC60908b::MSF(lba + 150).toBCD(sector + 12);
         sector[15] = 2;
         IEC60908b::SubHeaders sub;
@@ -281,8 +280,8 @@ PCSX::STR::Result PCSX::STR::encode(const Settings &settings, const FrameSource 
         out[lastAudio + 18] |= 0x80;  // EOF, in both copies of the last audio sector's submode
         out[lastAudio + 22] |= 0x80;
     }
-    for (size_t at = first; at < out.size(); at += 2352) IEC60908b::computeEDCECC(out.data() + at);
-    result.sectors = static_cast<unsigned>((out.size() - first) / 2352);
+    for (size_t at = first; at < out.size(); at += IEC60908b::FRAMESIZE_RAW) IEC60908b::computeEDCECC(out.data() + at);
+    result.sectors = static_cast<unsigned>((out.size() - first) / IEC60908b::FRAMESIZE_RAW);
     result.averageQScale = static_cast<double>(qsum) / result.frames;
     return result;
 }
