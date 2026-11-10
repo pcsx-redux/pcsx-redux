@@ -398,23 +398,62 @@ bool PCSX::GPU::deinterlace() {
     return g_emulator->settings.get<Emulator::SettingDeinterlace>();
 }
 
-uint32_t PCSX::GPU::readStatusFromBus() {
-    uint32_t ret = readStatus();
-    // NTSC 480i: GP1(08h) bits 2 and 5 set, bit 3 clear. Timeline measured on a v2 GPU (SCPH-1001)
-    // at 320 and 640 pixels wide, identical at both, counted in hblanks since the vblank that
-    // opened the field. Bit 31 is 1 from line 23 of the 263-line field until the next vblank, and
-    // 0 everywhere else, vblank included. Bit 13 is 1 from line 5 of the 262-line field until
-    // line 6 of the following 263-line field. A v0 GPU (SCPH-1000) gives the same bit 31 and never
-    // sets bit 13; there is no GPU revision setting, so this models v2. PAL is not measured.
-    if ((m_statusControl[8] & 0x2c) == 0x24) {
-        auto &counters = g_emulator->m_counters;
-        uint32_t line = counters->linesSinceVBlank();
-        bool longField = counters->longField();
-        ret &= ~0x80002000;
-        if (m_fieldOverride >= 0) return ret | (uint32_t(m_fieldOverride) << 31);
-        if (longField && (line >= 23)) ret |= 0x80000000;
-        if (longField ? (line < 6) : (line >= 5)) ret |= 0x00002000;
+// Measured on v2 GPUs (SCPH-1001, 5501, 7001, 9002) and a v0 one (SCPH-1000), counting hblanks
+// since the vblank IRQ. While GP1(08h).5 (interlace) is set, frames alternate between 263 and 262
+// lines (313 and 312 in PAL), and the field flag changes on the last scanline of each frame: it is
+// 1 through a long frame and 0 through a short one. Turning interlace off freezes the flag, and
+// GP1(00h) sets it. Progressive frames are 263 lines (314 in PAL). The vblank IRQ comes at line Y2.
+// Redux runs every frame at the progressive length and raises the IRQ at a fixed line, so this is
+// worked out from the lines since the IRQ, which is what a guest can observe.
+PCSX::GPU::BeamPosition PCSX::GPU::beamPosition(uint32_t mode) {
+    auto &counters = g_emulator->m_counters;
+    const bool pal = mode & 0x08;
+    uint32_t y1 = m_statusControl[7] & 0x3ff;
+    uint32_t y2 = (m_statusControl[7] >> 10) & 0x3ff;
+    // A range never written: Y1=10h, Y2=100h, the NTSC range the probes used by default.
+    if ((y1 | y2) == 0) {
+        y1 = 0x10;
+        y2 = 0x100;
     }
+    const uint32_t sinceVBlank = counters->linesSinceVBlank();
+    bool field;
+    uint32_t frame;
+    if (mode & 0x20) {
+        field = counters->longField() != m_fieldPhase;
+        frame = (pal ? 312 : 262) + (field ? 1 : 0);
+    } else {
+        field = m_heldField;
+        frame = pal ? 314 : 263;
+    }
+    const uint32_t vblank = std::min(y2, frame - 1);
+    const uint32_t lastLine = frame - 1 - vblank;
+    BeamPosition ret;
+    if (sinceVBlank < lastLine) {
+        ret.line = vblank + sinceVBlank;
+    } else if (sinceVBlank == lastLine) {
+        ret.line = frame - 1;
+    } else {
+        // Redux's frame can outlast the console's by a line (314 against 313 in PAL 480i); the
+        // beam stays on the last line before Y2 until the IRQ instead of reaching Y2 early.
+        ret.line = sinceVBlank - lastLine - 1;
+        if (vblank && (ret.line >= vblank)) ret.line = vblank - 1;
+    }
+    ret.field = ((mode & 0x20) && (sinceVBlank >= lastLine)) ? !field : field;
+    ret.active = (ret.line >= y1) && (ret.line < y2);
+    return ret;
+}
+
+uint32_t PCSX::GPU::readStatusFromBus() {
+    uint32_t ret = readStatus() & ~0x80002000;
+    const uint32_t mode = m_statusControl[8];
+    // In 480i (GP1(08h) bits 5 and 2), bit 31 is 1 on the displayed lines of the frame that follows
+    // a long one and 0 everywhere else; in every other mode it is the line's parity on displayed
+    // lines and 0 elsewhere. Same on v0 and v2. Bit 13 is the field flag on v2 and stays clear in
+    // 480i on v0; there is no GPU revision setting, so this models v2.
+    if (((mode & 0x2c) == 0x24) && (m_fieldOverride >= 0)) return ret | (uint32_t(m_fieldOverride) << 31);
+    const auto beam = beamPosition(mode);
+    if (beam.field) ret |= 0x00002000;
+    if (beam.active && (((mode & 0x24) == 0x24) ? !beam.field : (beam.line & 1))) ret |= 0x80000000;
     return ret;
 }
 
@@ -550,6 +589,17 @@ void PCSX::GPU::writeStatus(uint32_t value) {
     bool gotUnknown = false;
 
     if (m_dumper) m_dumper->gp1(value);
+    if (cmd == 8) {
+        // Turning interlace off freezes the field flag; turning it on resumes the alternation
+        // from the frozen value.
+        const uint32_t old = m_statusControl[8];
+        if ((old & 0x20) && !(value & 0x20)) {
+            m_heldField = beamPosition(old).field;
+        } else if (!(old & 0x20) && (value & 0x20)) {
+            m_fieldPhase = false;
+            if (beamPosition(value).field != m_heldField) m_fieldPhase = true;
+        }
+    }
     m_statusControl[cmd] = value;
 
     switch (cmd) {
@@ -558,8 +608,10 @@ void PCSX::GPU::writeStatus(uint32_t value) {
             m_processor->reset();
             m_defaultProcessor.setActive();
             m_dmaDirection = 0;
-            // GP1(00h) also resets the display mode, which readStatusFromBus() keys on.
+            // GP1(00h) also resets the display mode, which readStatusFromBus() keys on, and sets
+            // the field flag.
             m_statusControl[8] = 0x08000000;
+            m_heldField = true;
             CtrlReset ctrl;
             m_logger->addNode(ctrl, Logged::Origin::CTRLWRITE, value, 1);
             write1(&ctrl);
