@@ -22,6 +22,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "support/file.h"
@@ -101,6 +102,11 @@ class HWEvents {
         if (count > 12) count = 12;
         for (unsigned i = 0; i < count; i++) out[i / 4] |= uint32_t(bytes[i]) << ((i % 4) * 8);
     }
+
+    // Source names, indexed by Source value; null for unused values.
+    static const char* sourceName(unsigned source);
+    // One line describing the event's type and payload, without its cycle or pc.
+    static std::string describe(const HWEvent& event);
 
     static constexpr uint32_t sourceBit(Source source) { return 1u << static_cast<unsigned>(source); }
 
