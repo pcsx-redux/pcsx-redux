@@ -544,8 +544,9 @@ void PCSX::GPU::writeStatus(uint32_t value) {
     uint32_t cmd = (value >> 24) & 0xff;
     bool gotUnknown = false;
 
+    // A detached GPU, like the one replaying a dump, is not the emulated machine's.
     auto &events = *g_emulator->m_hwEvents;
-    if (events.armed(HWEvents::Source::GPU)) [[unlikely]] {
+    if (!m_detached && events.armed(HWEvents::Source::GPU)) [[unlikely]] {
         events.record(HWEvents::GPUControl, value);
     }
     if (m_dumper) m_dumper->gp1(value);
@@ -745,7 +746,7 @@ void PCSX::GPU::Command::processWrite(Buffer &buf, Logged::Origin origin, uint32
     while (!buf.isEmpty()) {
         uint32_t value = buf.get();
         auto &events = *g_emulator->m_hwEvents;
-        if (events.armed(HWEvents::Source::GPU)) [[unlikely]] {
+        if (!m_gpu->isDetached() && events.armed(HWEvents::Source::GPU)) [[unlikely]] {
             events.record(HWEvents::GPUCommand, value, static_cast<uint32_t>(origin), originValue, length);
         }
         bool gotUnknown = false;
