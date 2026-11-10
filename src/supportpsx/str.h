@@ -96,16 +96,6 @@ std::string check(const Settings &settings);
 Result encode(const Settings &settings, const FrameSource &frames, std::span<const int16_t> pcm,
               std::vector<uint8_t> &out);
 
-// A movie encoded elsewhere, such as psxavenc's -t str, strcd or strv, appended
-// to `out` as encode() writes its sectors: 2352 bytes each, readdressed from
-// 00:02:00 and with their EDC and ECC computed again. The sectors it takes are
-// raw (2352 bytes, from the sync), Mode 2 from the subheader on (2336 bytes), or
-// video alone (2048 bytes, each an STR chunk), which get the subheader encode()
-// gives video: real-time data on file 0, channel 0. A file with no STR video in
-// it is refused. `frames`, `width` and `height` are its video's; there is no
-// q_scale to report.
-Result fromSectors(std::span<const uint8_t> in, std::vector<uint8_t> &out);
-
 }  // namespace STR
 
 }  // namespace PCSX

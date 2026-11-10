@@ -562,8 +562,7 @@ static bool encodeMovie(const std::string& path, const nlohmann::json& options, 
         return false;
     }
 #ifdef AUTHORING_NO_FFMPEG
-    summary =
-        "this authoring was built without ffmpeg, so it cannot encode a movie (\"stream\" stores one already encoded)";
+    summary = "this authoring was built without ffmpeg, so it cannot encode a movie";
     return false;
 #else
     std::vector<int16_t> pcm;
@@ -592,35 +591,10 @@ static bool encodeMovie(const std::string& path, const nlohmann::json& options, 
     warning = playerWarning(result);
     if (video.isStr()) {
         if (!warning.empty()) warning += "; ";
-        warning += "it is an STR movie already, encoded again here: \"stream\": true stores it as it is";
+        warning += "it is an STR movie already, decoded and encoded again here";
     }
     return true;
 #endif
-}
-
-// A movie encoded elsewhere, stored as it is: its sectors, in any layout STR::fromSectors takes.
-static bool storeStream(const std::filesystem::path& path, std::vector<uint8_t>& sectors, std::string& summary,
-                        std::string& warning) {
-    PCSX::IO<PCSX::File> file(new PCSX::PosixFile(path));
-    if (file->failed()) {
-        summary = "cannot open it";
-        return false;
-    }
-    std::vector<uint8_t> data(file->size());
-    if (file->read(data.data(), data.size()) != static_cast<ssize_t>(data.size())) {
-        summary = "cannot read it";
-        return false;
-    }
-    const auto result = PCSX::STR::fromSectors(data, sectors);
-    if (result.failed) {
-        summary = result.error;
-        return false;
-    }
-    summary = fmt::format(
-        "{} frames of {}x{}, {} sectors stored as they were, {} of them audio; up to {} sectors a frame", result.frames,
-        result.width, result.height, result.sectors, result.audioSectors, result.mostSectorsAFrame);
-    warning = playerWarning(result);
-    return true;
 }
 
 int main(int argc, char** argv) {
@@ -826,28 +800,15 @@ Usage: {} input.json [-h] -o output.bin
                 auto filePath = workUnit.fileInfo["path"].get<std::string>();
                 // A movie is a STREAM entry: never compressed, and with its sector count in the entry's
                 // first 32-bit field, so neither the 2 MB nor the 1023-sector limit of a stored file applies.
-                // "movie" encodes one; "stream": true takes one already encoded, psxavenc's say, as it is.
                 const bool movie = workUnit.fileInfo.contains("movie") && workUnit.fileInfo["movie"] != false;
-                const bool stream = workUnit.fileInfo.contains("stream") && workUnit.fileInfo["stream"] != false;
-                if (movie || stream) {
+                if (movie) {
                     IndexEntry* entry = &indexEntryData[workUnitIndex];
                     entry->hash = PCSX::djb::hash(workUnit.fileInfo["name"].is_string()
                                                       ? workUnit.fileInfo["name"].get<std::string>()
                                                       : filePath);
                     workUnit.margin = 0;
-                    if (movie && stream) {
-                        workUnit.summary = "a file is a movie to encode or a stream to store, not both";
-                        workUnit.failed = true;
-                    } else if (stream && workUnit.fileInfo["stream"] != true) {
-                        workUnit.summary = "\"stream\" is true or false";
-                        workUnit.failed = true;
-                    } else if (movie) {
-                        workUnit.failed = !encodeMovie((basePath / filePath).string(), workUnit.fileInfo["movie"],
-                                                       workUnit.sectorData, workUnit.summary, workUnit.warning);
-                    } else {
-                        workUnit.failed =
-                            !storeStream(basePath / filePath, workUnit.sectorData, workUnit.summary, workUnit.warning);
-                    }
+                    workUnit.failed = !encodeMovie((basePath / filePath).string(), workUnit.fileInfo["movie"],
+                                                   workUnit.sectorData, workUnit.summary, workUnit.warning);
                     if (!workUnit.failed) {
                         entry->asArray[2] = static_cast<uint32_t>(workUnit.sectorData.size() / 2352);
                         entry->setMethod(IndexEntry::Method::STREAM);
@@ -864,9 +825,7 @@ Usage: {} input.json [-h] -o output.bin
                 }
                 unsigned size = file->size();
                 if (size >= 2 * 1024 * 1024) {
-                    workUnit.summary =
-                        "it is 2 MB or more, more than an archive file holds (a video needs \"movie\", a movie "
-                        "already encoded \"stream\")";
+                    workUnit.summary = "it is 2 MB or more, more than an archive file holds (a video needs \"movie\")";
                     workUnit.failed = true;
                     workUnit.semaphore.release();
                     continue;
