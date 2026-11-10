@@ -948,6 +948,8 @@ Usage: {} input.json [-h] -o output.bin
             putSectorLBA(dest, currentSector);
             builder.writeSectorAt(dest, PCSX::IEC60908b::MSF{150 + currentSector++}, PCSX::IEC60908b::SectorMode::RAW);
         }
+        // Written, so let it go: a movie is not held to 2 MB, and a disc of them would otherwise stay in memory whole.
+        std::vector<uint8_t>().swap(workUnit.sectorData);
     }
 
     if (!quiet) {
