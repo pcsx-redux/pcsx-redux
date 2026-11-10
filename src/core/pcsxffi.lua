@@ -77,6 +77,7 @@ void invalidateCache();
 
 typedef struct {
     uint32_t pc, code, regRs, regRt, regRd, hilo, cop, memValue;
+    uint64_t cycle;
 } PCSX_TraceEntry;
 
 uint64_t getCpuTraceSize();
@@ -136,6 +137,10 @@ uint64_t getGPUDumpPlayerFrameCount();
 bool seekGPUDumpPlayer(uint64_t frame);
 void setGPUDumpPlayerLogging(bool enabled);
 uint32_t getGPUDumpPlayerLoggedCount();
+const char* getGPUDumpPlayerNodeName(unsigned index);
+bool setGPUDumpPlayerNodeColor(unsigned index, unsigned vertex, uint32_t color);
+void clearGPUDumpPlayerNodeOverlay(unsigned index);
+void replayGPUDumpPlayer();
 LuaSlice* getGPUDumpPlayerVRAM();
 LuaSlice* getVRAM();
 void setSPULoggerEnabled(bool);
@@ -147,8 +152,8 @@ bool writeSPULoggerSPD(LuaFile*);
 const char* getSPULoggerExportError();
 
 LuaSlice* createSaveState();
-void loadSaveStateFromSlice(LuaSlice*);
-void loadSaveStateFromFile(LuaFile*);
+bool loadSaveStateFromSlice(LuaSlice*);
+bool loadSaveStateFromFile(LuaFile*);
 
 void createRewindState();
 bool rewindState();
@@ -288,6 +293,8 @@ PCSX = {
         -- chunked, so read() flattens a range into a fresh FFI array
         -- you can inspect, ffi.string(), or write to a File. getLine() renders the
         -- same annotated disassembly the viewer shows, reconstructed from the record.
+        -- A record's cycle is the emulated cycle counter at capture; records loaded
+        -- from a version 1 trace file carry 0xffffffffffffffffULL there.
         Trace = {
             size = function() return tonumber(C.getCpuTraceSize()) end,
             clear = function() C.clearCpuTrace() end,
@@ -443,6 +450,12 @@ PCSX = {
             -- The player's own GPU logger, holding the commands of the last frame played.
             setLogging = function(enabled) C.setGPUDumpPlayerLogging(enabled) end,
             getLoggedCount = function() return C.getGPUDumpPlayerLoggedCount() end,
+            -- Nodes are indexed from 0 in the order they were logged. An edited node replays with the
+            -- edit; the logged node itself is left alone.
+            getNodeName = function(index) return ffi.string(C.getGPUDumpPlayerNodeName(index)) end,
+            setNodeColor = function(index, vertex, color) return C.setGPUDumpPlayerNodeColor(index, vertex, color) end,
+            clearNodeOverlay = function(index) C.clearGPUDumpPlayerNodeOverlay(index) end,
+            replay = function() C.replayGPUDumpPlayer() end,
             getVRAM = function() return Support.File._createSliceWrapper(C.getGPUDumpPlayerVRAM()) end,
         },
     },
@@ -453,9 +466,9 @@ PCSX = {
     loadSaveState = function(obj)
         if type(obj) ~= 'table' then error('loadSaveState: requires an object as input') end
         if obj._type == 'Slice' then
-            C.loadSaveStateFromSlice(obj._wrapper)
+            return C.loadSaveStateFromSlice(obj._wrapper)
         elseif obj._type == 'File' then
-            C.loadSaveStateFromFile(obj._wrapper)
+            return C.loadSaveStateFromFile(obj._wrapper)
         else
             error('loadSaveState: requires a Slice or File as input')
         end

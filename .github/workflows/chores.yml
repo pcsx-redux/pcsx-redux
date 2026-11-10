@@ -29,7 +29,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.PAT }}
+          token: ${{ secrets.CHORES_PAT }}
           commit-message: "[Chores] Regen i18n"
           committer: GitHub <noreply@github.com>
           author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
@@ -54,7 +54,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.PAT }}
+          token: ${{ secrets.CHORES_PAT }}
           commit-message: "[Chores] Format code"
           committer: GitHub <noreply@github.com>
           author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>

@@ -1578,6 +1578,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
                     ImGui::EndMenu();
                 }
                 ImGui::MenuItem(_("Show PSYQo heap viewer"), nullptr, &m_heapViewer.m_show);
+                ImGui::MenuItem(_("Show PSYQo scope profiler"), nullptr, &m_scopeProfiler.m_show);
                 ImGui::MenuItem(_("Show PocketStation LCD"), nullptr, &m_pocketStationLCD.m_show);
                 ImGui::MenuItem(_("Show allocator tracker"), nullptr, &m_allocTrackerViewer.m_show);
                 ImGui::Separator();
@@ -1933,6 +1934,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
         m_spuSamplesWidget.draw(g_emulator->m_spuLogger.get(), g_emulator->m_spu->getSpuRam(), _("SPU Samples"));
     }
     if (m_heapViewer.m_show) m_heapViewer.draw(g_emulator->m_mem.get(), _("PSYQo Heap Viewer"));
+    if (m_scopeProfiler.m_show) m_scopeProfiler.draw(_("PSYQo Scope Profiler"), this);
     if (m_allocTrackerViewer.m_show) m_allocTrackerViewer.draw(_("Allocator Tracker"));
 
     if (m_pocketStationLCD.m_show) {
@@ -2066,13 +2068,14 @@ the update and manually apply it.)")));
                                 m_update.applyUpdate(g_system->getBinDir());
                                 g_system->quit();
                             } else {
-                                addNotification(
-                                    _("An error has occured while downloading\nand/or applying the update."));
+                                addNotice(_("An error has occured while downloading\nand/or applying the update."),
+                                          NoticeKind::Error);
                             }
                         },
                         g_system->getLoop());
                     if (!started) {
-                        addNotification(_("An error has occured while downloading\nand/or applying the update."));
+                        addNotice(_("An error has occured while downloading\nand/or applying the update."),
+                                  NoticeKind::Error);
                         m_updateAvailable = false;
                         m_updateDownloading = false;
                     }
@@ -2088,7 +2091,7 @@ the update and manually apply it.)")));
                         },
                         g_system->getLoop());
                     if (!started) {
-                        addNotification(_("An error has occured while downloading the update."));
+                        addNotice(_("An error has occured while downloading the update."), NoticeKind::Error);
                         m_updateAvailable = false;
                         m_updateDownloading = false;
                     }
@@ -2433,10 +2436,11 @@ debugging features may not work.)");
 of the emulator to take effect.)");
     }
     if (show2MBVRAMHardwareWarning) {
-        addNotification(R"(2MB VRAM is enabled together with the OpenGL GPU.
+        addNotice(R"(2MB VRAM is enabled together with the OpenGL GPU.
 The OpenGL renderer does not support the upper VRAM
 bank yet - only the software renderer does. Switch to
-the software renderer to make use of 2MB VRAM.)");
+the software renderer to make use of 2MB VRAM.)",
+                  NoticeKind::Warning);
     }
     return changed;
 }
@@ -2743,10 +2747,15 @@ bool PCSX::GUI::saveSaveState(std::filesystem::path filename) {
         filename = g_system->getPersistentDir() / filename;
     }
     // TODO: yeet this to libuv's threadpool.
-    ZWriter save(new UvFile(filename, FileOps::TRUNCATE), ZWriter::GZIP);
-    bool success = !save.failed();
-    if (success) save.writeString(SaveStates::save());
-    save.close();
+    IO<UvFile> file(new UvFile(filename, FileOps::TRUNCATE));
+    bool success = !file->failed();
+    if (success) {
+        ZWriter save(file, ZWriter::GZIP);
+        save.writeString(SaveStates::save());
+        save.close();
+    }
+    // The writes are queued; only the close reports whether they landed.
+    if (file->closeAndWait() != 0) success = false;
     if (success) {
         addNotice(fmt::format(f_("State saved to {}"), filename.filename().string()), NoticeKind::Info);
     } else {

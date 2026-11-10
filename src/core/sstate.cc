@@ -162,6 +162,7 @@ PCSX::SaveStates::SaveState PCSX::SaveStates::Access::constructSaveState() {
             GtePendingCount{g_emulator->m_cpu->m_gtePendingCount},
             NextIsBranchSlot{g_emulator->m_cpu->m_nextIsBranchSlot},
             NextSlotBranchPC{g_emulator->m_cpu->m_nextSlotBranchPC},
+            ICacheLineTags{},
         },
         GPU{},
         SPU{},
@@ -356,6 +357,7 @@ std::string PCSX::SaveStates::save() {
 
     state.get<MemoryField>().get<BIU>().value = g_emulator->m_mem->getBIU();
     state.get<MemoryField>().get<HasBIU>().value = true;
+    state.get<RegistersField>().get<ICacheLineTags>().value = true;
     g_emulator->m_gpu->serialize(&wrapper);
     g_emulator->m_spu->save(state.get<SPUField>());
 
@@ -390,6 +392,7 @@ void PCSX::SaveStates::capture(SaveState& state) {
        separate layer on top. */
     state.get<MemoryField>().get<BIU>().value = g_emulator->m_mem->getBIU();
     state.get<MemoryField>().get<HasBIU>().value = true;
+    state.get<RegistersField>().get<ICacheLineTags>().value = true;
     g_emulator->m_gpu->serialize(&wrapper);
     g_emulator->m_spu->save(state.get<SPUField>());
 
@@ -432,6 +435,7 @@ void PCSX::SaveStates::restore(SaveState& state) {
     g_emulator->m_cpu->m_regs.pc.raw() &= ~3;
     if (state.get<MemoryField>().get<HasBIU>().value)
         g_emulator->m_mem->setBIU(state.get<MemoryField>().get<BIU>().value);
+    if (!state.get<RegistersField>().get<ICacheLineTags>().value) g_emulator->m_cpu->convertLegacyICache();
     g_emulator->m_gpu->deserialize(&wrapper);
     g_emulator->m_spu->load(state.get<SPUField>());
 #if 0
@@ -526,6 +530,7 @@ void PCSX::GPU::serialize(SaveStateWrapper* w) {
     for (unsigned i = 0; i < 6; i++) {
         setU32(env + i * 4, m_envRaw[i + 1]);
     }
+    gpu.get<GPUFieldFlags>() = (m_heldField ? 0 : 1) | (m_fieldPhase ? 2 : 0);
 }
 
 void PCSX::MDEC::serialize(SaveStateWrapper* w) {
@@ -576,6 +581,7 @@ void PCSX::Counters::serialize(SaveStateWrapper* w) {
     counters.get<HSyncCount>().value = m_hSyncCount;
     counters.get<PSXNextCounter>().value = m_psxNextCounter;
     counters.get<FieldCount>().value = m_fieldCount;
+    counters.get<LineRemainder>().value = m_lineRemainder;
 }
 
 static bool parseSaveState(std::string_view data, PCSX::SaveStates::SaveState& state) {
@@ -612,6 +618,7 @@ bool PCSX::SaveStates::load(std::string_view data) {
     if (g_emulator->m_cpu->m_gtePendingCount > 3) g_emulator->m_cpu->m_gtePendingCount = 0;
     if (state.get<MemoryField>().get<HasBIU>().value)
         g_emulator->m_mem->setBIU(state.get<MemoryField>().get<BIU>().value);
+    if (!state.get<RegistersField>().get<ICacheLineTags>().value) g_emulator->m_cpu->convertLegacyICache();
     g_emulator->m_gpu->deserialize(&wrapper);
     g_emulator->m_spu->load(state.get<SPUField>());
 #if 0
@@ -746,6 +753,10 @@ void PCSX::GPU::deserialize(const SaveStateWrapper* w) {
     const bool vram1MB = w->state.get<SaveStateInfoField>().get<Version>().value == 4;
     restoreState(gpu.get<GPUStatus>().value, reinterpret_cast<const uint16_t*>(gpu.get<GPUVRam>().value),
                  vram1MB ? 512 : 1024, gpu.get<GPUEnvironment>().value);
+    // After restoreState(), whose GP1 replay goes through the interlace switch logic.
+    const uint32_t fieldFlags = gpu.get<GPUFieldFlags>().value;
+    m_heldField = !(fieldFlags & 1);
+    m_fieldPhase = fieldFlags & 2;
 }
 
 void PCSX::GPU::snapshot(Snapshot& s) {
@@ -782,6 +793,7 @@ void PCSX::GPU::restoreState(uint32_t status, const uint16_t* vram, unsigned vra
     // Replay from a copy: GP1(00h) rewrites the GP1(08h) slot with the reset display mode.
     uint32_t saved[256];
     std::copy(std::begin(m_statusControl), std::end(m_statusControl), saved);
+    m_replayingGP1 = true;
     writeStatus(saved[0]);
     writeStatus(saved[1]);
     writeStatus(saved[2]);
@@ -791,6 +803,7 @@ void PCSX::GPU::restoreState(uint32_t status, const uint16_t* vram, unsigned vra
     writeStatus(saved[7]);
     writeStatus(saved[5]);
     writeStatus(saved[4]);
+    m_replayingGP1 = false;
 
     restoreEnvironment(env, status);
     // The GP1 and environment replays above rebuild the status word from commands, which loses
@@ -866,10 +879,11 @@ void PCSX::Counters::deserialize(const SaveStateWrapper* w) {
     m_fieldCount = counters.get<FieldCount>().value;
 
     calculateHsync();
+    // The line in flight keeps its saved length, and the remainder carries on from where it was,
+    // so a restored state replays the same hblank times. A state saved before the remainder was
+    // stored loads it as 0.
+    m_lineRemainder = counters.get<LineRemainder>().value % m_lineDen;
     // Recalculate rates from mode registers (handles overclock changes and dotclock)
-    m_rcnts[3].target =
-        (g_emulator->m_psxClockSpeed / (FrameRate[g_emulator->settings.get<Emulator::SettingVideo>()] *
-                                        m_HSyncTotal[g_emulator->settings.get<Emulator::SettingVideo>()]));
     for (unsigned i = 0; i < 3; i++) {
         recalculateRate(i);
     }

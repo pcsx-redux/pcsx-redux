@@ -36,7 +36,7 @@ PCSX::Widgets::MemoryObserver::MemoryObserver(bool& show) : m_show(show), m_list
     m_listener.listen<PCSX::Events::GPU::VSync>([this](const auto& event) {
         for (const auto& addressValuePair : m_addressValuePairs) {
             if (addressValuePair.frozen) {
-                const auto dataSize = getStrideFromValueType(m_scanValueType);
+                const auto dataSize = getStrideFromValueType(addressValuePair.valueType);
                 memcpy(g_emulator->m_mem->m_wram + addressValuePair.address - 0x80000000, &addressValuePair.frozenValue,
                        dataSize);
             }
@@ -206,48 +206,55 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
 
         if (ImGui::BeginTabItem(_("Delta-over-time search"))) {
             const auto stride = getStrideFromValueType(m_scanValueType);
+            // With results on screen, the value input and the display options follow the type they were scanned as.
+            const auto activeType =
+                m_addressValuePairs.empty() ? m_scanValueType : m_addressValuePairs.front().valueType;
 
             if (ImGui::Button(_("New scan"))) {
                 if (m_addressValuePairs.empty()) {
+                    m_value = getValueAsSelectedType(m_value);
                     int64_t memValue = 0;
 
-                    for (uint32_t i = 0; i < memSize; ++i) {
-                        if (i != 0 && i % stride == 0) {
-                            switch (m_scanType) {
-                                case ScanType::ExactValue:
-                                    if (memValue == m_value) {
-                                        m_addressValuePairs.push_back({memBase + i - stride, memValue});
-                                    }
-                                    break;
-                                case ScanType::GreaterThan:
-                                    if (memValue > m_value) {
-                                        m_addressValuePairs.push_back({memBase + i - stride, memValue});
-                                    }
-                                    break;
-                                case ScanType::LessThan:
-                                    if (memValue < m_value) {
-                                        m_addressValuePairs.push_back({memBase + i - stride, memValue});
-                                    }
-                                    break;
-                                case ScanType::Changed:
-                                case ScanType::Unchanged:
-                                case ScanType::Increased:
-                                case ScanType::Decreased:
-                                    break;
-                                case ScanType::UnknownInitialValue:
-                                    m_addressValuePairs.push_back({memBase + i - stride, memValue});
-                                    break;
-                            }
-
-                            memValue = 0;
+                    auto evaluateBlock = [this](uint32_t address, int64_t blockValue) {
+                        switch (m_scanType) {
+                            case ScanType::ExactValue:
+                                if (blockValue == m_value) {
+                                    m_addressValuePairs.push_back({address, blockValue, m_scanValueType});
+                                }
+                                break;
+                            case ScanType::GreaterThan:
+                                if (blockValue > m_value) {
+                                    m_addressValuePairs.push_back({address, blockValue, m_scanValueType});
+                                }
+                                break;
+                            case ScanType::LessThan:
+                                if (blockValue < m_value) {
+                                    m_addressValuePairs.push_back({address, blockValue, m_scanValueType});
+                                }
+                                break;
+                            case ScanType::Changed:
+                            case ScanType::Unchanged:
+                            case ScanType::Increased:
+                            case ScanType::Decreased:
+                                break;
+                            case ScanType::UnknownInitialValue:
+                                m_addressValuePairs.push_back({address, blockValue, m_scanValueType});
+                                break;
                         }
+                    };
 
+                    for (uint32_t i = 0; i < memSize; ++i) {
                         const uint8_t currentByte = memData[i];
                         const uint8_t leftShift = 8 * (i % stride);
                         const uint32_t mask = 0xffffffff ^ (0xff << leftShift);
                         const int byteToWrite = currentByte << leftShift;
                         memValue = (memValue & mask) | byteToWrite;
                         memValue = getValueAsSelectedType(memValue);
+
+                        if ((i + 1) % stride == 0) {
+                            evaluateBlock(memBase + i + 1 - stride, memValue);
+                            memValue = 0;
+                        }
                     }
                 } else {
                     m_addressValuePairs.clear();
@@ -257,7 +264,7 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
 
             ImGui::Checkbox(_("Hex"), &m_hex);
 
-            if (!m_hex && stride > 1) {
+            if (!m_hex && getStrideFromValueType(activeType) > 1) {
                 ImGui::SameLine();
                 ImGui::Checkbox(_("Display as fixed-point values"), &m_fixedPoint);
             }
@@ -275,6 +282,17 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
                     }
                 }
                 ImGui::EndCombo();
+            }
+
+            if (!m_addressValuePairs.empty()) {
+                const auto resultsTypeName = magic_enum::enum_name(activeType);
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextDisabled(
+                    "%s", fmt::format(f_("Results were scanned as {}, and Next keeps using that type. The Value type "
+                                         "above applies to the next New scan."),
+                                      resultsTypeName)
+                              .c_str());
+                ImGui::PopTextWrapPos();
             }
 
             const auto currentScanType = magic_enum::enum_name(m_scanType);
@@ -301,7 +319,9 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
 
             ImGui::InputScalar(_("Value"), ImGuiDataType_S64, &m_value, NULL, NULL, m_hex ? "%x" : "%i",
                                m_hex ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
-            m_value = getValueAsSelectedType(m_value);
+            if (m_addressValuePairs.empty()) {
+                m_value = getValueAsSelectedType(m_value);
+            }
 
             if (InputDisabled) {
                 ImGui::EndDisabled();
@@ -309,18 +329,20 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
 
             ImGui::Separator();
             if (!m_addressValuePairs.empty() && ImGui::Button(_("Next"))) {
-                auto doesntMatchCriterion = [this, memData, memSize, stride](const AddressValuePair& addressValuePair) {
+                auto doesntMatchCriterion = [this, memData, memSize](const AddressValuePair& addressValuePair) {
                     const uint32_t address = addressValuePair.address;
-                    const int64_t memValue =
-                        getValueAsSelectedType(getMemValue(address, memData, memSize, memBase, stride));
+                    const auto entryType = addressValuePair.valueType;
+                    const int64_t memValue = getValueAsType(
+                        entryType, getMemValue(address, memData, memSize, memBase, getStrideFromValueType(entryType)));
+                    const int64_t value = getValueAsType(entryType, m_value);
 
                     switch (m_scanType) {
                         case ScanType::ExactValue:
-                            return memValue != m_value;
+                            return memValue != value;
                         case ScanType::GreaterThan:
-                            return memValue <= m_value;
+                            return memValue <= value;
                         case ScanType::LessThan:
-                            return memValue >= m_value;
+                            return memValue >= value;
                         case ScanType::Changed:
                             return memValue == addressValuePair.scannedValue;
                         case ScanType::Unchanged:
@@ -342,8 +364,10 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
                     m_scanType = ScanType::ExactValue;
                 } else {
                     for (auto& addressValuePair : m_addressValuePairs) {
-                        addressValuePair.scannedValue = getValueAsSelectedType(
-                            getMemValue(addressValuePair.address, memData, memSize, memBase, stride));
+                        const auto entryType = addressValuePair.valueType;
+                        addressValuePair.scannedValue =
+                            getValueAsType(entryType, getMemValue(addressValuePair.address, memData, memSize, memBase,
+                                                                  getStrideFromValueType(entryType)));
                     }
                 }
             }
@@ -352,8 +376,10 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
             if (!m_addressValuePairs.empty() && ImGui::Button(_("Freeze all"))) {
                 for (auto& addressValuePair : m_addressValuePairs) {
                     addressValuePair.frozen = true;
-                    addressValuePair.frozenValue = getValueAsSelectedType(getMemValue(
-                        addressValuePair.address, memData, memSize, memBase, getStrideFromValueType(m_scanValueType)));
+                    const auto entryType = addressValuePair.valueType;
+                    addressValuePair.frozenValue =
+                        getValueAsType(entryType, getMemValue(addressValuePair.address, memData, memSize, memBase,
+                                                              getStrideFromValueType(entryType)));
                 }
             }
             ImGui::SameLine();
@@ -377,11 +403,6 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
                 ImGui::TableSetupColumn(_("Remove"));
                 ImGui::TableHeadersRow();
 
-                bool as_uint = (m_scanValueType == ScanValueType::Uint);
-                const auto valueDisplayFormat = m_hex                          ? "%x"
-                                                : (m_fixedPoint && stride > 1) ? (as_uint ? "%u.%u" : "%i.%i")
-                                                                               : (as_uint ? "%u" : "%i");
-
                 ImGuiListClipper clipper;
                 clipper.Begin(m_addressValuePairs.size());
                 int rowToRemove = -1;
@@ -389,10 +410,16 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
                     for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
                         auto& addressValuePair = m_addressValuePairs[row];
                         const uint32_t currentAddress = addressValuePair.address;
-                        const auto memValue =
-                            getValueAsSelectedType(getMemValue(currentAddress, memData, memSize, memBase, stride));
+                        const auto entryType = addressValuePair.valueType;
+                        const auto entryStride = getStrideFromValueType(entryType);
+                        const auto memValue = getValueAsType(
+                            entryType, getMemValue(currentAddress, memData, memSize, memBase, entryStride));
                         const auto scannedValue = addressValuePair.scannedValue;
-                        const bool displayAsFixedPoint = !m_hex && m_fixedPoint && stride > 1;
+                        const bool displayAsFixedPoint = !m_hex && m_fixedPoint && entryStride > 1;
+                        const bool as_uint = (entryType == ScanValueType::Uint);
+                        const auto valueDisplayFormat = m_hex                 ? "%x"
+                                                        : displayAsFixedPoint ? (as_uint ? "%u.%u" : "%i.%i")
+                                                                              : (as_uint ? "%u" : "%i");
 
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
@@ -418,19 +445,19 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
                         auto showInMemEditorButtonName = fmt::format(f_("Show in memory editor##{}"), row);
                         if (ImGui::Button(showInMemEditorButtonName.c_str())) {
                             const uint32_t editorAddress = currentAddress - memBase;
-                            g_system->m_eventBus->signal(PCSX::Events::GUI::JumpToMemory{editorAddress, stride});
+                            g_system->m_eventBus->signal(PCSX::Events::GUI::JumpToMemory{editorAddress, entryStride});
                         }
                         ImGui::TableSetColumnIndex(5);
                         auto addReadBreakpointButtonName = fmt::format(f_("Read##{}"), row);
                         if (ImGui::Button(addReadBreakpointButtonName.c_str())) {
-                            g_emulator->m_debug->addBreakpoint(currentAddress, Debug::BreakpointType::Read, stride,
+                            g_emulator->m_debug->addBreakpoint(currentAddress, Debug::BreakpointType::Read, entryStride,
                                                                _("Memory Observer"));
                         }
                         ImGui::SameLine();
                         auto addWriteBreakpointButtonName = fmt::format(f_("Write##{}"), row);
                         if (ImGui::Button(addWriteBreakpointButtonName.c_str())) {
-                            g_emulator->m_debug->addBreakpoint(currentAddress, Debug::BreakpointType::Write, stride,
-                                                               _("Memory Observer"));
+                            g_emulator->m_debug->addBreakpoint(currentAddress, Debug::BreakpointType::Write,
+                                                               entryStride, _("Memory Observer"));
                         }
                         ImGui::TableSetColumnIndex(6);
                         auto removeButtonName = fmt::format(f_("╳##{}"), row);
@@ -468,7 +495,9 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
             ImGui::InputInt(C_("Search increment", "Step"), &m_step);
 
             if (m_step >= 1 && ImGui::Button(_("Search"))) {
-                if (m_useSIMD && m_sequenceSize == 8) {
+                if (m_sequence[0] == '\0') {
+                    m_addresses.clear();
+                } else if (m_useSIMD && m_sequenceSize == 8) {
                     simd_populateAddressList<8>(memData, memBase, memSize);
                 } else if (m_useSIMD && m_sequenceSize == 16) {
                     simd_populateAddressList<16>(memData, memBase, memSize);
@@ -528,8 +557,8 @@ uint8_t PCSX::Widgets::MemoryObserver::getStrideFromValueType(ScanValueType valu
     }
 }
 
-int64_t PCSX::Widgets::MemoryObserver::getValueAsSelectedType(int64_t memValue) {
-    switch (m_scanValueType) {
+int64_t PCSX::Widgets::MemoryObserver::getValueAsType(ScanValueType valueType, int64_t memValue) {
+    switch (valueType) {
         case ScanValueType::Char:
             int8_t char_val;
             memcpy(&char_val, &memValue, 1);
@@ -628,7 +657,8 @@ void PCSX::Widgets::MemoryObserver::populateAddressList(const uint8_t* memData, 
     const auto patternShuffleResults = getShuffleResultsFor(buffer);
 
     m_addresses.clear();
-    for (auto i = 0; i + sequenceSize < memSize; i += m_step) {
+    if (sequenceSize == 0) return;
+    for (auto i = 0; i + sequenceSize <= memSize; i += m_step) {
         std::copy_n(memData + i, sequenceSize, buffer.data());
 
         if (matchesPattern(buffer, patternShuffleResults)) {

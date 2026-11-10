@@ -19,7 +19,12 @@
 
 #include "core/memorycard.h"
 
+#ifdef _WIN32
+#include <process.h>
+#define getpid _getpid
+#else
 #include <unistd.h>
+#endif
 
 #include <cstring>
 #include <filesystem>
@@ -122,7 +127,11 @@ TEST_F(MemoryCardLoad, ValidFileLoads) {
 
 // A card file that exists but cannot be read must not be replaced by a blank card.
 TEST_F(MemoryCardLoad, UnreadableFileIsNotOverwritten) {
+#ifdef _WIN32
+    GTEST_SKIP() << "std::filesystem::permissions cannot make a file unreadable on Windows";
+#else
     if (::geteuid() == 0) GTEST_SKIP() << "root can read a write-only file";
+#endif
     const auto path = m_dir / "card.mcd";
     writeFile(path, c_cardSize, 0x33);
     std::filesystem::permissions(path, std::filesystem::perms::owner_write);

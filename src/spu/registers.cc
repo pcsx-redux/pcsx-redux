@@ -754,6 +754,14 @@ uint16_t PCSX::SPU::impl::readRegister(uint32_t reg) {
             } else {
                 stat &= ~StatusFlags::CBIndex;
             }
+            // Bits 7 and 9 rise together once a write DMA's data has landed in sound RAM, and read
+            // set again when DMA write mode comes back on before the next transfer. They are shown
+            // only while SPUSTAT's own bit 5 reads set, so they agree with the mode bits returned here:
+            // modplayer's SPUWaitIdle, which the OpenBIOS shell runs after its upload with the mode at
+            // stop, waits for (SPUSTAT & 0x7ff) == 0.
+            if ((stat & 0x20) && m_writeDMALandedCycle && readerCycle() >= m_writeDMALandedCycle) {
+                stat |= StatusFlags::DMARWRequest | StatusFlags::DMAReadRequest;
+            }
             return stat;
         }
 
@@ -805,8 +813,9 @@ void PCSX::SPU::impl::SoundOn(int start, int end, uint16_t val, uint64_t cycle) 
             cp.cachedOn = true;
             resetAdpcmWalk(ch);
             // One entry per voice actually keyed, carrying the address it is about to decode
-            // from: the only sample entry point that is ground truth rather than inference.
-            g_emulator->m_spuLogger->log(SPULogger::Kind::KeyOn, cp.keyOnBlock, 0, 1, ch);
+            // from: the only sample entry point that is ground truth rather than inference. The
+            // value is the pitch the voice starts at.
+            g_emulator->m_spuLogger->log(SPULogger::Kind::KeyOn, cp.keyOnBlock, 0, m_pitchShadow[ch], ch);
         }
     }
 }

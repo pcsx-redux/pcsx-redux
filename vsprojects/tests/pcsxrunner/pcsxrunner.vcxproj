@@ -274,6 +274,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\cputrace.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\hwevents.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpudump.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\gpudump-deinterlace.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-raster.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-threaded.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gte.cc" />
@@ -286,15 +287,18 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\rumble.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\sio1-misc.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\srwrite.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\icache.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\timers.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-command.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-dma-dreq.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-fbrect.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-irq.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-dfe-480i.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-480i-wait.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat10.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat26.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat-480i.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat-timeline.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-polyline.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-vram-move.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\msan.cc" />
@@ -305,6 +309,7 @@
     <ClCompile Include="..\..\..\tests\sstate-adpcm.cc" />
     <ClCompile Include="..\..\..\tests\sstate-cdrom.cc" />
     <ClCompile Include="..\..\..\tests\sstate-mdec.cc" />
+    <ClCompile Include="..\..\..\tests\spu-noise.cc" />
     <ClCompile Include="..\..\..\tests\spu-volume.cc" />
     <ClCompile Include="..\..\..\tests\modconv-layout.cc" />
     <ClCompile Include="..\..\..\tests\spu\overlay.cc" />
@@ -315,6 +320,17 @@
     <ClCompile Include="..\..\..\tests\core\i18n.cc" />
     <ClCompile Include="..\..\..\tests\core\pocketstation-flash-sync.cc" />
     <ClCompile Include="..\..\..\tests\core\spdwriter.cc" />
+    <ClCompile Include="..\..\..\tests\core\commandline.cc" />
+    <ClCompile Include="..\..\..\tests\core\gpulogger-hittest.cc" />
+    <ClCompile Include="..\..\..\tests\core\mdec-decoder.cc" />
+    <ClCompile Include="..\..\..\tests\core\memorycard.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\multitap.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-cdrom-flags.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-pad.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\stack-bounds.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\tapcard.cc" />
+    <ClCompile Include="..\..\..\tests\spu\adsr.cc" />
+    <ClCompile Include="..\..\..\tests\spu\reverbstate.cc" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

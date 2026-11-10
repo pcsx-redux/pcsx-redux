@@ -30,9 +30,7 @@ namespace SPU {
 // The SPU's single global noise generator. One LFSR, shared by every voice
 // whose noise-mode bit is set: such a voice outputs the current noise level in
 // place of its decoded/interpolated ADPCM sample. The shift+step bits of
-// SPUCTRL select the clock that paces the LFSR. Extracted out of the MainThread
-// synthesis loop and the SPU impl; the (Dr. Hell / Xebra) arithmetic is
-// unchanged.
+// SPUCTRL select the clock that paces the LFSR.
 //
 // Unlike the per-voice ADPCM/ADSR/interpolation helpers this is a single
 // per-SPU instance, so it lives in the impl rather than in SPUCHAN. getVal()
@@ -60,14 +58,19 @@ class NoiseGenerator {
     // Savestate bridge (freeze.cc only): mirror the LFSR state to/from the three
     // SPU-level savestate fields. The fields are passed in to keep the
     // conversion next to the state it serializes.
-    void saveTo(Protobuf::UInt32 &clock, Protobuf::UInt32 &count, Protobuf::UInt32 &value) const {
+    // legacyCount is the 16.16 accumulator older states carry instead of position; it is written
+    // as zero, and read only when position is zero.
+    void saveTo(Protobuf::UInt32 &clock, Protobuf::UInt32 &legacyCount, Protobuf::UInt32 &value,
+                Protobuf::UInt32 &position) const {
         clock.value = m_clock;
-        count.value = m_count;
+        legacyCount.value = 0;
         value.value = m_val;
+        position.value = m_count;
     }
-    void loadFrom(const Protobuf::UInt32 &clock, const Protobuf::UInt32 &count, const Protobuf::UInt32 &value) {
+    void loadFrom(const Protobuf::UInt32 &clock, const Protobuf::UInt32 &legacyCount, const Protobuf::UInt32 &value,
+                  const Protobuf::UInt32 &position) {
         setClock(clock.value);
-        m_count = count.value;
+        m_count = position.value ? position.value : legacyCount.value >> 16;
         m_val = value.value;
     }
 
@@ -76,7 +79,7 @@ class NoiseGenerator {
     static constexpr uint32_t kClockMask = 0x3f;
 
     uint32_t m_clock = 0;  // shift+step selector from SPUCTRL
-    uint32_t m_count = 0;  // fractional accumulator pacing the LFSR
+    uint32_t m_count = 0;  // position in the noise period, in samples
     uint32_t m_val = 1;    // LFSR state; the noise level lives in the low 16 bits
 };
 

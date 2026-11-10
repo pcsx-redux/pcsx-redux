@@ -153,6 +153,7 @@
     <ClCompile Include="..\..\src\gui\widgets\spusamples.cc" />
     <ClCompile Include="..\..\src\gui\widgets\handlers.cc" />
     <ClCompile Include="..\..\src\gui\widgets\heap_viewer.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\scope_profiler.cc" />
     <ClCompile Include="..\..\src\gui\widgets\hwregs.cc" />
     <ClCompile Include="..\..\src\gui\widgets\dalos.cc" />
     <ClCompile Include="..\..\src\gui\widgets\fileviewers.cc" />
@@ -204,6 +205,7 @@
     <ClInclude Include="..\..\src\gui\widgets\spusamples.h" />
     <ClInclude Include="..\..\src\gui\widgets\handlers.h" />
     <ClInclude Include="..\..\src\gui\widgets\heap_viewer.h" />
+    <ClInclude Include="..\..\src\gui\widgets\scope_profiler.h" />
     <ClInclude Include="..\..\src\gui\widgets\hwregs.h" />
     <ClInclude Include="..\..\src\gui\widgets\dalos.h" />
     <ClInclude Include="..\..\src\gui\widgets\fileviewers.h" />
