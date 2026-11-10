@@ -423,7 +423,10 @@ PCSX::GPU::BeamPosition PCSX::GPU::beamPosition(uint32_t mode) {
         frame = (pal ? 312 : 262) + (field ? 1 : 0);
     } else {
         field = m_heldField;
-        frame = pal ? 314 : 263;
+        // 263 or 314 lines on the console. Redux's counters run the same lengths unless the
+        // system type is forced against the game's mode; follow the counters then, so every line
+        // they count gets a position.
+        frame = counters->linesPerFrame();
     }
     const uint32_t vblank = std::min(y2, frame - 1);
     const uint32_t lastLine = frame - 1 - vblank;

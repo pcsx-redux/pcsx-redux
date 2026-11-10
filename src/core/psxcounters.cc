@@ -449,6 +449,10 @@ uint32_t PCSX::Counters::readTarget(uint32_t index) {
     return m_rcnts[index].target;
 }
 
+uint32_t PCSX::Counters::linesPerFrame() {
+    return m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()];
+}
+
 uint32_t PCSX::Counters::linesSinceVBlank() {
     update();
     auto video = PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>();
