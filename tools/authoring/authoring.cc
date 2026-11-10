@@ -146,7 +146,14 @@ class MovieVideo {
         }
         const AVStream* stream = m_format->streams[m_stream];
         if (stream->disposition & AV_DISPOSITION_ATTACHED_PIC) {
-            error = "its only picture is a cover image, not a video";
+            // av_find_best_stream passes over a video it has no decoder for, to the cover if there is one.
+            bool video = false;
+            for (unsigned i = 0; i < m_format->nb_streams; i++) {
+                const AVStream* other = m_format->streams[i];
+                video |= other->codecpar->codec_type == AVMEDIA_TYPE_VIDEO &&
+                         !(other->disposition & AV_DISPOSITION_ATTACHED_PIC);
+            }
+            error = video ? "ffmpeg has no decoder for its video" : "its only picture is a cover image, not a video";
             return false;
         }
         m_codec = avcodec_alloc_context3(codec);
@@ -379,7 +386,7 @@ static bool readMovieAudio(const std::string& path, unsigned channels, unsigned 
     const int stream = av_find_best_stream(format, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder, 0);
     // Sound ffmpeg has no decoder for is an error: taken as no sound, the movie would be written silent, unsaid.
     if (stream == AVERROR_DECODER_NOT_FOUND) {
-        error = "ffmpeg has no decoder for its sound";
+        error = "ffmpeg has no decoder for its sound (\"channels\": 0 makes the movie without it)";
         return done(false);
     }
     if (stream < 0) return done(true);

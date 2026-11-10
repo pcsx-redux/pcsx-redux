@@ -117,6 +117,8 @@ std::string PCSX::STR::check(const Settings &settings) {
     if (speed != 1 && speed != 2) return "the speed is 1 or 2";
     if (channels > 2) return "XA audio is mono or stereo";
     if (channels && rate != 37800 && rate != 18900) return "XA audio is at 37800 or 18900 Hz";
+    // The run-level is padded to whole 64 halfwords, so no frame meets a limit under 64.
+    if (settings.rlHalfwords && settings.rlHalfwords < 64) return "rlHalfwords is 0 for no limit, or at least 64";
     return {};
 }
 
@@ -204,7 +206,8 @@ PCSX::STR::Result PCSX::STR::encode(const Settings &settings, const FrameSource 
         }
         if (q > 63 && runLevelOver) {
             // Only a smaller picture decodes to less; more sectors do not help.
-            const bool header = !settings.rlHalfwords || settings.rlHalfwords > c_bsMostRunLevel;
+            // Past the header's count, no player's buffer helps; under it, the player's limit is what it missed.
+            const bool header = runLevel > c_bsMostRunLevel;
             error = fmt::format(
                 "frame {} decodes to {} run-level halfwords even at q_scale 63, more than {}: lower the size{}", number,
                 runLevel,

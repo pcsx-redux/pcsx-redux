@@ -129,14 +129,20 @@ TEST(Str, framesStayWithinTheRunLevelAPlayerHolds) {
     }
     // A limit no frame can meet is an error, as a frame too big for its sectors is; more sectors would not help,
     // and the message does not say they would.
-    settings.rlHalfwords = 2;
+    // 64x64 is 96 blocks, a DC and an end of block each at the least: 192 halfwords, where 32x32 would fit in 64.
+    settings.rlHalfwords = 128;
     std::vector<uint8_t> none;
     const auto tight = PCSX::STR::encode(settings, frames(1, 64, 64), {}, none);
     EXPECT_TRUE(tight.failed);
-    EXPECT_NE(tight.error.find("more than rlHalfwords (2): lower the size, or raise rlHalfwords"), std::string::npos)
+    EXPECT_NE(tight.error.find("more than rlHalfwords (128): lower the size, or raise rlHalfwords"), std::string::npos)
         << tight.error;
     EXPECT_EQ(tight.error.find("frame rate"), std::string::npos) << tight.error;
     EXPECT_TRUE(none.empty());
+    // and a limit under the smallest run-level a frame can have is refused before anything is encoded
+    settings.rlHalfwords = 63;
+    EXPECT_EQ(PCSX::STR::check(settings), "rlHalfwords is 0 for no limit, or at least 64");
+    settings.rlHalfwords = 64;
+    EXPECT_EQ(PCSX::STR::check(settings), "");
 }
 
 TEST(Str, theChunkHeaderRepeatsTheFramesBsHeader) {
@@ -240,6 +246,9 @@ TEST(Str, aFrameTooBigForItsShareFailsAndLeavesTheOutputAlone) {
     std::vector<uint8_t> out(100, 0x5a);
     const auto r = PCSX::STR::encode(settings, noise(320, 240), {}, out);
     EXPECT_TRUE(r.failed);
+    // Under the player's run-level limit even so: the sectors are what it misses, and all the message names.
+    EXPECT_NE(r.error.find("does not fit its 1 sectors"), std::string::npos) << r.error;
+    EXPECT_EQ(r.error.find("run-level"), std::string::npos) << r.error;
     ASSERT_EQ(out.size(), 100u);
     EXPECT_EQ(out[99], 0x5a);
     settings.rlHalfwords = 0;  // no run-level limit: the sectors are what it misses, and the message says so
@@ -253,16 +262,27 @@ TEST(Str, aFrameTooBigForItsShareFailsAndLeavesTheOutputAlone) {
 }
 
 TEST(Str, aFrameOverTheBsHeadersCountIsCoarsenedNotRefused) {
-    // 640x480 of fine detail runs past the 131070 halfwords a BS header counts at the finest q_scales. With a
-    // second of sectors for the frame and no player limit, only that count can make it coarser than q_scale 1.
+    // 640x480 of fine detail runs past the 131070 halfwords a BS header counts at q_scale 1, where the search used
+    // to end the movie; it goes on to a coarser q_scale instead.
     PCSX::STR::Settings settings;
     settings.fps = 1;
     settings.rlHalfwords = 0;
+    {
+        PCSX::STR::Planes planes;
+        std::string error;
+        ASSERT_EQ(frames(1, 640, 480)(planes, error), 1);
+        PCSX::DCT::Encoder dct(1);
+        std::vector<int16_t> coefficients(PCSX::DCT::requiredCoefficientCount(640, 480));
+        const auto shape = dct.submit(planes.frame(), coefficients).get();
+        ASSERT_FALSE(shape.failed);
+        std::vector<uint16_t> rl;
+        ASSERT_FALSE(PCSX::DCT::pack(coefficients, shape, settings.quant, 1, rl).failed);
+        ASSERT_GT(rl.size(), 131070u);  // else this tests nothing
+    }
     std::vector<uint8_t> out;
     const auto r = PCSX::STR::encode(settings, frames(1, 640, 480), {}, out);
     ASSERT_FALSE(r.failed) << r.error;
     EXPECT_GT(r.worstQScale, 1);
-    EXPECT_LE(r.mostRunLevel, 131070u);
     EXPECT_EQ(2u * le16(out.data() + 24 + 32), r.mostRunLevel);
 }
 

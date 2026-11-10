@@ -52,7 +52,8 @@ struct Settings {
     uint8_t channelNumber = 0;
     // The most run-level a frame may decode to, in halfwords: psyqo-paths'
     // StrPlayer drops a frame needing more than its rlHalfwords, 28672 by
-    // default. 0 for no limit.
+    // default. 0 for no limit, otherwise at least 64: the run-level is padded
+    // to whole 64 halfwords, so no frame needs less (check() refuses it).
     unsigned rlHalfwords = 28672;
     DCT::Transform transform = DCT::Transform::ExactMatrix;
     DCT::QuantTables quant;
