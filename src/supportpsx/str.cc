@@ -192,9 +192,10 @@ PCSX::STR::Result PCSX::STR::encode(const Settings &settings, const FrameSource 
         }
         if (q > 63) {
             error = fmt::format(
-                "frame {} does not fit its {} sectors and {} run-level halfwords even at q_scale 63: lower the size "
-                "or the frame rate{}",
-                number, chunks, settings.rlHalfwords, speed == 1 ? ", or stream it at double speed" : "");
+                "frame {} does not fit its {} sectors{} even at q_scale 63: lower the size or the frame rate{}", number,
+                chunks,
+                settings.rlHalfwords ? fmt::format(" and {} run-level halfwords", settings.rlHalfwords) : std::string(),
+                speed == 1 ? ", or stream it at double speed" : "");
             return -1;
         }
         result.mostRunLevel = std::max(result.mostRunLevel, 2u * (bs[0] | (bs[1] << 8)));

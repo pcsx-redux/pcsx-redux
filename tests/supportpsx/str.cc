@@ -235,8 +235,15 @@ TEST(Str, aFrameTooBigForItsShareFailsAndLeavesTheOutputAlone) {
     const auto r = PCSX::STR::encode(settings, noise(320, 240), {}, out);
     EXPECT_TRUE(r.failed);
     EXPECT_NE(r.error.find("does not fit"), std::string::npos) << r.error;
+    EXPECT_NE(r.error.find("and 28672 run-level halfwords"), std::string::npos) << r.error;
     ASSERT_EQ(out.size(), 100u);
     EXPECT_EQ(out[99], 0x5a);
+    settings.rlHalfwords = 0;  // no run-level limit: the message names the sectors alone
+    const auto unlimited = PCSX::STR::encode(settings, noise(320, 240), {}, out);
+    EXPECT_TRUE(unlimited.failed);
+    EXPECT_NE(unlimited.error.find("does not fit"), std::string::npos) << unlimited.error;
+    EXPECT_EQ(unlimited.error.find("run-level"), std::string::npos) << unlimited.error;
+    EXPECT_EQ(out.size(), 100u);
 }
 
 TEST(Str, framesOfDifferentSizesAreRefused) {
