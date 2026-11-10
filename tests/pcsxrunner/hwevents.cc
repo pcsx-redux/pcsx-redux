@@ -523,3 +523,65 @@ TEST(HWEvents, SPUWritesAndKeys) {
     EXPECT_EQ(s_spu.unpairedKeys, 0u);
     EXPECT_EQ(s_spu.unkeyedKonWrites, 0u);
 }
+
+// Saves the store from Lua, loads it back, and compares every byte; then checks
+// that a file with a bad magic and a truncated file are both refused and leave
+// the store empty.
+TEST(HWEvents, SaveAndLoadRoundTrip) {
+    auto dir = std::filesystem::temp_directory_path();
+    auto saved = dir / "pcsx-hwevents-save.bin";
+    auto bad = dir / "pcsx-hwevents-bad.bin";
+    auto cut = dir / "pcsx-hwevents-cut.bin";
+    auto luaOut = dir / "pcsx-hwevents-save.txt";
+    for (auto& p : {saved, bad, cut, luaOut}) std::filesystem::remove(p);
+    // MainInvoker probes each argument as a path, so a slash comes early.
+    std::string lua = "-- /\nlocal saved, bad, cut, out = '" + saved.generic_string() + "', '" + bad.generic_string() +
+                      "', '" + cut.generic_string() + "', '" + luaOut.generic_string() + R"('
+PCSX.HWEvents.arm('IRQ', 'DMA')
+HWEventsSaveQuit = PCSX.Events.createEventListener('Quitting', function()
+    local before, n = PCSX.HWEvents.read()
+    local bytes = ffi.string(before, n * ffi.sizeof('PCSX_HWEvent'))
+    local wrote = PCSX.HWEvents.save(saved)
+    PCSX.HWEvents.clear()
+    local loaded = PCSX.HWEvents.load(saved)
+    local after, m = PCSX.HWEvents.read()
+    local same = m == n and ffi.string(after, m * ffi.sizeof('PCSX_HWEvent')) == bytes
+    local f = io.open(saved, 'rb')
+    local file = f:read('*a')
+    f:close()
+    f = io.open(bad, 'wb')
+    f:write('PCSXTRC' .. file:sub(8))
+    f:close()
+    f = io.open(cut, 'wb')
+    f:write(file:sub(1, #file - 16))
+    f:close()
+    local badRefused = not PCSX.HWEvents.load(bad) and PCSX.HWEvents.size() == 0
+    PCSX.HWEvents.load(saved)
+    local cutRefused = not PCSX.HWEvents.load(cut) and PCSX.HWEvents.size() == 0
+    f = io.open(out, 'w')
+    f:write(string.format('%d %d %s %s %s %s %s', n, #file, tostring(wrote), tostring(loaded), tostring(same),
+        tostring(badRefused), tostring(cutRefused)))
+    f:close()
+end)
+)";
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-exec", lua.c_str(), "-loadexe", "src/mips/tests/dma/dma.ps-exe");
+    int ret = invoker.invoke();
+    EXPECT_EQ(ret, 0);
+    std::ifstream in(luaOut);
+    ASSERT_TRUE(in.good()) << "the Lua Quitting listener did not write " << luaOut;
+    uint64_t count = 0, fileSize = 0;
+    std::string wrote, loaded, same, badRefused, cutRefused;
+    in >> count >> fileSize >> wrote >> loaded >> same >> badRefused >> cutRefused;
+    printf("hwevents save: %llu events, %llu bytes\n", (unsigned long long)count, (unsigned long long)fileSize);
+    EXPECT_GT(count, 0u);
+    // 24-byte header, then the raw records.
+    EXPECT_EQ(fileSize, 24 + count * sizeof(PCSX::HWEvent));
+    EXPECT_EQ(wrote, "true");
+    EXPECT_EQ(loaded, "true");
+    EXPECT_EQ(same, "true");
+    EXPECT_EQ(badRefused, "true");
+    EXPECT_EQ(cutRefused, "true");
+    in.close();
+    for (auto& p : {saved, bad, cut, luaOut}) std::filesystem::remove(p);
+}

@@ -24,6 +24,8 @@
 #include <memory>
 #include <vector>
 
+#include "support/file.h"
+
 namespace PCSX {
 
 // One hardware event. Fixed 32 bytes so the store is a flat, index-addressable
@@ -118,6 +120,12 @@ class HWEvents {
     bool empty() const { return m_count == 0; }
     const HWEvent& operator[](size_t idx) const { return m_chunks[idx / kRecordsPerChunk][idx % kRecordsPerChunk]; }
     void clear();
+
+    // The records behind a small header, the same layout as CpuTrace::save. load()
+    // replaces the contents; on a bad or truncated file it returns false and leaves
+    // the store empty.
+    bool save(IO<File> file) const;
+    bool load(IO<File> file);
 
     // Recording stops once the store holds this many events. 0 means no limit.
     void setLimit(size_t records) { m_limit = records; }
