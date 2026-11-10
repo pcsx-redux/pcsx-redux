@@ -28,6 +28,7 @@
 #include "core/debug.h"
 #include "core/gpudump.h"
 #include "core/gpulogger.h"
+#include "core/hwevents.h"
 #include "core/pgxp_mem.h"
 #include "core/psxcounters.h"
 #include "core/psxdma.h"
@@ -543,6 +544,10 @@ void PCSX::GPU::writeStatus(uint32_t value) {
     uint32_t cmd = (value >> 24) & 0xff;
     bool gotUnknown = false;
 
+    auto &events = *g_emulator->m_hwEvents;
+    if (events.armed(HWEvents::Source::GPU)) [[unlikely]] {
+        events.record(HWEvents::GPUControl, value);
+    }
     if (m_dumper) m_dumper->gp1(value);
     m_statusControl[cmd] = value;
 
@@ -739,6 +744,10 @@ void PCSX::GPU::chainedDMAWrite(const uint32_t *memory, uint32_t hwAddr) {
 void PCSX::GPU::Command::processWrite(Buffer &buf, Logged::Origin origin, uint32_t originValue, uint32_t length) {
     while (!buf.isEmpty()) {
         uint32_t value = buf.get();
+        auto &events = *g_emulator->m_hwEvents;
+        if (events.armed(HWEvents::Source::GPU)) [[unlikely]] {
+            events.record(HWEvents::GPUCommand, value, static_cast<uint32_t>(origin), originValue, length);
+        }
         bool gotUnknown = false;
         const uint8_t cmdType = value >> 29;           // 3 topmost bits = command "type"
         const uint8_t command = (value >> 24) & 0x1f;  // 5 next bits = "command", which may be a bitfield

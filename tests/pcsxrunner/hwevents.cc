@@ -21,12 +21,14 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <filesystem>
 #include <fstream>
 #include <string>
 
 #include "core/psxemulator.h"
+#include "core/psxmem.h"
 #include "core/r3000a.h"
 #include "gtest/gtest.h"
 #include "main/main.h"
@@ -327,4 +329,108 @@ TEST(HWEvents, CDROMCommandsResponsesAndSectors) {
     EXPECT_EQ(luaCommands, s_cd.commands);
     in.close();
     std::filesystem::remove(luaOut);
+}
+
+namespace {
+
+struct GPUSeen {
+    uint64_t total = 0;
+    uint64_t stampMismatches = 0;
+    uint64_t commands[4] = {};
+    uint64_t polygons = 0;
+    uint64_t controls = 0;
+    uint64_t badOrigin = 0;
+    uint64_t portValueMismatches = 0;
+    uint64_t wordNotInBlock = 0;
+    uint64_t chainOutsideDMA = 0;
+    bool dmaActive = false;
+};
+
+GPUSeen s_gpu;
+
+// True when `word` is one of the `count` words starting at physical address `addr`.
+bool wordInRAM(uint32_t word, uint32_t addr, uint32_t count) {
+    auto* ram = PCSX::g_emulator->m_mem->m_wram;
+    for (uint32_t i = 0; i < count; i++) {
+        uint32_t a = (addr + i * 4) & 0x1ffffc;
+        uint32_t w;
+        memcpy(&w, ram + a, 4);
+        if (w == word) return true;
+    }
+    return false;
+}
+
+void observeGPU(const PCSX::HWEvent& e) {
+    auto& regs = PCSX::g_emulator->m_cpu->m_regs;
+    if (e.cycle != regs.cycle || e.pc != regs.pc) s_gpu.stampMismatches++;
+    s_gpu.total++;
+    switch (e.type) {
+        case PCSX::HWEvents::DMAStart:
+            if (e.payload[0] == 2) s_gpu.dmaActive = true;
+            break;
+        case PCSX::HWEvents::DMAComplete:
+            if (e.payload[0] == 2) s_gpu.dmaActive = false;
+            break;
+        case PCSX::HWEvents::GPUControl:
+            s_gpu.controls++;
+            break;
+        case PCSX::HWEvents::GPUCommand: {
+            uint32_t word = e.payload[0], origin = e.payload[1], value = e.payload[2], length = e.payload[3];
+            if ((word >> 29) == 1) s_gpu.polygons++;
+            switch (origin) {
+                case 0:  // port write: the value is the word itself
+                    if (value != word || length != 1) s_gpu.portValueMismatches++;
+                    break;
+                case 2:  // block DMA from MADR
+                    if (!wordInRAM(word, value, length)) s_gpu.wordNotInBlock++;
+                    break;
+                case 3:  // linked-list node, its words follow the header
+                    if (!wordInRAM(word, value + 4, length)) s_gpu.wordNotInBlock++;
+                    if (!s_gpu.dmaActive) s_gpu.chainOutsideDMA++;
+                    break;
+                default:
+                    s_gpu.badOrigin++;
+                    break;
+            }
+            if (origin < 4) s_gpu.commands[origin]++;
+        } break;
+        default:
+            break;
+    }
+}
+
+struct GPUObserverScope {
+    GPUObserverScope() {
+        s_gpu = GPUSeen{};
+        PCSX::HWEvents::s_recordObserver = observeGPU;
+    }
+    ~GPUObserverScope() { PCSX::HWEvents::s_recordObserver = nullptr; }
+};
+
+}  // namespace
+
+TEST(HWEvents, GPUCommandsCarryTheirWordAndOrigin) {
+    GPUObserverScope scope;
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        // MainInvoker probes each argument as a path, so a slash comes early.
+                        "-exec", "-- /\nPCSX.HWEvents.arm('GPU', 'DMA')", "-loadexe",
+                        "src/mips/tests/gpu-dma-dreq/gpu-dma-dreq.ps-exe");
+    int ret = invoker.invoke();
+    EXPECT_EQ(ret, 0);
+    printf(
+        "hwevents gpu: %llu events, GP0 %llu port / %llu block / %llu list, %llu polygons, %llu GP1 writes\n",
+        (unsigned long long)s_gpu.total, (unsigned long long)s_gpu.commands[0], (unsigned long long)s_gpu.commands[2],
+        (unsigned long long)s_gpu.commands[3], (unsigned long long)s_gpu.polygons,
+        (unsigned long long)s_gpu.controls);
+    EXPECT_EQ(s_gpu.stampMismatches, 0u);
+    EXPECT_GT(s_gpu.controls, 0u);
+    // gpu-dma-dreq feeds GP0 through the port, block DMA and linked-list DMA.
+    EXPECT_GT(s_gpu.commands[0], 0u);
+    EXPECT_GT(s_gpu.commands[2], 0u);
+    EXPECT_GT(s_gpu.commands[3], 0u);
+    EXPECT_GT(s_gpu.polygons, 0u);
+    EXPECT_EQ(s_gpu.badOrigin, 0u);
+    EXPECT_EQ(s_gpu.portValueMismatches, 0u);
+    EXPECT_EQ(s_gpu.wordNotInBlock, 0u);
+    EXPECT_EQ(s_gpu.chainOutsideDMA, 0u);
 }
