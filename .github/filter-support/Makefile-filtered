@@ -25,8 +25,9 @@ CPPFLAGS += -Ithird_party/googletest/googletest/include
 CPPFLAGS += -Ithird_party/PEGTL/include
 CPPFLAGS += -Ithird_party/ucl -Ithird_party/ucl/include
 CPPFLAGS += -g
-# authoring encodes movies through ffmpeg, which this tree does not link.
-CPPFLAGS += -DAUTHORING_NO_FFMPEG
+# This tree links no ffmpeg: src/support/ffmpeg-movie-file-none.cc is the movie
+# reader here, and authoring refuses movies.
+CPPFLAGS += -DPCSX_NO_FFMPEG
 
 CPPFLAGS_Release += -O3
 CPPFLAGS_Debug += -O0

@@ -226,8 +226,10 @@ LIBS := third_party/luajit/src/libluajit.a
 # lives in src/core; it is linked in on its own, without the rest of core.
 TOOL_EXTRA_OBJECTS_mdec := objs/$(BUILD)/src/core/mdec-decoder.o
 
-# tools/authoring reads movie entries through ffmpeg. The distribution's ffmpeg
-# does not link statically, so this tool links it, and only it, dynamically.
+# tools/authoring reads movie entries through ffmpeg, with src/support's
+# ffmpeg-movie-file. The distribution's ffmpeg does not link statically, so this
+# tool links it, and only it, dynamically.
+TOOL_EXTRA_OBJECTS_authoring := objs/$(BUILD)/src/support/ffmpeg-movie-file.o
 TOOL_LIBS_authoring := $(shell pkg-config --libs libavformat libavcodec libavutil libswresample)
 
 TOOLS = authoring exe2elf exe2exe exe2iso exe2sys573 mdec midi2psm midi2spd modconv ps1-packer psyq-obj-parser xmconv

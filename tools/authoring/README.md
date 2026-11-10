@@ -60,7 +60,7 @@ What plays it has to agree with it. The frames are the size given, rounded up to
 
 Some things a source may carry are not followed. The sound is taken to start with the picture. A rotated video, such as a phone's portrait clip, is not turned upright, and HDR is not tone mapped; ffmpeg can do either first. A YUV video that does not name its colour matrix is taken as BT.601, as ffmpeg's own scaler takes it. Packets ffmpeg finds damaged are left out, and the tool says how many. An STR movie given as a `movie` is decoded and encoded again, which the tool warns of.
 
-Encoding movies needs ffmpeg's libavformat, libavcodec, libavutil and libswresample when the tool is built, and the tool links them, so it needs them to start at all, with movies or without. Built with `AUTHORING_NO_FFMPEG` defined, as the support mirror's Makefile and the xmake build without those libraries do, the tool does everything else and refuses movie entries.
+Encoding movies needs ffmpeg's libavformat, libavcodec, libavutil and libswresample when the tool is built, and the tool links them, so it needs them to start at all, with movies or without. It reads them with `src/support/ffmpeg-movie-file.cc`. A build without those libraries, such as the support mirror's Makefile, or the xmake build when pkg-config does not find them, defines `PCSX_NO_FFMPEG` and gets `ffmpeg-movie-file-none.cc` in its place: the tool does everything else, and refuses movie entries.
 
 The tool accepts the following command line arguments:
 
