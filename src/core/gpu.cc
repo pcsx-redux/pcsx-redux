@@ -451,6 +451,9 @@ uint32_t PCSX::GPU::readStatusFromBus() {
     // lines and 0 elsewhere. Same on v0 and v2. Bit 13 is the field flag on v2 and stays clear in
     // 480i on v0; there is no GPU revision setting, so this models v2.
     if (((mode & 0x2c) == 0x24) && (m_fieldOverride >= 0)) return ret | (uint32_t(m_fieldOverride) << 31);
+    // A detached GPU (the dump player's) is not on the emulated machine's beam; reading the live
+    // counters would advance them. It reports the held flag and no displayed line.
+    if (m_detached) return ret | (m_heldField ? 0x00002000 : 0);
     const auto beam = beamPosition(mode);
     if (beam.field) ret |= 0x00002000;
     if (beam.active && (((mode & 0x24) == 0x24) ? !beam.field : (beam.line & 1))) ret |= 0x80000000;
@@ -589,7 +592,7 @@ void PCSX::GPU::writeStatus(uint32_t value) {
     bool gotUnknown = false;
 
     if (m_dumper) m_dumper->gp1(value);
-    if (cmd == 8) {
+    if ((cmd == 8) && !m_detached && !m_replayingGP1) {
         // Turning interlace off freezes the field flag; turning it on resumes the alternation
         // from the frozen value.
         const uint32_t old = m_statusControl[8];

@@ -119,6 +119,9 @@ class GPU {
     // it holds m_heldField. Both are save-stated.
     bool m_heldField = true;
     bool m_fieldPhase = false;
+    // Set while restoreState() replays the GP1 bank: the counters may not be restored yet, and
+    // reading them would advance them, so the replay leaves the field flag alone.
+    bool m_replayingGP1 = false;
     // True when the Deinterlace setting draws both fields of a 480i frame. GPU dumps record the
     // accurate path: the dump player's GPU sets m_neverDeinterlace, and the emulated GPU draws one
     // field at a time while a dump is armed, so the dump's initial VRAM upload holds accurate fields.

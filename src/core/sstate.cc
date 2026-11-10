@@ -793,6 +793,7 @@ void PCSX::GPU::restoreState(uint32_t status, const uint16_t* vram, unsigned vra
     // Replay from a copy: GP1(00h) rewrites the GP1(08h) slot with the reset display mode.
     uint32_t saved[256];
     std::copy(std::begin(m_statusControl), std::end(m_statusControl), saved);
+    m_replayingGP1 = true;
     writeStatus(saved[0]);
     writeStatus(saved[1]);
     writeStatus(saved[2]);
@@ -802,6 +803,7 @@ void PCSX::GPU::restoreState(uint32_t status, const uint16_t* vram, unsigned vra
     writeStatus(saved[7]);
     writeStatus(saved[5]);
     writeStatus(saved[4]);
+    m_replayingGP1 = false;
 
     restoreEnvironment(env, status);
     // The GP1 and environment replays above rebuild the status word from commands, which loses
