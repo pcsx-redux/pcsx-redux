@@ -62,10 +62,12 @@ class HWEvents {
         // bytes, packed little-endian
         CDCommand = 0x0301,
         // A response the controller produces, at the moment it produces it.
-        // payload: cause | byte count << 8 | posted << 16 | IRQ raised << 17, then
-        // the first 12 response bytes, packed little-endian. posted means it went
-        // straight into the slot the host reads; otherwise it waits behind the
-        // current one and reaches the host later.
+        // payload: cause | byte count << 8 | posted << 16 | IRQ raised << 17 |
+        // dropped << 18, then the first 12 response bytes, packed little-endian.
+        // posted means it went straight into the slot the host reads, and IRQ
+        // raised that its cause got through the interrupt mask there; otherwise
+        // it waits behind an older one and reaches the host later, or, with both
+        // slots full, is dropped.
         CDResponse = 0x0302,
         // A data sector read off the disc.
         // payload: position as (m * 60 + s) * 75 + f, so 00:02:00 is 150; bytes
