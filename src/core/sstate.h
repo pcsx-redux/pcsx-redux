@@ -111,7 +111,10 @@ typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("status"), 1> GPUStatus;
 typedef Protobuf::Field<Protobuf::FixedBytes<0x400>, TYPESTRING("control"), 2> GPUControl;
 typedef Protobuf::Field<Protobuf::FixedBytes<0x00200000>, TYPESTRING("vram"), 3> GPUVRam;
 typedef Protobuf::Field<Protobuf::FixedBytes<24>, TYPESTRING("environment"), 4> GPUEnvironment;
-typedef Protobuf::Message<TYPESTRING("GPU"), GPUStatus, GPUControl, GPUVRam, GPUEnvironment> GPU;
+// Bit 0: the frozen interlace field flag is 0. Bit 1: the field flag's phase is flipped. Absent
+// on older states, which then hold the flag at 1 with no flip.
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("field_flags"), 5> GPUFieldFlags;
+typedef Protobuf::Message<TYPESTRING("GPU"), GPUStatus, GPUControl, GPUVRam, GPUEnvironment, GPUFieldFlags> GPU;
 typedef Protobuf::MessageField<GPU, TYPESTRING("gpu"), 5> GPUField;
 
 typedef Protobuf::Field<Protobuf::FixedBytes<0x80000>, TYPESTRING("ram"), 1> SPURam;

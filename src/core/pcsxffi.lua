@@ -150,8 +150,8 @@ bool writeSPULoggerSPD(LuaFile*);
 const char* getSPULoggerExportError();
 
 LuaSlice* createSaveState();
-void loadSaveStateFromSlice(LuaSlice*);
-void loadSaveStateFromFile(LuaFile*);
+bool loadSaveStateFromSlice(LuaSlice*);
+bool loadSaveStateFromFile(LuaFile*);
 
 void createRewindState();
 bool rewindState();
@@ -449,9 +449,9 @@ PCSX = {
     loadSaveState = function(obj)
         if type(obj) ~= 'table' then error('loadSaveState: requires an object as input') end
         if obj._type == 'Slice' then
-            C.loadSaveStateFromSlice(obj._wrapper)
+            return C.loadSaveStateFromSlice(obj._wrapper)
         elseif obj._type == 'File' then
-            C.loadSaveStateFromFile(obj._wrapper)
+            return C.loadSaveStateFromFile(obj._wrapper)
         else
             error('loadSaveState: requires a Slice or File as input')
         end
