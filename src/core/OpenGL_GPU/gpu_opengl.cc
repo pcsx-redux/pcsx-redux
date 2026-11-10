@@ -715,7 +715,8 @@ void PCSX::OpenGL_GPU::setMaskBits(bool set, bool check) {
 
 // Records the VRAM bounding box of a primitive drawn under check-mask, after the draw offset and the
 // drawing area clip. The pixels a polygon, line or rectangle writes lie inside the box of its
-// vertices. If the box overlaps the pending batch, the batch is drawn first.
+// vertices; with MSAA, also one pixel to the right and below, for the samples taken past the right and
+// bottom edges. If the box overlaps the pending batch, the batch is drawn first.
 void PCSX::OpenGL_GPU::addCheckMaskBounds(const int *xs, const int *ys, int n) {
     if (!m_checkMask) return;
     // A primitive adds at most 6 vertices. Flush now if they would not fit, so the primitive and its
@@ -731,10 +732,11 @@ void PCSX::OpenGL_GPU::addCheckMaskBounds(const int *xs, const int *ys, int n) {
         maxY = std::max(maxY, ys[i]);
     }
     const int clipLeft = int(m_scissorBox.x), clipTop = int(m_scissorBox.y);
+    const int fringe = m_multisampled ? 1 : 0;
     minX = std::max(minX + offsetX, clipLeft);
-    maxX = std::min(maxX + offsetX, clipLeft + int(m_scissorBox.width) - 1);
+    maxX = std::min(maxX + offsetX + fringe, clipLeft + int(m_scissorBox.width) - 1);
     minY = std::max(minY + offsetY, clipTop);
-    maxY = std::min(maxY + offsetY, clipTop + int(m_scissorBox.height) - 1);
+    maxY = std::min(maxY + offsetY + fringe, clipTop + int(m_scissorBox.height) - 1);
     if (minX > maxX || minY > maxY) return;
 
     if (m_batchBoundsValid) {
