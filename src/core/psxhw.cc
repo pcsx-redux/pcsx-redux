@@ -428,6 +428,9 @@ void recordSPUWrite(uint32_t hwadd, uint16_t value, uint32_t width) {
     auto &events = *PCSX::g_emulator->m_hwEvents;
     if (!events.armed(PCSX::HWEvents::Source::SPU)) [[likely]] return;
     events.record(PCSX::HWEvents::SPURegWrite, hwadd, value, width);
+    // The SPU decodes KON and KOFF on even addresses only, so a byte write to an
+    // odd one keys nothing.
+    if (hwadd & 1) return;
     // The upper halves of KON and KOFF hold voices 16 to 23 in their low byte.
     const uint32_t voices = (uint32_t(value) << ((hwadd & 2) ? 16 : 0)) & 0xffffff;
     switch (hwadd & ~3u) {

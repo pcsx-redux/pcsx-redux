@@ -469,7 +469,7 @@ void observeSPU(const PCSX::HWEvent& e) {
             uint32_t addr = e.payload[0];
             if (addr < 0x1f801c00 || addr >= 0x1f801e00) s_spu.outOfRange++;
             uint32_t reg = addr & ~3u;
-            if (reg == 0x1f801d88 || reg == 0x1f801d8c) s_spu.pendingKey = true;
+            if ((reg == 0x1f801d88 || reg == 0x1f801d8c) && !(addr & 1)) s_spu.pendingKey = true;
         } break;
         case PCSX::HWEvents::SPUKeyOn:
         case PCSX::HWEvents::SPUKeyOff: {
