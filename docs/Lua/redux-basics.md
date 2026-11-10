@@ -250,7 +250,7 @@ typedef struct {
 
 ## Hardware events
 
-`PCSX.HWEvents` records hardware events as fixed records, stamped with the same cycle counter as the CPU trace, so the two can be lined up. Nothing is recorded until a source is armed. The sources so far are `IRQ` (an interrupt line being asserted), `DMA` (a channel starting, and completing) `CDROM` (the controller's commands, responses and data sectors) and `GPU` (GP0 commands and GP1 writes). The store stops growing at 8 million events.
+`PCSX.HWEvents` records hardware events as fixed records, stamped with the same cycle counter as the CPU trace, so the two can be lined up. Nothing is recorded until a source is armed. The sources so far are `IRQ` (an interrupt line being asserted), `DMA` (a channel starting, and completing) `CDROM` (the controller's commands, responses and data sectors) `GPU` (GP0 commands and GP1 writes) and `SPU` (register writes, key on and key off). The store stops growing at 8 million events.
 
 - `.arm(source, ...)` arms one or more sources by name, `PCSX.HWEvents.arm('IRQ', 'DMA')`, and `.disarm()` turns them all off. `.mask()` and `.setMask(mask)` read and write the mask directly, one bit per source, at `1 << PCSX.HWEvents.Sources[name]`.
 - `.size()`, `.clear()`
@@ -275,6 +275,8 @@ typedef struct {
 - `CDSector` (`0x0303`): a data sector read off the disc. The position as `(m * 60 + s) * 75 + f`, so 00:02:00 is 150; the number of bytes handed to the host, 0 when the sector was withheld, like real-time XA audio; the sector mode with the Setmode value in bits 8-15; and the Mode 2 subheader (file, channel, submode, coding), or 0.
 - `GPUCommand` (`0x0401`): the first word of a GP0 command, NOPs included; how it arrived (0 port write, 2 block DMA, 3 linked-list DMA); the port value, or the DMA address of the block or list node; and the word count of that write. When it came by DMA, the rest of the command's words follow it in RAM.
 - `GPUControl` (`0x0402`): a GP1 write, with the value written.
+- `SPURegWrite` (`0x0501`): a CPU write to an SPU register: the address, the value, and the width in bits (8 or 16).
+- `SPUKeyOn` (`0x0502`) and `SPUKeyOff` (`0x0503`): recorded right after the KON or KOFF write they come from, with the voices it names, bit n for voice n.
 
 ## Disc and lid
 
