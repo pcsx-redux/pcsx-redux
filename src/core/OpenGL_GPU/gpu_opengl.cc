@@ -1294,9 +1294,21 @@ void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
     width = ((width - 1) & 0x3ff) + 1;
     height = ((height - 1) & 0x1ff) + 1;
 
-    if (m_setMask || m_checkMask) {
-        // The copy honours GP0(E6h) per pixel, in the same row-major order as the software renderer, so
-        // it runs on a CPU copy of VRAM.
+    // Source and destination Y each wrap per row through resolveVramY(), and rows landing on an
+    // unpopulated upper bank (open bus on a 1MB fitment) are dropped. A single blit only covers a copy
+    // that is contiguous on both ends.
+    const unsigned srcY0 = resolveVramY(srcY);
+    const unsigned destY0 = resolveVramY(destY);
+    bool contiguous = true;
+    for (uint32_t j = 0; contiguous && (j < height); j++) {
+        contiguous = !vramOpenBus(destY + j) && (resolveVramY(srcY + j) == srcY0 + j) &&
+                     (resolveVramY(destY + j) == destY0 + j);
+    }
+
+    if (m_setMask || m_checkMask || !contiguous) {
+        // The copy runs per pixel on a CPU copy of VRAM, in the same row-major order as the software
+        // renderer, so it honours GP0(E6h), and an overlapping wrapped copy reads what the rows before
+        // it wrote.
         OpenGL::enableScissor();
         auto slice = getVRAM(Ownership::BORROW);
         uint16_t *vram = slice.mutableData<uint16_t>();
@@ -1315,36 +1327,14 @@ void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
         return;
     }
 
-    const auto blit = [this, srcX, destX, width](GLint sy, GLint dy, GLint h) {
-        if (m_multisampled) {
-            // A blit between two multisampled framebuffers needs identical source and destination
-            // rectangles, so go through the resolved copy.
-            resolveMSAA(srcX, sy, width, h);
-            blitFromResolved(srcX, sy, destX, dy, width, h);
-        } else {
-            glBlitFramebuffer(srcX, sy, srcX + width, sy + h, destX, dy, destX + width, dy + h, GL_COLOR_BUFFER_BIT,
-                              GL_NEAREST);
-        }
-    };
-
-    // As in the masked path, source and destination Y each wrap per row through resolveVramY(), so the
-    // copy is split into runs of rows that are contiguous on both ends. Rows landing on an unpopulated
-    // upper bank (open bus on a 1MB fitment) are dropped.
-    uint32_t row = 0;
-    while (row < height) {
-        if (vramOpenBus(destY + row)) {
-            row++;
-            continue;
-        }
-        const unsigned sy = resolveVramY(srcY + row);
-        const unsigned dy = resolveVramY(destY + row);
-        uint32_t count = 1;
-        while ((row + count < height) && !vramOpenBus(destY + row + count) &&
-               (resolveVramY(srcY + row + count) == sy + count) && (resolveVramY(destY + row + count) == dy + count)) {
-            count++;
-        }
-        blit(sy, dy, count);
-        row += count;
+    if (m_multisampled) {
+        // A blit between two multisampled framebuffers needs identical source and destination rectangles,
+        // so go through the resolved copy.
+        resolveMSAA(srcX, srcY0, width, height);
+        blitFromResolved(srcX, srcY0, destX, destY0, width, height);
+    } else {
+        glBlitFramebuffer(srcX, srcY0, srcX + width, srcY0 + height, destX, destY0, destX + width, destY0 + height,
+                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
     }
     OpenGL::enableScissor();
 }
