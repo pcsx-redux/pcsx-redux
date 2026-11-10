@@ -1276,6 +1276,8 @@ void PCSX::OpenGL_GPU::write0(FastFill *prim) {
 
 void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
     renderBatch();
+    // The decoder has already masked the size; a zero here means the copy was clipped away.
+    if (prim->w == 0 || prim->h == 0) return;
     OpenGL::disableScissor();  // We disable scissor testing because it affects glBlitFramebuffer
 
     // TODO: Sanitize this
