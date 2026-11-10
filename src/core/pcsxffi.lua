@@ -315,8 +315,15 @@ PCSX = {
     -- Nothing is recorded until a source is armed: arm('IRQ', 'DMA'). read() works
     -- like PCSX.CPU.Trace.read.
     HWEvents = {
-        Sources = { IRQ = 1, DMA = 2 },
-        Types = { IRQAssert = 0x0101, DMAStart = 0x0201, DMAComplete = 0x0202 },
+        Sources = { IRQ = 1, DMA = 2, CDROM = 3 },
+        Types = {
+            IRQAssert = 0x0101,
+            DMAStart = 0x0201,
+            DMAComplete = 0x0202,
+            CDCommand = 0x0301,
+            CDResponse = 0x0302,
+            CDSector = 0x0303,
+        },
         size = function() return tonumber(C.getHWEventsSize()) end,
         clear = function() C.clearHWEvents() end,
         mask = function() return C.getHWEventsMask() end,

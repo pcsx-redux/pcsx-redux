@@ -31,6 +31,7 @@
 #include "cdrom/iso9660-reader.h"
 #include "core/cdromlogger.h"
 #include "core/debug.h"
+#include "core/hwevents.h"
 #include "core/psxdma.h"
 #include "core/psxemulator.h"
 #include "spu/interface.h"
@@ -278,6 +279,15 @@ class CDRomImpl final : public PCSX::CDRom {
                                 break;
                         }
                     }
+                    auto &events = *PCSX::g_emulator->m_hwEvents;
+                    if (events.armed(PCSX::HWEvents::Source::CDROM)) [[unlikely]] {
+                        uint32_t subHeader = 0;
+                        if (buffer[3] == 2) {
+                            subHeader = buffer[4] | (buffer[5] << 8) | (buffer[6] << 16) | (uint32_t(buffer[7]) << 24);
+                        }
+                        events.record(PCSX::HWEvents::CDSector, m_currentPosition.toLBA(), size,
+                                      buffer[3] | (m_mode << 8), subHeader);
+                    }
                     auto readDelay = computeReadDelay();
                     // A sector withheld from the host leaves the previous data sector in the buffer.
                     if (passToData) {
@@ -368,9 +378,19 @@ class CDRomImpl final : public PCSX::CDRom {
         {
             element.setValue(cause);
             bool actuallyTriggering = false;
-            if (maybeEnqueueResponse(element)) {
+            bool posted = maybeEnqueueResponse(element);
+            if (posted) {
                 raiseIRQIfUnmasked();
                 actuallyTriggering = (causeValue & m_interruptCauseMask) != 0;
+            }
+            auto &events = *PCSX::g_emulator->m_hwEvents;
+            if (events.armed(PCSX::HWEvents::Source::CDROM)) [[unlikely]] {
+                uint32_t bytes[3];
+                PCSX::HWEvents::packBytes(element.payload, element.payloadSize, bytes);
+                events.record(PCSX::HWEvents::CDResponse,
+                              causeValue | (element.payloadSize << 8) | (posted ? 1u << 16 : 0) |
+                                  (actuallyTriggering ? 1u << 17 : 0),
+                              bytes[0], bytes[1], bytes[2]);
             }
             const bool debug = PCSX::g_emulator->settings.get<PCSX::Emulator::SettingDebugSettings>()
                                    .get<PCSX::Emulator::DebugSettings::LoggingCDROM>();
@@ -849,6 +869,13 @@ class CDRomImpl final : public PCSX::CDRom {
         if (debug) {
             PCSX::g_system->log(PCSX::LogClass::CDROM, "CD-Rom: Starting command %s (%i)\n", commandName(command),
                                 command);
+        }
+        auto &events = *PCSX::g_emulator->m_hwEvents;
+        if (events.armed(PCSX::HWEvents::Source::CDROM)) [[unlikely]] {
+            uint32_t params[3];
+            PCSX::HWEvents::packBytes(m_commandFifo.payload, m_commandFifo.payloadSize, params);
+            events.record(PCSX::HWEvents::CDCommand, command | (m_commandFifo.payloadSize << 8), params[0], params[1],
+                          params[2]);
         }
         if (auto code = commandRejection(command)) {
             maybeEnqueueError(1, code);

@@ -158,3 +158,173 @@ TEST(HWEvents, NothingRecordedWhenDisarmed) {
     EXPECT_EQ(ret, 0);
     EXPECT_EQ(s_seen.total, 0u);
 }
+
+namespace {
+
+struct CDSeen {
+    uint64_t total = 0;
+    uint64_t stampMismatches = 0;
+    uint64_t backwards = 0;
+    uint64_t lastCycle = 0;
+    uint64_t commands = 0;
+    uint64_t responses = 0;
+    uint64_t sectors = 0;
+    uint64_t setlocs = 0;
+    uint64_t setlocChecked = 0;
+    uint64_t setlocMismatches = 0;
+    uint64_t dataReadyAfterSector = 0;
+    uint64_t missingDataReady = 0;
+    uint64_t irqRaisedResponses = 0;
+    uint64_t irqWithoutAssert = 0;
+    bool sawPVD = false;
+    // Position a Setloc asked for, checked against the next sector read.
+    int64_t pendingSetloc = -1;
+    bool expectDataReady = false;
+    PCSX::HWEvent previous{};
+};
+
+CDSeen s_cd;
+
+unsigned fromBCD(uint8_t v) { return (v >> 4) * 10 + (v & 15); }
+
+void observeCD(const PCSX::HWEvent& e) {
+    auto& regs = PCSX::g_emulator->m_cpu->m_regs;
+    if (e.cycle != regs.cycle || e.pc != regs.pc) s_cd.stampMismatches++;
+    if (s_cd.total != 0 && e.cycle < s_cd.lastCycle) s_cd.backwards++;
+    s_cd.lastCycle = e.cycle;
+    s_cd.total++;
+    // The data ready a delivered sector raises is the very next CD-ROM event.
+    if (s_cd.expectDataReady && (e.type >> 8) == 3) {
+        s_cd.expectDataReady = false;
+        if (e.type == PCSX::HWEvents::CDResponse && (e.payload[0] & 0xff) == 1) {
+            s_cd.dataReadyAfterSector++;
+        } else {
+            s_cd.missingDataReady++;
+        }
+    }
+    switch (e.type) {
+        case PCSX::HWEvents::CDCommand: {
+            s_cd.commands++;
+            unsigned command = e.payload[0] & 0xff;
+            unsigned count = (e.payload[0] >> 8) & 0xff;
+            if (command == 2 && count == 3) {
+                s_cd.setlocs++;
+                uint32_t p = e.payload[1];
+                s_cd.pendingSetloc =
+                    (fromBCD(p & 0xff) * 60 + fromBCD((p >> 8) & 0xff)) * 75 + fromBCD((p >> 16) & 0xff);
+            }
+        } break;
+        case PCSX::HWEvents::CDResponse:
+            s_cd.responses++;
+            if (e.payload[0] & (1u << 17)) {
+                s_cd.irqRaisedResponses++;
+                // The controller pulls the IRQ line before the response is recorded.
+                if (s_cd.previous.type != PCSX::HWEvents::IRQAssert || s_cd.previous.payload[0] != 4 ||
+                    s_cd.previous.cycle != e.cycle) {
+                    s_cd.irqWithoutAssert++;
+                }
+            }
+            break;
+        case PCSX::HWEvents::CDSector:
+            s_cd.sectors++;
+            if (e.payload[0] == 150 + 16) s_cd.sawPVD = true;
+            if (s_cd.pendingSetloc >= 0) {
+                s_cd.setlocChecked++;
+                if (e.payload[0] != uint32_t(s_cd.pendingSetloc)) s_cd.setlocMismatches++;
+                s_cd.pendingSetloc = -1;
+            }
+            if (e.payload[1] != 0) s_cd.expectDataReady = true;
+            break;
+        default:
+            break;
+    }
+    s_cd.previous = e;
+}
+
+struct CDObserverScope {
+    CDObserverScope() {
+        s_cd = CDSeen{};
+        PCSX::HWEvents::s_recordObserver = observeCD;
+    }
+    ~CDObserverScope() { PCSX::HWEvents::s_recordObserver = nullptr; }
+};
+
+// Boots the test disc through OpenBIOS and quits once the CPU runs inside the
+// disc's boot executable, as the cdrom disc boot test does.
+const char c_cdBoot[] = R"(
+PCSX.HWEvents.arm('CDROM', 'IRQ')
+local f = assert(io.open('src/mips/monitor/hosts/retail/monitor-retail.ps-exe', 'rb'))
+local exe = f:read('*a')
+f:close()
+local function u32(o)
+    local a, b, c, d = exe:byte(o + 1, o + 4)
+    return a + b * 0x100 + c * 0x10000 + d * 0x1000000
+end
+local tAddr, tSize = u32(0x18), u32(0x1c)
+local text = exe:sub(0x801, 0x800 + tSize)
+local frames = 0
+CDEventsListener = PCSX.Events.createEventListener('GPU::Vsync', function()
+    frames = frames + 1
+    local booted = false
+    local pc = PCSX.getRegisters().pc
+    if pc >= tAddr and pc < tAddr + tSize then
+        booted = ffi.string(PCSX.getMemPtr() + bit.band(tAddr, 0x1fffff), tSize) == text
+    end
+    if not booted and frames < 6000 then return end
+    local f = io.open(CDEventsOut, 'w')
+    local arr, n = PCSX.HWEvents.read()
+    local commands = 0
+    for i = 0, n - 1 do
+        if arr[i].type == PCSX.HWEvents.Types.CDCommand then commands = commands + 1 end
+    end
+    f:write(string.format('%d %d', PCSX.HWEvents.mask(), commands))
+    f:close()
+    PCSX.quit(booted and 0 or 1)
+end)
+)";
+
+}  // namespace
+
+TEST(HWEvents, CDROMCommandsResponsesAndSectors) {
+    CDObserverScope scope;
+    auto luaOut = std::filesystem::temp_directory_path() / "pcsx-hwevents-cd.txt";
+    std::filesystem::remove(luaOut);
+    // MainInvoker probes each argument as a path, so the slash in the output path
+    // has to come early.
+    std::string lua = std::string("CDEventsOut = '") + luaOut.generic_string() + "'\n" + c_cdBoot;
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-iso", "test.cue", "-exec", lua.c_str());
+    int ret = invoker.invoke();
+    EXPECT_EQ(ret, 0);
+    printf(
+        "hwevents cd: %llu events, %llu commands (%llu Setloc, %llu checked), %llu responses (%llu raising the IRQ), "
+        "%llu sectors, %llu data readies after sectors\n",
+        (unsigned long long)s_cd.total, (unsigned long long)s_cd.commands, (unsigned long long)s_cd.setlocs,
+        (unsigned long long)s_cd.setlocChecked, (unsigned long long)s_cd.responses,
+        (unsigned long long)s_cd.irqRaisedResponses, (unsigned long long)s_cd.sectors,
+        (unsigned long long)s_cd.dataReadyAfterSector);
+    EXPECT_EQ(s_cd.stampMismatches, 0u);
+    EXPECT_EQ(s_cd.backwards, 0u);
+    EXPECT_GT(s_cd.commands, 0u);
+    // Every command answers at least once.
+    EXPECT_GE(s_cd.responses, s_cd.commands);
+    EXPECT_GT(s_cd.setlocChecked, 0u);
+    EXPECT_EQ(s_cd.setlocMismatches, 0u);
+    // The loader reads the primary volume descriptor at LBA 16.
+    EXPECT_TRUE(s_cd.sawPVD);
+    EXPECT_GT(s_cd.dataReadyAfterSector, 0u);
+    EXPECT_EQ(s_cd.missingDataReady, 0u);
+    EXPECT_GT(s_cd.irqRaisedResponses, 0u);
+    EXPECT_EQ(s_cd.irqWithoutAssert, 0u);
+
+    std::ifstream in(luaOut);
+    ASSERT_TRUE(in.good()) << "the Lua listener did not write " << luaOut;
+    uint32_t mask = 0;
+    uint64_t luaCommands = 0;
+    in >> mask >> luaCommands;
+    EXPECT_EQ(mask, PCSX::HWEvents::sourceBit(PCSX::HWEvents::Source::CDROM) |
+                        PCSX::HWEvents::sourceBit(PCSX::HWEvents::Source::IRQ));
+    EXPECT_EQ(luaCommands, s_cd.commands);
+    in.close();
+    std::filesystem::remove(luaOut);
+}
