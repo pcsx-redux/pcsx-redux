@@ -271,7 +271,7 @@ typedef struct {
 - `DMAStart` (`0x0201`): the channel, then MADR, BCR and CHCR as written.
 - `DMAComplete` (`0x0202`): the channel, and DICR before the completion updates it.
 - `CDCommand` (`0x0301`): a command the controller starts, rejected ones included. The first word is the command, with the parameter count in bits 8-15; the other three hold the first 12 parameter bytes, little-endian.
-- `CDResponse` (`0x0302`): a response, when the controller produces it. The first word is the cause, the byte count in bits 8-15, bit 16 set when it went straight to the slot the host reads (otherwise it waits behind the current one), and bit 17 set when it raised the IRQ. The other three hold the first 12 response bytes.
+- `CDResponse` (`0x0302`): a response, when the controller produces it. The first word is the cause, the byte count in bits 8-15, bit 16 set when it went straight to the slot the host reads (otherwise it waits behind an older one), bit 17 set when it raised the IRQ there, and bit 18 set when both slots were full and it was dropped. The other three hold the first 12 response bytes.
 - `CDSector` (`0x0303`): a data sector read off the disc. The position as `(m * 60 + s) * 75 + f`, so 00:02:00 is 150; the number of bytes handed to the host, 0 when the sector was withheld, like real-time XA audio; the sector mode with the Setmode value in bits 8-15; and the Mode 2 subheader (file, channel, submode, coding), or 0.
 
 ## Disc and lid
