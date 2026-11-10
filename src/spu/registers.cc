@@ -330,7 +330,6 @@ void PCSX::SPU::impl::writeRegister(uint32_t reg, uint16_t val) {
             case H_SPUaddr:
                 spuAddr = (uint32_t)val * 8;
                 g_emulator->m_spuLogger->log(SPULogger::Kind::TransferAddr, spuAddr, 0, val);
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Data Transfer Address = %04x\n", val);
                 return;
 
             case H_SPUdata: {
@@ -344,7 +343,6 @@ void PCSX::SPU::impl::writeRegister(uint32_t reg, uint16_t val) {
                 if (spuAddr > 0x7ffff) {
                     spuAddr = 0;
                 }
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Data Transfer Fifo = %04x\n", val);
                 return;
             }
 
@@ -359,7 +357,6 @@ void PCSX::SPU::impl::writeRegister(uint32_t reg, uint16_t val) {
 
             // SPUSTAT is read-only: a write changes nothing, the IRQ9 flag included.
             case H_SPUstat:
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, STAT = %04x, (read-only)\n", val);
                 return;
             case H_SPUReverbAddr:
                 // The mixer applies the base later; log the byte offset it will settle on.
@@ -414,22 +411,18 @@ bool PCSX::SPU::impl::applyMixVolume(uint32_t r, uint16_t val) {
         case H_SPUmvolL:
             m_mainVolume.applyLeft(val);
             m_mainLeftWritten = true;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, Main Volume Left = %04x\n", val);
             return true;
         case H_SPUmvolR:
             m_mainVolume.applyRight(val);
             m_mainRightWritten = true;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, Main Volume Right = %04x\n", val);
             return true;
         case H_CDLeft:
             m_cdVolumeLeft = static_cast<int16_t>(val);
             m_cdLeftWritten = true;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, CD Audio Input Volume Left = %04x\n", val);
             return true;
         case H_CDRight:
             m_cdVolumeRight = static_cast<int16_t>(val);
             m_cdRightWritten = true;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, CD Audio Input Volume Right = %04x\n", val);
             return true;
     }
     return false;
@@ -446,36 +439,29 @@ void PCSX::SPU::impl::applyRegister(uint32_t reg, uint16_t val) {
             // Left volume.
             case 0:
                 s_chan[ch].volume.applyLeft(val);
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice[%02i] Set Volume L = %04x\n", ch, val);
                 break;
             // Right volume.
             case 2:
                 s_chan[ch].volume.applyRight(val);
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice[%02i] Set Volume R = %04x\n", ch, val);
                 break;
             // Pitch.
             case 4:
                 SetPitchApply(ch, val);
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice[%02i] ADPCM Sample Rate = %04x\n", ch, val);
                 break;
             // Sample start address.
             case 6:
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice[%02i] ADPCM Start Address = %04x\n", ch, val);
                 // Brain Dead 13: align to a 16-byte boundary.
                 s_chan[ch].adpcm.setStart(spuRamBase + (uint32_t)((val << 3) & ~0xf));
                 break;
             // Attack/Decay/Sustain/Release (ADSR).
             case 8:
                 decodeAdsrLow(s_chan[ch].adsr, val);
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice[%02i] ADSR(lo) = %04x\n", ch, val);
                 break;
             case 10:
                 decodeAdsrHigh(s_chan[ch].adsr, val);
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice[%02i] ADSR(hi) = %04x\n", ch, val);
                 break;
             // TODO: emulate the ADSR volume.
             case 12:
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice[%02i] ADSR Volume = %04x, unimplemented\n", ch, val);
                 break;
             // Loop address.
             case 14: {
@@ -485,7 +471,6 @@ void PCSX::SPU::impl::applyRegister(uint32_t reg, uint16_t val) {
                 if (!s_chan[ch].data.get<Chan::New>().value && s_chan[ch].adpcm.repeatWriteLatches()) {
                     s_chan[ch].data.get<Chan::IgnoreLoop>().value = true;
                 }
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice[%02i] ADPCM Repeat Address = %04x\n", ch, val);
             } break;
         }
 
@@ -502,7 +487,6 @@ void PCSX::SPU::impl::applyRegister(uint32_t reg, uint16_t val) {
             spuCtrl = val;
             m_ctrlWritesPending--;
             m_noise.setClock((spuCtrl & (ControlFlags::NoiseShiftMask | ControlFlags::NoiseStepMask)) >> 8);
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, CTRL = %04x\n", val);
             break;
 
         case H_SPUReverbAddr:
@@ -515,30 +499,24 @@ void PCSX::SPU::impl::applyRegister(uint32_t reg, uint16_t val) {
                     m_reverb.rvb.CurrAddr = m_reverb.rvb.StartAddr;
                 }
             }
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mBASE = %04x\n", val);
             break;
 
         case H_SPUirqAddr:
             irqAddress = spuRamBase + ((uint32_t)val << 3);
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, IRQ Address = %04x\n", val);
             break;
 
         case H_SPUrvolL:
             m_reverb.rvb.VolLeft = val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, vLOUT = %04x\n", val);
             break;
 
         case H_SPUrvolR:
             m_reverb.rvb.VolRight = val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, vROUT = %04x\n", val);
             break;
 
         case H_ExtLeft:
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, External Audio Input Volume Left = %04x, unimplemented\n", val);
             break;
 
         case H_ExtRight:
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, External Audio Input Volume Right = %04x, unimplemented\n", val);
             break;
 
         // Voice 0..23 ON/OFF (status) (ENDX), read-only.
@@ -593,132 +571,100 @@ void PCSX::SPU::impl::applyRegister(uint32_t reg, uint16_t val) {
             m_reverb.rvb.FB_SRC_A = (int16_t)val;
 
             // Fake reverb: depending on the effect, more or less delay and repeats are applied.
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, dAPF1 = %04x\n", val);
             break;
 
         case H_Reverb + 2:
             m_reverb.rvb.FB_SRC_B = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, dAPF2 = %04x\n", val);
             break;
         case H_Reverb + 4:
             m_reverb.rvb.IIR_ALPHA = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, vIIR = %04x\n", val);
             break;
         case H_Reverb + 6:
             m_reverb.rvb.ACC_COEF_A = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, vCOMB1 = %04x\n", val);
             break;
         case H_Reverb + 8:
             m_reverb.rvb.ACC_COEF_B = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, vCOMB2 = %04x\n", val);
             break;
         case H_Reverb + 10:
             m_reverb.rvb.ACC_COEF_C = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, vCOMB3 = %04x\n", val);
             break;
         case H_Reverb + 12:
             m_reverb.rvb.ACC_COEF_D = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, vCOMB4 = %04x\n", val);
             break;
         case H_Reverb + 14:
             m_reverb.rvb.IIR_COEF = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, vWALL = %04x\n", val);
             break;
         case H_Reverb + 16:
             m_reverb.rvb.FB_ALPHA = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, vAPF1 = %04x\n", val);
             break;
         case H_Reverb + 18:
             m_reverb.rvb.FB_X = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, vAPF2 = %04x\n", val);
             break;
         case H_Reverb + 20:
             m_reverb.rvb.IIR_DEST_A0 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mLSAME = %04x\n", val);
             break;
         case H_Reverb + 22:
             m_reverb.rvb.IIR_DEST_A1 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mRSAME = %04x\n", val);
             break;
         case H_Reverb + 24:
             m_reverb.rvb.ACC_SRC_A0 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mLCOMB1 = %04x\n", val);
             break;
         case H_Reverb + 26:
             m_reverb.rvb.ACC_SRC_A1 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mRCOMB1 = %04x\n", val);
             break;
         case H_Reverb + 28:
             m_reverb.rvb.ACC_SRC_B0 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mLCOMB2 = %04x\n", val);
             break;
         case H_Reverb + 30:
             m_reverb.rvb.ACC_SRC_B1 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mRCOMB2 = %04x\n", val);
             break;
         case H_Reverb + 32:
             m_reverb.rvb.IIR_SRC_A0 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, dLSAME = %04x\n", val);
             break;
         case H_Reverb + 34:
             m_reverb.rvb.IIR_SRC_A1 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, dRSAME = %04x\n", val);
             break;
         case H_Reverb + 36:
             m_reverb.rvb.IIR_DEST_B0 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mLDIFF = %04x\n", val);
             break;
         case H_Reverb + 38:
             m_reverb.rvb.IIR_DEST_B1 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mRDIFF = %04x\n", val);
             break;
         case H_Reverb + 40:
             m_reverb.rvb.ACC_SRC_C0 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mLCOMB3 = %04x\n", val);
             break;
         case H_Reverb + 42:
             m_reverb.rvb.ACC_SRC_C1 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mRCOMB3 = %04x\n", val);
             break;
         case H_Reverb + 44:
             m_reverb.rvb.ACC_SRC_D0 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mLCOMB4 = %04x\n", val);
             break;
         case H_Reverb + 46:
             m_reverb.rvb.ACC_SRC_D1 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mRCOMB4 = %04x\n", val);
             break;
         case H_Reverb + 48:
             m_reverb.rvb.IIR_SRC_B1 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, dLDIFF = %04x\n", val);
             break;
         case H_Reverb + 50:
             m_reverb.rvb.IIR_SRC_B0 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, dRDIFF = %04x\n", val);
             break;
         case H_Reverb + 52:
             m_reverb.rvb.MIX_DEST_A0 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mLAPF1 = %04x\n", val);
             break;
         case H_Reverb + 54:
             m_reverb.rvb.MIX_DEST_A1 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mRAPF1 = %04x\n", val);
             break;
         case H_Reverb + 56:
             m_reverb.rvb.MIX_DEST_B0 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mLAPF2 = %04x\n", val);
             break;
         case H_Reverb + 58:
             m_reverb.rvb.MIX_DEST_B1 = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, mRAPF2 = %04x\n", val);
             break;
         case H_Reverb + 60:
             m_reverb.rvb.IN_COEF_L = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, vLIN = %04x\n", val);
             break;
         case H_Reverb + 62:
             m_reverb.rvb.IN_COEF_R = (int16_t)val;
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, vRIN = %04x\n", val);
             break;
     }
 }
@@ -735,7 +681,6 @@ uint16_t PCSX::SPU::impl::readRegister(uint32_t reg) {
         const int ch = (r - 0x0e00) >> 2;
         const uint64_t now = cycleToSample(readerCycle());
         const uint16_t volx = (r & 2) ? s_chan[ch].volume.currentRight(now) : s_chan[ch].volume.currentLeft(now);
-        PCSX::PSXSPU_LOGGER::Log("SPU.read, Voice[%02i] Current Volume %c = %04x\n", ch, (r & 2) ? 'R' : 'L', volx);
         return volx;
     }
 
@@ -757,7 +702,6 @@ uint16_t PCSX::SPU::impl::readRegister(uint32_t reg) {
                 // value is wherever the SPU thread's batch loop happened to be, which
                 // is why the same assertion reads a different number every run.
                 const uint16_t envx = reconstructEnvelope(ch, readerCycle());
-                PCSX::PSXSPU_LOGGER::Log("SPU.read, Voice[%02i] Current ADSR Volume = %04x\n", ch, envx);
                 return envx;
             }
 
@@ -767,11 +711,8 @@ uint16_t PCSX::SPU::impl::readRegister(uint32_t reg) {
                 // The mixer latches this from the sample data as it plays.
                 catchUp(readerCycle());
                 if (s_chan[ch].adpcm.loop() == nullptr) {
-                    PCSX::PSXSPU_LOGGER::Log("SPU.read, Voice[%02i] ADPCM Repeat Address = 00000\n", ch);
                     return 0;
                 }
-                PCSX::PSXSPU_LOGGER::Log("SPU.read, Voice[%02i] ADPCM Repeat Address = %04x\n", ch,
-                                         (uint16_t)((s_chan[ch].adpcm.loop() - spuRamBase) >> 3));
                 return (uint16_t)((s_chan[ch].adpcm.loop() - spuRamBase) >> 3);
             }
         }
@@ -791,7 +732,6 @@ uint16_t PCSX::SPU::impl::readRegister(uint32_t reg) {
 
         case H_SPUctrl: {
             const uint16_t ctrl = readCtrl();
-            PCSX::PSXSPU_LOGGER::Log("SPU.read, CTRL = %04x\n", ctrl);
             return ctrl;
         }
 
@@ -814,12 +754,10 @@ uint16_t PCSX::SPU::impl::readRegister(uint32_t reg) {
             } else {
                 stat &= ~StatusFlags::CBIndex;
             }
-            PCSX::PSXSPU_LOGGER::Log("SPU.read, STAT = %04x\n", stat);
             return stat;
         }
 
         case H_SPUaddr:
-            PCSX::PSXSPU_LOGGER::Log("SPU.read, Data Transfer Address = %04x\n", (uint16_t)(spuAddr >> 3));
             return (uint16_t)(spuAddr >> 3);
 
         case H_SPUdata: {
@@ -831,16 +769,13 @@ uint16_t PCSX::SPU::impl::readRegister(uint32_t reg) {
             if (spuAddr > 0x7ffff) {
                 spuAddr = 0;
             }
-            PCSX::PSXSPU_LOGGER::Log("SPU.read, Data Transfer Fifo = %04x\n", s);
             return s;
         }
 
         case H_SPUirqAddr:
-            PCSX::PSXSPU_LOGGER::Log("SPU.read, Data Transfer Fifo = %04x\n", spuIrq);
             return spuIrq;
     }
 
-    PCSX::PSXSPU_LOGGER::Log("SPU.read, regArea[%03x] = %04x\n", r, regArea[(r - 0xc00) >> 1]);
     return regArea[(r - 0xc00) >> 1];
 }
 
@@ -884,7 +819,6 @@ void PCSX::SPU::impl::SoundOnApply(int start, int end, uint16_t val) {
             s_chan[ch].data.get<Chan::New>().value = true;
             // Bitfield for faster testing.
             newChannelMask |= (1 << ch);
-            PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice %02i ON\n", ch);
         }
     }
 }
@@ -894,7 +828,6 @@ void PCSX::SPU::impl::SoundOffApply(int start, int end, uint16_t val) {
     for (int ch = start; ch < end; ch++, val >>= 1) {
         if (val & 1) {
             if (s_chan[ch].data.get<Chan::Stop>().value != true) {
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice %02i OFF\n", ch);
             }
             s_chan[ch].data.get<Chan::Stop>().value = true;
         }
@@ -950,7 +883,6 @@ void PCSX::SPU::impl::FModOnApply(int start, int end, uint16_t val) {
             // Pitch modulation does not work for voice 0.
             if (ch > 0) {
                 if (s_chan[ch].data.get<Chan::FMod>().value != 1) {
-                    PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice %02i Pitch Modulation ON\n", ch);
                 }
                 // Sound channel.
                 s_chan[ch].data.get<Chan::FMod>().value = 1;
@@ -959,7 +891,6 @@ void PCSX::SPU::impl::FModOnApply(int start, int end, uint16_t val) {
             }
         } else {
             if (s_chan[ch].data.get<Chan::FMod>().value != 0) {
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice %02i Pitch Modulation OFF\n", ch);
             }
             // Turn off frequency modulation.
             s_chan[ch].data.get<Chan::FMod>().value = 0;
@@ -973,12 +904,10 @@ void PCSX::SPU::impl::NoiseOn(int start, int end, uint16_t val) {
     for (int ch = start; ch < end; ch++, val >>= 1) {
         if (val & 1) {
             if (s_chan[ch].data.get<Chan::Noise>().value != true) {
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice %02i Noise ON\n", ch);
             }
             s_chan[ch].data.get<Chan::Noise>().value = true;
         } else {
             if (s_chan[ch].data.get<Chan::Noise>().value != false) {
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice %02i Noise OFF\n", ch);
             }
             s_chan[ch].data.get<Chan::Noise>().value = false;
         }
@@ -1018,13 +947,11 @@ void PCSX::SPU::impl::ReverbOn(int start, int end, uint16_t val) {
     for (int ch = start; ch < end; ch++, val >>= 1) {
         if (val & 1) {
             if (s_chan[ch].data.get<Chan::Reverb>().value != true) {
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice %02i Reverb ON\n", ch);
             }
             s_chan[ch].data.get<Chan::Reverb>().value = true;
 
         } else {
             if (s_chan[ch].data.get<Chan::Reverb>().value != false) {
-                PCSX::PSXSPU_LOGGER::Log("SPU.write, Voice %02i Reverb OFF\n", ch);
             }
             s_chan[ch].data.get<Chan::Reverb>().value = false;
         }

@@ -67,9 +67,4 @@ struct Logger {
     static constexpr LogClass c_logClass = logClass;
 };
 
-// Specifies at compilation time which logs should be activated.
-// The rule of thumb is they typically can be spammy or costly,
-// and shouldn't be enabled on a retail build.
-typedef Logger<LogClass::SPU, false> PSXSPU_LOGGER;
-
 }  // namespace PCSX
