@@ -166,6 +166,7 @@ class OpenGL_GPU final : public GPU {
     bool m_maskDirty = true;
     GLint m_setMaskLoc;
     GLint m_checkMaskLoc;
+    GLint m_blendingLoc;
     OpenGL::Texture m_maskTexture;
     bool m_batchBoundsValid = false;
     int m_batchMinX = 0, m_batchMinY = 0, m_batchMaxX = 0, m_batchMaxY = 0;
