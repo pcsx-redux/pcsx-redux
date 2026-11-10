@@ -37,6 +37,9 @@ std::unique_ptr<PCSX::GPU> PCSX::GPU::getOpenGL() { return std::unique_ptr<PCSX:
 void PCSX::OpenGL_GPU::resetBackend() {
     m_gpustat = 0x14802000;
     m_setMask = false;
+    m_checkMask = false;
+    m_maskDirty = true;
+    m_batchBoundsValid = false;
 
     m_lastTransparency = Transparency::Opaque;
     m_lastBlendingMode = -1;
@@ -77,7 +80,7 @@ void PCSX::OpenGL_GPU::clearVRAM(float r, float g, float b, float a) {
     if (oldScissor) OpenGL::enableScissor();
 }
 
-void PCSX::OpenGL_GPU::clearVRAM() { clearVRAM(0.f, 0.f, 0.f, 1.f); }
+void PCSX::OpenGL_GPU::clearVRAM() { clearVRAM(0.f, 0.f, 0.f, 0.f); }
 
 // Do not forget to call this with an active OpenGL context.
 int PCSX::OpenGL_GPU::initBackend(UI *ui) {
@@ -121,6 +124,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
         m_multisampled = false;
     }
 
+    m_maskTexture.create(vramWidth, vramHeight, GL_RGBA8);
     m_sampleTexture.create(vramWidth, vramHeight, GL_RGBA8);
 
     if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -234,6 +238,11 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
         uniform int u_vramMaskY = 511;
         // NTSC 480i with GP0(E1h).10 clear: the VRAM row parity not to write, or -1.
         uniform int u_skipParity = -1;
+        // GP0(E6h). The mask bit is stored in alpha. With check-mask on, u_maskTex holds the
+        // destination as it was before the batch.
+        uniform float u_setMask = 0.0;
+        uniform int u_checkMask = 0;
+        uniform sampler2D u_maskTex;
 
         int floatToU5(float f) {
             return int(floor(f * 31.0 + 0.5));
@@ -257,14 +266,16 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
             // Formula for RGB8 colours: col1 * col2 / 128
         vec4 texBlend(vec4 colour1, vec4 colour2) {
             vec4 ret = (colour1 * colour2) / (128.0 / 255.0);
-            ret.a = 1.0;
+            // The texel's mask bit is written through, ORed with set-mask.
+            ret.a = max(step(0.5, colour1.a), u_setMask);
             return ret;
         }
 
         void main() {
            if ((int(gl_FragCoord.y) & 1) == u_skipParity) discard;
+           if (u_checkMask != 0 && texelFetch(u_maskTex, ivec2(gl_FragCoord.xy), 0).a >= 0.5) discard;
            if (texMode == 4) { // Untextured primitive
-               FragColor = vertexColor;
+               FragColor = vec4(vertexColor.rgb, u_setMask);
                BlendColor = u_blendFactors;
                return;
            }
@@ -331,6 +342,10 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
 
     const auto vramSamplerLoc = OpenGL::uniformLocation(m_program, "u_vramTex");
     glUniform1i(vramSamplerLoc, 0);  // Make the fragment shader read from currently binded texture
+    m_setMaskLoc = OpenGL::uniformLocation(m_program, "u_setMask");
+    m_checkMaskLoc = OpenGL::uniformLocation(m_program, "u_checkMask");
+    glUniform1i(OpenGL::uniformLocation(m_program, "u_maskTex"), 1);
+    m_maskDirty = true;
 
     m_vramTexture24.create(vramWidth, vramHeight, GL_RGBA8);
     m_fbo24.createWithDrawTexture(m_vramTexture24);
@@ -479,6 +494,10 @@ bool PCSX::OpenGL_GPU::configure() {
 
             const auto vramSamplerLoc = OpenGL::uniformLocation(m_program, "u_vramTex");
             glUniform1i(vramSamplerLoc, 0);  // Make the fragment shader read from currently bound texture
+            m_setMaskLoc = OpenGL::uniformLocation(m_program, "u_setMask");
+            m_checkMaskLoc = OpenGL::uniformLocation(m_program, "u_checkMask");
+            glUniform1i(OpenGL::uniformLocation(m_program, "u_maskTex"), 1);
+            m_maskDirty = true;
             glUniform4f(m_blendFactorsIfOpaqueLoc, 1.0, 1.0, 1.0, 0.0);
             glUniform4f(m_blendFactorsLoc, m_blendFactors.x(), m_blendFactors.x(), m_blendFactors.x(),
                         m_blendFactors.y());
@@ -677,9 +696,110 @@ void PCSX::OpenGL_GPU::pushVRAMConfig() {
     glUniform1i(m_texpage2MBLoc, fitted ? 1 : 0);
 }
 
+void PCSX::OpenGL_GPU::pushMaskConfig() {
+    if (!m_maskDirty) return;
+    m_maskDirty = false;
+    m_program.use();
+    glUniform1f(m_setMaskLoc, m_setMask ? 1.0f : 0.0f);
+    glUniform1i(m_checkMaskLoc, m_checkMask ? 1 : 0);
+}
+
+// GP0(E6h) applies to the primitives that follow it, so the pending batch is drawn with the old bits.
+void PCSX::OpenGL_GPU::setMaskBits(bool set, bool check) {
+    if (set == m_setMask && check == m_checkMask) return;
+    renderBatch();
+    m_setMask = set;
+    m_checkMask = check;
+    m_maskDirty = true;
+}
+
+// Records the VRAM bounding box of a primitive drawn under check-mask, after the draw offset and the
+// drawing area clip. The pixels a polygon, line or rectangle writes lie inside the box of its
+// vertices; with MSAA, also one pixel to the right and below, for the samples taken past the right and
+// bottom edges. If the box overlaps the pending batch, the batch is drawn first.
+void PCSX::OpenGL_GPU::addCheckMaskBounds(const int *xs, const int *ys, int n) {
+    if (!m_checkMask) return;
+    // A primitive adds at most 6 vertices. Flush now if they would not fit, so the primitive and its
+    // bounds land in the same batch.
+    maybeRenderBatch<6>();
+    const int offsetX = int32_t(m_lastDrawOffsetSetting << 21) >> 21;
+    const int offsetY = int32_t(m_lastDrawOffsetSetting << 10) >> 21;
+    int minX = xs[0], maxX = xs[0], minY = ys[0], maxY = ys[0];
+    for (int i = 1; i < n; i++) {
+        minX = std::min(minX, xs[i]);
+        maxX = std::max(maxX, xs[i]);
+        minY = std::min(minY, ys[i]);
+        maxY = std::max(maxY, ys[i]);
+    }
+    const int clipLeft = int(m_scissorBox.x), clipTop = int(m_scissorBox.y);
+    const int fringe = m_multisampled ? 1 : 0;
+    minX = std::max(minX + offsetX, clipLeft);
+    maxX = std::min(maxX + offsetX + fringe, clipLeft + int(m_scissorBox.width) - 1);
+    minY = std::max(minY + offsetY, clipTop);
+    maxY = std::min(maxY + offsetY + fringe, clipTop + int(m_scissorBox.height) - 1);
+    if (minX > maxX || minY > maxY) return;
+
+    if (m_batchBoundsValid) {
+        if (minX <= m_batchMaxX && maxX >= m_batchMinX && minY <= m_batchMaxY && maxY >= m_batchMinY) {
+            renderBatch();
+        }
+    }
+    if (!m_batchBoundsValid) {
+        m_batchBoundsValid = true;
+        m_batchMinX = minX;
+        m_batchMaxX = maxX;
+        m_batchMinY = minY;
+        m_batchMaxY = maxY;
+        return;
+    }
+    m_batchMinX = std::min(m_batchMinX, minX);
+    m_batchMaxX = std::max(m_batchMaxX, maxX);
+    m_batchMinY = std::min(m_batchMinY, minY);
+    m_batchMaxY = std::max(m_batchMaxY, maxY);
+}
+
+// Reads a rectangle of VRAM that does not wrap, as 16-bit pixels.
+void PCSX::OpenGL_GPU::readVRAMRect(int x, int y, int w, int h, uint16_t *pixels) {
+    syncVRAMForRead();
+    if (m_multisampled) resolveMSAA(x, y, w, h);
+    GLint readFB;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFB);
+    if (m_multisampled) {
+        m_fboNoMSAA.bind(OpenGL::ReadFramebuffer);
+    } else {
+        m_fbo.bind(OpenGL::ReadFramebuffer);
+    }
+    glReadPixels(x, y, w, h, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, pixels);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, readFB);
+}
+
 void PCSX::OpenGL_GPU::renderBatch() {
     if (m_vertexCount > 0) {
         pushVRAMConfig();
+        pushMaskConfig();
+        if (m_checkMask) {
+            // Snapshot the destination the batch reads for check-mask. Without bounds (a primitive split
+            // across a full vertex buffer), take all of VRAM.
+            int x = 0, y = 0, w = vramWidth, h = vramHeight;
+            if (m_batchBoundsValid) {
+                x = m_batchMinX;
+                y = m_batchMinY;
+                w = m_batchMaxX - m_batchMinX + 1;
+                h = m_batchMaxY - m_batchMinY + 1;
+            }
+            glActiveTexture(GL_TEXTURE1);
+            m_maskTexture.bind();
+            if (m_multisampled) {
+                resolveMSAA(x, y, w, h);
+                m_fboNoMSAA.bind(OpenGL::ReadFramebuffer);
+                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, x, y, x, y, w, h);
+                m_fbo.bind(OpenGL::ReadFramebuffer);
+            } else {
+                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, x, y, x, y, w, h);
+            }
+            glActiveTexture(GL_TEXTURE0);
+        }
+        m_batchBoundsValid = false;
         if (m_syncVRAM) {
             m_syncVRAM = false;
             if (m_multisampled) {
@@ -789,6 +909,10 @@ void PCSX::OpenGL_GPU::syncVRAMForRead() {
     GLboolean colorMask[4];
     glGetBooleanv(GL_COLOR_WRITEMASK, colorMask);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    // renderBatch() binds the check-mask snapshot on unit 1.
+    GLint tex2DUnit1;
+    glActiveTexture(GL_TEXTURE1);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex2DUnit1);
     glActiveTexture(GL_TEXTURE0);
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex2D);
 
@@ -813,6 +937,8 @@ void PCSX::OpenGL_GPU::syncVRAMForRead() {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFB);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, readFB);
     glBindTexture(GL_TEXTURE_2D, tex2D);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, tex2DUnit1);
     glActiveTexture(activeTexture);
     glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
     glScissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3]);
@@ -885,12 +1011,22 @@ void PCSX::OpenGL_GPU::partialUpdateVRAM(int x, int y, int w, int h, const uint1
 }
 
 void PCSX::OpenGL_GPU::uploadVRAM(int x, int y, int w, int h, const uint16_t *pixels, PartialUpdateVram updateType) {
-    if (!m_setMask) {
+    if (!m_setMask && !m_checkMask) {
         partialUpdateVRAM(x, y, w, h, pixels, updateType);
         return;
     }
-    std::vector<uint16_t> masked(pixels, pixels + (size_t)w * h);
-    for (auto &pixel : masked) pixel |= 0x8000;
+    const size_t count = size_t(w) * h;
+    std::vector<uint16_t> masked(pixels, pixels + count);
+    if (m_checkMask) {
+        // Destination pixels with bit 15 set keep their value.
+        std::vector<uint16_t> dest(count);
+        readVRAMRect(x, y, w, h, dest.data());
+        for (size_t i = 0; i < count; i++) {
+            if (dest[i] & 0x8000) masked[i] = dest[i];
+        }
+    }
+    const uint16_t setBit = m_setMask ? 0x8000 : 0;
+    for (auto &pixel : masked) pixel |= setBit;
     partialUpdateVRAM(x, y, w, h, masked.data(), updateType);
 }
 
@@ -1074,7 +1210,7 @@ void PCSX::OpenGL_GPU::setTexWindow(uint32_t cmd) {
 
 void PCSX::OpenGL_GPU::write0(TWindow *prim) { setTexWindow(prim->raw); }
 
-void PCSX::OpenGL_GPU::write0(MaskBit *prim) { m_setMask = prim->set; }
+void PCSX::OpenGL_GPU::write0(MaskBit *prim) { setMaskBits(prim->set, prim->check); }
 
 void PCSX::OpenGL_GPU::write0(DrawingAreaStart *prim) {
     m_drawAreaLeft = prim->x;
@@ -1124,7 +1260,8 @@ void PCSX::OpenGL_GPU::write0(FastFill *prim) {
     const float g = float((colour >> 8) & 0xff) / 255.f;
     const float b = float((colour >> 16) & 0xff) / 255.f;
 
-    OpenGL::setClearColor(r, g, b, 1.f);
+    // GP0(02h) ignores GP0(E6h) and writes bit 15 as 0.
+    OpenGL::setClearColor(r, g, b, 0.f);
     if (m_skipParity < 0) {
         OpenGL::setScissor(prim->x, prim->y, prim->w, prim->h);
         OpenGL::clearColor();
@@ -1141,6 +1278,8 @@ void PCSX::OpenGL_GPU::write0(FastFill *prim) {
 
 void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
     renderBatch();
+    // The decoder has already masked the size; a zero here means the copy was clipped away.
+    if (prim->w == 0 || prim->h == 0) return;
     OpenGL::disableScissor();  // We disable scissor testing because it affects glBlitFramebuffer
 
     // TODO: Sanitize this
@@ -1154,6 +1293,27 @@ void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
 
     width = ((width - 1) & 0x3ff) + 1;
     height = ((height - 1) & 0x1ff) + 1;
+
+    if (m_setMask || m_checkMask) {
+        // The copy honours GP0(E6h) per pixel, in the same row-major order as the software renderer, so
+        // it runs on a CPU copy of VRAM.
+        OpenGL::enableScissor();
+        auto slice = getVRAM(Ownership::BORROW);
+        uint16_t *vram = slice.mutableData<uint16_t>();
+        const uint16_t setBit = m_setMask ? 0x8000 : 0;
+        for (uint32_t j = 0; j < height; j++) {
+            if (vramOpenBus(destY + j)) continue;
+            uint16_t *dstRow = vram + vramWidth * resolveVramY(destY + j);
+            const uint16_t *srcRow = vram + vramWidth * resolveVramY(srcY + j);
+            for (uint32_t i = 0; i < width; i++) {
+                uint16_t &dst = dstRow[(destX + i) & 0x3ff];
+                if (m_checkMask && (dst & 0x8000)) continue;
+                dst = srcRow[(srcX + i) & 0x3ff] | setBit;
+            }
+        }
+        partialUpdateVRAM(0, 0, vramWidth, vramHeight, vram, PartialUpdateVram::Asynchronous);
+        return;
+    }
 
     if (m_multisampled) {
         // A blit between two multisampled framebuffers needs identical source and destination rectangles,
@@ -1236,6 +1396,7 @@ void PCSX::OpenGL_GPU::polyExec(Poly<shading, shape, textured, blend, modulation
             sx[i] = x[i] + dx;
             sy[i] = y[i] + dy;
         }
+        addCheckMaskBounds(sx, sy, n);
         if constexpr (textured == Textured::No) {
             drawTri(&sx[0], &sy[0], &prim->colors[0]);
             if constexpr (shape == Shape::Quad) {
@@ -1274,7 +1435,12 @@ void PCSX::OpenGL_GPU::lineExec(Line<shading, lineType, blend> *prim) {
         const int bx[2] = {x0, x1};
         const int by[2] = {y0, y1};
         forEachPixelWrap(m_lastDrawOffsetSetting, bx, by, 2,
-                         [&](int dx, int dy) { drawLine(x0 + dx, y0 + dy, c0, x1 + dx, y1 + dy, c1); });
+                         [&](int dx, int dy) {
+                             const int lx[2] = {x0 + dx, x1 + dx};
+                             const int ly[2] = {y0 + dy, y1 + dy};
+                             addCheckMaskBounds(lx, ly, 2);
+                             drawLine(x0 + dx, y0 + dy, c0, x1 + dx, y1 + dy, c1);
+                         });
     }
 }
 
@@ -1301,6 +1467,9 @@ void PCSX::OpenGL_GPU::rectExec(Rect<size, textured, blend, modulation> *prim) {
     const int bx[1] = {prim->x};
     const int by[1] = {prim->y};
     forEachPixelWrap(m_lastDrawOffsetSetting, bx, by, 1, [&](int dx, int dy) {
+        const int rx[2] = {prim->x + dx, prim->x + dx + w - 1};
+        const int ry[2] = {prim->y + dy, prim->y + dy + h - 1};
+        addCheckMaskBounds(rx, ry, 2);
         if constexpr (textured == Textured::No) {
             drawRect(prim->x + dx, prim->y + dy, w, h, prim->color);
         } else if constexpr (textured == Textured::Yes) {
@@ -1317,7 +1486,7 @@ void PCSX::OpenGL_GPU::write1(CtrlReset *) {
     // TODO: This should perform some more operations
     // GP1(00h) clears GP0(E1h), DFE included.
     m_drawToDisplay = false;
-    m_setMask = false;
+    setMaskBits(false, false);
     m_display.reset();
     setDisplayEnable(false);
     acknowledgeIRQ1();
