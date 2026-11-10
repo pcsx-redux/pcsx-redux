@@ -1062,7 +1062,9 @@ struct PCSX::WebClient::WebClientImpl {
             multipart_parser_free(m_multipartParser);
         }
         executeRequest();
-        return 0;
+        // The connection is closed after one request; pause so llhttp_execute
+        // does not go on to dispatch anything pipelined behind it.
+        return HPE_PAUSED;
     }
     int onChunkHeader() { return 0; }
     int onChunkComplete() { return 0; }

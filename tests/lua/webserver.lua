@@ -83,3 +83,25 @@ function TestWebServer:test_get_has_empty_body()
     lu.assertNotNil(seen)
     lu.assertEquals(seen.body, '')
 end
+
+-- A request pipelined behind the first one in the same write must not be dispatched: the
+-- connection closes after the first response, and the leftover request would see its body.
+function TestWebServer:test_pipelined_request_not_dispatched()
+    local first, second
+    PCSX.WebServer.Handlers.first = function(request)
+        first = request
+        return 'END'
+    end
+    PCSX.WebServer.Handlers.second = function(request)
+        second = request
+        return 'END'
+    end
+    exchange('POST /api/v1/lua/first HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 6\r\n\r\nsecret' ..
+             'GET /api/v1/lua/second HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n')
+    PCSX.WebServer.Handlers.first = nil
+    PCSX.WebServer.Handlers.second = nil
+    lu.assertNotNil(first)
+    lu.assertEquals(first.body, 'secret')
+    lu.assertNil(second and second.body)
+    lu.assertNil(second)
+end
