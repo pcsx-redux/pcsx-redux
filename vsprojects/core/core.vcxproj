@@ -128,6 +128,8 @@
     <ClCompile Include="..\..\src\core\alloc-tracker.cc" />
     <ClCompile Include="..\..\src\core\arguments.cc" />
     <ClCompile Include="..\..\src\core\callstacks.cc" />
+    <ClCompile Include="..\..\src\core\profiler.cc" />
+    <ClCompile Include="..\..\src\core\profiler-callgrind.cc" />
     <ClCompile Include="..\..\src\core\shmdisplay.cc" />
     <ClCompile Include="..\..\src\core\cdrom.cc" />
     <ClCompile Include="..\..\src\core\cdromlogger.cc" />
@@ -198,6 +200,7 @@
     <ClInclude Include="..\..\src\core\guest-command.h" />
     <ClInclude Include="..\..\src\core\arguments.h" />
     <ClInclude Include="..\..\src\core\callstacks.h" />
+    <ClInclude Include="..\..\src\core\profiler.h" />
     <ClInclude Include="..\..\src\core\shmdisplay.h" />
     <ClInclude Include="..\..\src\core\cdrom.h" />
     <ClInclude Include="..\..\src\core\cdromlogger.h" />

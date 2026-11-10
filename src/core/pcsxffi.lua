@@ -80,6 +80,19 @@ typedef struct {
     uint64_t cycle;
 } PCSX_TraceEntry;
 
+bool startProfiler();
+void stopProfiler();
+void clearProfiler();
+bool getProfilerRunning();
+uint64_t getProfilerTotal(unsigned counter);
+bool saveProfilerPprof(const char* path);
+bool saveProfilerCallgrind(const char* path);
+unsigned getProfilerFunctionCount();
+const char* getProfilerFunctionName(unsigned index);
+uint32_t getProfilerFunctionAddress(unsigned index);
+uint64_t getProfilerFunctionSelf(unsigned index, unsigned counter);
+uint64_t getProfilerFunctionInclusive(unsigned index, unsigned counter);
+
 uint64_t getCpuTraceSize();
 void clearCpuTrace();
 bool getCpuTraceEnabled();
@@ -304,6 +317,36 @@ PCSX = {
             save = function(path) return C.saveCpuTrace(path) end,
             load = function(path) return C.loadCpuTrace(path) end,
         },
+    },
+    -- Exact call-path profiler, interpreter only. Counters: instructions, calls.
+    Profiler = {
+        start = function() return C.startProfiler() end,
+        stop = function() C.stopProfiler() end,
+        clear = function() C.clearProfiler() end,
+        running = function() return C.getProfilerRunning() end,
+        totals = function()
+            return { instructions = tonumber(C.getProfilerTotal(0)), calls = tonumber(C.getProfilerTotal(1)) }
+        end,
+        functions = function()
+            local ret = {}
+            for i = 0, C.getProfilerFunctionCount() - 1 do
+                ret[#ret + 1] = {
+                    name = ffi.string(C.getProfilerFunctionName(i)),
+                    address = C.getProfilerFunctionAddress(i),
+                    self = {
+                        instructions = tonumber(C.getProfilerFunctionSelf(i, 0)),
+                        calls = tonumber(C.getProfilerFunctionSelf(i, 1)),
+                    },
+                    inclusive = {
+                        instructions = tonumber(C.getProfilerFunctionInclusive(i, 0)),
+                        calls = tonumber(C.getProfilerFunctionInclusive(i, 1)),
+                    },
+                }
+            end
+            return ret
+        end,
+        savePprof = function(path) return C.saveProfilerPprof(path) end,
+        saveCallgrind = function(path) return C.saveProfilerCallgrind(path) end,
     },
     nextTick = function(f)
         local oldCleanup = AfterPollingCleanup

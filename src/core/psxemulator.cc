@@ -37,6 +37,7 @@
 #include "core/patchmanager.h"
 #include "core/pcsxlua.h"
 #include "core/pio-cart.h"
+#include "core/profiler.h"
 #include "core/r3000a.h"
 #include "core/ramlogger.h"
 #include "core/shmdisplay.h"
@@ -108,6 +109,7 @@ PCSX::Emulator::Emulator()
       m_pads(PCSX::Pads::factory()),
       m_patchManager(new PatchManager()),
       m_pioCart(new PCSX::PIOCart),
+      m_profiler(new PCSX::Profiler()),
       m_sio(new PCSX::SIO()),
       m_sio1(new PCSX::SIO1()),
       m_sio1Server(new PCSX::SIO1Server()),

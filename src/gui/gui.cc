@@ -1503,6 +1503,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
                     ImGui::MenuItem(_("Show CPU Trace"), nullptr, &m_cpuTrace.m_show);
                     ImGui::MenuItem(_("Show Breakpoints"), nullptr, &m_breakpoints.m_show);
                     ImGui::MenuItem(_("Show Callstacks"), nullptr, &m_callstacks.m_show);
+                    ImGui::MenuItem(_("Show Profiler"), nullptr, &m_callProfiler.m_show);
                     if (ImGui::BeginMenu(_("Memory Editors"))) {
                         for (auto& editor : m_mainMemEditors) {
                             editor.MenuItem();
@@ -1759,6 +1760,9 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
     }
     if (m_callstacks.m_show) {
         m_callstacks.draw(_("Callstacks"), this);
+    }
+    if (m_callProfiler.m_show) {
+        m_callProfiler.draw(_("Profiler"), this);
     }
 
     {

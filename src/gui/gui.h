@@ -39,6 +39,7 @@
 #include "gui/widgets/alloc_tracker.h"
 #include "gui/widgets/assembly.h"
 #include "gui/widgets/breakpoints.h"
+#include "gui/widgets/call_profiler.h"
 #include "gui/widgets/callstacks.h"
 #include "gui/widgets/cdrom-viewer.h"
 #include "gui/widgets/console.h"
@@ -51,7 +52,6 @@
 #include "gui/widgets/gpulogger.h"
 #include "gui/widgets/handlers.h"
 #include "gui/widgets/heap_viewer.h"
-#include "gui/widgets/scope_profiler.h"
 #include "gui/widgets/hwregs.h"
 #include "gui/widgets/isobrowser.h"
 #include "gui/widgets/kernellog.h"
@@ -67,6 +67,7 @@
 #include "gui/widgets/pocketstation.h"
 #include "gui/widgets/ram-viewer.h"
 #include "gui/widgets/registers.h"
+#include "gui/widgets/scope_profiler.h"
 #include "gui/widgets/shader-editor.h"
 #include "gui/widgets/sio1.h"
 #include "gui/widgets/spulogger.h"
@@ -131,6 +132,7 @@ class GUI final : public UI {
     typedef Setting<bool, TYPESTRING("ShowHandlers")> ShowHandlers;
     typedef Setting<bool, TYPESTRING("ShowKernelLog")> ShowKernelLog;
     typedef Setting<bool, TYPESTRING("ShowCallstacks")> ShowCallstacks;
+    typedef Setting<bool, TYPESTRING("ShowCallProfiler")> ShowCallProfiler;
     typedef Setting<bool, TYPESTRING("ShowSIO1")> ShowSIO1;
     typedef Setting<bool, TYPESTRING("ShowNetwork")> ShowNetwork;
     typedef Setting<bool, TYPESTRING("ShowIsoBrowser")> ShowIsoBrowser;
@@ -195,14 +197,15 @@ class GUI final : public UI {
              ShowTypedDebugger, ShowPatches, ShowMemcardManager, ShowRegisters, ShowAssembly, ShowDisassembly,
              ShowCpuTrace, ShowBreakpoints, ShowNamedSaveStates, ShowEvents, ShowHandlers, ShowKernelLog,
              ShowCallstacks, ShowSIO1, ShowNetwork, ShowIsoBrowser, ShowGPULogger, ShowGPUDump, ShowRAMViewer,
-             ShowCDRomViewer, ShowHeapViewer, ShowScopeProfiler, ShowPocketStationLCD, ShowAllocTracker, ShowHWRegs, MainFontSize, MonoFontSize, GUITheme,
-             AllowMouseCaptureToggle, EnableRawMouseMotion, WidescreenRatio, ShowPIOCartConfig, ShowMemoryEditor1,
-             ShowMemoryEditor2, ShowMemoryEditor3, ShowMemoryEditor4, ShowMemoryEditor5, ShowMemoryEditor6,
-             ShowMemoryEditor7, ShowMemoryEditor8, ShowParallelPortEditor, ShowScratchpadEditor, ShowHWRegsEditor,
-             ShowBiosEditor, ShowVRAMEditor, MemoryEditor1Addr, MemoryEditor2Addr, MemoryEditor3Addr, MemoryEditor4Addr,
-             MemoryEditor5Addr, MemoryEditor6Addr, MemoryEditor7Addr, MemoryEditor8Addr, ParallelPortEditorAddr,
-             ScratchpadEditorAddr, HWRegsEditorAddr, BiosEditorAddr, VRAMEditorAddr, ShowSPURAMEditor, SPURAMEditorAddr,
-             ShowSPULogger, SPULoggerEnabled, ShowSPUSamples, ShowDalos, ShowMsanViewer>
+             ShowCDRomViewer, ShowHeapViewer, ShowScopeProfiler, ShowPocketStationLCD, ShowAllocTracker, ShowHWRegs,
+             MainFontSize, MonoFontSize, GUITheme, AllowMouseCaptureToggle, EnableRawMouseMotion, WidescreenRatio,
+             ShowPIOCartConfig, ShowMemoryEditor1, ShowMemoryEditor2, ShowMemoryEditor3, ShowMemoryEditor4,
+             ShowMemoryEditor5, ShowMemoryEditor6, ShowMemoryEditor7, ShowMemoryEditor8, ShowParallelPortEditor,
+             ShowScratchpadEditor, ShowHWRegsEditor, ShowBiosEditor, ShowVRAMEditor, MemoryEditor1Addr,
+             MemoryEditor2Addr, MemoryEditor3Addr, MemoryEditor4Addr, MemoryEditor5Addr, MemoryEditor6Addr,
+             MemoryEditor7Addr, MemoryEditor8Addr, ParallelPortEditorAddr, ScratchpadEditorAddr, HWRegsEditorAddr,
+             BiosEditorAddr, VRAMEditorAddr, ShowSPURAMEditor, SPURAMEditorAddr, ShowSPULogger, SPULoggerEnabled,
+             ShowSPUSamples, ShowDalos, ShowMsanViewer, ShowCallProfiler>
         settings;
 
     // imgui can't handle more than one "instance", so...
@@ -498,6 +501,7 @@ class GUI final : public UI {
     Widgets::KernelLog m_kernelLog = {settings.get<ShowKernelLog>().value};
 
     Widgets::CallStacks m_callstacks = {settings.get<ShowCallstacks>().value};
+    Widgets::CallProfiler m_callProfiler = {settings.get<ShowCallProfiler>().value};
 
     Widgets::PIOCart m_pioCart;
     Widgets::GPUDump m_gpuDump;

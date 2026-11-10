@@ -20,6 +20,7 @@
 #include "core/callstacks.h"
 
 #include "core/logger.h"
+#include "core/profiler.h"
 #include "core/psxemulator.h"
 #include "core/r3000a.h"
 #include "core/system.h"
@@ -62,6 +63,7 @@ void PCSX::CallStacks::setSP(uint32_t oldSP, uint32_t newSP) {
         callstack++;
     }
     todelete.destroyAll();
+    if (m_pathTracking) refreshPath();
 }
 
 void PCSX::CallStacks::offsetSP(uint32_t oldSP, int32_t offset) {
@@ -92,6 +94,8 @@ void PCSX::CallStacks::offsetSP(uint32_t oldSP, int32_t offset) {
     m_callstacks.insert(lowSP, highSP, m_current);
     auto& calls = m_current->calls;
     CallStack::Call* maybeShadow = nullptr;
+    unsigned popped = 0;
+    uint32_t poppedRA = 0;
     while (true) {
         if ((calls.size() == 0) || ((calls.size() == 1) && maybeShadow)) break;
         auto last = --calls.end();
@@ -100,6 +104,8 @@ void PCSX::CallStacks::offsetSP(uint32_t oldSP, int32_t offset) {
         if (maybeShadow) {
             debugLog("[CSDBG] offsetSP: deleting shadow space call to 0x%08x from 0x%08x\n", maybeShadow->ra,
                      maybeShadow->sp);
+            popped++;
+            poppedRA = maybeShadow->ra;
             delete maybeShadow;
             maybeShadow = nullptr;
         }
@@ -107,10 +113,25 @@ void PCSX::CallStacks::offsetSP(uint32_t oldSP, int32_t offset) {
             maybeShadow = &*last;
         } else {
             debugLog("[CSDBG] offsetSP: deleting call to 0x%08x from 0x%08x\n", last->ra, last->sp);
+            popped++;
+            poppedRA = last->ra;
             delete &*last;
             m_current->ra = 0;
             m_current->fp = 0;
         }
+    }
+    if (m_pathTracking) {
+        // A frame popped by its own epilogue still has a jr $ra and maybe a delay slot to run,
+        // and those belong to the callee, so it goes back to pending until it returns. Several
+        // frames going at once is an unwind, not a return, and nothing is pending after it.
+        if (popped == 1) {
+            m_current->pendingReturn = poppedRA;
+        } else if (popped > 1) {
+            m_current->pendingReturn = 0;
+        }
+        // A surviving shadow call may have lost its predecessor.
+        if (maybeShadow) rechain(m_current);
+        refreshPath();
     }
 }
 
@@ -143,7 +164,13 @@ void PCSX::CallStacks::storeRA(uint32_t sp, uint32_t ra) {
     } else {
         debugLog("[CSDBG] storeRA: creating call to 0x%08x from 0x%08x on stack 0x%08x\n", ra, sp, high);
     }
-    m_current->calls.push_back(new CallStack::Call(sp, fp, ra, shadow));
+    auto call = new CallStack::Call(sp, fp, ra, shadow);
+    if (m_pathTracking) {
+        call->path = internPath(lastPath(m_current), ra);
+        m_current->pendingReturn = 0;
+    }
+    m_current->calls.push_back(call);
+    if (m_pathTracking) refreshPath();
 }
 
 void PCSX::CallStacks::loadRA(uint32_t sp) {
@@ -163,7 +190,7 @@ void PCSX::CallStacks::loadRA(uint32_t sp) {
     }
 }
 
-void PCSX::CallStacks::potentialRA(uint32_t ra, uint32_t sp) {
+void PCSX::CallStacks::potentialRA(uint32_t ra, uint32_t sp, uint32_t target) {
     if (!m_current && m_currentSP) {
         offsetSP(m_currentSP, 0);
     }
@@ -171,5 +198,63 @@ void PCSX::CallStacks::potentialRA(uint32_t ra, uint32_t sp) {
         debugLog("[CSDBG] potentialRA: to 0x%08x\n", ra);
         m_current->ra = ra;
         m_current->fp = sp;
+        if (m_pathTracking) {
+            m_pathBeforeCall = m_currentPath;
+            m_delaySlotPC = ra - 4;
+            m_current->pendingReturn = ra;
+            refreshPath();
+            g_emulator->m_profiler->countCall(m_currentPath, target);
+        }
     }
+}
+
+uint32_t PCSX::CallStacks::internPath(uint32_t parent, uint32_t ra) {
+    uint64_t key = (uint64_t(parent) << 32) | ra;
+    auto [it, inserted] = m_pathIndex.try_emplace(key, uint32_t(m_pathNodes.size()));
+    if (inserted) m_pathNodes.push_back({parent, ra});
+    return it->second;
+}
+
+void PCSX::CallStacks::rechain(CallStack* stack) {
+    uint32_t path = 0;
+    for (auto& call : stack->calls) {
+        path = internPath(path, call.ra);
+        call.path = path;
+    }
+}
+
+void PCSX::CallStacks::rechainAll() {
+    for (auto& stack : m_callstacks) rechain(&stack);
+    refreshPath();
+}
+
+void PCSX::CallStacks::refreshPath() {
+    if (!m_current) {
+        m_currentPath = 0;
+        m_pendingReturn = 0;
+        return;
+    }
+    uint32_t path = lastPath(m_current);
+    m_pendingReturn = m_current->pendingReturn;
+    if (m_pendingReturn) path = internPath(path, m_pendingReturn);
+    m_currentPath = path;
+}
+
+void PCSX::CallStacks::setPathTracking(bool enabled) {
+    if (enabled == m_pathTracking) return;
+    m_pathTracking = enabled;
+    if (enabled) {
+        rechainAll();
+    } else {
+        m_currentPath = 0;
+        m_pendingReturn = 0;
+        m_delaySlotPC = 0;
+    }
+}
+
+void PCSX::CallStacks::clearPaths() {
+    m_pathNodes.clear();
+    m_pathIndex.clear();
+    m_pathNodes.push_back({0, 0});
+    if (m_pathTracking) rechainAll();
 }

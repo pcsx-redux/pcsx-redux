@@ -718,6 +718,7 @@ void PCSX::CallStacks::deserialize(const SaveStateWrapper* w) {
     }
 
     m_currentSP = w->state.get<SaveStates::CallStacksField>().get<CallStacksCurrentSP>().value;
+    if (m_pathTracking) rechainAll();
 }
 
 static uint32_t getU32(const uint8_t* ptr) { return ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24); }

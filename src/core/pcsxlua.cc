@@ -29,6 +29,7 @@
 #include "core/gpu.h"
 #include "core/gpudump.h"
 #include "core/gpulogger.h"
+#include "core/profiler.h"
 #include "core/psxemulator.h"
 #include "core/psxmem.h"
 #include "core/r3000a.h"
@@ -105,6 +106,47 @@ void jumpToMemory(uint32_t address, unsigned width) {
     PCSX::g_system->m_eventBus->signal(PCSX::Events::GUI::JumpToMemory{address, width});
 }
 void invalidateCache() { PCSX::g_emulator->m_cpu->invalidateCache(); }
+
+bool startProfiler() { return PCSX::g_emulator->m_profiler->start(); }
+void stopProfiler() { PCSX::g_emulator->m_profiler->stop(); }
+void clearProfiler() { PCSX::g_emulator->m_profiler->clear(); }
+bool getProfilerRunning() { return PCSX::g_emulator->m_profiler->running(); }
+uint64_t getProfilerTotal(unsigned counter) {
+    if (counter >= PCSX::Profiler::CounterCount) return 0;
+    return PCSX::g_emulator->m_profiler->totals()[counter];
+}
+static bool writeProfilerFile(const char* path, const std::string& data) {
+    PCSX::IO<PCSX::File> file = new PCSX::PosixFile(path, PCSX::FileOps::TRUNCATE);
+    if (file->failed()) return false;
+    file->write(data.data(), data.size());
+    return true;
+}
+bool saveProfilerPprof(const char* path) {
+    return writeProfilerFile(path, PCSX::g_emulator->m_profiler->serializePprof());
+}
+bool saveProfilerCallgrind(const char* path) {
+    return writeProfilerFile(path, PCSX::g_emulator->m_profiler->serializeCallgrind());
+}
+// functions() is snapshotted by getProfilerFunctionCount and read back by index.
+static std::vector<PCSX::Profiler::Function> s_profilerFunctions;
+unsigned getProfilerFunctionCount() {
+    s_profilerFunctions = PCSX::g_emulator->m_profiler->functions();
+    return s_profilerFunctions.size();
+}
+const char* getProfilerFunctionName(unsigned index) {
+    return index < s_profilerFunctions.size() ? s_profilerFunctions[index].name.c_str() : "";
+}
+uint32_t getProfilerFunctionAddress(unsigned index) {
+    return index < s_profilerFunctions.size() ? s_profilerFunctions[index].address : 0;
+}
+uint64_t getProfilerFunctionSelf(unsigned index, unsigned counter) {
+    if ((index >= s_profilerFunctions.size()) || (counter >= PCSX::Profiler::CounterCount)) return 0;
+    return s_profilerFunctions[index].self[counter];
+}
+uint64_t getProfilerFunctionInclusive(unsigned index, unsigned counter) {
+    if ((index >= s_profilerFunctions.size()) || (counter >= PCSX::Profiler::CounterCount)) return 0;
+    return s_profilerFunctions[index].inclusive[counter];
+}
 
 uint64_t getCpuTraceSize() { return PCSX::g_emulator->m_cpuTrace->size(); }
 void clearCpuTrace() { PCSX::g_emulator->m_cpuTrace->clear(); }
@@ -357,6 +399,18 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, jumpToPC);
     REGISTER(L, jumpToMemory);
     REGISTER(L, invalidateCache);
+    REGISTER(L, startProfiler);
+    REGISTER(L, stopProfiler);
+    REGISTER(L, clearProfiler);
+    REGISTER(L, getProfilerRunning);
+    REGISTER(L, getProfilerTotal);
+    REGISTER(L, saveProfilerPprof);
+    REGISTER(L, saveProfilerCallgrind);
+    REGISTER(L, getProfilerFunctionCount);
+    REGISTER(L, getProfilerFunctionName);
+    REGISTER(L, getProfilerFunctionAddress);
+    REGISTER(L, getProfilerFunctionSelf);
+    REGISTER(L, getProfilerFunctionInclusive);
     REGISTER(L, getCpuTraceSize);
     REGISTER(L, clearCpuTrace);
     REGISTER(L, getCpuTraceEnabled);
