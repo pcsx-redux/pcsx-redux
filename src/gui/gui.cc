@@ -61,6 +61,7 @@
 #include "gui/luaimguiextra.h"
 #include "gui/luaimplot.h"
 #include "gui/luatvg.h"
+#include "gui/memeditor-route.h"
 #include "gui/resources.h"
 #include "gui/shaders/crt-lottes.h"
 #include "imgui.h"
@@ -830,8 +831,6 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
     m_outputShaderEditor.init();
 
     m_listener.listen<Events::GUI::JumpToMemory>([this](auto& event) {
-        const uint32_t base = (event.address >> 20) & 0xff8;
-        const uint32_t real = event.address & 0x7fffff;
         const uint32_t size = event.size;
         const uint32_t editorNum = event.editorNum;
         auto changeDataType = [](MemoryEditor* editor, int size) {
@@ -856,18 +855,30 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
                     break;
             }
         };
-        if ((base == 0x000) || (base == 0x800) || (base == 0xa00)) {
-            if (real < 0x00800000) {
-                m_mainMemEditors[editorNum].m_show = true;
-                m_mainMemEditors[editorNum].editor.GotoAddrAndHighlight(real, real + size);
-                changeDataType(&m_mainMemEditors[editorNum].editor, size);
-            }
-        } else if (base == 0x1f8) {
-            if (real >= 0x1000 && real < 0x3000) {
-                m_hwrEditor.m_show = true;
-                m_hwrEditor.editor.GotoAddrAndHighlight(real - 0x1000, real - 0x1000 + size);
-                changeDataType(&m_hwrEditor.editor, size);
-            }
+        const auto route = MemEditorRoute::route(event.address);
+        auto go = [&](MemoryEditorWrapper& wrapper) {
+            wrapper.m_show = true;
+            wrapper.editor.GotoAddrAndHighlight(route.offset, route.offset + size);
+            changeDataType(&wrapper.editor, size);
+        };
+        switch (route.target) {
+            case MemEditorRoute::Target::MainRam:
+                if (editorNum < 8) go(m_mainMemEditors[editorNum]);
+                break;
+            case MemEditorRoute::Target::ParallelPort:
+                go(m_parallelPortEditor);
+                break;
+            case MemEditorRoute::Target::Scratchpad:
+                go(m_scratchPadEditor);
+                break;
+            case MemEditorRoute::Target::HardwareRegisters:
+                go(m_hwrEditor);
+                break;
+            case MemEditorRoute::Target::Bios:
+                go(m_biosEditor);
+                break;
+            case MemEditorRoute::Target::None:
+                break;
         }
     });
 
