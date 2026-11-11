@@ -15,10 +15,11 @@ permissions:
   contents: read
 
 jobs:
-  # chores.yml's export-support pushes filter.sh's rewrite of main to
-  # pcsx-redux/support without building it first. Each filter pass works on one
-  # tree at a time, so filtering the tested commit alone gives the tree the
-  # mirror would get, and this builds it with its own Makefile, as its users do.
+  # chores.yml's export-support builds filter.sh's rewrite of main before it
+  # pushes it to pcsx-redux/support; this does the same for a pull request, in
+  # a plain image. Each filter pass works on one tree at a time, so filtering
+  # the tested commit alone gives the tree the mirror would get, and this builds
+  # it with its own Makefile, as its users do.
   build:
     runs-on: ubuntu-latest
     # Not the build image, which has libuv, curl and ffmpeg installed: an
