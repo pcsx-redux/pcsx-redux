@@ -354,7 +354,15 @@ void PCSX::GPULogger::publishHeatmaps() {
 }
 
 void PCSX::GPULogger::accumulateOverdraw(GPU::Logged* node, bool clipped) {
+    // The OpenGL renderer caches its blend state, so put back exactly what it had set.
     const bool blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint srcRGB, dstRGB, srcAlpha, dstAlpha, eqRGB, eqAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &srcRGB);
+    glGetIntegerv(GL_BLEND_DST_RGB, &dstRGB);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &dstAlpha);
+    glGetIntegerv(GL_BLEND_EQUATION_RGB, &eqRGB);
+    glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &eqAlpha);
     glEnable(GL_BLEND);
     glBlendEquation(GL_FUNC_ADD);
     glBlendFunc(GL_ONE, GL_ONE);
@@ -376,6 +384,8 @@ void PCSX::GPULogger::accumulateOverdraw(GPU::Logged* node, bool clipped) {
     node->getVertices([this](auto v1, auto v2, auto v3) { addTri(v1, v2, v3); }, GPU::Logged::PixelOp::READ);
     flush();
 
+    glBlendFuncSeparate(srcRGB, dstRGB, srcAlpha, dstAlpha);
+    glBlendEquationSeparate(eqRGB, eqAlpha);
     if (!blendWasEnabled) glDisable(GL_BLEND);
 }
 

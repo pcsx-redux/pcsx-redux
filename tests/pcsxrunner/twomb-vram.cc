@@ -17,6 +17,9 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include <cstdlib>
+#include <string>
+
 #include "gtest/gtest.h"
 #include "main/main.h"
 
@@ -139,3 +142,67 @@ TEST(TwoMBVram, GateFlipQueued) {
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
+
+// The same self-checking probes under the OpenGL renderer. It needs a GL
+// context, so these run with the GUI rather than -no-ui, and only on Linux,
+// where CI runs the suite under xvfb. Without a display they are skipped.
+#if defined(__linux__)
+static bool haveDisplay() { return std::getenv("DISPLAY") || std::getenv("WAYLAND_DISPLAY"); }
+
+static int runOpenGLProbe(const char* name) {
+    std::string exe = std::string("src/mips/tests/2mb-vram/") + name + "/" + name + ".ps-exe";
+    MainInvoker invoker("-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter", "-openglgpu",
+                        "-2mbvram", "-loadexe", exe.c_str());
+    return invoker.invoke();
+}
+
+TEST(TwoMBVramOpenGL, BankProbe) {
+    if (!haveDisplay()) GTEST_SKIP() << "no display";
+    EXPECT_EQ(runOpenGLProbe("bank-probe"), 0);
+}
+
+TEST(TwoMBVramOpenGL, TexpageUpper) {
+    if (!haveDisplay()) GTEST_SKIP() << "no display";
+    EXPECT_EQ(runOpenGLProbe("texpage-upper"), 0);
+}
+
+TEST(TwoMBVramOpenGL, TransferWrapY) {
+    if (!haveDisplay()) GTEST_SKIP() << "no display";
+    EXPECT_EQ(runOpenGLProbe("transfer-wrap-y"), 0);
+}
+
+TEST(TwoMBVramOpenGL, TransferHQuirk) {
+    if (!haveDisplay()) GTEST_SKIP() << "no display";
+    EXPECT_EQ(runOpenGLProbe("transfer-h-quirk"), 0);
+}
+
+TEST(TwoMBVramOpenGL, VramBlitY) {
+    if (!haveDisplay()) GTEST_SKIP() << "no display";
+    EXPECT_EQ(runOpenGLProbe("vram-blit-y"), 0);
+}
+
+TEST(TwoMBVramOpenGL, VramTransfersY) {
+    if (!haveDisplay()) GTEST_SKIP() << "no display";
+    EXPECT_EQ(runOpenGLProbe("vram-transfers-y"), 0);
+}
+
+TEST(TwoMBVramOpenGL, DrawingAreaY) {
+    if (!haveDisplay()) GTEST_SKIP() << "no display";
+    EXPECT_EQ(runOpenGLProbe("drawing-area-y"), 0);
+}
+
+TEST(TwoMBVramOpenGL, DrawingOffsetY) {
+    if (!haveDisplay()) GTEST_SKIP() << "no display";
+    EXPECT_EQ(runOpenGLProbe("drawing-offset-y"), 0);
+}
+
+TEST(TwoMBVramOpenGL, PrimitivesCross) {
+    if (!haveDisplay()) GTEST_SKIP() << "no display";
+    EXPECT_EQ(runOpenGLProbe("primitives-cross"), 0);
+}
+
+TEST(TwoMBVramOpenGL, GateFlipQueued) {
+    if (!haveDisplay()) GTEST_SKIP() << "no display";
+    EXPECT_EQ(runOpenGLProbe("gate-flip-queued"), 0);
+}
+#endif

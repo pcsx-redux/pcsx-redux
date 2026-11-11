@@ -119,6 +119,8 @@ class Counters {
     // Brings the scanline position up to date, then returns the hblanks elapsed since the
     // last vblank start. Only call from the CPU side: it can raise the vblank IRQ.
     uint32_t linesSinceVBlank();
+    // Lines from one vblank IRQ to the next at the current system type.
+    uint32_t linesPerFrame();
     // True for the field silicon runs at 263 lines in NTSC 480i, the one GPUSTAT.31 reads 1
     // in. Redux runs both fields at the same length.
     bool longField() const { return (m_fieldCount & 1) == 0; }
