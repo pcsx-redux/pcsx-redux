@@ -2382,12 +2382,21 @@ sequence at each power-on.)"));
         auto directoryPicker = [&changed](const char* label, const char* id, std::filesystem::path& dir) {
             auto str = dir.u8string();
             const char* shown = dir.empty() ? _("(settings folder)") : reinterpret_cast<const char*>(str.c_str());
-            ImGui::InputText(label, const_cast<char*>(shown), strlen(shown) + 1, ImGuiInputTextFlags_ReadOnly);
+            // Label on its own line and the field sized to leave room, so the buttons stay visible in a
+            // narrow window.
+            const auto& style = ImGui::GetStyle();
+            const char* reset = _("Reset");
+            float buttons = ImGui::CalcTextSize("...").x + style.FramePadding.x * 2 + style.ItemSpacing.x;
+            if (!dir.empty()) buttons += ImGui::CalcTextSize(reset).x + style.FramePadding.x * 2 + style.ItemSpacing.x;
+            ImGui::TextUnformatted(label);
+            ImGui::SetNextItemWidth(-buttons);
+            ImGui::InputText(fmt::format("##{}", id).c_str(), const_cast<char*>(shown), strlen(shown) + 1,
+                             ImGuiInputTextFlags_ReadOnly);
             ImGui::SameLine();
             bool open = ImGui::Button(fmt::format("...##{}", id).c_str());
             if (!dir.empty()) {
                 ImGui::SameLine();
-                if (ImGui::Button(fmt::format("{}##{}", _("Reset"), id).c_str())) {
+                if (ImGui::Button(fmt::format("{}##{}", reset, id).c_str())) {
                     dir.clear();
                     changed = true;
                 }
@@ -2436,7 +2445,8 @@ can slow down emulation to a noticeable extent.)"));
         }
         if (dialog.draw()) {
             const auto& selected = dialog.selected();
-            if (!selected.empty()) {
+            std::error_code ec;
+            if (!selected.empty() && std::filesystem::is_directory(std::filesystem::path(selected[0]), ec)) {
                 dir = selected[0];
                 changed = true;
             }
@@ -2752,14 +2762,23 @@ std::string PCSX::GUI::getSaveStatePrefix(bool includeSeparator) {
 
 std::string PCSX::GUI::getSaveStatePostfix() { return ".sstate"; }
 
+static std::filesystem::path resolveOutputDir(const std::filesystem::path& setting) {
+    std::filesystem::path dir = setting.empty() ? PCSX::g_system->getPersistentDir() : setting;
+    // Callers prepend this to relative names, so a relative result would get prefixed twice.
+    if (dir.is_relative()) {
+        std::error_code ec;
+        auto abs = std::filesystem::absolute(dir, ec);
+        if (!ec) dir = abs;
+    }
+    return dir;
+}
+
 std::filesystem::path PCSX::GUI::getSaveStateDir() {
-    std::filesystem::path dir = g_emulator->settings.get<Emulator::SettingSaveStateDir>().value;
-    return dir.empty() ? g_system->getPersistentDir() : dir;
+    return resolveOutputDir(g_emulator->settings.get<Emulator::SettingSaveStateDir>().value);
 }
 
 std::filesystem::path PCSX::GUI::getScreenshotDir() {
-    std::filesystem::path dir = g_emulator->settings.get<Emulator::SettingScreenshotDir>().value;
-    return dir.empty() ? g_system->getPersistentDir() : dir;
+    return resolveOutputDir(g_emulator->settings.get<Emulator::SettingScreenshotDir>().value);
 }
 
 std::string PCSX::GUI::buildSaveStateFilename(int i) {
@@ -3091,10 +3110,13 @@ void PCSX::GUI::saveScreenShot() {
         getScreenshotDir() / (getSaveStatePrefix(true) + PCSX::ScreenShot::getDateString() + ".png");
     auto screenshot = g_emulator->m_gpu->takeScreenShot();
     clip::image img = PCSX::ScreenShot::convertScreenshotToImage(std::move(screenshot));
-    bool success = PCSX::ScreenShot::writeImagePNG(path.string(), std::move(img));
+    auto pathStr = path.u8string();
+    // The PNG writer takes UTF-8 on every platform.
+    std::string utf8Path(reinterpret_cast<const char*>(pathStr.c_str()), pathStr.size());
+    bool success = PCSX::ScreenShot::writeImagePNG(utf8Path, std::move(img));
 
     if (success) {
-        auto successMsg = fmt::format(f_("Screenshot saved to {}\n"), path.string());
+        auto successMsg = fmt::format(f_("Screenshot saved to {}\n"), utf8Path);
         g_system->log(LogClass::UI, std::move(successMsg));
         addNotice(fmt::format(f_("Screenshot saved to {}"), path.filename().string()), NoticeKind::Info);
     } else {
