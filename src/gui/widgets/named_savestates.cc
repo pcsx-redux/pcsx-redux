@@ -149,7 +149,7 @@ std::vector<std::pair<std::filesystem::path, std::string>> PCSX::Widgets::NamedS
 
     // Loop the root directory
     std::error_code ec;
-    std::filesystem::path save_path = g_system->getPersistentDir() / prefix;
+    std::filesystem::path save_path = gui->getSaveStateDir() / prefix;
     if (std::filesystem::exists(save_path, ec)) {
         for (const auto& entry : std::filesystem::directory_iterator(save_path, ec)) {
             if (entry.is_regular_file()) {
@@ -187,7 +187,7 @@ std::filesystem::path PCSX::Widgets::NamedSaveStates::createSaveStatePath(GUI* g
     // Check sub-folder for active game exists.
     std::error_code ec;
     std::string sub_folder = gui->getSaveStatePrefix(false);
-    std::filesystem::path base_path = g_system->getPersistentDir() / sub_folder;
+    std::filesystem::path base_path = gui->getSaveStateDir() / sub_folder;
     if (!std::filesystem::exists(base_path, ec)) {
         if (!std::filesystem::create_directory(base_path, ec)) {
             if (ec) {

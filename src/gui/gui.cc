@@ -173,6 +173,8 @@ PCSX::GUI::GUI(std::vector<std::string>& favorites)
       m_openArchiveDialog(l_("Open Archive"), favorites),
       m_selectBiosDialog(l_("Select BIOS"), favorites),
       m_selectEXP1Dialog(l_("Select EXP1"), favorites),
+      m_selectScreenshotDirDialog(l_("Select screenshot folder"), favorites),
+      m_selectSaveStateDirDialog(l_("Select save state folder"), favorites),
       m_isoBrowser(
           settings.get<ShowIsoBrowser>().value, favorites, [this]() { useMonoFont(); },
           [this](const std::string& name, IO<File> file) { m_dalos.addSource(name, file); }),
@@ -2251,6 +2253,8 @@ bool PCSX::GUI::configure() {
     bool changed = false;
     bool selectBiosDialog = false;
     bool selectEXP1Dialog = false;
+    bool selectScreenshotDirDialog = false;
+    bool selectSaveStateDirDialog = false;
     bool showDynarecDebugWarning = false;
     bool showDynarecWarning = false;
     auto& settings = g_emulator->settings;
@@ -2375,6 +2379,25 @@ sequence at each power-on.)"));
                          bios.length() + 1, ImGuiInputTextFlags_ReadOnly);
         ImGui::SameLine();
         selectBiosDialog = ImGui::Button("...");
+        auto directoryPicker = [&changed](const char* label, const char* id, std::filesystem::path& dir) {
+            auto str = dir.u8string();
+            const char* shown = dir.empty() ? _("(settings folder)") : reinterpret_cast<const char*>(str.c_str());
+            ImGui::InputText(label, const_cast<char*>(shown), strlen(shown) + 1, ImGuiInputTextFlags_ReadOnly);
+            ImGui::SameLine();
+            bool open = ImGui::Button(fmt::format("...##{}", id).c_str());
+            if (!dir.empty()) {
+                ImGui::SameLine();
+                if (ImGui::Button(fmt::format("{}##{}", _("Reset"), id).c_str())) {
+                    dir.clear();
+                    changed = true;
+                }
+            }
+            return open;
+        };
+        selectScreenshotDirDialog = directoryPicker(_("Screenshot folder"), "ScreenshotDir",
+                                                    settings.get<Emulator::SettingScreenshotDir>().value);
+        selectSaveStateDirDialog = directoryPicker(_("Save state folder"), "SaveStateDir",
+                                                   settings.get<Emulator::SettingSaveStateDir>().value);
         if (ImGui::Checkbox(_("Enable Debugger"), &debugSettings.get<Emulator::DebugSettings::Debug>().value)) {
             changed = true;
             if (debugSettings.get<PCSX::Emulator::DebugSettings::Debug>() && settings.get<Emulator::SettingDynarec>()) {
@@ -2406,6 +2429,23 @@ can slow down emulation to a noticeable extent.)"));
             }
         }
     }
+    auto directoryDialog = [&changed](auto& dialog, bool open, std::filesystem::path& dir) {
+        if (open) {
+            dialog.m_currentPath = dir.empty() ? g_system->getPersistentDir() : dir;
+            dialog.openDialog();
+        }
+        if (dialog.draw()) {
+            const auto& selected = dialog.selected();
+            if (!selected.empty()) {
+                dir = selected[0];
+                changed = true;
+            }
+        }
+    };
+    directoryDialog(m_selectScreenshotDirDialog, selectScreenshotDirDialog,
+                    settings.get<Emulator::SettingScreenshotDir>().value);
+    directoryDialog(m_selectSaveStateDirDialog, selectSaveStateDirDialog,
+                    settings.get<Emulator::SettingSaveStateDir>().value);
     if (showDynarecDebugWarning && showDynarecWarning) {
         addNotification(R"(Debugger and dynarec enabled at the same time.
 Consider turning either one off, otherwise
@@ -2712,6 +2752,16 @@ std::string PCSX::GUI::getSaveStatePrefix(bool includeSeparator) {
 
 std::string PCSX::GUI::getSaveStatePostfix() { return ".sstate"; }
 
+std::filesystem::path PCSX::GUI::getSaveStateDir() {
+    std::filesystem::path dir = g_emulator->settings.get<Emulator::SettingSaveStateDir>().value;
+    return dir.empty() ? g_system->getPersistentDir() : dir;
+}
+
+std::filesystem::path PCSX::GUI::getScreenshotDir() {
+    std::filesystem::path dir = g_emulator->settings.get<Emulator::SettingScreenshotDir>().value;
+    return dir.empty() ? g_system->getPersistentDir() : dir;
+}
+
 std::string PCSX::GUI::buildSaveStateFilename(int i) {
     return fmt::format("{}{}{}", getSaveStatePrefix(false), getSaveStatePostfix(), i);
 }
@@ -2722,7 +2772,7 @@ std::string PCSX::GUI::buildSaveStateFilename(std::string saveStateName) {
 
 bool PCSX::GUI::saveSaveState(std::filesystem::path filename) {
     if (filename.is_relative()) {
-        filename = g_system->getPersistentDir() / filename;
+        filename = getSaveStateDir() / filename;
     }
     // TODO: yeet this to libuv's threadpool.
     IO<UvFile> file(new UvFile(filename, FileOps::TRUNCATE));
@@ -2744,7 +2794,7 @@ bool PCSX::GUI::saveSaveState(std::filesystem::path filename) {
 
 bool PCSX::GUI::loadSaveState(std::filesystem::path filename) {
     if (filename.is_relative()) {
-        filename = g_system->getPersistentDir() / filename;
+        filename = getSaveStateDir() / filename;
     }
     ZReader save(new PosixFile(filename));
     if (save.failed()) {
@@ -2838,7 +2888,7 @@ void PCSX::GUI::PassiveNotifier::draw() {
 
 bool PCSX::GUI::deleteSaveState(std::filesystem::path filename) {
     if (filename.is_relative()) {
-        filename = g_system->getPersistentDir() / filename;
+        filename = getSaveStateDir() / filename;
     }
     return std::remove(filename.string().c_str()) == 0;
 }
@@ -2851,7 +2901,7 @@ bool PCSX::GUI::deleteSaveStateSlot(uint32_t slot) { return deleteSaveState(buil
 
 bool PCSX::GUI::saveStateExists(std::filesystem::path filename) {
     if (filename.is_relative()) {
-        filename = g_system->getPersistentDir() / filename;
+        filename = getSaveStateDir() / filename;
     }
     ZReader save(new PosixFile(filename));
     return !save.failed();
@@ -3038,7 +3088,7 @@ void PCSX::GUI::changeScale(float scale) {
 
 void PCSX::GUI::saveScreenShot() {
     std::filesystem::path path =
-        g_system->getPersistentDir() / (getSaveStatePrefix(true) + PCSX::ScreenShot::getDateString() + ".png");
+        getScreenshotDir() / (getSaveStatePrefix(true) + PCSX::ScreenShot::getDateString() + ".png");
     auto screenshot = g_emulator->m_gpu->takeScreenShot();
     clip::image img = PCSX::ScreenShot::convertScreenshotToImage(std::move(screenshot));
     bool success = PCSX::ScreenShot::writeImagePNG(path.string(), std::move(img));
