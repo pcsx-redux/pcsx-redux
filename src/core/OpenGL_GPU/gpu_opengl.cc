@@ -262,10 +262,32 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
             return r | (g << 5) | (b << 10) | msb;
         }
 
-        // Apply texture blending
-            // Formula for RGB8 colours: col1 * col2 / 128
-        vec4 texBlend(vec4 colour1, vec4 colour2) {
-            vec4 ret = (colour1 * colour2) / (128.0 / 255.0);
+        // 1 while GL blending is on, i.e. the primitive is semi-transparent.
+        uniform int u_blending = 0;
+
+        // The 8-bit vertex colour as an integer.
+        vec3 colour8(vec3 c) {
+            return floor(c * 255.0 + 0.5);
+        }
+
+        // The GPU writes 5 bits per channel, dropping the low 3 bits of an 8-bit colour. Writing k / 31
+        // keeps VRAM 5-bit exact through the RGBA8 framebuffer. Semi-transparent fragments are left
+        // unquantized: the GPU blends before dropping the bits, and GL blending happens after the shader.
+        vec3 untexturedColour(vec3 c, bool semi) {
+            if (semi) return c;
+            return floor(colour8(c) / 8.0) / 31.0;
+        }
+
+        // Apply texture blending: (texel * colour) / 128 per channel, with a 5-bit texel and an 8-bit
+        // colour, truncated and saturated to 5 bits.
+        vec4 texBlend(vec4 colour1, vec4 colour2, bool semi) {
+            vec4 ret;
+            if (semi) {
+                ret.rgb = (colour1.rgb * colour2.rgb) / (128.0 / 255.0);
+            } else {
+                vec3 texel5 = floor(colour1.rgb * 31.0 + 0.5);
+                ret.rgb = min(floor(texel5 * colour8(colour2.rgb) / 128.0), vec3(31.0)) / 31.0;
+            }
             // The texel's mask bit is written through, ORed with set-mask.
             ret.a = max(step(0.5, colour1.a), u_setMask);
             return ret;
@@ -275,7 +297,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
            if ((int(gl_FragCoord.y) & 1) == u_skipParity) discard;
            if (u_checkMask != 0 && texelFetch(u_maskTex, ivec2(gl_FragCoord.xy), 0).a >= 0.5) discard;
            if (texMode == 4) { // Untextured primitive
-               FragColor = vec4(vertexColor.rgb, u_setMask);
+               FragColor = vec4(untexturedColour(vertexColor.rgb, u_blending != 0), u_setMask);
                BlendColor = u_blendFactors;
                return;
            }
@@ -295,8 +317,9 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
                FragColor = sampleVRAM(sampleCoords);
 
                if (FragColor.rgb == vec3(0.0, 0.0, 0.0)) discard;
+               bool semi = u_blending != 0 && FragColor.a >= 0.5;
                BlendColor = FragColor.a >= 0.5 ? u_blendFactors : u_blendFactorsIfOpaque;
-               FragColor = texBlend(FragColor, vertexColor);
+               FragColor = texBlend(FragColor, vertexColor, semi);
            } else if (texMode == 1) { // 8bpp texture
                ivec2 texelCoord = ivec2(UV.x >> 1, UV.y) + texpageBase;
 
@@ -308,15 +331,18 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
                FragColor = sampleVRAM(sampleCoords);
 
                if (FragColor.rgb == vec3(0.0, 0.0, 0.0)) discard;
+               bool semi = u_blending != 0 && FragColor.a >= 0.5;
                BlendColor = FragColor.a >= 0.5 ? u_blendFactors : u_blendFactorsIfOpaque;
-               FragColor = texBlend(FragColor, vertexColor);
+               FragColor = texBlend(FragColor, vertexColor, semi);
            } else { // Texture depth 2 and 3 both indicate 16bpp textures
                ivec2 texelCoord = UV + texpageBase;
                FragColor = sampleVRAM(texelCoord);
 
                if (FragColor.rgb == vec3(0.0, 0.0, 0.0)) discard;
-               FragColor = texBlend(FragColor, vertexColor);
-               BlendColor = u_blendFactors;
+               // As with CLUT entries, only texels with bit 15 set are semi-transparent.
+               bool semi = u_blending != 0 && FragColor.a >= 0.5;
+               BlendColor = FragColor.a >= 0.5 ? u_blendFactors : u_blendFactorsIfOpaque;
+               FragColor = texBlend(FragColor, vertexColor, semi);
            }
         }
     )";
@@ -344,6 +370,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
     glUniform1i(vramSamplerLoc, 0);  // Make the fragment shader read from currently binded texture
     m_setMaskLoc = OpenGL::uniformLocation(m_program, "u_setMask");
     m_checkMaskLoc = OpenGL::uniformLocation(m_program, "u_checkMask");
+    m_blendingLoc = OpenGL::uniformLocation(m_program, "u_blending");
     glUniform1i(OpenGL::uniformLocation(m_program, "u_maskTex"), 1);
     m_maskDirty = true;
 
@@ -496,6 +523,7 @@ bool PCSX::OpenGL_GPU::configure() {
             glUniform1i(vramSamplerLoc, 0);  // Make the fragment shader read from currently bound texture
             m_setMaskLoc = OpenGL::uniformLocation(m_program, "u_setMask");
             m_checkMaskLoc = OpenGL::uniformLocation(m_program, "u_checkMask");
+            m_blendingLoc = OpenGL::uniformLocation(m_program, "u_blending");
             glUniform1i(OpenGL::uniformLocation(m_program, "u_maskTex"), 1);
             m_maskDirty = true;
             glUniform4f(m_blendFactorsIfOpaqueLoc, 1.0, 1.0, 1.0, 0.0);
@@ -777,6 +805,7 @@ void PCSX::OpenGL_GPU::renderBatch() {
     if (m_vertexCount > 0) {
         pushVRAMConfig();
         pushMaskConfig();
+        glUniform1i(m_blendingLoc, m_lastTransparency == Transparency::Transparent ? 1 : 0);
         if (m_checkMask) {
             // Snapshot the destination the batch reads for check-mask. Without bounds (a primitive split
             // across a full vertex buffer), take all of VRAM.
@@ -1256,9 +1285,10 @@ void PCSX::OpenGL_GPU::write0(FastFill *prim) {
     updateSkipParity();
     renderBatch();
     const auto colour = prim->color;
-    const float r = float(colour & 0xff) / 255.f;
-    const float g = float((colour >> 8) & 0xff) / 255.f;
-    const float b = float((colour >> 16) & 0xff) / 255.f;
+    // Written as k / 31 so VRAM keeps the 5-bit value the GPU stores (the low 3 bits dropped).
+    const float r = float((colour & 0xff) >> 3) / 31.f;
+    const float g = float(((colour >> 8) & 0xff) >> 3) / 31.f;
+    const float b = float(((colour >> 16) & 0xff) >> 3) / 31.f;
 
     // GP0(02h) ignores GP0(E6h) and writes bit 15 as 0.
     OpenGL::setClearColor(r, g, b, 0.f);
@@ -1294,9 +1324,21 @@ void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
     width = ((width - 1) & 0x3ff) + 1;
     height = ((height - 1) & 0x1ff) + 1;
 
-    if (m_setMask || m_checkMask) {
-        // The copy honours GP0(E6h) per pixel, in the same row-major order as the software renderer, so
-        // it runs on a CPU copy of VRAM.
+    // Source and destination Y each wrap per row through resolveVramY(), and rows landing on an
+    // unpopulated upper bank (open bus on a 1MB fitment) are dropped. A single blit only covers a copy
+    // that is contiguous on both ends.
+    const unsigned srcY0 = resolveVramY(srcY);
+    const unsigned destY0 = resolveVramY(destY);
+    bool contiguous = true;
+    for (uint32_t j = 0; contiguous && (j < height); j++) {
+        contiguous = !vramOpenBus(destY + j) && (resolveVramY(srcY + j) == srcY0 + j) &&
+                     (resolveVramY(destY + j) == destY0 + j);
+    }
+
+    if (m_setMask || m_checkMask || !contiguous) {
+        // The copy runs per pixel on a CPU copy of VRAM, in the same row-major order as the software
+        // renderer, so it honours GP0(E6h), and an overlapping wrapped copy reads what the rows before
+        // it wrote.
         OpenGL::enableScissor();
         auto slice = getVRAM(Ownership::BORROW);
         uint16_t *vram = slice.mutableData<uint16_t>();
@@ -1318,10 +1360,10 @@ void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
     if (m_multisampled) {
         // A blit between two multisampled framebuffers needs identical source and destination rectangles,
         // so go through the resolved copy.
-        resolveMSAA(srcX, srcY, width, height);
-        blitFromResolved(srcX, srcY, destX, destY, width, height);
+        resolveMSAA(srcX, srcY0, width, height);
+        blitFromResolved(srcX, srcY0, destX, destY0, width, height);
     } else {
-        glBlitFramebuffer(srcX, srcY, srcX + width, srcY + height, destX, destY, destX + width, destY + height,
+        glBlitFramebuffer(srcX, srcY0, srcX + width, srcY0 + height, destX, destY0, destX + width, destY0 + height,
                           GL_COLOR_BUFFER_BIT, GL_NEAREST);
     }
     OpenGL::enableScissor();
