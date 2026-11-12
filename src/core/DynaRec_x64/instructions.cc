@@ -1500,6 +1500,8 @@ void DynaRecCPU::recMTC0(uint32_t code) {
     if (m_gprs[_Rt_].isConst()) {
         if (_Rd_ == 13) {
             gen.mov(dword[contextPointer + COP0_OFFSET(_Rd_)], m_gprs[_Rt_].val & ~0xFC00);
+        } else if (_Rd_ == 12) {
+            gen.mov(dword[contextPointer + COP0_OFFSET(_Rd_)], m_gprs[_Rt_].val & PCSX::c_cop0StatusWritableMask);
         } else if (_Rd_ != 6 && _Rd_ != 14 && _Rd_ != 15) {  // Don't write to JUMPDEST, EPC or PRID
             gen.mov(dword[contextPointer + COP0_OFFSET(_Rd_)], m_gprs[_Rt_].val);
         }
@@ -1510,6 +1512,10 @@ void DynaRecCPU::recMTC0(uint32_t code) {
         if (_Rd_ == 13) {
             gen.mov(eax, m_gprs[_Rt_].allocatedReg);
             gen.and_(eax, ~0xFC00);
+            gen.mov(dword[contextPointer + COP0_OFFSET(_Rd_)], eax);
+        } else if (_Rd_ == 12) {
+            gen.mov(eax, m_gprs[_Rt_].allocatedReg);
+            gen.and_(eax, PCSX::c_cop0StatusWritableMask);
             gen.mov(dword[contextPointer + COP0_OFFSET(_Rd_)], eax);
         } else if (_Rd_ != 6 && _Rd_ != 14 && _Rd_ != 15) {  // Don't write to JUMPDEST, EPC or PRID
             gen.mov(dword[contextPointer + COP0_OFFSET(_Rd_)], m_gprs[_Rt_].allocatedReg);  // Write rt to the cop0 reg

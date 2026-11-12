@@ -865,6 +865,9 @@ void DynaRecCPU::recMTC0(uint32_t code) {
         if (_Rd_ == 13) {
             gen.Mov(w0, m_gprs[_Rt_].val & ~0xFC00);
             gen.Str(w0, MemOperand(contextPointer, COP0_OFFSET(_Rd_)));
+        } else if (_Rd_ == 12) {
+            gen.Mov(w0, m_gprs[_Rt_].val & PCSX::c_cop0StatusWritableMask);
+            gen.Str(w0, MemOperand(contextPointer, COP0_OFFSET(_Rd_)));
         } else if (_Rd_ != 6 && _Rd_ != 14 && _Rd_ != 15) {  // Don't write to JUMPDEST, EPC or PRID
             gen.Mov(w0, m_gprs[_Rt_].val);
             gen.Str(w0, MemOperand(contextPointer, COP0_OFFSET(_Rd_)));
@@ -875,6 +878,10 @@ void DynaRecCPU::recMTC0(uint32_t code) {
         allocateReg(_Rt_);
         if (_Rd_ == 13) {
             gen.And(w0, m_gprs[_Rt_].allocatedReg, ~0xFC00);
+            gen.Str(w0, MemOperand(contextPointer, COP0_OFFSET(_Rd_)));
+        } else if (_Rd_ == 12) {
+            gen.Mov(w0, PCSX::c_cop0StatusWritableMask);  // Not encodable as an aa64 logical immediate
+            gen.And(w0, m_gprs[_Rt_].allocatedReg, w0);
             gen.Str(w0, MemOperand(contextPointer, COP0_OFFSET(_Rd_)));
         } else if (_Rd_ != 6 && _Rd_ != 14 && _Rd_ != 15) {  // Don't write to JUMPDEST, EPC or PRID
             gen.Str(m_gprs[_Rt_].allocatedReg,

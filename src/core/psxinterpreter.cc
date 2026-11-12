@@ -1146,7 +1146,7 @@ inline void InterpretedCPU::MTC0(int reg, uint32_t val) {
     //  PCSX::g_system->log(PCSX::LogClass::CPU, "MTC0 %d: %x\n", reg, val);
     switch (reg) {
         case 12:  // Status
-            m_regs.CP0.n.Status = val;
+            m_regs.CP0.n.Status = val & PCSX::c_cop0StatusWritableMask;
             psxTestSWInts();
             break;
 
