@@ -290,6 +290,7 @@ std::vector<PCSX::SF2::Sample> PCSX::SF2::read(const uint8_t* data, size_t size)
     const Chunk shdr = find(pdta.data, pdta.size, "shdr");
     const Chunk ibag = find(pdta.data, pdta.size, "ibag");
     const Chunk igen = find(pdta.data, pdta.size, "igen");
+    const Chunk inst = find(pdta.data, pdta.size, "inst");
     if (!smpl.data || !shdr.data || shdr.size < 46) return ret;
     const uint32_t points = smpl.size / 2;
 
@@ -298,13 +299,23 @@ std::vector<PCSX::SF2::Sample> PCSX::SF2::read(const uint8_t* data, size_t size)
     std::vector<bool> loops(count, false);
     if (ibag.data && igen.data) {
         // The generators of one zone run from its ibag index to the next one's. Every zone
-        // that names a sample decides whether that sample loops.
+        // that names a sample decides whether that sample loops. The first zone of an
+        // instrument is its global zone when it names no sample; its sampleModes applies to
+        // the instrument's other zones unless they set their own.
         const unsigned bags = ibag.size / 4;
         const unsigned gens = igen.size / 4;
+        std::vector<bool> instrumentStart(bags, false);
+        const unsigned instruments = inst.data ? inst.size / 22 : 0;
+        for (unsigned i = 0; i < instruments; i++) {
+            const unsigned b = rd16(inst.data + i * 22 + 20);
+            if (b < bags) instrumentStart[b] = true;
+        }
+        int globalMode = 0;
         for (unsigned b = 0; b + 1 < bags; b++) {
+            if (instrumentStart[b]) globalMode = 0;
             const unsigned first = rd16(ibag.data + b * 4);
             const unsigned last = std::min(unsigned(rd16(ibag.data + (b + 1) * 4)), gens);
-            int mode = 0;
+            int mode = -1;
             int sampleID = -1;
             for (unsigned g = first; g < last; g++) {
                 const uint16_t oper = rd16(igen.data + g * 4);
@@ -312,7 +323,12 @@ std::vector<PCSX::SF2::Sample> PCSX::SF2::read(const uint8_t* data, size_t size)
                 if (oper == c_genSampleModes) mode = amount & 3;
                 if (oper == c_genSampleID) sampleID = amount;
             }
-            if (sampleID >= 0 && unsigned(sampleID) < count && (mode == 1 || mode == 3)) loops[sampleID] = true;
+            if (sampleID < 0) {
+                if (instrumentStart[b] && mode >= 0) globalMode = mode;
+                continue;
+            }
+            if (mode < 0) mode = globalMode;
+            if (unsigned(sampleID) < count && (mode == 1 || mode == 3)) loops[sampleID] = true;
         }
     }
 
