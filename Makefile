@@ -114,6 +114,13 @@ else
     LDFLAGS += -lGL -lX11 -lxcb
 endif
 
+# Apple's linker has no fully static mode, so the tools link dynamically there.
+ifeq ($(UNAME_S),Darwin)
+    TOOLS_LDFLAGS := -lz
+else
+    TOOLS_LDFLAGS := -static -lz
+endif
+
 LDFLAGS += third_party/luajit/src/libluajit.a
 LDFLAGS += -ldl
 LDFLAGS += -g
@@ -426,7 +433,7 @@ runtests: pcsx-redux-tests
 define TOOLDEF
 bins/$(BUILD)/$(1): $(SUPPORT_OBJECTS) $(TOOL_EXTRA_OBJECTS_$(1)) objs/$(BUILD)/tools/$(1)/$(1).o
 	@$(MKDIRP) $(dir bins/$(BUILD)/$(1))
-	$(LD) -o bins/$(BUILD)/$(1) $(CPPFLAGS) $(CXXFLAGS) $(SUPPORT_OBJECTS) $(TOOL_EXTRA_OBJECTS_$(1)) objs/$(BUILD)/tools/$(1)/$(1).o -static -lz
+	$(LD) -o bins/$(BUILD)/$(1) $(CPPFLAGS) $(CXXFLAGS) $(SUPPORT_OBJECTS) $(TOOL_EXTRA_OBJECTS_$(1)) objs/$(BUILD)/tools/$(1)/$(1).o $(TOOLS_LDFLAGS)
 
 $(1): check_submodules bins/$(BUILD)/$(1)
 	$(CP) bins/$(BUILD)/$(1) $(1)
