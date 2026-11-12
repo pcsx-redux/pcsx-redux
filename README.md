@@ -104,7 +104,7 @@ Run `./dockermake.sh appimage`. You need [docker](https://en.wikipedia.org/wiki/
 
 #### GNU/Linux Dependencies
 
-If you're only interested in compiling psx code, you can simply clone the pcsx-redux repo, then build the mips toolchain with [this script](https://github.com/pcsx-redux/nugget/blob/main/tools/linux-mips/spawn-compiler.sh), then follow the instructions in `/pcsx-redux/src/mips/psyq/README.md` to convert the PsyQ libraries. You might find them pre-compiled online.
+If you're only interested in compiling psx code, you can simply clone the pcsx-redux repo, then build the mips toolchain with [this script](https://github.com/pcsx-redux/nugget/blob/main/tools/linux-mips/spawn-compiler.sh), then follow the [PsyQ instructions](https://github.com/pcsx-redux/nugget/blob/main/psyq/README.md) (`src/mips/psyq/README.md` in your checkout) to convert the PsyQ libraries. You might find them pre-compiled online.
 
  - Debian derivatives ( for full emulator compilation ):
 
