@@ -116,7 +116,9 @@ The mips toolchain isn't packaged by Debian or Ubuntu, so build it from source:
 
 ```bash
 sudo apt-get install -y wget bzip2 xz-utils bison flex texinfo libgmp-dev libmpfr-dev libmpc-dev
-sudo bash src/mips/tools/linux-mips/spawn-compiler.sh
+mkdir mips-toolchain && cd mips-toolchain
+wget -O spawn-compiler.sh https://raw.githubusercontent.com/pcsx-redux/nugget/main/tools/linux-mips/spawn-compiler.sh
+sudo bash spawn-compiler.sh
 ```
 
  - Arch derivatives :
@@ -136,7 +138,9 @@ The AUR mipsel packages do not give a working toolchain, so build it from source
 
 ```bash
 sudo pacman -S --needed base-devel wget texinfo gmp mpfr libmpc
-sudo bash src/mips/tools/linux-mips/spawn-compiler.sh
+mkdir mips-toolchain && cd mips-toolchain
+wget -O spawn-compiler.sh https://raw.githubusercontent.com/pcsx-redux/nugget/main/tools/linux-mips/spawn-compiler.sh
+sudo bash spawn-compiler.sh
 ```
 You can then just enter the 'pcsx-redux' directory and compile without using docker with `make`.
 
