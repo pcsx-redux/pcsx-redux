@@ -1493,6 +1493,18 @@ void DynaRecCPU::recMFC0(uint32_t code) {
     m_gprs[_Rt_].setWriteback(true);
 
     gen.mov(m_gprs[_Rt_].allocatedReg, dword[contextPointer + COP0_OFFSET(_Rd_)]);
+    if (_Rd_ == 13) {
+        // Cause bit 10 follows I_STAT & I_MASK, both ways, with no latch.
+        gen.mov(rax, (uint64_t)&PCSX::g_emulator->m_mem->m_hard[0x1070]);
+        gen.mov(ecx, dword[rax]);
+        gen.and_(ecx, dword[rax + 4]);
+        gen.and_(ecx, 0x7ff);
+        gen.setnz(cl);
+        gen.movzx(ecx, cl);
+        gen.shl(ecx, 10);
+        gen.and_(m_gprs[_Rt_].allocatedReg, ~0x400);
+        gen.or_(m_gprs[_Rt_].allocatedReg, ecx);
+    }
 }
 
 // TODO: Handle all COP0 register writes properly. Don't treat read-only field as writeable!
