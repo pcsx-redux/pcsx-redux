@@ -50,11 +50,8 @@ double sineError(const int16_t* pcm, size_t count) {
 
 }  // namespace
 
-TEST(SF3, ReaderDecodesVorbisSamples) {
-    const auto samples = PCSX::SF2::read(c_bank, sizeof(c_bank));
-    ASSERT_EQ(samples.size(), 1u);
-    const auto& s = samples[0];
-    EXPECT_EQ(s.name, "Sine");
+static void expectSine(const PCSX::SF2::Sample& s, const char* name) {
+    EXPECT_EQ(s.name, name);
     EXPECT_EQ(s.sampleRate, c_rate);
     EXPECT_EQ(s.rootKey, 69);
     ASSERT_EQ(s.pcm.size(), c_points);
@@ -64,12 +61,33 @@ TEST(SF3, ReaderDecodesVorbisSamples) {
     EXPECT_LT(sineError(s.pcm.data(), s.pcm.size()), 0.05);
 }
 
-// The fixture with its sample's byte range moved past the end of smpl.
-static std::vector<uint8_t> outOfRangeBank() {
+// The region playing `key`, or nullptr.
+static const tsf_region* regionFor(const tsf* font, int key) {
+    for (int i = 0; i < font->presets[0].regionNum; i++) {
+        const tsf_region& r = font->presets[0].regions[i];
+        if (key >= r.lokey && key <= r.hikey) return &r;
+    }
+    return nullptr;
+}
+
+static void expectSine(const tsf* font, const tsf_region& r) {
+    ASSERT_GE(r.end - r.offset, c_points);
+    // tsf's loop_end is inclusive.
+    EXPECT_EQ(r.loop_start - r.offset, c_loopStart);
+    EXPECT_EQ(r.loop_end - r.offset, c_loopEnd - 1);
+    std::vector<int16_t> pcm(c_points);
+    for (unsigned i = 0; i < c_points; i++) {
+        pcm[i] = int16_t(std::lrint(font->fontSamples[r.offset + i] * 32767.0f));
+    }
+    EXPECT_LT(sineError(pcm.data(), pcm.size()), 0.05);
+}
+
+// The fixture with the byte range of sample `index` moved past the end of smpl.
+static std::vector<uint8_t> outOfRangeBank(unsigned index) {
     std::vector<uint8_t> bank(c_bank, c_bank + sizeof(c_bank));
     for (size_t i = 0; i + 8 <= bank.size(); i++) {
         if (memcmp(bank.data() + i, "shdr", 4) != 0) continue;
-        uint8_t* h = bank.data() + i + 8;
+        uint8_t* h = bank.data() + i + 8 + index * 46;
         const uint32_t start = 0x100000;
         const uint32_t end = start + 0x1000;
         memcpy(h + 20, &start, 4);
@@ -79,37 +97,48 @@ static std::vector<uint8_t> outOfRangeBank() {
     return bank;
 }
 
-TEST(SF3, ReaderSkipsOutOfRangeVorbisSamples) {
-    const auto bank = outOfRangeBank();
-    EXPECT_TRUE(PCSX::SF2::read(bank.data(), bank.size()).empty());
+TEST(SF3, ReaderDecodesVorbisSamples) {
+    const auto samples = PCSX::SF2::read(c_bank, sizeof(c_bank));
+    ASSERT_EQ(samples.size(), 2u);
+    expectSine(samples[0], "Sine");
+    expectSine(samples[1], "Sine2");
 }
 
-TEST(SF3, TinySoundFontSkipsOutOfRangeVorbisSamples) {
-    const auto bank = outOfRangeBank();
-    // tsf drops the sample and loads the rest, instead of reading 1 MiB past smpl.
-    tsf* font = tsf_load_memory(bank.data(), int(bank.size()));
-    ASSERT_NE(font, nullptr);
-    tsf_close(font);
+TEST(SF3, ReaderSkipsOutOfRangeVorbisSamples) {
+    const auto bank = outOfRangeBank(1);
+    const auto samples = PCSX::SF2::read(bank.data(), bank.size());
+    ASSERT_EQ(samples.size(), 1u);
+    expectSine(samples[0], "Sine");
 }
 
 TEST(SF3, TinySoundFontDecodesVorbisSamples) {
     tsf* font = tsf_load_memory(c_bank, int(sizeof(c_bank)));
     ASSERT_NE(font, nullptr);
     ASSERT_EQ(font->presetNum, 1);
-    ASSERT_EQ(font->presets[0].regionNum, 1);
-    const tsf_region& r = font->presets[0].regions[0];
-    ASSERT_LT(r.offset, r.end);
-    // tsf runs a region one point past the end of its sample when the font has one to spare.
-    ASSERT_GE(r.end - r.offset, c_points);
-    ASSERT_LE(r.end - r.offset, c_points + 1);
-    // tsf's loop_end is inclusive.
-    EXPECT_EQ(r.loop_start - r.offset, c_loopStart);
-    EXPECT_EQ(r.loop_end - r.offset, c_loopEnd - 1);
+    ASSERT_EQ(font->presets[0].regionNum, 2);
+    const tsf_region* low = regionFor(font, 60);
+    const tsf_region* high = regionFor(font, 70);
+    ASSERT_NE(low, nullptr);
+    ASSERT_NE(high, nullptr);
+    expectSine(font, *low);
+    expectSine(font, *high);
+    // The decoded samples are all there is: the Ogg bytes of smpl are not read as PCM after them.
+    EXPECT_EQ(high->end - high->offset, c_points);
+    tsf_close(font);
+}
 
-    std::vector<int16_t> pcm(c_points);
-    for (unsigned i = 0; i < c_points; i++) {
-        pcm[i] = int16_t(std::lrint(font->fontSamples[r.offset + i] * 32767.0f));
-    }
-    EXPECT_LT(sineError(pcm.data(), pcm.size()), 0.05);
+TEST(SF3, TinySoundFontSkipsOutOfRangeVorbisSamples) {
+    // Without bounds checks, tsf reads 1 MiB past smpl here.
+    const auto bank = outOfRangeBank(1);
+    tsf* font = tsf_load_memory(bank.data(), int(bank.size()));
+    ASSERT_NE(font, nullptr);
+    const tsf_region* low = regionFor(font, 60);
+    const tsf_region* high = regionFor(font, 70);
+    ASSERT_NE(low, nullptr);
+    ASSERT_NE(high, nullptr);
+    expectSine(font, *low);
+    EXPECT_EQ(low->end - low->offset, c_points);
+    // The rejected sample plays nothing, rather than every sample in the font.
+    EXPECT_EQ(high->offset, high->end);
     tsf_close(font);
 }

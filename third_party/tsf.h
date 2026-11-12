@@ -912,18 +912,22 @@ static int tsf_decode_sf3_samples(const void* rawBuffer, float** pFloatBuffer, u
 	const tsf_u8* smplBuffer = (const tsf_u8*)rawBuffer;
 	tsf_u32 smplLength = *pSmplCount, resNum = 0, resMax = 0, resInitial = (smplLength > 0x100000 ? (smplLength & ~0xFFFFF) : 65536);
 	float *res = TSF_NULL, *oldres;
-	int i, shdrLast = hydra->shdrNum - 1, is_sf3 = 0;
+	int i, shdrLast = hydra->shdrNum - 1, is_sf3 = 0, had_compressed = 0;
 	for (i = 0; i <= shdrLast; i++)
 	{
 		struct tsf_hydra_shdr *shdr = &hydra->shdrs[i];
 		if (shdr->sampleType & 0x30) // compression flags (sometimes Vorbis flag)
 		{
-			const tsf_u8 *pSmpl = smplBuffer + shdr->start, *pSmplEnd = smplBuffer + shdr->end;
-			if (shdr->start > shdr->end || shdr->end > smplLength || shdr->end - shdr->start < 4 || !TSF_FourCCEquals(pSmpl, "OggS"))
+			const tsf_u8 *pSmpl, *pSmplEnd;
+			had_compressed = 1;
+			if (shdr->start > shdr->end || shdr->end > smplLength || shdr->end - shdr->start < 4 || !TSF_FourCCEquals((smplBuffer + shdr->start), "OggS"))
 			{
+				// Rejected: left empty here, and pointed past the decoded samples below.
 				shdr->start = shdr->end = shdr->startLoop = shdr->endLoop = 0;
 				continue;
 			}
+			pSmpl = smplBuffer + shdr->start;
+			pSmplEnd = smplBuffer + shdr->end;
 
 			// Fix up sample indices in shdr (end index is set after decoding)
 			shdr->start = resNum;
@@ -946,7 +950,8 @@ static int tsf_decode_sf3_samples(const void* rawBuffer, float** pFloatBuffer, u
 				shdr->endLoop += fix_offset;
 			}
 			inEnd = in + ((shdr->end >= shdr->endLoop ? shdr->end : shdr->endLoop) - resNum);
-			if (i == shdrLast || (tsf_u8*)inEnd > (smplBuffer + smplLength)) inEnd = (short*)(smplBuffer + smplLength);
+			// The terminal record takes in any PCM left at the end of smpl, unless smpl holds compressed data.
+			if ((i == shdrLast && !had_compressed) || (tsf_u8*)inEnd > (smplBuffer + smplLength)) inEnd = (short*)(smplBuffer + smplLength);
 			if (inEnd <= in) continue;
 
 			// expand our output buffer if necessary then convert the PCM data from short to float
@@ -963,6 +968,13 @@ static int tsf_decode_sf3_samples(const void* rawBuffer, float** pFloatBuffer, u
 			for (out = res + oldResNum; in < inEnd;)
 				*(out++) = (float)(*(in++) / 32767.0);
 		}
+	}
+
+	// Rejected compressed samples become empty regions at the end of the decoded samples.
+	for (i = 0; i < shdrLast; i++)
+	{
+		struct tsf_hydra_shdr *shdr = &hydra->shdrs[i];
+		if ((shdr->sampleType & 0x30) && shdr->start == shdr->end) shdr->start = shdr->end = shdr->startLoop = shdr->endLoop = resNum;
 	}
 
 	// Trim the sample buffer down then return success (unless out of memory)
