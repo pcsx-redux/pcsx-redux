@@ -22,8 +22,11 @@
 // configures it (midi2psm, midi2spd).
 
 #include <stdint.h>
+#include <string.h>
 
 #include <cmath>
+#include <numbers>
+#include <vector>
 
 #include "gtest/gtest.h"
 #include "supportpsx/midi-converter.h"
@@ -38,7 +41,7 @@ using namespace SF3Fixture;
 double sineError(const int16_t* pcm, size_t count) {
     double sum = 0.0;
     for (size_t i = 0; i < count; i++) {
-        const double ref = std::trunc(c_amplitude * std::sin(2.0 * M_PI * double(i) / double(c_period)));
+        const double ref = std::trunc(c_amplitude * std::sin(2.0 * std::numbers::pi * double(i) / double(c_period)));
         const double d = double(pcm[i]) - ref;
         sum += d * d;
     }
@@ -59,6 +62,34 @@ TEST(SF3, ReaderDecodesVorbisSamples) {
     EXPECT_EQ(s.loopStart, c_loopStart);
     EXPECT_EQ(s.loopEnd, c_loopEnd);
     EXPECT_LT(sineError(s.pcm.data(), s.pcm.size()), 0.05);
+}
+
+// The fixture with its sample's byte range moved past the end of smpl.
+static std::vector<uint8_t> outOfRangeBank() {
+    std::vector<uint8_t> bank(c_bank, c_bank + sizeof(c_bank));
+    for (size_t i = 0; i + 8 <= bank.size(); i++) {
+        if (memcmp(bank.data() + i, "shdr", 4) != 0) continue;
+        uint8_t* h = bank.data() + i + 8;
+        const uint32_t start = 0x100000;
+        const uint32_t end = start + 0x1000;
+        memcpy(h + 20, &start, 4);
+        memcpy(h + 24, &end, 4);
+        break;
+    }
+    return bank;
+}
+
+TEST(SF3, ReaderSkipsOutOfRangeVorbisSamples) {
+    const auto bank = outOfRangeBank();
+    EXPECT_TRUE(PCSX::SF2::read(bank.data(), bank.size()).empty());
+}
+
+TEST(SF3, TinySoundFontSkipsOutOfRangeVorbisSamples) {
+    const auto bank = outOfRangeBank();
+    // tsf drops the sample and loads the rest, instead of reading 1 MiB past smpl.
+    tsf* font = tsf_load_memory(bank.data(), int(bank.size()));
+    ASSERT_NE(font, nullptr);
+    tsf_close(font);
 }
 
 TEST(SF3, TinySoundFontDecodesVorbisSamples) {

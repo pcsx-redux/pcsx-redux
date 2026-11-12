@@ -919,7 +919,7 @@ static int tsf_decode_sf3_samples(const void* rawBuffer, float** pFloatBuffer, u
 		if (shdr->sampleType & 0x30) // compression flags (sometimes Vorbis flag)
 		{
 			const tsf_u8 *pSmpl = smplBuffer + shdr->start, *pSmplEnd = smplBuffer + shdr->end;
-			if (pSmpl + 4 > pSmplEnd || !TSF_FourCCEquals(pSmpl, "OggS"))
+			if (shdr->start > shdr->end || shdr->end > smplLength || shdr->end - shdr->start < 4 || !TSF_FourCCEquals(pSmpl, "OggS"))
 			{
 				shdr->start = shdr->end = shdr->startLoop = shdr->endLoop = 0;
 				continue;
