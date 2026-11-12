@@ -1476,6 +1476,9 @@ void PCSX::OpenGL_GPU::polyExec(Poly<shading, shape, textured, blend, modulation
             setBlendingModeFromTexpage(m_rectTexpage);
         }
     } else if constexpr (textured == Textured::Yes) {
+        // A textured polygon's texpage attribute replaces the global texture page and blend mode
+        // that later rectangles and lines use, leaving the dither and draw-to-display bits.
+        m_rectTexpage = (m_rectTexpage & ~0b0000100111111111u) | (prim->tpage.raw & 0b0000100111111111u);
         if constexpr (blend == Blend::Semi) {
             setBlendingModeFromTexpage(prim->tpage.raw);
         }
