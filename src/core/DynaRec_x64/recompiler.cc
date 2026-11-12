@@ -319,6 +319,7 @@ void DynaRecCPU::emitDispatcher() {
 // Returns the address of the compiled block
 DynarecCallback DynaRecCPU::recompile(uint32_t pc, bool fullLoadDelayEmulation, bool align) {
     m_stopCompiling = false;
+    m_cu2Checked = false;
     m_inDelaySlot = false;
     m_nextIsDelaySlot = false;
     m_pcWrittenBack = false;

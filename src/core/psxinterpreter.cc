@@ -313,6 +313,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     GTE_WRAPPER(SQR);
 #undef GTE_WRAPPER
     void gteSWC2(uint32_t code) {
+        if (!copUsable(2)) return;
         if (userAddressError(m_regs.GPR.r[_Rs_] + _Imm_, Exception::StoreAddressError)) return;
         gteDrainIfStalling();
         gteStall();
@@ -345,6 +346,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     void gteMTC2(uint32_t code) { gteQueueWrite(false, _Rd_, m_regs.GPR.r[_Rt_]); }
     void gteCTC2(uint32_t code) { gteQueueWrite(true, _Rd_, m_regs.GPR.r[_Rt_]); }
     void gteLWC2(uint32_t code) {
+        if (!copUsable(2)) return;
         uint32_t addr = m_regs.GPR.r[_Rs_] + _Imm_;
         if (userAddressError(addr, Exception::LoadAddressError)) return;
         if (addr & 3) {
@@ -1296,7 +1298,7 @@ void InterpretedCPU::psxCOP2(uint32_t code) {
         psxBCz(code, 2);
         return;
     }
-    if ((m_regs.CP0.n.Status & 0x40000000) == 0) return;
+    if (!copUsable(2)) return;
 
     if ((code & 0x02000000) == 0) {
         (*this.*(s_pPsxCP2[_Funct_]))(code);

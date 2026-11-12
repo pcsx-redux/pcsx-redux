@@ -360,6 +360,7 @@ DynaRecCPU::LoadDelayDependencyType DynaRecCPU::getLoadDelayDependencyType(int i
 // Returns the address of the compiled block
 DynarecCallback DynaRecCPU::recompile(DynarecCallback* callback, uint32_t pc, bool align, bool fullLoadDelayEmulation) {
     m_stopCompiling = false;
+    m_cu2Checked = false;
     m_inDelaySlot = false;
     m_nextIsDelaySlot = false;
     m_delayedLoadInfo[0].active = false;
