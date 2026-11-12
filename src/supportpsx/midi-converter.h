@@ -34,6 +34,10 @@
 #include "support/typestring-wrapper.h"
 #include "supportpsx/adpcm.h"
 
+// tsf.h decodes the Ogg Vorbis samples of SF3 banks when stb_vorbis is declared before it.
+#define STB_VORBIS_HEADER_ONLY
+#include "stb/stb_vorbis.c"
+
 #define TSF_IMPLEMENTATION
 #define TSF_NO_STDIO
 #include "tsf.h"

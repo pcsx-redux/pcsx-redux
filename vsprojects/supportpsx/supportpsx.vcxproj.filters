@@ -60,6 +60,9 @@
     <ClCompile Include="..\..\src\supportpsx\spusample.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\supportpsx\stb-vorbis.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\supportpsx\adpcm.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
