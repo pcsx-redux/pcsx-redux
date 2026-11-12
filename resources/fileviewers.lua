@@ -483,6 +483,42 @@ end
 
 local MAX_TEXT_BYTES = 4 * 1024 * 1024
 
+-- Writes data to a temporary file next to path, then moves it over path, so a
+-- failed save leaves the existing file alone.
+local function writeReplacing(path, data)
+    local tmp = path .. '.tmp'
+    local f, err = io.open(tmp, 'wb')
+    if not f then return nil, err end
+    local ok
+    ok, err = f:write(data)
+    local closed, closeErr = f:close()
+    if ok and not closed then ok, err = nil, closeErr end
+    if not ok then
+        os.remove(tmp)
+        return nil, err
+    end
+    ok, err = os.rename(tmp, path)
+    if ok then return true end
+    -- Windows refuses to rename over an existing file: move the old one aside,
+    -- and put it back if the new one cannot take its place.
+    local bak = path .. '.bak'
+    os.remove(bak)
+    if not os.rename(path, bak) then
+        os.remove(tmp)
+        return nil, err
+    end
+    ok, err = os.rename(tmp, path)
+    if ok then
+        os.remove(bak)
+        return true
+    end
+    if os.rename(bak, path) then
+        os.remove(tmp)
+        return nil, err
+    end
+    return nil, string.format('%s; the old file is in %s and the new one in %s', tostring(err), bak, tmp)
+end
+
 local function readWholeFile(path)
     local f = Support.File.open(path)
     if f:failed() then
@@ -577,23 +613,8 @@ function PCSX.FileViewers.textViewer(openFile, opts)
                 imgui.SameLine()
                 if imgui.Button('Save') and v.savePath ~= '' then
                     -- io rather than Support.File: its writes are synchronous,
-                    -- so an error is known before the result is shown. The
-                    -- bytes go to a temporary file first, so a failed save
-                    -- leaves the existing file alone.
-                    local tmp = v.savePath .. '.tmp'
-                    local f, err = io.open(tmp, 'wb')
-                    local ok
-                    if f then
-                        ok, err = f:write(v.encoded)
-                        local closed, closeErr = f:close()
-                        if ok and not closed then ok, err = nil, closeErr end
-                        if ok then
-                            ok, err = os.rename(tmp, v.savePath)
-                            -- Windows refuses to rename over an existing file.
-                            if not ok and os.remove(v.savePath) then ok, err = os.rename(tmp, v.savePath) end
-                        end
-                        if not ok then os.remove(tmp) end
-                    end
+                    -- so an error is known before the result is shown.
+                    local ok, err = writeReplacing(v.savePath, v.encoded)
                     if ok then
                         v.saveInfo = string.format('wrote %d bytes to %s', #v.encoded, v.savePath)
                     else
