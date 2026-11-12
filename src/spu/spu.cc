@@ -227,12 +227,9 @@ bool PCSX::SPU::impl::decodeNextBlock(int ch, SPUCHAN *voice) {
     cursor = decoded.blockEnd;
     const int blockFlags = decoded.flags;
 
+    // The IRQ address matches the block being read, the one that starts 16 bytes before the cursor.
     if (spuCtrl & ControlFlags::IRQEnable) {
-        const bool addrReached = irqAddress > cursor - 16 && irqAddress <= cursor;
-        // Special case: IRQ on the looping address, when the stop/loop flag is set.
-        const bool loopAddrReached = (blockFlags & 1) && voice->adpcm.loop() != nullptr &&
-                                     irqAddress > voice->adpcm.loop() - 16 && irqAddress <= voice->adpcm.loop();
-        if (addrReached || loopAddrReached) {
+        if (irqAddress >= cursor - 16 && irqAddress < cursor) {
             // Debug flag.
             irqDone = 1;
             triggerIrq();
