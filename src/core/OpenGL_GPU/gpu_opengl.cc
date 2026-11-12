@@ -1150,47 +1150,97 @@ void PCSX::OpenGL_GPU::drawRectTextured(int x, int y, int w, int h, uint32_t col
     m_vertices[m_vertexCount++] = Vertex(x, y, color, clut, texpage, u, v);
 }
 
-void PCSX::OpenGL_GPU::drawLine(int x1, int y1, uint32_t color1, int x2, int y2, uint32_t color2) {
+void PCSX::OpenGL_GPU::drawPixel(int x, int y, uint32_t color) {
     maybeRenderBatch<6>();
+    m_vertices[m_vertexCount++] = Vertex(x, y, color);
+    m_vertices[m_vertexCount++] = Vertex(x + 1, y, color);
+    m_vertices[m_vertexCount++] = Vertex(x + 1, y + 1, color);
+    m_vertices[m_vertexCount++] = Vertex(x + 1, y + 1, color);
+    m_vertices[m_vertexCount++] = Vertex(x, y + 1, color);
+    m_vertices[m_vertexCount++] = Vertex(x, y, color);
+}
 
-    const int32_t dx = x2 - x1;
-    const int32_t dy = y2 - y1;
+// Lines are stepped here, pixel by pixel, the same way as the soft renderer: a Bresenham walk whose
+// initial error term is 3 * dy - dx for x-major lines and 2 * dx - dy for y-major ones, and a colour
+// interpolated per step along the major axis. Each pixel is emitted as a 1x1 quad of constant colour.
+// As in the soft renderer, the first colour goes to the left end (or the top end of a vertical line),
+// whichever vertex that is.
+void PCSX::OpenGL_GPU::drawLine(int x0, int y0, uint32_t color0, int x1, int y1, uint32_t color1) {
+    if (x0 == x1 && y0 == y1) {
+        drawPixel(x0, y0, color0);
+        return;
+    }
 
-    const auto absDx = std::abs(dx);
-    const auto absDy = std::abs(dy);
-
-    // Both vertices coincide, render 1x1 rectangle with the colour and coords of v1
-    if (dx == 0 && dy == 0) {
-        m_vertices[m_vertexCount++] = Vertex(x1, y1, color1);
-        m_vertices[m_vertexCount++] = Vertex(x1 + 1, y1, color1);
-        m_vertices[m_vertexCount++] = Vertex(x1 + 1, y1 + 1, color1);
-
-        m_vertices[m_vertexCount++] = Vertex(x1 + 1, y1 + 1, color1);
-        m_vertices[m_vertexCount++] = Vertex(x1, y1 + 1, color1);
-        m_vertices[m_vertexCount++] = Vertex(x1, y1, color1);
-    } else {
-        int xOffset, yOffset;
-        if (absDx > absDy) {  // x-major line
-            xOffset = 0;
-            yOffset = 1;
-
-            // Align line depending on whether dx is positive or not
-            dx > 0 ? x2++ : x1++;
-        } else {  // y-major line
-            xOffset = 1;
-            yOffset = 0;
-
-            // Align line depending on whether dy is positive or not
-            dy > 0 ? y2++ : y1++;
+    auto lerp = [color0, color1](int step, int steps) -> uint32_t {
+        uint32_t result = 0;
+        for (int shift = 0; shift < 24; shift += 8) {
+            const int c0 = (color0 >> shift) & 0xff;
+            const int c1 = (color1 >> shift) & 0xff;
+            const int64_t delta = (int64_t(c1 - c0) << 16) * step / steps;
+            result |= uint32_t(c0 + int(delta >> 16)) << shift;
         }
+        return result;
+    };
 
-        m_vertices[m_vertexCount++] = Vertex(x1, y1, color1);
-        m_vertices[m_vertexCount++] = Vertex(x2, y2, color2);
-        m_vertices[m_vertexCount++] = Vertex(x2 + xOffset, y2 + yOffset, color2);
+    if (x0 == x1 || y0 == y1) {
+        const bool vertical = x0 == x1;
+        const int start = vertical ? std::min(y0, y1) : std::min(x0, x1);
+        const int end = vertical ? std::max(y0, y1) : std::max(x0, x1);
+        const int steps = end - start;
+        for (int v = start; v <= end; v++) {
+            const uint32_t color = lerp(v - start, steps);
+            if (vertical) {
+                drawPixel(x0, v, color);
+            } else {
+                drawPixel(v, y0, color);
+            }
+        }
+        return;
+    }
 
-        m_vertices[m_vertexCount++] = Vertex(x2 + xOffset, y2 + yOffset, color2);
-        m_vertices[m_vertexCount++] = Vertex(x1 + xOffset, y1 + yOffset, color1);
-        m_vertices[m_vertexCount++] = Vertex(x1, y1, color1);
+    if (x1 < x0) {
+        std::swap(x0, x1);
+        std::swap(y0, y1);
+    }
+    const int dx = x1 - x0;
+    const int dy = y1 - y0;
+    const int ady = std::abs(dy);
+    const int minorStep = dy < 0 ? -1 : 1;
+    const bool xMajor = ady <= dx;
+
+    int d, incMajor, incDiag, steps;
+    if (xMajor) {
+        d = 3 * ady - dx;
+        incMajor = 2 * ady;
+        incDiag = 2 * (ady - dx);
+        steps = dx;
+    } else {
+        d = 2 * dx - ady;
+        incMajor = 2 * dx;
+        incDiag = 2 * (dx - ady);
+        steps = ady;
+    }
+
+    int x = x0;
+    int y = y0;
+    drawPixel(x, y, color0);
+    for (int step = 1; step <= steps; step++) {
+        if (d <= 0) {
+            d += incMajor;
+        } else {
+            d += incDiag;
+            if (xMajor) {
+                y += minorStep;
+            } else {
+                x++;
+            }
+        }
+        if (xMajor) {
+            x++;
+        } else {
+            y += minorStep;
+        }
+        drawPixel(x, y, lerp(step, steps));
     }
 }
 
@@ -1463,6 +1513,7 @@ void PCSX::OpenGL_GPU::lineExec(Line<shading, lineType, blend> *prim) {
         setTransparency<Transparency::Opaque>();
     } else if constexpr (blend == Blend::Semi) {
         setTransparency<Transparency::Transparent>();
+        setBlendingModeFromTexpage(m_rectTexpage);
     }
 
     for (unsigned i = 1; i < count; i++) {

@@ -221,7 +221,8 @@ class OpenGL_GPU final : public GPU {
     void drawTriTextured(int *x, int *y, uint32_t *colors, uint16_t clut, uint16_t texpage, unsigned *u, unsigned *v);
     void drawRect(int x, int y, int w, int h, uint32_t color);
     void drawRectTextured(int x, int y, int w, int h, uint32_t color, uint16_t clut, unsigned u, unsigned v);
-    void drawLine(int x1, int y1, uint32_t color1, int x2, int y2, uint32_t color2);
+    void drawLine(int x0, int y0, uint32_t color0, int x1, int y1, uint32_t color1);
+    void drawPixel(int x, int y, uint32_t color);
 
     template <Transparency setting>
     void setTransparency();
