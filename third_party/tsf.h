@@ -833,6 +833,9 @@ static int tsf_load_presets(tsf* res, struct tsf_hydra *hydra, unsigned int font
 								zoneRegion.sample_rate = pshdr->sampleRate;
 								if (zoneRegion.end && zoneRegion.end < fontSampleCount) zoneRegion.end++;
 								else zoneRegion.end = fontSampleCount;
+								// A compressed sample left empty by tsf_decode_sf3_samples (rejected) plays nothing, whatever the offset generators say.
+								if ((pshdr->sampleType & 0x30) && pshdr->start == pshdr->end)
+									zoneRegion.offset = zoneRegion.end = zoneRegion.loop_start = zoneRegion.loop_end = fontSampleCount;
 
 								preset->regions[region_index] = zoneRegion;
 								region_index++;
@@ -977,8 +980,16 @@ static int tsf_decode_sf3_samples(const void* rawBuffer, float** pFloatBuffer, u
 		if ((shdr->sampleType & 0x30) && shdr->start == shdr->end) shdr->start = shdr->end = shdr->startLoop = shdr->endLoop = resNum;
 	}
 
-	// Trim the sample buffer down then return success (unless out of memory)
-	if (!(*pFloatBuffer = (float*)TSF_REALLOC(res, resNum * sizeof(float)))) *pFloatBuffer = res;
+	// Trim the sample buffer down, keeping one zero point past the end for the renderer's interpolation,
+	// then return success (unless out of memory)
+	if (res)
+	{
+		float* trimmed = (float*)TSF_REALLOC(res, (resNum + 1) * sizeof(float));
+		if (!trimmed && resMax < resNum + 1) { TSF_FREE(res); return 0; }
+		if (trimmed) res = trimmed;
+		res[resNum] = 0.0f;
+	}
+	*pFloatBuffer = res;
 	*pSmplCount = resNum;
 	return (res ? 1 : 0);
 }

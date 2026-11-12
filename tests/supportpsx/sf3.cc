@@ -124,6 +124,8 @@ TEST(SF3, TinySoundFontDecodesVorbisSamples) {
     expectSine(font, *high);
     // The decoded samples are all there is: the Ogg bytes of smpl are not read as PCM after them.
     EXPECT_EQ(high->end - high->offset, c_points);
+    // The renderer interpolates one point past a region's end, which tsf keeps at zero.
+    EXPECT_EQ(font->fontSamples[high->end], 0.0f);
     tsf_close(font);
 }
 
@@ -140,5 +142,25 @@ TEST(SF3, TinySoundFontSkipsOutOfRangeVorbisSamples) {
     EXPECT_EQ(low->end - low->offset, c_points);
     // The rejected sample plays nothing, rather than every sample in the font.
     EXPECT_EQ(high->offset, high->end);
+    tsf_close(font);
+}
+
+TEST(SF3, TinySoundFontRejectedSampleIgnoresOffsetGenerators) {
+    auto bank = outOfRangeBank(1);
+    // Turn the second zone's keyRange into startAddrsOffset = -1, pulling its region back into
+    // the decoded samples. That zone now covers every key, so read it by position.
+    for (size_t i = 0; i + 8 <= bank.size(); i++) {
+        if (memcmp(bank.data() + i, "igen", 4) != 0) continue;
+        uint8_t* g = bank.data() + i + 8 + 3 * 4;
+        ASSERT_EQ(g[0], 43);
+        const uint8_t offset[4] = {0, 0, 0xff, 0xff};
+        memcpy(g, offset, 4);
+        break;
+    }
+    tsf* font = tsf_load_memory(bank.data(), int(bank.size()));
+    ASSERT_NE(font, nullptr);
+    ASSERT_EQ(font->presets[0].regionNum, 2);
+    const tsf_region& rejected = font->presets[0].regions[1];
+    EXPECT_EQ(rejected.offset, rejected.end);
     tsf_close(font);
 }
