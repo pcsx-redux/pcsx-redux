@@ -268,6 +268,8 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     void psxCOP1(uint32_t code);
     void psxCOP2(uint32_t code);
     void psxCOP3(uint32_t code);
+    void psxLSCz(uint32_t code);
+    bool copUsable(unsigned z);
     void psxBCz(uint32_t code, unsigned z);
     void gteMove(uint32_t code);
 
@@ -1216,13 +1218,24 @@ void InterpretedCPU::psxCOP0(uint32_t code) {
     (*this.*(s_pPsxCP0[_Rs_]))(code);
 }
 
+// There is no COP1 or COP3. With SR.CU1 (CU3) clear, their opcodes, LWCz and SWCz included, raise a
+// coprocessor unusable exception, even in kernel mode. With the bit set they raise nothing, and are
+// ignored here: on silicon, MFCz and CFCz load an unspecified value and SWCz stores one.
+bool InterpretedCPU::copUsable(unsigned z) {
+    if (m_regs.CP0.n.Status & (0x10000000 << z)) return true;
+    m_regs.pc.raw() -= 4;
+    exception((static_cast<uint32_t>(Exception::CoprocessorUnusable) << 2) | (z << 28), m_inDelaySlot);
+    return false;
+}
+
+void InterpretedCPU::psxLSCz(uint32_t code) { copUsable((code >> 26) & 3); }
+
 void InterpretedCPU::psxCOP1(uint32_t code) {  // Accesses to the (nonexistent) FPU
     if (_Rs_ == 8) {
         psxBCz(code, 1);
         return;
     }
-    // TODO: Verify that COP1 doesn't throw a coprocessor unusable exception
-    // Supposedly the COP1/COP3 ops don't fire RI, and they're NOPs
+    if (!copUsable(1)) return;
     PCSX::g_system->log(PCSX::LogClass::CPU,
                         _("Attempted to use an invalid floating point instruction from 0x%08x. Ignored.\n"),
                         m_regs.pc - 4);
@@ -1252,6 +1265,7 @@ void InterpretedCPU::psxCOP3(uint32_t code) {
         psxBCz(code, 3);
         return;
     }
+    if (!copUsable(3)) return;
     PCSX::g_system->log(PCSX::LogClass::CPU, _("Attempted to access COP3 from 0x%08x. Ignored\n"), m_regs.pc - 4);
 }
 
@@ -1270,9 +1284,9 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_psxBSC[64] = {
     &InterpretedCPU::psxLBU,     &InterpretedCPU::psxLHU,    &InterpretedCPU::psxLWR,  &InterpretedCPU::psxNULL,   // 24
     &InterpretedCPU::psxSB,      &InterpretedCPU::psxSH,     &InterpretedCPU::psxSWL,  &InterpretedCPU::psxSW,     // 28
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxSWR,  &InterpretedCPU::psxNULL,   // 2c
-    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::gteLWC2, &InterpretedCPU::psxNULL,   // 30
+    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteLWC2, &InterpretedCPU::psxLSCz,   // 30
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,   // 34
-    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::gteSWC2, &InterpretedCPU::psxNULL,   // 38
+    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteSWC2, &InterpretedCPU::psxLSCz,   // 38
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,   // 3c
 };
 
@@ -1568,12 +1582,12 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxBSC[64] = {
     &InterpretedCPU::pgxpPsxSWL,  &InterpretedCPU::pgxpPsxSW,     // 2a
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,   // 2c
     &InterpretedCPU::pgxpPsxSWR,  &InterpretedCPU::pgxpPsxNULL,   // 2e
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 30
-    &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxNULL,       // 32
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,       // 30
+    &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxLSCz,       // 32
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 34
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 36
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 38
-    &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxNULL,       // 3a
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,       // 38
+    &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxLSCz,       // 3a
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 3c
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 3e
 };
@@ -1677,12 +1691,12 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxBSCMem[64] = {
     &InterpretedCPU::pgxpPsxSWL,  &InterpretedCPU::pgxpPsxSW,    // 2a
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,  // 2c
     &InterpretedCPU::pgxpPsxSWR,  &InterpretedCPU::pgxpPsxNULL,  // 2e
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 30
-    &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxNULL,      // 32
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,      // 30
+    &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxLSCz,      // 32
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 34
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 36
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 38
-    &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxNULL,      // 3a
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,      // 38
+    &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxLSCz,      // 3a
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 3c
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 3e
 };
