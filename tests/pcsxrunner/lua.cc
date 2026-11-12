@@ -143,7 +143,7 @@ TEST(LuaSaveStateSPUCnt, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sstat
 TEST(LuaSaveStateResult, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sstate-result"), 0); }
 TEST(LuaSPULogger, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.spulogger"), 0); }
 TEST(LuaGdbServer, Interpreter) {
-    EXPECT_EQ(runLuaInt("-gdb", "-gdb-port", "34567", "-exec", "require 'tests.lua.gdbserver'"), 0);
+    EXPECT_EQ(runLuaInt("-gdb", "-gdb-port", "3464", "-exec", "require 'tests.lua.gdbserver'"), 0);
 }
 TEST(LuaIsoBuilder, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.isobuilder"), 0); }
 TEST(LuaIsoBuilder, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.isobuilder"), 0); }
