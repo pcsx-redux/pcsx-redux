@@ -27,7 +27,7 @@
 // on its own thread, so some CPU/SPU jitter is expected; the dynarec widens it.
 TEST(SPU, Endx) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
-                        "-interpreter", "-loadexe", "src/mips/tests/spu-endx/spu-endx.ps-exe");
+                        "-interpreter", "-loadexe", "src/mips/tests/spu/endx/spu-endx.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -38,7 +38,7 @@ TEST(SPU, Endx) {
 // pitch and across a mid-sample pitch change, with a looping voice as the control.
 TEST(SPU, EndMute) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
-                        "-interpreter", "-loadexe", "src/mips/tests/spu-endmute/spu-endmute.ps-exe");
+                        "-interpreter", "-loadexe", "src/mips/tests/spu/endmute/spu-endmute.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -50,7 +50,7 @@ TEST(SPU, EndMute) {
 TEST(SPU, EndRedirect) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
                         "-interpreter", "-loadexe",
-                        "src/mips/tests/spu-endredirect/spu-endredirect.ps-exe");
+                        "src/mips/tests/spu/endredirect/spu-endredirect.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -61,7 +61,7 @@ TEST(SPU, EndRedirect) {
 // the third fetch has passed.
 TEST(SPU, KeyOnLatch) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
-                        "-interpreter", "-loadexe", "src/mips/tests/spu-konlatch/spu-konlatch.ps-exe");
+                        "-interpreter", "-loadexe", "src/mips/tests/spu/konlatch/spu-konlatch.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -75,7 +75,7 @@ TEST(SPU, KeyOnLatch) {
 // 12-15. Measured on SCPH-1001, -5501 and -7001.
 TEST(SPU, IrqRefire) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
-                        "-interpreter", "-loadexe", "src/mips/tests/spu-irqrefire/spu-irqrefire.ps-exe");
+                        "-interpreter", "-loadexe", "src/mips/tests/spu/irqrefire/spu-irqrefire.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -83,7 +83,7 @@ TEST(SPU, IrqRefire) {
 TEST(SPU, OffVoiceIrq) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
                         "-interpreter", "-loadexe",
-                        "src/mips/tests/spu-offvoice/spu-offvoice.ps-exe");
+                        "src/mips/tests/spu/offvoice/spu-offvoice.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -96,7 +96,7 @@ TEST(SPU, OffVoiceIrq) {
 // PCSX_TESTS=true is what selects the emulator subset, and src/mips/tests/Makefile passes it.
 TEST(SPU, Accuracy) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
-                        "-interpreter", "-loadexe", "src/mips/tests/spu/spu.ps-exe");
+                        "-interpreter", "-loadexe", "src/mips/tests/spu/spu/spu.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -105,7 +105,7 @@ TEST(SPU, Accuracy) {
 // against a trace taken on an SCPH-1001, two envelope steps of tolerance.
 TEST(SPU, VolSweep) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
-                        "-interpreter", "-loadexe", "src/mips/tests/spu-volsweep/spu-volsweep.ps-exe");
+                        "-interpreter", "-loadexe", "src/mips/tests/spu/volsweep/spu-volsweep.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

@@ -33,7 +33,7 @@ static PCSX::CommandLine parse(std::initializer_list<const char*> args) {
 
 TEST(CommandLine, TestRunner) {
     auto args = parse({"-no-ui", "-run", "-pcdrv", "-pcdrvbase", ".", "-bios", "src/mips/openbios/openbios.bin",
-                       "-testmode", "-interpreter", "-luacov", "-loadexe", "src/mips/tests/pcdrv/pcdrv.ps-exe"});
+                       "-testmode", "-interpreter", "-luacov", "-loadexe", "src/mips/tests/tooling/pcdrv/pcdrv.ps-exe"});
     ASSERT_EQ(args.status(), PCSX::CommandLine::Status::Ok) << args.message();
     EXPECT_TRUE(args.has("no-ui"));
     EXPECT_TRUE(args.has("run"));
@@ -41,7 +41,7 @@ TEST(CommandLine, TestRunner) {
     EXPECT_FALSE(args.has("dynarec"));
     EXPECT_EQ(args.value("pcdrvbase"), ".");
     EXPECT_EQ(args.value("bios"), "src/mips/openbios/openbios.bin");
-    EXPECT_EQ(args.value("loadexe"), "src/mips/tests/pcdrv/pcdrv.ps-exe");
+    EXPECT_EQ(args.value("loadexe"), "src/mips/tests/tooling/pcdrv/pcdrv.ps-exe");
     EXPECT_EQ(args.value("exe"), std::nullopt);
     EXPECT_EQ(args.value("exe", "fallback"), "fallback");
 }

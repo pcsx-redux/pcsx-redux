@@ -22,14 +22,14 @@
 
 TEST(SIO1_MISC, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-debugger", "-luacov", "-loadexe", "src/mips/tests/sio1-misc/sio1-misc.ps-exe");
+                        "-debugger", "-luacov", "-loadexe", "src/mips/tests/sio/sio1-misc/sio1-misc.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(SIO1_MISC, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-debugger", "-luacov", "-loadexe", "src/mips/tests/sio1-misc/sio1-misc.ps-exe");
+                        "-debugger", "-luacov", "-loadexe", "src/mips/tests/sio/sio1-misc/sio1-misc.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

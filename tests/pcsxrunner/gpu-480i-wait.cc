@@ -25,28 +25,28 @@
 // for the clears to cover both fields. ret == 0 means every check in the guest passed.
 TEST(Wait480i, PSYQoFlipInterpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/psyqo-480i-flip/flip480i.ps-exe");
+                        "-loadexe", "src/mips/tests/psyqo/480i-flip/flip480i.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(Wait480i, PSYQoFlipDynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-loadexe", "src/mips/tests/psyqo-480i-flip/flip480i.ps-exe");
+                        "-loadexe", "src/mips/tests/psyqo/480i-flip/flip480i.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(Wait480i, ShellInterpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/shell-480i-wait/shell-480i-wait.ps-exe");
+                        "-loadexe", "src/mips/tests/bios/shell-480i-wait/shell-480i-wait.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(Wait480i, ShellDynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-loadexe", "src/mips/tests/shell-480i-wait/shell-480i-wait.ps-exe");
+                        "-loadexe", "src/mips/tests/bios/shell-480i-wait/shell-480i-wait.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

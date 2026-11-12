@@ -24,14 +24,14 @@
 // values, as measured on v0 and v2 GPUs. ret == 0 means every check in the guest passed.
 TEST(GPUSTAT10, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpustat10/gpustat10.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/gpustat-texpage-bits/gpustat-texpage-bits.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(GPUSTAT10, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-loadexe", "src/mips/tests/gpustat10/gpustat10.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/gpustat-texpage-bits/gpustat-texpage-bits.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

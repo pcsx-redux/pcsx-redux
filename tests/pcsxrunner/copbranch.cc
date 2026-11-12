@@ -23,14 +23,14 @@
 
 TEST(COPBranch, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-debugger", "-luacov", "-loadexe", "src/mips/tests/cop-branch/cop-branch.ps-exe");
+                        "-debugger", "-luacov", "-loadexe", "src/mips/tests/cpu/cop-branch/cop-branch.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(COPBranch, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-luacov",
-                        "-loadexe", "src/mips/tests/cop-branch/cop-branch.ps-exe");
+                        "-loadexe", "src/mips/tests/cpu/cop-branch/cop-branch.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

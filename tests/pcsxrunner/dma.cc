@@ -22,14 +22,14 @@
 
 TEST(DMA, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-debugger", "-luacov", "-loadexe", "src/mips/tests/dma/dma.ps-exe");
+                        "-debugger", "-luacov", "-loadexe", "src/mips/tests/dma/dma/dma.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(DMA, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-debugger", "-loadexe", "src/mips/tests/dma/dma.ps-exe");
+                        "-debugger", "-loadexe", "src/mips/tests/dma/dma/dma.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

@@ -22,14 +22,14 @@
 
 TEST(Timers, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-loadexe", "src/mips/tests/timers/timers.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/timers/timers/timers.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(Timers, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/timers/timers.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/timers/timers/timers.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

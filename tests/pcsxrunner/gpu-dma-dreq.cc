@@ -25,14 +25,14 @@
 // command leaves the channel busy for good under GP1(04h)=2.
 TEST(GPUDMADREQ, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpu-dma-dreq/gpu-dma-dreq.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/dma-dreq/gpu-dma-dreq.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(GPUDMADREQ, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-loadexe", "src/mips/tests/gpu-dma-dreq/gpu-dma-dreq.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/dma-dreq/gpu-dma-dreq.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

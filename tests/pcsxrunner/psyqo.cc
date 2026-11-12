@@ -22,14 +22,14 @@
 
 TEST(PSYQo, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/psyqo/psyqo-tests.ps-exe");
+                        "-loadexe", "src/mips/tests/psyqo/psyqo/psyqo-tests.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(PSYQo, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-loadexe", "src/mips/tests/psyqo/psyqo-tests.ps-exe");
+                        "-loadexe", "src/mips/tests/psyqo/psyqo/psyqo-tests.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

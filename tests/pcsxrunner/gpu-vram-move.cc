@@ -24,7 +24,7 @@
 // every GP0(0x80) copy and GP0(0xA0) upload assertion matched the soft GPU.
 TEST(GPUVRAMMove, Copy) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpu-vram-move/gpu-vram-move.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/vram-move/gpu-vram-move.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

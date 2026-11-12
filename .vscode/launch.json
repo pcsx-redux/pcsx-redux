@@ -164,7 +164,7 @@
             "name": "(cppdbg) Launch Basic Test",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/src/mips/tests/basic/basic.elf",
+            "program": "${workspaceFolder}/src/mips/tests/bios/kernel-printf-strcmp/kernel-printf-strcmp.elf",
             "cwd": "${workspaceFolder}",
             "MIMode": "gdb",
             "targetArchitecture": "mips",
@@ -191,7 +191,7 @@
                     "text": "monitor reset shellhalt"
                 },
                 {
-                    "text": "load ./src/mips/tests/basic/basic.elf"
+                    "text": "load ./src/mips/tests/bios/kernel-printf-strcmp/kernel-printf-strcmp.elf"
                 }
             ],
             "launchCompleteCommand": "None",
@@ -203,7 +203,7 @@
             "name": "(cppdbg) Launch libc Test",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/src/mips/tests/libc/libc.elf",
+            "program": "${workspaceFolder}/src/mips/tests/libc/libc/libc.elf",
             "cwd": "${workspaceFolder}",
             "MIMode": "gdb",
             "targetArchitecture": "mips",
@@ -230,7 +230,7 @@
                     "text": "monitor reset shellhalt"
                 },
                 {
-                    "text": "load ./src/mips/tests/libc/libc.elf"
+                    "text": "load ./src/mips/tests/libc/libc/libc.elf"
                 }
             ],
             "launchCompleteCommand": "None",
@@ -242,7 +242,7 @@
             "name": "(cppdbg) Launch cpu Test",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/src/mips/tests/cpu/cpu.elf",
+            "program": "${workspaceFolder}/src/mips/tests/cpu/cpu/cpu.elf",
             "cwd": "${workspaceFolder}",
             "MIMode": "gdb",
             "targetArchitecture": "mips",
@@ -269,7 +269,7 @@
                     "text": "monitor reset shellhalt"
                 },
                 {
-                    "text": "load ./src/mips/tests/cpu/cpu.elf"
+                    "text": "load ./src/mips/tests/cpu/cpu/cpu.elf"
                 }
             ],
             "launchCompleteCommand": "None",

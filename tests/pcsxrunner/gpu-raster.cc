@@ -28,12 +28,11 @@
 // asserts. The software GPU is the only renderer being verified
 // here.
 
-#define GPU_RASTER_TEST(phase)                                                                            \
-    TEST(GPURaster, Phase##phase) {                                                                       \
+#define GPU_RASTER_TEST(name, dir)                                                                        \
+    TEST(GPURaster, name) {                                                                               \
         MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode",     \
                             "-interpreter", "-loadexe",                                                   \
-                            "src/mips/tests/gpu-raster-phase" #phase "/gpu-raster-phase" #phase           \
-                            ".ps-exe");                                                                   \
+                            "src/mips/tests/gpu/raster/" #dir "/gpu-raster-" #dir ".ps-exe");             \
         int ret = invoker.invoke();                                                                       \
         EXPECT_EQ(ret, 0);                                                                                \
     }
@@ -41,39 +40,38 @@
 // The same phases with the soft GPU rasterizing on its worker thread. Every
 // probe reads VRAM back through GPUREAD, so these also check that readbacks
 // wait for the draws queued ahead of them.
-#define GPU_RASTER_THREADED_TEST(phase)                                                                   \
-    TEST(GPURasterThreaded, Phase##phase) {                                                               \
+#define GPU_RASTER_THREADED_TEST(name, dir)                                                               \
+    TEST(GPURasterThreaded, name) {                                                                       \
         MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode",     \
                             "-interpreter", "-softgputhreaded", "-loadexe",                               \
-                            "src/mips/tests/gpu-raster-phase" #phase "/gpu-raster-phase" #phase           \
-                            ".ps-exe");                                                                   \
+                            "src/mips/tests/gpu/raster/" #dir "/gpu-raster-" #dir ".ps-exe");             \
         int ret = invoker.invoke();                                                                       \
         EXPECT_EQ(ret, 0);                                                                                \
     }
 
-#define GPU_RASTER_BOTH(phase) \
-    GPU_RASTER_TEST(phase)     \
-    GPU_RASTER_THREADED_TEST(phase)
+#define GPU_RASTER_BOTH(name, dir) \
+    GPU_RASTER_TEST(name, dir)     \
+    GPU_RASTER_THREADED_TEST(name, dir)
 
-GPU_RASTER_BOTH(1)
-GPU_RASTER_BOTH(2)
-GPU_RASTER_BOTH(3)
-GPU_RASTER_BOTH(4)
-GPU_RASTER_BOTH(5)
-GPU_RASTER_BOTH(6)
-GPU_RASTER_BOTH(7)
-GPU_RASTER_BOTH(8)
-GPU_RASTER_BOTH(9)
-GPU_RASTER_BOTH(10)
-GPU_RASTER_BOTH(11)
-GPU_RASTER_BOTH(12)
-GPU_RASTER_BOTH(13)
-GPU_RASTER_BOTH(14)
-GPU_RASTER_BOTH(15)
-GPU_RASTER_BOTH(16)
-GPU_RASTER_BOTH(17)
-GPU_RASTER_BOTH(18)
-GPU_RASTER_BOTH(19)
-GPU_RASTER_BOTH(20)
-GPU_RASTER_BOTH(21)
-GPU_RASTER_BOTH(22)
+GPU_RASTER_BOTH(EdgesClipping, edges-clipping)
+GPU_RASTER_BOTH(LineEndpointsMaskBit, line-endpoints-mask-bit)
+GPU_RASTER_BOTH(EdgeWalkerStress, edge-walker-stress)
+GPU_RASTER_BOTH(TextureBasic, texture-basic)
+GPU_RASTER_BOTH(CrossPrimitiveMask, cross-primitive-mask)
+GPU_RASTER_BOTH(EdgeWalkerPrecision, edge-walker-precision)
+GPU_RASTER_BOTH(GouraudColor, gouraud-color)
+GPU_RASTER_BOTH(QuadFlat, quad-flat)
+GPU_RASTER_BOTH(TextureWindow815, texture-window-8-15)
+GPU_RASTER_BOTH(Lines, lines)
+GPU_RASTER_BOTH(Dither, dither)
+GPU_RASTER_BOTH(AbrMatrix, abr-matrix)
+GPU_RASTER_BOTH(TexRect, tex-rect)
+GPU_RASTER_BOTH(CullThresholds, cull-thresholds)
+GPU_RASTER_BOTH(TexWindowExhaustive, tex-window-exhaustive)
+GPU_RASTER_BOTH(UvBoundary, uv-boundary)
+GPU_RASTER_BOTH(Affine, affine)
+GPU_RASTER_BOTH(StrideSweep, stride-sweep)
+GPU_RASTER_BOTH(StrideSignCross, stride-sign-cross)
+GPU_RASTER_BOTH(RowWalkDrift, row-walk-drift)
+GPU_RASTER_BOTH(UvOverflow, uv-overflow)
+GPU_RASTER_BOTH(SlantedGouraud, slanted-gouraud)
