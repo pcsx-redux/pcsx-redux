@@ -503,9 +503,8 @@ void PCSX::SPU::impl::applyRegister(uint32_t reg, uint16_t val) {
             // during that block raises IRQ9 again rather than waiting for the next pass.
             if ((val & ControlFlags::IRQEnable) && !(spuCtrl & ControlFlags::IRQEnable)) {
                 for (unsigned ch = 0; ch < MAXCHAN; ch++) {
-                    const uint8_t* cursor = s_chan[ch].adpcm.curr();
-                    if (!cursor || cursor == AdpcmDecoder::kStopped) continue;
-                    if (irqAddress >= cursor - 16 && irqAddress < cursor) {
+                    const uint8_t* block = s_chan[ch].adpcm.block();
+                    if (block && irqAddress >= block && irqAddress < block + 16) {
                         s_chan[ch].data.get<Chan::IrqDone>().value = 1;
                         triggerIrq();
                     }
