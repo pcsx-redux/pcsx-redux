@@ -18,9 +18,12 @@ usual romhacking table-file layout, one entry per line.
     local text = tbl:decode(bytes)
     local again = assert(tbl:encode(text))
 
-Decoding takes the longest entry matching at each position; a byte no entry
-covers becomes <$XX>, and encode() turns <$XX> back into that byte, so an
-incomplete table still round-trips. Encoding also takes the longest match; when
+Decoding takes, at each position, the matching entry with the most bytes on
+the left of its =; parameter bytes do not count, so with FB=<A %x:%x> and
+FB07=<B %d>, FB0705 decodes as <B 5>. Equal lengths cannot both match. An entry
+whose parameters would run past the end of the input is skipped for the next
+shorter one. A byte no entry covers becomes <$XX>, and encode() turns <$XX>
+back into that byte, so an incomplete table still round-trips. Encoding also takes the longest match; when
 two entries share a text, the first one in the table wins.
 
 ]]

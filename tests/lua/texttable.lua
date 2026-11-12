@@ -72,6 +72,23 @@ function TestTextTable:testParameterPastEndIsRaw()
     lu.assertEquals(tbl():decode(hex('10FB07')), 'A<$FB><$07>')
 end
 
+function TestTextTable:testDecodeKeyLengthDecidesNotParameters()
+    local t = assert(PCSX.TextTable.parse('41=A\n4100=AA\nFB=<UNKNOWN %x:%x>\nFB07=<WAIT %d>\n'))
+    local cases = {
+        { '4100', 'AA' },
+        { '4101', 'A<$01>' },
+        { 'FB0705', '<WAIT 5>' },
+        { 'FB0811', '<UNKNOWN 08:11>' },
+        { 'FB07', '<$FB><$07>' },
+        { 'FB08', '<$FB><$08>' },
+    }
+    for _, c in ipairs(cases) do
+        local b = hex(c[1])
+        lu.assertEquals(t:decode(b), c[2], c[1])
+        lu.assertEquals(t:encode(c[2]), b, c[1])
+    end
+end
+
 function TestTextTable:testParameterOutOfRange()
     local e, err = tbl():encode('<WAIT 300>')
     lu.assertNil(e)
