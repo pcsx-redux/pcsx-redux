@@ -203,8 +203,8 @@ std::filesystem::path PCSX::Widgets::NamedSaveStates::createSaveStatePath(GUI* g
     base_path = base_path / saveStateName;
 
     // Append file format.
-    std::string pathStr = fmt::format("{}{}", base_path.string(), gui->getSaveStatePostfix());
-    return std::filesystem::path(pathStr);
+    base_path += gui->getSaveStatePostfix();
+    return base_path;
 }
 
 int PCSX::Widgets::NamedSaveStates::TextFilters::testChar(ImWchar c) {

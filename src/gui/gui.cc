@@ -2909,7 +2909,8 @@ bool PCSX::GUI::deleteSaveState(std::filesystem::path filename) {
     if (filename.is_relative()) {
         filename = getSaveStateDir() / filename;
     }
-    return std::remove(filename.string().c_str()) == 0;
+    std::error_code ec;
+    return std::filesystem::remove(filename, ec);
 }
 
 bool PCSX::GUI::saveSaveStateSlot(uint32_t slot) { return saveSaveState(buildSaveStateFilename(slot)); }
