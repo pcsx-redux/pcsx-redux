@@ -19,9 +19,14 @@
 
 #include "supportpsx/sf2.h"
 
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <algorithm>
+
+#define STB_VORBIS_HEADER_ONLY
+#include "stb/stb_vorbis.c"
 
 namespace {
 
@@ -229,6 +234,27 @@ struct Chunk {
 uint16_t rd16(const uint8_t* p) { return p[0] | p[1] << 8; }
 uint32_t rd32(const uint8_t* p) { return p[0] | p[1] << 8 | p[2] << 16 | uint32_t(p[3]) << 24; }
 
+// sampleType bits marking an SF3 compressed sample. MuseScore writes 0x10; TinySoundFont also
+// accepts 0x20, and so does this reader.
+constexpr uint16_t c_sampleCompressed = 0x30;
+
+// Decodes the first channel of an Ogg Vorbis stream.
+bool decodeVorbis(const uint8_t* data, uint32_t size, std::vector<int16_t>& pcm) {
+    if (size < 4 || memcmp(data, "OggS", 4) != 0 || size > uint32_t(INT32_MAX)) return false;
+    int channels = 0;
+    int rate = 0;
+    short* out = nullptr;
+    const int frames = stb_vorbis_decode_memory(data, int(size), &channels, &rate, &out);
+    if (frames < 0 || channels < 1 || !out) {
+        free(out);
+        return false;
+    }
+    pcm.resize(frames);
+    for (int f = 0; f < frames; f++) pcm[f] = out[size_t(f) * channels];
+    free(out);
+    return true;
+}
+
 // Finds the chunk `id` in a run of chunks; when `listType` is set, the LIST of that type.
 Chunk find(const uint8_t* data, uint32_t size, const char* id, const char* listType = nullptr) {
     uint32_t pos = 0;
@@ -296,18 +322,33 @@ std::vector<PCSX::SF2::Sample> PCSX::SF2::read(const uint8_t* data, size_t size)
         const uint32_t end = rd32(h + 24);
         const uint32_t startLoop = rd32(h + 28);
         const uint32_t endLoop = rd32(h + 32);
-        if (start > end || end > points) continue;
+        const uint16_t sampleType = rd16(h + 44);
+        std::vector<int16_t> pcm;
+        uint32_t loopStart, loopEnd;
+        if (sampleType & c_sampleCompressed) {
+            // SF3: start and end are byte offsets of an Ogg Vorbis stream in smpl, and the
+            // loop points count samples from the start of the decoded stream.
+            if (start > end || end > smpl.size || !decodeVorbis(smpl.data + start, end - start, pcm)) continue;
+            loopStart = startLoop;
+            loopEnd = endLoop;
+        } else {
+            if (start > end || end > points) continue;
+            pcm.reserve(end - start);
+            for (uint32_t p = start; p < end; p++) pcm.push_back(int16_t(rd16(smpl.data + p * 2)));
+            loopStart = startLoop - start;
+            loopEnd = endLoop - start;
+            if (startLoop < start) loopStart = loopEnd = 0;
+        }
         Sample& s = ret.emplace_back();
         s.name.assign(reinterpret_cast<const char*>(h), strnlen(reinterpret_cast<const char*>(h), 20));
-        s.pcm.reserve(end - start);
-        for (uint32_t p = start; p < end; p++) s.pcm.push_back(int16_t(rd16(smpl.data + p * 2)));
+        s.pcm = std::move(pcm);
         s.sampleRate = rd32(h + 36);
         s.rootKey = h[40] > 127 ? 60 : h[40];
         s.correction = int8_t(h[41]);
-        if (loops[i] && startLoop >= start && startLoop < endLoop && endLoop <= end) {
+        if (loops[i] && loopStart < loopEnd && loopEnd <= s.pcm.size()) {
             s.loops = true;
-            s.loopStart = startLoop - start;
-            s.loopEnd = endLoop - start;
+            s.loopStart = loopStart;
+            s.loopEnd = loopEnd;
         }
     }
     return ret;
