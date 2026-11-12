@@ -104,7 +104,7 @@ Run `./dockermake.sh appimage`. You need [docker](https://en.wikipedia.org/wiki/
 
 #### GNU/Linux Dependencies
 
-If you're only interested in compiling psx code, you can simply clone the pcsx-redux repo, then build the mips toolchain with [this script](https://github.com/pcsx-redux/pcsx-redux/blob/main/tools/linux-mips/spawn-compiler.sh), then follow the instructions in `/pcsx-redux/src/mips/psyq/README.md` to convert the PsyQ libraries. You might find them pre-compiled online.
+If you're only interested in compiling psx code, you can simply clone the pcsx-redux repo, then build the mips toolchain with [this script](https://github.com/pcsx-redux/nugget/blob/main/tools/linux-mips/spawn-compiler.sh), then follow the instructions in `/pcsx-redux/src/mips/psyq/README.md` to convert the PsyQ libraries. You might find them pre-compiled online.
 
  - Debian derivatives ( for full emulator compilation ):
 
@@ -116,7 +116,7 @@ The mips toolchain isn't packaged by Debian or Ubuntu, so build it from source:
 
 ```bash
 sudo apt-get install -y wget bzip2 xz-utils bison flex texinfo libgmp-dev libmpfr-dev libmpc-dev
-sudo bash tools/linux-mips/spawn-compiler.sh
+sudo bash src/mips/tools/linux-mips/spawn-compiler.sh
 ```
 
  - Arch derivatives :
@@ -132,10 +132,11 @@ Alternatively, the following steps describe how to install dependencies and comp
 ```bash
 sudo pacman -S --needed capstone clang git make pkg-config ffmpeg libuv zlib sdl3 curl xorg-server-xvfb imagemagick
 ```
-The mipsel environment can be installed from [AUR](https://wiki.archlinux.org/index.php/Aur) : [mipsel-none-elf-binutils](https://aur.archlinux.org/packages/mipsel-none-elf-binutils/) and [mipsel-none-elf-gcc](https://aur.archlinux.org/packages/mipsel-none-elf-gcc/) using your [AURhelper](https://wiki.archlinux.org/index.php/AUR_helpers) of choice:
+The AUR mipsel packages do not give a working toolchain, so build it from source:
 
 ```bash
-trizen -S mipsel-none-elf-binutils mipsel-none-elf-gcc
+sudo pacman -S --needed base-devel wget texinfo gmp mpfr libmpc
+sudo bash src/mips/tools/linux-mips/spawn-compiler.sh
 ```
 You can then just enter the 'pcsx-redux' directory and compile without using docker with `make`.
 

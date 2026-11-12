@@ -1,7 +1,8 @@
 # Dockerfile for ghcr.io/pcsx-redux/pcsx-redux-build
 #
 # This one needs the repository root as its build context, as the first stage
-# builds the mips toolchain using tools/linux-mips/spawn-compiler.sh:
+# builds the mips toolchain using src/mips/tools/linux-mips/spawn-compiler.sh,
+# out of the nugget submodule:
 #
 #   docker build -f tools/build/Dockerfile -t ghcr.io/pcsx-redux/pcsx-redux-build .
 #
@@ -27,7 +28,7 @@ RUN apt install -y libgmp-dev libmpfr-dev libmpc-dev
 ARG JOBS=
 
 WORKDIR /tmp/toolchain
-COPY tools/linux-mips/spawn-compiler.sh .
+COPY src/mips/tools/linux-mips/spawn-compiler.sh .
 RUN JOBS=$JOBS sh spawn-compiler.sh
 
 # SDL3 isn't packaged before 25.10, so it's built here on every base. The tag
