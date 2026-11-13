@@ -273,6 +273,8 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
 
     /* Misc */
     void psxNULL(uint32_t code);
+    void psxUserFetchError(uint32_t code);
+    bool userAddressError(uint32_t addr, Exception e);
     void psxSPECIAL(uint32_t code);
     void psxREGIMM(uint32_t code);
     void psxCOP0(uint32_t code);
@@ -311,6 +313,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     GTE_WRAPPER(SQR);
 #undef GTE_WRAPPER
     void gteSWC2(uint32_t code) {
+        if (userAddressError(m_regs.GPR.r[_Rs_] + _Imm_, Exception::StoreAddressError)) return;
         gteDrainIfStalling();
         gteStall();
         PCSX::g_emulator->m_gte->SWC2(code);
@@ -343,6 +346,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     void gteCTC2(uint32_t code) { gteQueueWrite(true, _Rd_, m_regs.GPR.r[_Rt_]); }
     void gteLWC2(uint32_t code) {
         uint32_t addr = m_regs.GPR.r[_Rs_] + _Imm_;
+        if (userAddressError(addr, Exception::LoadAddressError)) return;
         if (addr & 3) {
             PCSX::g_emulator->m_gte->LWC2(code);
             return;
@@ -945,7 +949,27 @@ void InterpretedCPU::psxJALR(uint32_t code) {
 
 #define _oB_ (_rRs_ + _Imm_)
 
+// In user mode (SR.KUc set), a load or store above 80000000h raises an address error, with BadVAddr set to the
+// address.
+bool InterpretedCPU::userAddressError(uint32_t addr, Exception e) {
+    if (!(m_regs.CP0.n.Status & 2) || !(addr & 0x80000000)) [[likely]] {
+        return false;
+    }
+    m_regs.pc.raw() -= 4;
+    m_regs.CP0.n.BadVAddr = addr;
+    exception(e, m_inDelaySlot);
+    return true;
+}
+
+// Run instead of the instruction when user mode fetches above 80000000h: EPC and BadVAddr are the fetch address.
+void InterpretedCPU::psxUserFetchError(uint32_t code) {
+    m_regs.pc.raw() -= 4;
+    m_regs.CP0.n.BadVAddr = m_regs.pc;
+    exception(Exception::LoadAddressError, m_inDelaySlot);
+}
+
 void InterpretedCPU::psxLB(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     // load delay = 1 latency
     if (_Rt_) {
         maybeCancelDelayedLoad(_Rt_);
@@ -956,6 +980,7 @@ void InterpretedCPU::psxLB(uint32_t code) {
 }
 
 void InterpretedCPU::psxLBU(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     // load delay = 1 latency
     if (_Rt_) {
         maybeCancelDelayedLoad(_Rt_);
@@ -966,6 +991,7 @@ void InterpretedCPU::psxLBU(uint32_t code) {
 }
 
 void InterpretedCPU::psxLH(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     // load delay = 1 latency
     if (_oB_ & 1) {
         m_regs.pc.raw() -= 4;
@@ -984,6 +1010,7 @@ void InterpretedCPU::psxLH(uint32_t code) {
 }
 
 void InterpretedCPU::psxLHU(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     // load delay = 1 latency
     if (_oB_ & 1) {
         m_regs.pc.raw() -= 4;
@@ -1002,6 +1029,7 @@ void InterpretedCPU::psxLHU(uint32_t code) {
 }
 
 void InterpretedCPU::psxLW(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     // load delay = 1 latency
     if (_oB_ & 3) {
         m_regs.pc.raw() -= 4;
@@ -1029,6 +1057,7 @@ void InterpretedCPU::psxLW(uint32_t code) {
 }
 
 void InterpretedCPU::psxLWL(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     uint32_t addr = _oB_;
     uint32_t shift = addr & 3;
     uint32_t mem = PCSX::g_emulator->m_mem->read32Masked(addr & ~3, PCSX::Memory::leftByteMask(addr));
@@ -1047,6 +1076,7 @@ void InterpretedCPU::psxLWL(uint32_t code) {
 }
 
 void InterpretedCPU::psxLWR(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     uint32_t addr = _oB_;
     uint32_t shift = addr & 3;
     uint32_t mem = PCSX::g_emulator->m_mem->read32Masked(addr & ~3, PCSX::Memory::rightByteMask(addr));
@@ -1064,8 +1094,12 @@ void InterpretedCPU::psxLWR(uint32_t code) {
     */
 }
 
-void InterpretedCPU::psxSB(uint32_t code) { PCSX::g_emulator->m_mem->write8(_oB_, _rRt_); }
+void InterpretedCPU::psxSB(uint32_t code) {
+    if (userAddressError(_oB_, Exception::StoreAddressError)) return;
+    PCSX::g_emulator->m_mem->write8(_oB_, _rRt_);
+}
 void InterpretedCPU::psxSH(uint32_t code) {
+    if (userAddressError(_oB_, Exception::StoreAddressError)) return;
     if (_oB_ & 1) {
         m_regs.pc.raw() -= 4;
         PCSX::g_system->log(PCSX::LogClass::CPU, _("Unaligned address 0x%08x in SH from 0x%08x\n"), _oB_, m_regs.pc);
@@ -1077,6 +1111,7 @@ void InterpretedCPU::psxSH(uint32_t code) {
 }
 
 void InterpretedCPU::psxSW(uint32_t code) {
+    if (userAddressError(_oB_, Exception::StoreAddressError)) return;
     if (_oB_ & 3) {
         m_regs.pc.raw() -= 4;
         PCSX::g_system->log(PCSX::LogClass::CPU, _("Unaligned address 0x%08x in SW from 0x%08x\n"), _oB_, m_regs.pc);
@@ -1091,6 +1126,7 @@ void InterpretedCPU::psxSW(uint32_t code) {
 }
 
 void InterpretedCPU::psxSWL(uint32_t code) {
+    if (userAddressError(_oB_, Exception::StoreAddressError)) return;
     uint32_t addr = _oB_;
     uint32_t shift = addr & 3;
     addr ^= shift;
@@ -1109,6 +1145,7 @@ void InterpretedCPU::psxSWL(uint32_t code) {
 }
 
 void InterpretedCPU::psxSWR(uint32_t code) {
+    if (userAddressError(_oB_, Exception::StoreAddressError)) return;
     uint32_t addr = _oB_;
     uint32_t shift = addr & 3;
     addr ^= shift;
@@ -1854,7 +1891,8 @@ inline void InterpretedCPU::execBlock() {
         // TODO: throw an exception here if pc is out of range
         const uint32_t pc = m_regs.pc;
         // TODO: throw an exception here if we don't have a pointer
-        uint32_t code = readICache(pc);
+        const bool userFetchError = (pc & 0x80000000) && (m_regs.CP0.n.Status & 2);
+        uint32_t code = userFetchError ? 0 : readICache(pc);
 
         m_regs.code = code;
 
@@ -1866,7 +1904,7 @@ inline void InterpretedCPU::execBlock() {
         m_regs.cycle += PCSX::Emulator::BIAS;
         if ((m_regs.pc & 0xffc00000) == 0xbfc00000) m_regs.cycle += PCSX::Emulator::BIAS * 10;
 
-        cIntFunc_t func = s_pPsxBSC[code >> 26];
+        cIntFunc_t func = userFetchError ? &InterpretedCPU::psxUserFetchError : s_pPsxBSC[code >> 26];
         (*this.*func)(code);
 
         m_currentDelayedLoad ^= 1;
@@ -1911,7 +1949,9 @@ inline void InterpretedCPU::execBlock() {
         }
         if constexpr (debug) {
             uint32_t newPC = m_regs.pc;
-            uint32_t newCode = readICache(newPC);
+            // A user-mode fetch above 80000000h faults before it reads anything.
+            const bool newFetchFaults = (newPC & 0x80000000) && (m_regs.CP0.n.Status & 2);
+            uint32_t newCode = newFetchFaults ? 0 : readICache(newPC);
             PCSX::g_emulator->m_debug->process(pc, newPC, code, newCode, fromLink);
         }
         /* A detached block returns per instruction, like a debug one. Block granularity
