@@ -155,6 +155,9 @@ class SDLAudio {
                 return false;
         }
     }
+    // How many frames the SPU voice ring holds. feedStreamData only succeeds while the ring keeps
+    // at least one frame free after the write.
+    size_t getVoiceCapacity() const { return VoiceStream::BUFFER_SIZE; }
     size_t getFramesBuffered(unsigned streamId = 0) {
         switch (streamId) {
             case 0:
