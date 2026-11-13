@@ -73,6 +73,9 @@
     <ClCompile Include="..\..\src\gui\widgets\callstacks.cc">
       <Filter>Source Files\widgets</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\gui\widgets\call_profiler.cc">
+      <Filter>Source Files\widgets</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\gui\widgets\memory_observer.cc">
       <Filter>Source Files\widgets</Filter>
     </ClCompile>
@@ -229,6 +232,9 @@
       <Filter>Header Files\shaders</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\gui\widgets\callstacks.h">
+      <Filter>Header Files\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\gui\widgets\call_profiler.h">
       <Filter>Header Files\widgets</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\gui\widgets\memory_observer.h">

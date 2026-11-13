@@ -20,6 +20,7 @@
 #include "core/psxemulator.h"
 
 #include "core/alloc-tracker.h"
+#include "core/callprofiler.h"
 #include "core/callstacks.h"
 #include "core/cdrom.h"
 #include "core/cdromlogger.h"
@@ -110,6 +111,7 @@ PCSX::Emulator::Emulator()
       m_pads(PCSX::Pads::factory()),
       m_patchManager(new PatchManager()),
       m_pioCart(new PCSX::PIOCart),
+      m_profiler(new PCSX::Profiler()),
       m_sio(new PCSX::SIO()),
       m_sio1(new PCSX::SIO1()),
       m_sio1Server(new PCSX::SIO1Server()),

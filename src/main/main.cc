@@ -32,6 +32,7 @@
 #include <string>
 
 #include "core/arguments.h"
+#include "core/callprofiler.h"
 #include "core/cdrom.h"
 #include "core/gpu.h"
 #include "core/logger.h"
@@ -537,6 +538,14 @@ runner.init({
     emulator->m_gpu->setLinearFiltering();
     emulator->reset();
 
+    const auto profileOut = args.value("profile", "");
+    const auto callgrindOut = args.value("callgrind", "");
+    if (!profileOut.empty() || !callgrindOut.empty()) {
+        if (!emulator->m_profiler->start()) {
+            fmt::print(stderr, "-profile and -callgrind need the interpreter; nothing will be profiled.\n");
+        }
+    }
+
     // Looking at setting up what to run exactly within the emulator, if requested.
     if (args.has("run")) system->resume();
     s_ui->m_exeToLoad.set(MAKEU8(args.value("loadexe", "").c_str()));
@@ -548,7 +557,20 @@ runner.init({
         // First, set up a closer. This makes sure that everything is shut down gracefully,
         // in the right order, once we exit the scope. This is because of how we're still
         // allowing exceptions to occur.
-        Cleaner cleaner([&emulator, &system, &exitCode, luacovEnabled, sigint, sigterm]() {
+        Cleaner cleaner([&emulator, &system, &exitCode, luacovEnabled, sigint, sigterm, &profileOut, &callgrindOut]() {
+            auto writeProfile = [](const std::string& path, const std::string& data, const char* option) {
+                if (path.empty()) return;
+                PCSX::IO<PCSX::File> out(new PCSX::PosixFile(path, PCSX::FileOps::TRUNCATE));
+                if (out->failed()) {
+                    fmt::print(stderr, "-{}: unable to create '{}'\n", option, path);
+                    return;
+                }
+                out->write(data.data(), data.size());
+            };
+            if (emulator->m_profiler->running()) {
+                writeProfile(profileOut, emulator->m_profiler->serializePprof(), "profile");
+                writeProfile(callgrindOut, emulator->m_profiler->serializeCallgrind(), "callgrind");
+            }
             emulator->m_spu->close();
             emulator->m_cdrom->clearIso();
 

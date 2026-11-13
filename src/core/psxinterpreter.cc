@@ -17,6 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include "core/callprofiler.h"
 #include "core/callstacks.h"
 #include "core/cputrace.h"
 #include "core/debug.h"
@@ -715,17 +716,18 @@ void InterpretedCPU::psxMULTU(uint32_t code) {
     if (int32_t(_rRs_) op 0) {           \
         doBranch(_BranchTarget_, false); \
     }
-#define RepZBranchLinki32(op)                                    \
-    {                                                            \
-        uint32_t ra = m_regs.pc + 4;                             \
-        markBranch();                                            \
-        if ((int32_t)_rRs_ op 0) {                               \
-            uint32_t sp = m_regs.GPR.n.sp;                       \
-            doBranch(_BranchTarget_, true);                      \
-            PCSX::g_emulator->m_callStacks->potentialRA(ra, sp); \
-        }                                                        \
-        m_regs.GPR.r[31] = ra;                                   \
-        maybeCancelDelayedLoad(31);                              \
+#define RepZBranchLinki32(op)                                            \
+    {                                                                    \
+        uint32_t ra = m_regs.pc + 4;                                     \
+        markBranch();                                                    \
+        if ((int32_t)_rRs_ op 0) {                                       \
+            uint32_t sp = m_regs.GPR.n.sp;                               \
+            uint32_t target = _BranchTarget_;                            \
+            doBranch(target, true);                                      \
+            PCSX::g_emulator->m_callStacks->potentialRA(ra, sp, target); \
+        }                                                                \
+        m_regs.GPR.r[31] = ra;                                           \
+        maybeCancelDelayedLoad(31);                                      \
     }
 
 void InterpretedCPU::psxBGEZ(uint32_t code) { RepZBranchi32(>=) }         // Branch if Rs >= 0
@@ -891,8 +893,9 @@ void InterpretedCPU::psxJAL(uint32_t code) {
     maybeCancelDelayedLoad(31);
     uint32_t ra = m_regs.pc + 4;
     m_regs.GPR.r[31] = ra;
-    doBranch(_JumpTarget_, true);
-    PCSX::g_emulator->m_callStacks->potentialRA(ra, m_regs.GPR.n.sp);
+    uint32_t target = _JumpTarget_;
+    doBranch(target, true);
+    PCSX::g_emulator->m_callStacks->potentialRA(ra, m_regs.GPR.n.sp, target);
 }
 
 /*********************************************************
@@ -920,7 +923,7 @@ void InterpretedCPU::psxJALR(uint32_t code) {
         uint32_t ra = m_regs.pc + 4;
         _rRd_ = ra;
         if (_Rd_ == 31) {
-            PCSX::g_emulator->m_callStacks->potentialRA(ra, m_regs.GPR.n.sp);
+            PCSX::g_emulator->m_callStacks->potentialRA(ra, m_regs.GPR.n.sp, temp);
         }
     }
 
@@ -1860,6 +1863,9 @@ inline void InterpretedCPU::execBlock() {
 
         if constexpr (trace) {
             PCSX::g_emulator->m_cpuTrace->capture(pc, code);
+        }
+        if (PCSX::g_emulator->m_profiler->m_running) [[unlikely]] {
+            PCSX::g_emulator->m_profiler->countInstruction(pc);
         }
 
         m_regs.pc.increment();

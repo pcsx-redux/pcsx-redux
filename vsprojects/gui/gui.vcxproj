@@ -139,6 +139,7 @@
     <ClCompile Include="..\..\src\gui\widgets\assembly.cc" />
     <ClCompile Include="..\..\src\gui\widgets\breakpoints.cc" />
     <ClCompile Include="..\..\src\gui\widgets\callstacks.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\call_profiler.cc" />
     <ClCompile Include="..\..\src\gui\widgets\alloc_tracker.cc" />
     <ClCompile Include="..\..\src\gui\widgets\cdrom-viewer.cc" />
     <ClCompile Include="..\..\src\gui\widgets\console.cc" />
@@ -191,6 +192,7 @@
     <ClInclude Include="..\..\src\gui\widgets\assembly.h" />
     <ClInclude Include="..\..\src\gui\widgets\breakpoints.h" />
     <ClInclude Include="..\..\src\gui\widgets\callstacks.h" />
+    <ClInclude Include="..\..\src\gui\widgets\call_profiler.h" />
     <ClInclude Include="..\..\src\gui\widgets\alloc_tracker.h" />
     <ClInclude Include="..\..\src\gui\widgets\cdrom-viewer.h" />
     <ClInclude Include="..\..\src\gui\widgets\console.h" />
