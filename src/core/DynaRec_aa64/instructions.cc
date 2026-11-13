@@ -661,6 +661,17 @@ void DynaRecCPU::recMFC0(uint32_t code) {
     allocateRegWithoutLoad(_Rt_);
     m_gprs[_Rt_].setWriteback(true);
     gen.Ldr(m_gprs[_Rt_].allocatedReg, MemOperand(contextPointer, COP0_OFFSET(_Rd_)));
+    if (_Rd_ == 13) {
+        // Cause bit 10 follows I_STAT & I_MASK, both ways, with no latch.
+        gen.Mov(x0, (uint64_t)&PCSX::g_emulator->m_mem->m_hard[0x1070]);
+        gen.Ldr(w1, MemOperand(x0));
+        gen.Ldr(w2, MemOperand(x0, 4));
+        gen.And(w1, w1, w2);
+        gen.Tst(w1, 0x7ff);
+        gen.Cset(w1, ne);
+        gen.And(m_gprs[_Rt_].allocatedReg, m_gprs[_Rt_].allocatedReg, ~0x400);
+        gen.Orr(m_gprs[_Rt_].allocatedReg, m_gprs[_Rt_].allocatedReg, Operand(w1, LSL, 10));
+    }
 }
 
 // TODO: Constant propagation for MFLO/HI, read the result from register if possible instead of reading memory again

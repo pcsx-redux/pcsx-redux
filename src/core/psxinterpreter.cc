@@ -1134,7 +1134,15 @@ void InterpretedCPU::psxSWR(uint32_t code) {
 void InterpretedCPU::psxMFC0(uint32_t code) {
     // load delay = 1 latency
     if (!_Rt_) return;
-    delayedLoadRef<int32_t>(_Rt_) = (int)m_regs.CP0.r[_Rd_];
+    uint32_t value = m_regs.CP0.r[_Rd_];
+    if (_Rd_ == 13) {
+        // Cause bit 10 follows I_STAT & I_MASK, both ways, with no latch.
+        auto& mem = PCSX::g_emulator->m_mem;
+        const uint32_t pending = mem->readHardwareRegister<PCSX::Memory::ISTAT>() &
+                                 mem->readHardwareRegister<PCSX::Memory::IMASK>() & 0x7ff;
+        value = (value & ~0x400) | (pending ? 0x400 : 0);
+    }
+    delayedLoadRef<int32_t>(_Rt_) = (int)value;
 }
 
 void InterpretedCPU::psxTestSWInts() {
