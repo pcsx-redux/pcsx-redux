@@ -250,6 +250,17 @@ typedef struct {
 
 `hilo` is `hi` or `lo`, and `cop` is the coprocessor register value, for the instructions that use them. `memValue` is the value read at the effective address, for loads and stores.
 
+## Profiler
+
+`PCSX.Profiler` counts every instruction the interpreter executes, by call path and pc. Call paths come from the same stack tracking as the Callstacks window. Code that switches stacks by hand can confuse it. It needs the interpreter: under the dynarec `start()` returns `false`.
+
+- `.start()`, `.stop()`, `.running()`, `.clear()`
+- `.totals()` returns `{ instructions = n, calls = n }`.
+- `.functions()` returns one entry per function, named from the loaded symbols: `{ name, address, self = { instructions, calls }, inclusive = { instructions, calls } }`. `calls` is the number of times the function was called. A recursive function counts each instruction once in its inclusive count.
+- `.savePprof(path)` writes a [pprof](https://github.com/google/pprof) profile for `go tool pprof`. `.saveCallgrind(path)` writes it for KCachegrind. Both return a boolean.
+
+The command line flags `-profile <file>` and `-callgrind <file>` profile from boot and write the file on exit. Debug > CPU > Show Profiler opens a window with the same controls.
+
 ## Hardware events
 
 `PCSX.HWEvents` records hardware events as fixed records, stamped with the same cycle counter as the CPU trace, so the two can be lined up. Nothing is recorded until a source is armed. The sources so far are `IRQ` (an interrupt line being asserted) and `DMA` (a channel starting, and completing). The store stops growing at 8 million events.
