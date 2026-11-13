@@ -106,7 +106,7 @@
 [submodule "third_party/luaffifb"]
 	path = third_party/luaffifb
 	url = https://github.com/pcsx-redux/luaffifb.git
-	branch = wasm-i32-ffi-arg
+	branch = chris-upstream
 [submodule "third_party/thorvg"]
 	path = third_party/thorvg
 	url = https://github.com/pcsx-redux/thorvg.git

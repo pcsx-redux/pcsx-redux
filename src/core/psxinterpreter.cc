@@ -141,6 +141,19 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
         unsigned other = m_currentDelayedLoad ^ 1;
         if (m_delayedLoadInfo[other].index == index) m_delayedLoadInfo[other].active = false;
     }
+    // LWL and LWR in the delay slot of a load to the same register merge with the value still in
+    // flight, and that value never reaches the register on its own: until the merged result lands,
+    // the next instruction reads the register as it was before both loads.
+    void mergeUnalignedLoad(uint32_t index, uint32_t mask, uint32_t value) {
+        auto& pending = m_delayedLoadInfo[m_currentDelayedLoad ^ 1];
+        if (pending.active && pending.index == index) {
+            const uint32_t base = (m_regs.GPR.r[index] & pending.mask) | pending.value;
+            pending.active = false;
+            delayedLoadRef(index) = (base & mask) | value;
+            return;
+        }
+        delayedLoadRef(index, mask) = value;
+    }
     // For the GUI dynarec disassembly widget
     virtual const uint8_t* getBufferPtr() final { return nullptr; }
     virtual const size_t getBufferSize() final { return 0; }
@@ -255,9 +268,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
 
     /* Moves between GPR and COPx */
     void psxMFC0(uint32_t code);
-    void psxCFC0(uint32_t code);
     void psxMTC0(uint32_t code);
-    void psxCTC0(uint32_t code);
     void psxMFC2(uint32_t code);
     void psxCFC2(uint32_t code);
 
@@ -269,6 +280,8 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     void psxCOP1(uint32_t code);
     void psxCOP2(uint32_t code);
     void psxCOP3(uint32_t code);
+    void psxLSCz(uint32_t code);
+    bool copUsable(unsigned z);
     void psxBCz(uint32_t code, unsigned z);
     void gteMove(uint32_t code);
 
@@ -397,9 +410,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     void pgxpPsxLWC2(uint32_t code);
     void pgxpPsxSWC2(uint32_t code);
     void pgxpPsxMFC0(uint32_t code);
-    void pgxpPsxCFC0(uint32_t code);
     void pgxpPsxMTC0(uint32_t code);
-    void pgxpPsxCTC0(uint32_t code);
     void pgxpPsxRFE(uint32_t code);
 
     static const intFunc_t s_pgxpPsxBSC[64];
@@ -1027,7 +1038,7 @@ void InterpretedCPU::psxLWL(uint32_t code) {
 
     // load delay = 1 latency
     if (!_Rt_) return;
-    delayedLoadRef(_Rt_, LWL_MASK[shift]) = mem << LWL_SHIFT[shift];
+    mergeUnalignedLoad(_Rt_, LWL_MASK[shift], mem << LWL_SHIFT[shift]);
 
     /*
     Mem = 1234.  Reg = abcd
@@ -1045,7 +1056,7 @@ void InterpretedCPU::psxLWR(uint32_t code) {
 
     // load delay = 1 latency
     if (!_Rt_) return;
-    delayedLoadRef(_Rt_, LWR_MASK[shift]) = mem >> LWR_SHIFT[shift];
+    mergeUnalignedLoad(_Rt_, LWR_MASK[shift], mem >> LWR_SHIFT[shift]);
 
     /*
     Mem = 1234.  Reg = abcd
@@ -1129,12 +1140,6 @@ void InterpretedCPU::psxMFC0(uint32_t code) {
     delayedLoadRef<int32_t>(_Rt_) = (int)m_regs.CP0.r[_Rd_];
 }
 
-void InterpretedCPU::psxCFC0(uint32_t code) {
-    // load delay = 1 latency
-    if (!_Rt_) return;
-    delayedLoadRef<int32_t>(_Rt_) = (int)m_regs.CP0.r[_Rd_];
-}
-
 void InterpretedCPU::psxTestSWInts() {
     if (m_regs.CP0.n.Cause & m_regs.CP0.n.Status & 0x0300 && m_regs.CP0.n.Status & 0x1) {
         if (m_inBranchSlot) {
@@ -1149,7 +1154,7 @@ inline void InterpretedCPU::MTC0(int reg, uint32_t val) {
     //  PCSX::g_system->log(PCSX::LogClass::CPU, "MTC0 %d: %x\n", reg, val);
     switch (reg) {
         case 12:  // Status
-            m_regs.CP0.n.Status = val;
+            m_regs.CP0.n.Status = val & PCSX::c_cop0StatusWritableMask;
             psxTestSWInts();
             break;
 
@@ -1165,7 +1170,6 @@ inline void InterpretedCPU::MTC0(int reg, uint32_t val) {
 }
 
 void InterpretedCPU::psxMTC0(uint32_t code) { MTC0(_Rd_, _rRt_); }
-void InterpretedCPU::psxCTC0(uint32_t code) { MTC0(_Rd_, _rRt_); }
 
 void InterpretedCPU::psxMFC2(uint32_t code) {
     gteDrainIfStalling();
@@ -1219,13 +1223,24 @@ void InterpretedCPU::psxCOP0(uint32_t code) {
     (*this.*(s_pPsxCP0[_Rs_]))(code);
 }
 
+// There is no COP1 or COP3. With SR.CU1 (CU3) clear, their opcodes, LWCz and SWCz included, raise a
+// coprocessor unusable exception, even in kernel mode. With the bit set they raise nothing, and are
+// ignored here: on silicon, MFCz and CFCz load an unspecified value and SWCz stores one.
+bool InterpretedCPU::copUsable(unsigned z) {
+    if (m_regs.CP0.n.Status & (0x10000000 << z)) return true;
+    m_regs.pc.raw() -= 4;
+    exception((static_cast<uint32_t>(Exception::CoprocessorUnusable) << 2) | (z << 28), m_inDelaySlot);
+    return false;
+}
+
+void InterpretedCPU::psxLSCz(uint32_t code) { copUsable((code >> 26) & 3); }
+
 void InterpretedCPU::psxCOP1(uint32_t code) {  // Accesses to the (nonexistent) FPU
     if (_Rs_ == 8) {
         psxBCz(code, 1);
         return;
     }
-    // TODO: Verify that COP1 doesn't throw a coprocessor unusable exception
-    // Supposedly the COP1/COP3 ops don't fire RI, and they're NOPs
+    if (!copUsable(1)) return;
     PCSX::g_system->log(PCSX::LogClass::CPU,
                         _("Attempted to use an invalid floating point instruction from 0x%08x. Ignored.\n"),
                         m_regs.pc - 4);
@@ -1255,6 +1270,7 @@ void InterpretedCPU::psxCOP3(uint32_t code) {
         psxBCz(code, 3);
         return;
     }
+    if (!copUsable(3)) return;
     PCSX::g_system->log(PCSX::LogClass::CPU, _("Attempted to access COP3 from 0x%08x. Ignored\n"), m_regs.pc - 4);
 }
 
@@ -1273,9 +1289,9 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_psxBSC[64] = {
     &InterpretedCPU::psxLBU,     &InterpretedCPU::psxLHU,    &InterpretedCPU::psxLWR,  &InterpretedCPU::psxNULL,   // 24
     &InterpretedCPU::psxSB,      &InterpretedCPU::psxSH,     &InterpretedCPU::psxSWL,  &InterpretedCPU::psxSW,     // 28
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxSWR,  &InterpretedCPU::psxNULL,   // 2c
-    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::gteLWC2, &InterpretedCPU::psxNULL,   // 30
+    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteLWC2, &InterpretedCPU::psxLSCz,   // 30
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,   // 34
-    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::gteSWC2, &InterpretedCPU::psxNULL,   // 38
+    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteSWC2, &InterpretedCPU::psxLSCz,   // 38
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,   // 3c
 };
 
@@ -1313,8 +1329,8 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_psxREG[32] = {
 };
 
 const InterpretedCPU::intFunc_t InterpretedCPU::s_psxCP0[32] = {
-    &InterpretedCPU::psxMFC0, &InterpretedCPU::psxNULL, &InterpretedCPU::psxCFC0, &InterpretedCPU::psxNULL,  // 00
-    &InterpretedCPU::psxMTC0, &InterpretedCPU::psxNULL, &InterpretedCPU::psxCTC0, &InterpretedCPU::psxNULL,  // 04
+    &InterpretedCPU::psxMFC0, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,  // 00
+    &InterpretedCPU::psxMTC0, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,  // 04
     &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,  // 08
     &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,  // 0c
     &InterpretedCPU::psxRFE,  &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,  // 10
@@ -1538,9 +1554,7 @@ PGXP_INT_FUNC_1_1(GTE, SWC2, 0, 2, m_regs.CP2D.r[_Rt_], _oB_)
 
 // COP0
 PGXP_INT_FUNC_1_1(CP0, MFC0, !_Rd_, 2, m_regs.GPR.r[_Rt_], m_regs.CP0.r[_Rd_])
-PGXP_INT_FUNC_1_1(CP0, CFC0, !_Rd_, 2, m_regs.GPR.r[_Rt_], m_regs.CP0.r[_Rd_])
 PGXP_INT_FUNC_1_1(CP0, MTC0, !_Rt_, 2, m_regs.CP0.r[_Rd_], m_regs.GPR.r[_Rt_])
-PGXP_INT_FUNC_1_1(CP0, CTC0, !_Rt_, 2, m_regs.CP0.r[_Rd_], m_regs.GPR.r[_Rt_])
 PGXP_INT_FUNC(CP0, RFE)
 
 // end of PGXP
@@ -1571,12 +1585,12 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxBSC[64] = {
     &InterpretedCPU::pgxpPsxSWL,  &InterpretedCPU::pgxpPsxSW,     // 2a
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,   // 2c
     &InterpretedCPU::pgxpPsxSWR,  &InterpretedCPU::pgxpPsxNULL,   // 2e
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 30
-    &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxNULL,       // 32
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,       // 30
+    &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxLSCz,       // 32
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 34
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 36
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 38
-    &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxNULL,       // 3a
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,       // 38
+    &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxLSCz,       // 3a
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 3c
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 3e
 };
@@ -1618,9 +1632,9 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxSPC[64] = {
 
 const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxCP0[32] = {
     &InterpretedCPU::pgxpPsxMFC0, &InterpretedCPU::pgxpPsxNULL,  // 00
-    &InterpretedCPU::pgxpPsxCFC0, &InterpretedCPU::pgxpPsxNULL,  // 02
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::pgxpPsxNULL,  // 02
     &InterpretedCPU::pgxpPsxMTC0, &InterpretedCPU::pgxpPsxNULL,  // 04
-    &InterpretedCPU::pgxpPsxCTC0, &InterpretedCPU::pgxpPsxNULL,  // 06
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::pgxpPsxNULL,  // 06
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,  // 08
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,  // 0a
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,  // 0c
@@ -1680,12 +1694,12 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxBSCMem[64] = {
     &InterpretedCPU::pgxpPsxSWL,  &InterpretedCPU::pgxpPsxSW,    // 2a
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,  // 2c
     &InterpretedCPU::pgxpPsxSWR,  &InterpretedCPU::pgxpPsxNULL,  // 2e
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 30
-    &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxNULL,      // 32
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,      // 30
+    &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxLSCz,      // 32
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 34
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 36
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 38
-    &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxNULL,      // 3a
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,      // 38
+    &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxLSCz,      // 3a
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 3c
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 3e
 };

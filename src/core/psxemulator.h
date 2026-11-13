@@ -84,6 +84,7 @@ class GTE;
 class RAMLogger;
 class SPULogger;
 class HW;
+class HWEvents;
 class Lua;
 class MDEC;
 class Memory;
@@ -179,6 +180,9 @@ class Emulator {
     typedef SettingPath<TYPESTRING("Mcd2D")> SettingMcd2D;
     typedef SettingPath<TYPESTRING("Bios")> SettingBios;
     typedef SettingPath<TYPESTRING("PpfDir")> SettingPpfDir;
+    // Where screenshots and save states are written. Empty means the persistent directory.
+    typedef SettingPath<TYPESTRING("ScreenshotDir")> SettingScreenshotDir;
+    typedef SettingPath<TYPESTRING("SaveStateDir")> SettingSaveStateDir;
     typedef SettingPath<TYPESTRING("PsxExe")> SettingPsxExe;
     typedef Setting<bool, TYPESTRING("Xa"), true> SettingXa;
     typedef Setting<bool, TYPESTRING("SpuIrq")> SettingSpuIrq;
@@ -241,7 +245,8 @@ class Emulator {
              SettingPIOConnected, SettingMapBrowsePath, SettingOpenDialogFavorites, SettingRewindInterval,
              SettingRewindCount, SettingCDRomEntropySeed, SettingMcd1B, SettingMcd1C, SettingMcd1D, SettingMcd2B,
              SettingMcd2C, SettingMcd2D, SettingMcd1BInserted, SettingMcd1CInserted, SettingMcd1DInserted,
-             SettingMcd2BInserted, SettingMcd2CInserted, SettingMcd2DInserted>
+             SettingMcd2BInserted, SettingMcd2CInserted, SettingMcd2DInserted, SettingScreenshotDir,
+             SettingSaveStateDir>
         settings;
     class PcsxConfig {
       public:
@@ -365,6 +370,7 @@ class Emulator {
     std::unique_ptr<RAMLogger> m_ramLogger;
     std::unique_ptr<SPULogger> m_spuLogger;
     std::unique_ptr<HW> m_hw;
+    std::unique_ptr<HWEvents> m_hwEvents;
     std::unique_ptr<Lua> m_lua;
     std::unique_ptr<MDEC> m_mdec;
     std::unique_ptr<Memory> m_mem;

@@ -776,11 +776,16 @@ void PCSX::HW::write32(uint32_t add, uint32_t value) {
             PSXHW_LOG("DMA6 CHCR 32bit write %x\n", value);
             dmaExec<6>(value);  // DMA6 chcr (OT clear)
             return;
-        case 0x1f8010f0:
-            // TODO: check if toggling PCR triggers pending DMAs.
+        case 0x1f8010f0: {
             PSXHW_LOG("DMA PCR 32bit write %x\n", value);
-            g_emulator->m_mem->writeHardwareRegister<0x10f0>(value);
+            auto& mem = g_emulator->m_mem;
+            const bool otcWasEnabled = mem->isDMAEnabled<6>();
+            mem->writeHardwareRegister<0x10f0>(value);
+            // Enabling DMA6 starts a transfer already latched in its CHCR. Whether the other channels do the
+            // same has not been measured.
+            if (!otcWasEnabled && mem->isDMAEnabled<6>() && mem->isDMABusy<6>()) dmaExec<6>(mem->getCHCR<6>());
             break;
+        }
         case 0x1f8010f4:
             PSXHW_LOG("DMA ICR 32bit write %x\n", value);
             {

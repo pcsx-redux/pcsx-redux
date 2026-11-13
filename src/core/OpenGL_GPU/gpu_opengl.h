@@ -62,14 +62,16 @@ class OpenGL_GPU final : public GPU {
 
         // We use bit 15 of the texpage attribute (normally unused) to indicate an untextured prim.
         static constexpr uint16_t c_untexturedPrimitiveTexpage = 0x8000;
+        // Bit 14 marks a dithered primitive.
+        static constexpr uint16_t c_ditherTexpage = 0x4000;
 
         Vertex() : Vertex(0, 0, 0) {}
 
-        Vertex(int x, int y, uint32_t col) {
+        Vertex(int x, int y, uint32_t col, uint16_t flags = 0) {
             positions.x() = x;
             positions.y() = y;
             colour = col;
-            texpage = c_untexturedPrimitiveTexpage;
+            texpage = c_untexturedPrimitiveTexpage | flags;
         }
 
         Vertex(int x, int y, uint32_t col, uint16_t clut, uint16_t texpage, unsigned u, unsigned v)
@@ -217,11 +219,12 @@ class OpenGL_GPU final : public GPU {
     // And 0x808080 as the blend colour
     static constexpr uint32_t c_rawTextureBlendColour = 0x808080;
 
-    void drawTri(int *x, int *y, uint32_t *colors);
+    void drawTri(int *x, int *y, uint32_t *colors, uint16_t flags);
     void drawTriTextured(int *x, int *y, uint32_t *colors, uint16_t clut, uint16_t texpage, unsigned *u, unsigned *v);
     void drawRect(int x, int y, int w, int h, uint32_t color);
     void drawRectTextured(int x, int y, int w, int h, uint32_t color, uint16_t clut, unsigned u, unsigned v);
-    void drawLine(int x1, int y1, uint32_t color1, int x2, int y2, uint32_t color2);
+    void drawLine(int x0, int y0, uint32_t color0, int x1, int y1, uint32_t color1);
+    void drawPixel(int x, int y, uint32_t color);
 
     template <Transparency setting>
     void setTransparency();

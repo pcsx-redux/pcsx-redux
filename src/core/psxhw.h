@@ -21,6 +21,7 @@
 
 #include "core/psxcounters.h"
 #include "core/psxdma.h"
+#include "core/hwevents.h"
 #include "core/psxemulator.h"
 #include "core/psxmem.h"
 #include "core/r3000a.h"
@@ -46,6 +47,7 @@ class HW {
     template <unsigned n>
     void dmaExec(uint32_t chcr) {
         auto &mem = g_emulator->m_mem;
+        uint32_t written = chcr;
         if constexpr (n == 6) {
             // Only bits 24, 28 and 30 of DMA6 CHCR are writable; bit 1 (step backwards) always reads 1.
             chcr = (chcr & 0x51000000) | 0x00000002;
@@ -53,6 +55,10 @@ class HW {
         mem->setCHCR<n>(chcr);
         if ((chcr & 0x01000000) && mem->template isDMAEnabled<n>()) {
             uint32_t madr = mem->template getMADR<n>();
+            auto &events = *g_emulator->m_hwEvents;
+            if (events.armed(HWEvents::Source::DMA)) [[unlikely]] {
+                events.record(HWEvents::DMAStart, n, madr, mem->template getBCR<n>(), written);
+            }
             bool usingMsan = g_emulator->m_mem->msanInitialized();
             if (usingMsan && PCSX::Memory::inMsanRange(madr)) {
                 madr &= 0xfffffffc;

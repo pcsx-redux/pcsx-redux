@@ -475,6 +475,8 @@ class GUI final : public UI {
     Widgets::FileDialog<> m_openArchiveDialog;
     Widgets::FileDialog<> m_selectBiosDialog;
     Widgets::FileDialog<> m_selectEXP1Dialog;
+    Widgets::FileDialog<Widgets::FileDialogMode::SelectDirectory> m_selectScreenshotDirDialog;
+    Widgets::FileDialog<Widgets::FileDialogMode::SelectDirectory> m_selectSaveStateDirDialog;
     Widgets::NamedSaveStates m_namedSaveStates = {settings.get<ShowNamedSaveStates>().value};
     Widgets::Breakpoints m_breakpoints = {settings.get<ShowBreakpoints>().value};
     Widgets::IsoBrowser m_isoBrowser;
@@ -528,6 +530,8 @@ class GUI final : public UI {
     bool deleteSaveStateSlot(uint32_t slot);
     std::string getSaveStatePrefix(bool includeSeparator);
     static std::string getSaveStatePostfix();
+    std::filesystem::path getSaveStateDir();
+    std::filesystem::path getScreenshotDir();
     bool getSaveStateExists(uint32_t slot);
     std::vector<std::pair<std::filesystem::path, std::string>> getNamedSaveStates();
     std::string buildSaveStateFilename(int i);

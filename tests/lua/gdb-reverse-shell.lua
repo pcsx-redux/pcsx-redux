@@ -92,18 +92,21 @@ local function connect()
     co = coroutine.running()
     buffer, packets = '', {}
     client = luv.new_tcp()
+    -- An error raised inside a luv callback exits the process, so the result is checked once
+    -- back in the test.
     client:connect('127.0.0.1', PORT, function(err)
-        lu.assertNil(err)
-        client:read_start(function(rerr, chunk)
-            if chunk then
-                buffer = buffer .. chunk
-                parse()
-            end
-            if coroutine.status(co) == 'suspended' then coroutine.resume(co) end
-        end)
-        coroutine.resume(co)
+        if not err then
+            client:read_start(function(rerr, chunk)
+                if chunk then
+                    buffer = buffer .. chunk
+                    parse()
+                end
+                if coroutine.status(co) == 'suspended' then coroutine.resume(co) end
+            end)
+        end
+        coroutine.resume(co, err)
     end)
-    coroutine.yield()
+    lu.assertNil(coroutine.yield())
 end
 
 -- Same as in rewind.lua: the first tick after a pause from a vsync listener is still on the

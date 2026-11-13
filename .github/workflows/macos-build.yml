@@ -51,7 +51,7 @@ jobs:
     - name: Fetch submodules
       run: ./.github/scripts/update-submodules.sh
     - name: Build PCSX-Redux
-      run: make -j 2 all pcsx-redux-tests
+      run: make -j 2 all pcsx-redux-tests tools
     - name: Download OpenBIOS build
       uses: actions/download-artifact@v4
       with:
