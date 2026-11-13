@@ -128,6 +128,72 @@ TEST(SPUSample, SignatureFollowsContentNotAddress) {
     EXPECT_EQ(signature(ram.data(), a), signature(ram.data(), walk(ram.data(), 0x42000)));
 }
 
+namespace {
+
+// A block as the ps1dev/standards SPUSAMPLE.md test vectors build it.
+void vectorBlock(std::vector<uint8_t>& ram, uint32_t addr, uint8_t shiftFilter, uint8_t flags, uint8_t seed) {
+    ram[addr] = shiftFilter;
+    ram[addr + 1] = flags;
+    for (int i = 2; i < 16; i++) ram[addr + i] = uint8_t(seed + i * 17);
+}
+
+}  // namespace
+
+TEST(SPUSample, MatchesTheStandardTestVectors) {
+    std::vector<uint8_t> ram(c_ramSize);
+    vectorBlock(ram, 0x1000, 0x0c, 0x01, 0x00);
+    EXPECT_EQ(signature(ram.data(), walk(ram.data(), 0x1000)), 0xd7e212b88d167b07u);
+    vectorBlock(ram, 0x2000, 0x1b, 0x04, 0x10);
+    vectorBlock(ram, 0x2010, 0x2a, 0x00, 0x20);
+    vectorBlock(ram, 0x2020, 0x39, 0x03, 0x30);
+    const auto v2 = walk(ram.data(), 0x2007);
+    EXPECT_EQ(v2.start, 0x2000u);
+    EXPECT_EQ(v2.loop, 0x2000u);
+    EXPECT_EQ(signature(ram.data(), v2), 0x849b04794e5240dfu);
+    vectorBlock(ram, 0x3000, 0x1b, 0x04, 0x10);
+    vectorBlock(ram, 0x3010, 0x2a, 0x04, 0x20);
+    vectorBlock(ram, 0x3020, 0x39, 0x03, 0x30);
+    EXPECT_EQ(walk(ram.data(), 0x3000).loop, 0x3010u);
+    EXPECT_EQ(signature(ram.data(), walk(ram.data(), 0x3000)), 0xcb3116b83d4b0854u);
+    vectorBlock(ram, 0x5000, 0x0c, 0xf9, 0x00);
+    EXPECT_EQ(walk(ram.data(), 0x5000).end, 0x5010u);
+    EXPECT_EQ(signature(ram.data(), walk(ram.data(), 0x5000)), 0x9fcd6f024aae4596u);
+}
+
+TEST(SPUSample, NoteRecordsRoundTrip) {
+    EXPECT_EQ(noteRecord(0x849b04794e5240df, 64.97123), "spu-note 849b04794e5240df 64.9712");
+    const auto records = noteRecords(
+        "Some prose.\n"
+        "spu-note 849b04794e5240df 64.9712\r\n"
+        "spu-note D7E212B88D167B07 60\n"
+        "spu-note 0000000000000001 127.9999\n"
+        "spu-note 0000000000000002 128\n"
+        "spu-note 0000000000000003 0060.5\n"
+        "spu-note 0000000000000004 60.\n"
+        "spu-note 0000000000000005 -1\n"
+        "spu-note 000000000000006 60\n"
+        "spu-note 00000000000000g7 60\n"
+        "spu-note 0000000000000008  60\n"
+        " spu-note 0000000000000009 60\n"
+        "spu-note 000000000000000a 61\n"
+        "spu-note 000000000000000a 62.25");
+    ASSERT_EQ(records.size(), 4u);
+    EXPECT_DOUBLE_EQ(records.at(0x849b04794e5240df), 64.9712);
+    EXPECT_DOUBLE_EQ(records.at(0xd7e212b88d167b07), 60.0);
+    EXPECT_DOUBLE_EQ(records.at(1), 127.9999);
+    EXPECT_DOUBLE_EQ(records.at(10), 62.25);
+}
+
+TEST(SF2, ReadsBackTheComment) {
+    PCSX::SF2::Sample s;
+    s.name = "a";
+    s.pcm.assign(64, 0);
+    auto data = PCSX::SF2::write({s}, "bank", "line one\nspu-note 0000000000000001 60.5");
+    EXPECT_EQ(PCSX::SF2::readComment(data.data(), data.size()), "line one\nspu-note 0000000000000001 60.5");
+    data = PCSX::SF2::write({s}, "bank", "");
+    EXPECT_EQ(PCSX::SF2::readComment(data.data(), data.size()), "");
+}
+
 TEST(SF2, LoadsBackWithTinySoundFont) {
     std::vector<PCSX::SF2::Sample> samples(2);
     samples[0].name = "oneshot";

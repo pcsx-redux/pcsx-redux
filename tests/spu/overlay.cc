@@ -186,3 +186,13 @@ TEST(SPUSamplePitch, LoopDecodeKeepsTheFilterHistory) {
     // Without a minimum, one pass.
     EXPECT_EQ(PCSX::SPU::decodeSample(ram.data(), extent).size(), 3 * c_samplesPerBlock);
 }
+
+TEST(SPUOverlay, ReadsTheRecordedOriginalNote) {
+    std::vector<PCSX::SF2::Sample> samples = {ramp("00000000000000ff", 10), ramp("00000000000000fe", 10)};
+    auto data = PCSX::SF2::write(samples, "pack", "prose\nspu-note 00000000000000ff 57.25\n");
+    auto overlay = PCSX::SPU::Overlay::fromSF2(data.data(), data.size());
+    ASSERT_NE(overlay, nullptr);
+    ASSERT_TRUE(overlay->find(0xff)->originalNote.has_value());
+    EXPECT_DOUBLE_EQ(*overlay->find(0xff)->originalNote, 57.25);
+    EXPECT_FALSE(overlay->find(0xfe)->originalNote.has_value());
+}

@@ -23,12 +23,14 @@
 #include <cmath>
 
 #include "supportpsx/sf2.h"
+#include "supportpsx/spusample.h"
 
 std::shared_ptr<const PCSX::SPU::Overlay> PCSX::SPU::Overlay::fromSF2(const uint8_t* data, size_t size,
                                                                       unsigned* skipped) {
     auto samples = SF2::read(data, size);
     if (samples.empty()) return nullptr;
     auto overlay = std::make_shared<Overlay>();
+    const auto notes = SPUSample::noteRecords(SF2::readComment(data, size));
     unsigned bad = 0;
     for (auto& s : samples) {
         uint64_t signature = 0;
@@ -58,6 +60,8 @@ std::shared_ptr<const PCSX::SPU::Overlay> PCSX::SPU::Overlay::fromSF2(const uint
         e.loops = s.loops;
         e.loopStart = s.loopStart;
         e.loopEnd = s.loopEnd;
+        auto note = notes.find(signature);
+        if (note != notes.end()) e.originalNote = note->second;
     }
     if (skipped) *skipped = bad;
     return overlay;

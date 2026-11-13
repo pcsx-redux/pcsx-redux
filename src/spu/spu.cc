@@ -91,7 +91,12 @@ void PCSX::SPU::impl::startOverlay(SPUCHAN *voice) {
     const uint64_t signature = SPUSample::signature(spuRamBase, extent);
     const auto *entry = overlay->find(signature);
     if (!entry) return;
-    // Measured once per sample, on its first replaced key-on.
+    // A pack that recorded the note its writer measured is played against that note.
+    if (entry->originalNote) {
+        voice->overlay.start(std::move(overlay), entry, *entry->originalNote);
+        return;
+    }
+    // Otherwise it is measured once per sample, on its first replaced key-on.
     auto note = m_overlayNotes.find(signature);
     if (note == m_overlayNotes.end()) {
         const double measured = RootKey::fromFundamental(sampleFundamental(spuRamBase, extent)).note;
