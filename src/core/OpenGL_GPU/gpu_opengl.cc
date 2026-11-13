@@ -108,6 +108,11 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
     // UV attribute
     m_vao.setAttributeFloat<GLushort>(4, 2, sizeof(Vertex), offsetof(Vertex, uv));
     m_vao.enableAttribute(4);
+    // Affine UV walk setup, as six ivec4
+    for (unsigned i = 0; i < c_affineSetupSize / 4; i++) {
+        m_vao.setAttributeInt<GLint>(5 + i, 4, sizeof(Vertex), offsetof(Vertex, affine) + i * 4 * sizeof(int32_t));
+        m_vao.enableAttribute(5 + i);
+    }
 
     // Make VRAM texture and attach it to draw frambuffer
     const int msaaSampleCount = g_emulator->settings.get<Emulator::SettingMSAA>();
@@ -164,6 +169,13 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
         layout (location = 2) in int inClut;
         layout (location = 3) in int inTexpage;
         layout (location = 4) in vec2 inUV;
+        // inAffine: the triangle's UV walk setup, see computeAffineSetup
+        layout (location = 5) in ivec4 inAffine0;
+        layout (location = 6) in ivec4 inAffine1;
+        layout (location = 7) in ivec4 inAffine2;
+        layout (location = 8) in ivec4 inAffine3;
+        layout (location = 9) in ivec4 inAffine4;
+        layout (location = 10) in ivec4 inAffine5;
 
         out vec4 vertexColor;
         out vec2 texCoords;
@@ -171,6 +183,13 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
         flat out ivec2 texpageBase;
         flat out int texMode;
         flat out int dither;
+        flat out ivec4 affine0;
+        flat out ivec4 affine1;
+        flat out ivec4 affine2;
+        flat out ivec4 affine3;
+        flat out ivec4 affine4;
+        flat out ivec4 affine5;
+        flat out ivec2 drawOffset;
 
         // We always apply a 0.5 offset in addition to the drawing offsets, to cover up OpenGL inaccuracies
         uniform vec2 u_vertexOffsets = vec2(+0.5, +0.5);
@@ -200,6 +219,13 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
            gl_Position = vec4(xx, yy, 1.0, 1.0);
            vertexColor = vec4(color / 255.0, 1.0);
            dither = (inTexpage >> 14) & 1;
+           affine0 = inAffine0;
+           affine1 = inAffine1;
+           affine2 = inAffine2;
+           affine3 = inAffine3;
+           affine4 = inAffine4;
+           affine5 = inAffine5;
+           drawOffset = ivec2(floor(u_vertexOffsets));
 
            if ((inTexpage & 0x8000) != 0) { // Untextured primitive
                texMode = 4;
@@ -221,6 +247,41 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
         flat in ivec2 texpageBase;
         flat in int texMode;
         flat in int dither;
+        flat in ivec4 affine0;
+        flat in ivec4 affine1;
+        flat in ivec4 affine2;
+        flat in ivec4 affine3;
+        flat in ivec4 affine4;
+        flat in ivec4 affine5;
+        flat in ivec2 drawOffset;
+
+        // floor(a * d / 65536) for a in [0, 65535], without 64-bit integers.
+        int mulShr16(int a, int d) {
+            return a * (d >> 16) + int((uint(a) * (uint(d) & 0xffffu)) >> 16u);
+        }
+
+        // The texel coordinates of this pixel, walked in 16.16 the way the GPU does (computeAffineSetup
+        // holds the per-triangle half). Unsigned arithmetic wraps like the GPU's 32-bit accumulators.
+        ivec2 affineUV() {
+            ivec2 p = ivec2(gl_FragCoord.xy) - drawOffset;
+            bool second = affine2.w > 0 && p.y >= affine2.z;
+            int yStart = second ? affine2.z : affine0.x;
+            int height = second ? affine2.w : affine0.y;
+            int startX = second ? affine3.x : affine0.z;
+            int quotientX = second ? affine3.y : affine0.w;
+            int remainderX = second ? affine3.z : affine1.x;
+            int signX = second ? affine3.w : affine1.y;
+            ivec4 uv = second ? affine4 : ivec4(affine1.zw, affine2.xy);
+            int row = p.y - yStart;
+            int leftX = startX + signX * (quotientX * row + (remainderX * row) / height);
+            int xmin = (leftX + 0xffff) >> 16;
+            int fraction = (xmin << 16) - leftX;
+            uint u = uint(uv.x) + uint(row) * uint(uv.y);
+            uint v = uint(uv.z) + uint(row) * uint(uv.w);
+            u += uint(mulShr16(fraction, affine5.x)) + 0x8000u + uint(p.x - xmin) * uint(affine5.x);
+            v += uint(mulShr16(fraction, affine5.y)) + 0x8000u + uint(p.x - xmin) * uint(affine5.y);
+            return ivec2(int(u >> 16), int(v >> 16)) & ivec2(0xff);
+        }
 
         // We use dual-source blending in order to emulate the fact that the GPU can enable blending per-pixel
         // FragColor: The colour of the pixel before alpha blending comes into play
@@ -320,7 +381,8 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
            }
 
            // Fix up UVs and apply texture window
-           ivec2 UV = ivec2(floor(texCoords + vec2(0.0001, 0.0001))) & ivec2(0xff);
+           // Triangles walk their UVs like the GPU; rectangles map texels to pixels one to one.
+           ivec2 UV = affine0.y > 0 ? affineUV() : ivec2(floor(texCoords + vec2(0.0001, 0.0001))) & ivec2(0xff);
            UV = (UV & u_texWindow.xy) | u_texWindow.zw;
 
            if (texMode == 0) { // 4bpp texture
@@ -1137,13 +1199,84 @@ void PCSX::OpenGL_GPU::drawTri(int *x, int *y, uint32_t *colors, uint16_t flags)
     m_vertices[m_vertexCount++] = Vertex(x[2], y[2], colors[2], flags);
 }
 
+// The texture coordinates of a triangle are walked in 16.16 fixed point, the same way the soft renderer
+// does it in setupSections3, nextRow3 and seedSpan: the vertices are sorted by Y, the left edge is split
+// in one or two sections whose U and V advance by a truncated per-row step, and every row starts at the
+// first pixel right of its fractional left edge, from where U and V advance by per-pixel steps derived
+// from the longest span, with a +0x8000 bias. This computes the per-triangle part; the fragment shader
+// does the per-pixel part. Layout: two left-edge sections of {first row, height, X at the first row,
+// |X step| quotient and remainder against the height, X step sign, U, U step, V, V step}, then the
+// per-pixel U and V steps. A height of 0 marks an absent section.
+static void computeAffineSetup(const int *xs, const int *ys, const unsigned *us, const unsigned *vs,
+                               const int (&order)[3], int32_t *out) {
+    struct WalkVertex {
+        int32_t x, y, u, v;
+    };
+    WalkVertex vertices[3];
+    for (int i = 0; i < 3; i++) {
+        const int j = order[i];
+        vertices[i] = {int32_t(xs[j]) << 16, ys[j], int32_t(us[j]) << 16, int32_t(vs[j]) << 16};
+    }
+    WalkVertex *v1 = &vertices[0], *v2 = &vertices[1], *v3 = &vertices[2];
+    if (v1->y > v2->y) std::swap(v1, v2);
+    if (v1->y > v3->y) std::swap(v1, v3);
+    if (v2->y > v3->y) std::swap(v2, v3);
+
+    const int32_t height = v3->y - v1->y;
+    if (height == 0) return;
+    const int32_t temp = ((v2->y - v1->y) << 16) / height;
+    int32_t longest = int32_t(uint32_t(temp) * uint32_t((v3->x - v1->x) >> 16) + uint32_t(v1->x - v2->x));
+    if (longest == 0) return;
+
+    auto section = [](const WalkVertex *a, const WalkVertex *b, int32_t *s) {
+        const int32_t h = b->y - a->y;
+        if (h == 0) return false;
+        const int32_t dx = b->x - a->x;
+        const uint32_t absDx = dx < 0 ? uint32_t(-int64_t(dx)) : uint32_t(dx);
+        s[0] = a->y;
+        s[1] = h;
+        s[2] = a->x;
+        s[3] = int32_t(absDx / uint32_t(h));
+        s[4] = int32_t(absDx % uint32_t(h));
+        s[5] = dx < 0 ? -1 : 1;
+        s[6] = a->u;
+        s[7] = (b->u - a->u) / h;
+        s[8] = a->v;
+        s[9] = (b->v - a->v) / h;
+        return true;
+    };
+
+    if (longest < 0) {
+        section(v1, v3, out);
+        if (longest > -0x1000) longest = -0x1000;
+    } else {
+        if (section(v1, v2, out)) {
+            section(v2, v3, out + 10);
+        } else {
+            section(v2, v3, out);
+        }
+        if (longest < 0x1000) longest = 0x1000;
+    }
+
+    auto spanStep = [&](int32_t c1, int32_t c2, int32_t c3) {
+        const int32_t numerator = int32_t(uint32_t(temp) * uint32_t((c3 - c1) >> 10) + (uint32_t(c1 - c2) << 6));
+        return int32_t((int64_t(numerator) << 10) / longest);
+    };
+    out[20] = spanStep(v1->u, v2->u, v3->u);
+    out[21] = spanStep(v1->v, v2->v, v3->v);
+}
+
 void PCSX::OpenGL_GPU::drawTriTextured(int *x, int *y, uint32_t *colors, uint16_t clut, uint16_t texpage, unsigned *u,
-                                       unsigned *v) {
+                                       unsigned *v, const int (&walkOrder)[3]) {
     maybeRenderBatch<3>();
 
-    m_vertices[m_vertexCount++] = Vertex(x[0], y[0], colors[0], clut, texpage, u[0], v[0]);
-    m_vertices[m_vertexCount++] = Vertex(x[1], y[1], colors[1], clut, texpage, u[1], v[1]);
-    m_vertices[m_vertexCount++] = Vertex(x[2], y[2], colors[2], clut, texpage, u[2], v[2]);
+    std::array<int32_t, c_affineSetupSize> affine{};
+    computeAffineSetup(x, y, u, v, walkOrder, affine.data());
+    for (int i = 0; i < 3; i++) {
+        auto &vertex = m_vertices[m_vertexCount++];
+        vertex = Vertex(x[i], y[i], colors[i], clut, texpage, u[i], v[i]);
+        vertex.affine = affine;
+    }
 }
 
 void PCSX::OpenGL_GPU::drawRect(int x, int y, int w, int h, uint32_t color) {
@@ -1527,7 +1660,9 @@ void PCSX::OpenGL_GPU::polyExec(Poly<shading, shape, textured, blend, modulation
             const uint16_t texpage = prim->tpage.raw | ditherFlag;
             drawTriTextured(&sx[0], &sy[0], &prim->colors[0], prim->clutraw, texpage, &prim->u[0], &prim->v[0]);
             if constexpr (shape == Shape::Quad) {
-                drawTriTextured(&sx[1], &sy[1], &prim->colors[1], prim->clutraw, texpage, &prim->u[1], &prim->v[1]);
+                // The GPU walks the second triangle of a quad as (v1, v3, v2).
+                drawTriTextured(&sx[1], &sy[1], &prim->colors[1], prim->clutraw, texpage, &prim->u[1], &prim->v[1],
+                                {0, 2, 1});
             }
         }
     });
