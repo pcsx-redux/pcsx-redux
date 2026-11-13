@@ -214,7 +214,10 @@ bool PCSX::SPU::impl::decodeNextBlock(int ch, SPUCHAN *voice) {
         // kStopped after an end block is a mute still owed to an audible voice. Once the voice
         // is silent the cursor goes to the repeat address, as it does on hardware for every end
         // block: the readout never stops, and a silent voice still raises IRQ9.
-        if (voice->data.get<Chan::On>().value || voice->adpcm.loop() == nullptr) return false;
+        if (voice->data.get<Chan::On>().value || voice->adpcm.loop() == nullptr) {
+            voice->adpcm.clearBlock();  // Nothing is read until the readout resumes.
+            return false;
+        }
         cursor = voice->adpcm.loop();
     }
 

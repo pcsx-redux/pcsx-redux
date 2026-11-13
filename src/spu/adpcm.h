@@ -101,6 +101,7 @@ class AdpcmDecoder {
     // curr(), it stays on that block after a loop-end redirect. Not saved: a loaded state has none
     // until the next decode.
     uint8_t *block() const { return m_block; }
+    void clearBlock() { m_block = nullptr; }
     void setStart(uint8_t *p) { m_start = p; }
     void setCurr(uint8_t *p) { m_curr = p; }
     void setLoop(uint8_t *p) { m_loop = p; }

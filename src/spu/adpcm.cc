@@ -59,6 +59,7 @@ void PCSX::SPU::AdpcmDecoder::loadFrom(const Protobuf::Int32 &history1, const Pr
     m_loop = restore(loopOffset);
     for (int i = 0; i < kSamplesPerBlock; i++) m_samples[i] = sb[i].value;
     m_pos = sbPos.value;
+    m_block = nullptr;
 }
 
 PCSX::SPU::AdpcmDecoder::DecodeResult PCSX::SPU::AdpcmDecoder::decodeBlock(uint8_t *block) {
