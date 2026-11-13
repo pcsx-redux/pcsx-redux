@@ -4,6 +4,7 @@ When the [webserver](../web_server.md) is enabled, it will expose the `/api/v1/l
 
 The request object has the following fields:
 
+- `body` is the raw request body as a string, empty when the request has none. A form POST with `application/x-www-form-urlencoded` arrives here, since `form` only covers `multipart/form-data`.
 - `form` is a table of the part headers found in the request body. It is only filled if the content type of the request is `multipart/form-data`, and is empty otherwise. Each header name maps to an array of its values.
 - `headers` is a table of the headers in the request. Each header name maps to an array of its values.
 - `method` is the HTTP method of the request, as an uppercase string such as `POST`. Note that GET requests report `HTTP_GET`.
