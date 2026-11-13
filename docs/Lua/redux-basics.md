@@ -91,10 +91,12 @@ The Lua code has the following API functions available to it in order to control
 It's also possible to manipulate savestates using the following functions:
 
  - `PCSX.createSaveState()    -- returns a slice representing the savestate`
- - `PCSX.loadSaveState(slice)`
- - `PCSX.loadSaveState(file)`
+ - `PCSX.loadSaveState(slice)    -- returns true if the state was accepted`
+ - `PCSX.loadSaveState(file)     -- same`
 
 When called while the emulated CPU is running, for instance from a `GPU::Vsync` listener or a breakpoint callback, `PCSX.loadSaveState` doesn't load the state right away. The current CPU step finishes against the old state, and the load happens as soon as the CPU loop returns, before any further instruction is executed. Listen to the `ExecutionFlow::SaveStateLoaded` event to know when it happened. When the emulator is paused, the load is immediate.
+
+`PCSX.loadSaveState` returns `false` when the data is not a savestate it can parse, such as a truncated file, and the emulator keeps running on its current state. From a listener or a breakpoint callback, `true` means the state parsed and the load is queued.
 
 Additionally, the following function returns a string containing the .proto file used to serialize the savestate:
 
@@ -253,7 +255,7 @@ typedef struct {
 `PCSX.HWEvents` records hardware events as fixed records, stamped with the same cycle counter as the CPU trace, so the two can be lined up. Nothing is recorded until a source is armed. The sources so far are `IRQ` (an interrupt line being asserted), `DMA` (a channel starting, and completing) `CDROM` (the controller's commands, responses and data sectors) `GPU` (GP0 commands and GP1 writes) and `SPU` (register writes, key on and key off). The store stops growing at 8 million events.
 
 - `.arm(source, ...)` arms one or more sources by name, `PCSX.HWEvents.arm('IRQ', 'DMA')`, and `.disarm()` turns them all off. `.mask()` and `.setMask(mask)` read and write the mask directly, one bit per source, at `1 << PCSX.HWEvents.Sources[name]`.
-- `.size()`, `.clear()`
+- `.size()`, `.clear()`, and `.full()`, which is true once the store has hit its limit and stopped recording.
 - `.save(path)` writes the store to a file, and `.load(path)` replaces the store with a saved one. Both return `true` on success; `load` leaves the store empty when the file is not a saved store or is cut short.
 - `.read([start[, count]])` copies events into a new FFI array of `PCSX_HWEvent`, and returns it with the number of events copied, like `PCSX.CPU.Trace.read`.
 
@@ -266,7 +268,7 @@ typedef struct {
 } PCSX_HWEvent;
 ```
 
-`cycle` is the emulated CPU cycle counter. `pc` is the CPU's program counter when the event happened; during an instruction, that is the address after it. The source is the high byte of `type`, and `PCSX.HWEvents.Types` names each type:
+`cycle` is the emulated CPU cycle counter. `pc` is the CPU's program counter when the event happened; during an instruction, that is the address after it. Both are exact under the interpreter. The dynarecs only update them at block boundaries, so an event raised by an instruction in the middle of a block, like a DMA start, carries the start of that block. The source is the high byte of `type`, and `PCSX.HWEvents.Types` names each type:
 
 - `IRQAssert` (`0x0101`): the bits being raised, I_STAT before, and I_MASK.
 - `DMAStart` (`0x0201`): the channel, then MADR, BCR and CHCR as written.
