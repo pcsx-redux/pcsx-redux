@@ -272,6 +272,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\dma.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\dumpproto.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\cputrace.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\hwevents.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpudump.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpudump-deinterlace.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-raster.cc" />

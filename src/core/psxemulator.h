@@ -84,6 +84,7 @@ class GTE;
 class RAMLogger;
 class SPULogger;
 class HW;
+class HWEvents;
 class Lua;
 class MDEC;
 class Memory;
@@ -368,6 +369,7 @@ class Emulator {
     std::unique_ptr<RAMLogger> m_ramLogger;
     std::unique_ptr<SPULogger> m_spuLogger;
     std::unique_ptr<HW> m_hw;
+    std::unique_ptr<HWEvents> m_hwEvents;
     std::unique_ptr<Lua> m_lua;
     std::unique_ptr<MDEC> m_mdec;
     std::unique_ptr<Memory> m_mem;
