@@ -158,7 +158,7 @@ void PCSX::SPU::impl::resetAdpcmWalk(int ch) {
     cp.loop = cp.keyOnLoop;
     cp.ignoreLoop = false;
     cp.left = 0;
-    cp.pos = settings.get<Interpolation>() >= 2 ? 0x30000 : 0x10000;
+    cp.pos = settings.get<Interpolation>() >= 2 ? Interpolator::kGaussKeyOnPosition : 0x10000;
     cp.pitchStep = std::max(1, m_pitchShadow[ch] << 4);
     cp.ended = false;
     cp.untracked = m_fmodShadow[ch] == 1;
