@@ -528,6 +528,7 @@ DynarecCallback DynaRecCPU::recompile(DynarecCallback* callback, uint32_t pc, bo
             const auto savedLoads1 = m_delayedLoadInfo[1];
             const auto savedCurrentLoad = m_currentDelayedLoad;
             const auto savedGTEQueue = m_gteQueue;
+            const bool savedCu2Checked = m_cu2Checked;  // a CU2 check emitted on the taken path does not cover this one
             const auto savedCount = count;
             const auto savedExtra = extra;
             Label notTaken;
@@ -575,6 +576,7 @@ DynarecCallback DynaRecCPU::recompile(DynarecCallback* callback, uint32_t pc, bo
             m_delayedLoadInfo[1] = savedLoads1;
             m_currentDelayedLoad = savedCurrentLoad;
             m_gteQueue = savedGTEQueue;
+            m_cu2Checked = savedCu2Checked;
             count = savedCount;
             extra = savedExtra;
             m_pc = slotPC;
