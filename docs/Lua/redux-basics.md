@@ -250,6 +250,29 @@ typedef struct {
 
 `hilo` is `hi` or `lo`, and `cop` is the coprocessor register value, for the instructions that use them. `memValue` is the value read at the effective address, for loads and stores.
 
+## Hardware events
+
+`PCSX.HWEvents` records hardware events as fixed records, stamped with the same cycle counter as the CPU trace, so the two can be lined up. Nothing is recorded until a source is armed. The sources so far are `IRQ` (an interrupt line being asserted) and `DMA` (a channel starting, and completing). The store stops growing at 8 million events.
+
+- `.arm(source, ...)` arms one or more sources by name, `PCSX.HWEvents.arm('IRQ', 'DMA')`, and `.disarm()` turns them all off. `.mask()` and `.setMask(mask)` read and write the mask directly, one bit per source, at `1 << PCSX.HWEvents.Sources[name]`.
+- `.size()`, `.clear()`, and `.full()`, which is true once the store has hit its limit and stopped recording.
+- `.read([start[, count]])` copies events into a new FFI array of `PCSX_HWEvent`, and returns it with the number of events copied, like `PCSX.CPU.Trace.read`.
+
+```c
+typedef struct {
+    uint64_t cycle;
+    uint32_t pc;
+    uint16_t type, flags;
+    uint32_t payload[4];
+} PCSX_HWEvent;
+```
+
+`cycle` is the emulated CPU cycle counter. `pc` is the CPU's program counter when the event happened; during an instruction, that is the address after it. Both are exact under the interpreter. The dynarecs only update them at block boundaries, so an event raised by an instruction in the middle of a block, like a DMA start, carries the start of that block. The source is the high byte of `type`, and `PCSX.HWEvents.Types` names each type:
+
+- `IRQAssert` (`0x0101`): the bits being raised, I_STAT before, and I_MASK.
+- `DMAStart` (`0x0201`): the channel, then MADR, BCR and CHCR as written.
+- `DMAComplete` (`0x0202`): the channel, and DICR before the completion updates it.
+
 ## Disc and lid
 
 `PCSX.CDRom` swaps the disc and drives the lid of the emulated drive:
