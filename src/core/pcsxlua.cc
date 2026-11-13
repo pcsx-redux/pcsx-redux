@@ -162,6 +162,7 @@ bool loadHWEvents(const char* path) {
 }
 void clearHWEvents() { PCSX::g_emulator->m_hwEvents->clear(); }
 uint32_t getHWEventsMask() { return PCSX::g_emulator->m_hwEvents->mask(); }
+bool getHWEventsFull() { return PCSX::g_emulator->m_hwEvents->full(); }
 void setHWEventsMask(uint32_t mask) { PCSX::g_emulator->m_hwEvents->setMask(mask); }
 // Same contract as readCpuTrace: copies into a caller-provided PCSX_HWEvent[] and
 // returns how many were copied.
@@ -399,6 +400,7 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, getHWEventsMask);
     REGISTER(L, setHWEventsMask);
     REGISTER(L, readHWEvents);
+    REGISTER(L, getHWEventsFull);
     REGISTER(L, takeScreenShot);
     REGISTER(L, getGuestFPS);
     REGISTER(L, setGPULogging);

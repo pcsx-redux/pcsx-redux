@@ -324,6 +324,7 @@
     <ClCompile Include="..\..\..\tests\core\gpulogger-hittest.cc" />
     <ClCompile Include="..\..\..\tests\core\mdec-decoder.cc" />
     <ClCompile Include="..\..\..\tests\core\memorycard.cc" />
+    <ClCompile Include="..\..\..\tests\core\memeditor-route.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\multitap.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-cdrom-flags.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-pad.cc" />

@@ -103,6 +103,10 @@ typedef union {
     uint32_t r[32];
 } psxCP0Regs;
 
+// The SR bits that keep a written value. The rest read back as 0 whatever is written: bits 6-7, PE, TS,
+// bits 23-24, RE and bits 26-27.
+static constexpr uint32_t c_cop0StatusWritableMask = 0xf04fff3f;
+
 typedef struct {
     int16_t x, y;
 } SVector2D;

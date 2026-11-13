@@ -870,181 +870,112 @@ void DynaRecCPU::recLH(uint32_t code) { recompileLoad<16, true>(code); }
 void DynaRecCPU::recLHU(uint32_t code) { recompileLoad<16, false>(code); }
 void DynaRecCPU::recLW(uint32_t code) { recompileLoad<32, true>(code); }
 
-void DynaRecCPU::recLWL(uint32_t code) {
-    if (_Rt_ == 0) {  // If $rt == 0, just execute the read in case it has side-effects, then return
-        if (m_gprs[_Rs_].isConst()) {
-            const uint32_t address = m_gprs[_Rs_].val + _Imm_;
-            gen.mov(arg1, address);  // Address in arg1
-        } else {
-            allocateReg(_Rs_);                                       // Allocate address reg
-            gen.moveAndAdd(arg1, m_gprs[_Rs_].allocatedReg, _Imm_);  // Address in arg1
-        }
+template <bool left>
+void DynaRecCPU::recompileUnalignedLoad(uint32_t code) {
+    if (m_gprs[_Rs_].isConst()) {
+        gen.mov(arg1, m_gprs[_Rs_].val + _Imm_);  // Address in arg1
+    } else {
+        allocateReg(_Rs_);                                       // Allocate address reg
+        gen.moveAndAdd(arg1, m_gprs[_Rs_].allocatedReg, _Imm_);  // Address in arg1
+    }
+    call(left ? lwlReadWrapper : lwrReadWrapper);  // Read from the aligned address, result in eax
+    if (_Rt_ == 0) return;                         // The read is done for its side-effects only
 
-        call(lwlReadWrapper);  // Read from the aligned address
+    // The mask to be applied to $rt (top 32 bits) and the shift to be applied to the read memory value (low 32 bits)
+    // Depending on the low 2 bits of the unaligned address
+    static const uint64_t LWL_MASKS_AND_SHIFTS[4] = {0x00FFFFFF00000018, 0x0000FFFF00000010, 0x000000FF00000008, 0};
+    static const uint64_t LWR_MASKS_AND_SHIFTS[4] = {0, 0xFF00000000000008, 0xFFFF000000000010, 0xFFFFFF0000000018};
+
+    const auto loadDelayDependency = getLoadDelayDependencyType(_Rt_);
+    auto& pending = m_delayedLoadInfo[m_currentDelayedLoad ^ 1];
+    const bool mergePending = pending.active && pending.index == _Rt_;
+
+    // Shift the value read into place. The mask is a constant if the address is, otherwise it ends up in ecx
+    std::optional<uint32_t> constantMask;
+    if (m_gprs[_Rs_].isConst()) {
+        const uint32_t address = m_gprs[_Rs_].val + _Imm_;
+        if constexpr (left) {
+            constantMask = LWL_MASK[address & 3];
+            gen.shlImm(eax, LWL_SHIFT[address & 3]);
+        } else {
+            constantMask = LWR_MASK[address & 3];
+            gen.shr(eax, LWR_SHIFT[address & 3]);
+        }
+    } else {
+        // The call might have flushed $rs, so we need to allocate it again
+        allocateReg(_Rs_);
+        gen.moveAndAdd(edx, m_gprs[_Rs_].allocatedReg, _Imm_);  // Address in edx again
+        gen.and_(edx, 3);                                       // Get the low 2 bits
+        gen.lea(rcx, qword[rip + (left ? LWL_MASKS_AND_SHIFTS : LWR_MASKS_AND_SHIFTS)]);
+        gen.mov(rcx, qword[rcx + rdx * 8]);  // Load the mask and shift from LUT by indexing using the bottom 2 bits of
+                                             // the unaligned addr.
+        // Shift the read value by the shift amount (This relies on x86 masking shift behavior)
+        if constexpr (left) {
+            gen.shl(eax, cl);
+        } else {
+            gen.shr(eax, cl);
+        }
+        gen.shr(rcx, 32);  // ecx = mask now
+    }
+
+    // The previous value of $rt goes in edx. A load to $rt still in flight is merged with, and never lands on its own
+    if (mergePending) {
+        const auto pendingValueOffset = (uintptr_t)&pending.value - (uintptr_t)this;
+        gen.mov(edx, dword[contextPointer + pendingValueOffset]);
+        pending.active = false;
+    } else if (m_gprs[_Rt_].isConst()) {
+        gen.mov(edx, m_gprs[_Rt_].val);
+    } else {
+        allocateReg(_Rt_);
+        gen.mov(edx, m_gprs[_Rt_].allocatedReg);
+    }
+    if (m_fullLoadDelayEmulation && m_firstInstruction) {  // Same for a load still in flight from the previous block
+        const auto& delay = m_runtimeLoadDelay;
+        const auto valueOffset = (uintptr_t)&delay.value - (uintptr_t)this;
+        const auto indexOffset = (uintptr_t)&delay.index - (uintptr_t)this;
+        const auto isActiveOffset = (uintptr_t)&delay.active - (uintptr_t)this;
+        Label noDelayedLoad;
+        gen.cmp(dword[contextPointer + indexOffset], _Rt_);
+        gen.jne(noDelayedLoad);
+        gen.cmp(Xbyak::util::byte[contextPointer + isActiveOffset], 0);
+        gen.je(noDelayedLoad);
+        gen.mov(edx, dword[contextPointer + valueOffset]);
+        gen.L(noDelayedLoad);
+    }
+    maybeCancelDelayedLoad(_Rt_);
+
+    if (constantMask) {
+        gen.andImm(edx, edx, *constantMask);  // Mask the previous $rt value
+    } else {
+        gen.and_(edx, ecx);
+    }
+    gen.or_(eax, edx);  // Merge with newly read value
+
+    if (loadDelayDependency == LoadDelayDependencyType::NoDependency) {
+        allocateRegWithoutLoad(_Rt_);
+        m_gprs[_Rt_].setWriteback(true);
+        gen.mov(m_gprs[_Rt_].allocatedReg, eax);
         return;
     }
 
-    // The mask to be applied to $rt (top 32 bits) and the shift to be applied to the read memory value (low 32 bits)
-    // Depending on the low 3 bits of the unaligned address
-    static const uint64_t MASKS_AND_SHIFTS[4] = {0x00FFFFFF00000018, 0x0000FFFF00000010, 0x000000FF00000008, 0};
-    maybeCancelDelayedLoad(_Rt_);
-
-    if (m_gprs[_Rs_].isConst() && m_gprs[_Rt_].isConst()) {  // Both previous register value and address are constant
-        const uint32_t address = m_gprs[_Rs_].val + _Imm_;
-        const uint32_t mask = LWL_MASK[address & 3];
-        const auto shift = LWL_SHIFT[address & 3];
-        const uint32_t previousValue = m_gprs[_Rt_].val;
-
-        gen.mov(arg1, address);  // Address in arg1
-        call(lwlReadWrapper);
-
-        allocateReg(_Rt_);  // Allocate $rt with writeback
-        m_gprs[_Rt_].setWriteback(true);
-        gen.mov(m_gprs[_Rt_].allocatedReg, previousValue & mask);  // Mask the previous $rt value
-        gen.shlImm(eax, shift);                                    // Shift the value read from the aligned address
-        gen.or_(m_gprs[_Rt_].allocatedReg, eax);                   // Or $rt with shifted value
-    } else if (m_gprs[_Rs_].isConst()) {                           // Only address is constant
-        const uint32_t address = m_gprs[_Rs_].val + _Imm_;
-        const uint32_t mask = LWL_MASK[address & 3];
-        const auto shift = LWL_SHIFT[address & 3];
-
-        gen.mov(arg1, address);  // Address in arg1
-        call(lwlReadWrapper);
-
-        allocateReg(_Rt_);  // Allocate $rt with writeback
-        m_gprs[_Rt_].setWriteback(true);
-        gen.andImm(m_gprs[_Rt_].allocatedReg, m_gprs[_Rt_].allocatedReg, mask);  // Mask the previous $rt value
-        gen.shlImm(eax, shift);                   // Shift the value read from the aligned address
-        gen.or_(m_gprs[_Rt_].allocatedReg, eax);  // Or $rt with shifted value
-    } else if (m_gprs[_Rt_].isConst()) {          // Only previous rt value is constant
-        const uint32_t previousValue = m_gprs[_Rt_].val;
-
-        allocateReg(_Rs_);                                       // Allocate address reg
-        gen.moveAndAdd(arg1, m_gprs[_Rs_].allocatedReg, _Imm_);  // Address in arg1
-        call(lwlReadWrapper);                                    // Read from the aligned address, result in eax
-
-        // The call might have flushed $rs, so we need to allocate it again, and also allocate $rt
-        alloc_rt_rs(code);
-        m_gprs[_Rt_].setWriteback(true);
-
-        gen.mov(m_gprs[_Rt_].allocatedReg, previousValue);      // Flush constant value in $rt
-        gen.moveAndAdd(edx, m_gprs[_Rs_].allocatedReg, _Imm_);  // Address in edx again
-        gen.and_(edx, 3);                                       // Get the low 2 bits
-        gen.lea(rcx, qword[rip + MASKS_AND_SHIFTS]);            // Base to mask and shift lookup table in rcx
-        gen.mov(rcx, qword[rcx + rdx * 8]);  // Load the mask and shift from LUT by indexing using the bottom 2 bits of
-                                             // the unaligned addr.
-        gen.shl(eax, cl);  // Shift the read value by the shift amount (This relies on x86 masking shift behavior)
-        gen.shr(rcx, 32);  // ecx = mask now
-        gen.and_(m_gprs[_Rt_].allocatedReg, ecx);                // Mask previous $rt value
-        gen.or_(m_gprs[_Rt_].allocatedReg, eax);                 // Merge with newly read value
-    } else {                                                     // Nothing is constant
-        allocateReg(_Rs_);                                       // Allocate address reg
-        gen.moveAndAdd(arg1, m_gprs[_Rs_].allocatedReg, _Imm_);  // Address in arg1
-        call(lwlReadWrapper);                                    // Read from the aligned address, result in eax
-
-        // The call might have flushed $rs, so we need to allocate it again, and also allocate $rt
-        alloc_rt_rs(code);
-        m_gprs[_Rt_].setWriteback(true);
-
-        gen.moveAndAdd(edx, m_gprs[_Rs_].allocatedReg, _Imm_);  // Address in edx again
-        gen.and_(edx, 3);                                       // Get the low 2 bits
-        gen.lea(rcx, qword[rip + MASKS_AND_SHIFTS]);            // Base to mask and shift lookup table in rcx
-        gen.mov(rcx, qword[rcx + rdx * 8]);  // Load the mask and shift from LUT by indexing using the bottom 2 bits of
-                                             // the unaligned addr.
-        gen.shl(eax, cl);  // Shift the read value by the shift amount (This relies on x86 masking shift behavior)
-        gen.shr(rcx, 32);  // ecx = mask now
-        gen.and_(m_gprs[_Rt_].allocatedReg, ecx);  // Mask previous $rt value
-        gen.or_(m_gprs[_Rt_].allocatedReg, eax);   // Merge with newly read value
+    m_delayedLoadInfo[m_currentDelayedLoad].active = true;
+    if (loadDelayDependency == LoadDelayDependencyType::DependencyAcrossBlocks) {
+        const auto delayedLoadValueOffset = (uintptr_t)&m_runtimeLoadDelay.value - (uintptr_t)this;
+        const auto isActiveOffset = (uintptr_t)&m_runtimeLoadDelay.active - (uintptr_t)this;
+        const auto indexOffset = (uintptr_t)&m_runtimeLoadDelay.index - (uintptr_t)this;
+        gen.mov(dword[contextPointer + delayedLoadValueOffset], eax);
+        gen.mov(Xbyak::util::byte[contextPointer + isActiveOffset], 1);
+        gen.mov(dword[contextPointer + indexOffset], _Rt_);
+    } else {
+        auto& delayedLoad = m_delayedLoadInfo[m_currentDelayedLoad];
+        const auto delayedLoadValueOffset = (uintptr_t)&delayedLoad.value - (uintptr_t)this;
+        delayedLoad.index = _Rt_;
+        gen.mov(dword[contextPointer + delayedLoadValueOffset], eax);
     }
 }
 
-void DynaRecCPU::recLWR(uint32_t code) {
-    if (_Rt_ == 0) {  // If $rt == 0, just execute the read in case it has side-effects, then return
-        if (m_gprs[_Rs_].isConst()) {
-            const uint32_t address = m_gprs[_Rs_].val + _Imm_;
-            gen.mov(arg1, address);  // Address in arg1
-        } else {
-            allocateReg(_Rs_);                                       // Allocate address reg
-            gen.moveAndAdd(arg1, m_gprs[_Rs_].allocatedReg, _Imm_);  // Address in arg1
-        }
-
-        call(lwrReadWrapper);  // Read from the aligned address
-        return;
-    }
-
-    // The mask to be applied to $rt (top 32 bits) and the shift to be applied to the read memory value (low 32 bits)
-    // Depending on the low 3 bits of the unaligned address
-    static const uint64_t MASKS_AND_SHIFTS[4] = {0, 0xFF00000000000008, 0xFFFF000000000010, 0xFFFFFF0000000018};
-    maybeCancelDelayedLoad(_Rt_);
-
-    if (m_gprs[_Rs_].isConst() && m_gprs[_Rt_].isConst()) {  // Both previous register value and address are constant
-        const uint32_t address = m_gprs[_Rs_].val + _Imm_;
-        const uint32_t mask = LWR_MASK[address & 3];
-        const auto shift = LWR_SHIFT[address & 3];
-        const uint32_t previousValue = m_gprs[_Rt_].val;
-
-        gen.mov(arg1, address);  // Address in arg1
-        call(lwrReadWrapper);
-
-        allocateReg(_Rt_);  // Allocate $rt with writeback
-        m_gprs[_Rt_].setWriteback(true);
-        gen.mov(m_gprs[_Rt_].allocatedReg, previousValue & mask);  // Mask the previous $rt value
-        gen.shr(eax, shift);                                       // Shift the value read from the aligned address
-        gen.or_(m_gprs[_Rt_].allocatedReg, eax);                   // Or $rt with shifted value
-    } else if (m_gprs[_Rs_].isConst()) {                           // Only address is constant
-        const uint32_t address = m_gprs[_Rs_].val + _Imm_;
-        const uint32_t mask = LWR_MASK[address & 3];
-        const auto shift = LWR_SHIFT[address & 3];
-
-        gen.mov(arg1, address);  // Address in arg1
-        call(lwrReadWrapper);
-
-        allocateReg(_Rt_);  // Allocate $rt with writeback
-        m_gprs[_Rt_].setWriteback(true);
-        gen.andImm(m_gprs[_Rt_].allocatedReg, m_gprs[_Rt_].allocatedReg, mask);  // Mask the previous $rt value
-        gen.shr(eax, shift);                      // Shift the value read from the aligned address
-        gen.or_(m_gprs[_Rt_].allocatedReg, eax);  // Or $rt with shifted value
-    } else if (m_gprs[_Rt_].isConst()) {          // Only previous rt value is constant
-        const uint32_t previousValue = m_gprs[_Rt_].val;
-
-        allocateReg(_Rs_);                                       // Allocate address reg
-        gen.moveAndAdd(arg1, m_gprs[_Rs_].allocatedReg, _Imm_);  // Address in arg1
-        call(lwrReadWrapper);                                    // Read from the aligned address, result in eax
-
-        // The call might have flushed $rs, so we need to allocate it again, and also allocate $rt
-        alloc_rt_rs(code);
-        m_gprs[_Rt_].setWriteback(true);
-
-        gen.mov(m_gprs[_Rt_].allocatedReg, previousValue);      // Flush constant value in $rt
-        gen.moveAndAdd(edx, m_gprs[_Rs_].allocatedReg, _Imm_);  // Address in edx again
-        gen.and_(edx, 3);                                       // Get the low 2 bits
-        gen.lea(rcx, qword[rip + MASKS_AND_SHIFTS]);            // Base to mask and shift lookup table in rcx
-        gen.mov(rcx, qword[rcx + rdx * 8]);  // Load the mask and shift from LUT by indexing using the bottom 2 bits of
-                                             // the unaligned addr.
-        gen.shr(eax, cl);  // Shift the read value by the shift amount (This relies on x86 masking shift behavior)
-        gen.shr(rcx, 32);  // ecx = mask now
-        gen.and_(m_gprs[_Rt_].allocatedReg, ecx);                // Mask previous $rt value
-        gen.or_(m_gprs[_Rt_].allocatedReg, eax);                 // Merge with newly read value
-    } else {                                                     // Nothing is constant
-        allocateReg(_Rs_);                                       // Allocate address reg
-        gen.moveAndAdd(arg1, m_gprs[_Rs_].allocatedReg, _Imm_);  // Address in arg1
-        call(lwrReadWrapper);                                    // Read from the aligned address, result in eax
-
-        // The call might have flushed $rs, so we need to allocate it again, and also allocate $rt
-        alloc_rt_rs(code);
-        m_gprs[_Rt_].setWriteback(true);
-
-        gen.moveAndAdd(edx, m_gprs[_Rs_].allocatedReg, _Imm_);  // Address in edx again
-        gen.and_(edx, 3);                                       // Get the low 2 bits
-        gen.lea(rcx, qword[rip + MASKS_AND_SHIFTS]);            // Base to mask and shift lookup table in rcx
-        gen.mov(rcx, qword[rcx + rdx * 8]);  // Load the mask and shift from LUT by indexing using the bottom 2 bits of
-                                             // the unaligned addr.
-        gen.shr(eax, cl);  // Shift the read value by the shift amount (This relies on x86 masking shift behavior)
-        gen.shr(rcx, 32);  // ecx = mask now
-        gen.and_(m_gprs[_Rt_].allocatedReg, ecx);  // Mask previous $rt value
-        gen.or_(m_gprs[_Rt_].allocatedReg, eax);   // Merge with newly read value
-    }
-}
+void DynaRecCPU::recLWL(uint32_t code) { recompileUnalignedLoad<true>(code); }
+void DynaRecCPU::recLWR(uint32_t code) { recompileUnalignedLoad<false>(code); }
 
 void DynaRecCPU::recSB(uint32_t code) {
     if (m_gprs[_Rs_].isConst()) {
@@ -1427,17 +1358,19 @@ void DynaRecCPU::recCOP1or3(uint32_t code) {
     if (_Rs_ == 8) {
         recBCz(code);
     } else {
-        recUnknown(code);
+        // There is no COP1 or COP3: with SR.CUz set the opcode does nothing here. On silicon MFCz and CFCz
+        // load an unspecified value.
+        emitCopUnusableCheck((code >> 26) & 3);
     }
 }
 
-// BCzF / BCzT. None of the coprocessors drives the condition input, so BCzF
-// always branches and BCzT never does. Bit 1 of rt is ignored. With SR.CUz
-// clear, the branch raises a coprocessor unusable exception, COP0 included,
-// and leaves the block without running the delay slot.
-void DynaRecCPU::recBCz(uint32_t code) {
-    const unsigned z = (code >> 26) & 3;
-    const auto target = _Imm_ * 4 + m_pc;
+// LWC1, LWC3, SWC1, SWC3. Like the other COP1/COP3 opcodes, these trap with SR.CUz clear and do nothing here
+// otherwise. On silicon SWCz stores an unspecified value.
+void DynaRecCPU::recLSCz(uint32_t code) { emitCopUnusableCheck((code >> 26) & 3); }
+
+// Raises a coprocessor unusable exception, and leaves the block, if SR.CUz is clear. Code emitted after
+// this only runs with the coprocessor usable.
+void DynaRecCPU::emitCopUnusableCheck(unsigned z) {
     Label usable;
 
     flushRegs();
@@ -1474,6 +1407,16 @@ void DynaRecCPU::recBCz(uint32_t code) {
     gen.jmp((void*)m_returnFromBlock);
 
     gen.L(usable);
+}
+
+// BCzF / BCzT. None of the coprocessors drives the condition input, so BCzF
+// always branches and BCzT never does. Bit 1 of rt is ignored. With SR.CUz
+// clear, the branch raises a coprocessor unusable exception, COP0 included,
+// and leaves the block without running the delay slot.
+void DynaRecCPU::recBCz(uint32_t code) {
+    const unsigned z = (code >> 26) & 3;
+    const auto target = _Imm_ * 4 + m_pc;
+    emitCopUnusableCheck(z);
     m_nextIsDelaySlot = true;
 
     if ((_Rt_ & 1) || target == m_pc + 4) {
@@ -1500,6 +1443,8 @@ void DynaRecCPU::recMTC0(uint32_t code) {
     if (m_gprs[_Rt_].isConst()) {
         if (_Rd_ == 13) {
             gen.mov(dword[contextPointer + COP0_OFFSET(_Rd_)], m_gprs[_Rt_].val & ~0xFC00);
+        } else if (_Rd_ == 12) {
+            gen.mov(dword[contextPointer + COP0_OFFSET(_Rd_)], m_gprs[_Rt_].val & PCSX::c_cop0StatusWritableMask);
         } else if (_Rd_ != 6 && _Rd_ != 14 && _Rd_ != 15) {  // Don't write to JUMPDEST, EPC or PRID
             gen.mov(dword[contextPointer + COP0_OFFSET(_Rd_)], m_gprs[_Rt_].val);
         }
@@ -1510,6 +1455,10 @@ void DynaRecCPU::recMTC0(uint32_t code) {
         if (_Rd_ == 13) {
             gen.mov(eax, m_gprs[_Rt_].allocatedReg);
             gen.and_(eax, ~0xFC00);
+            gen.mov(dword[contextPointer + COP0_OFFSET(_Rd_)], eax);
+        } else if (_Rd_ == 12) {
+            gen.mov(eax, m_gprs[_Rt_].allocatedReg);
+            gen.and_(eax, PCSX::c_cop0StatusWritableMask);
             gen.mov(dword[contextPointer + COP0_OFFSET(_Rd_)], eax);
         } else if (_Rd_ != 6 && _Rd_ != 14 && _Rd_ != 15) {  // Don't write to JUMPDEST, EPC or PRID
             gen.mov(dword[contextPointer + COP0_OFFSET(_Rd_)], m_gprs[_Rt_].allocatedReg);  // Write rt to the cop0 reg

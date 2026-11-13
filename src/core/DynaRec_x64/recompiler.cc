@@ -671,7 +671,7 @@ DynaRecCPU::LoadDelayDependencyType DynaRecCPU::getLoadDelayDependencyType(int i
     const auto opcode = instruction >> 26;
     enum : uint8_t { NoDep, DepIfRs, DepIfRt, DepIfRsOrRt };
 
-    // TODO: Handle LWL/LWR/SWL/SWR delay slots properly
+    // TODO: Handle SWL/SWR delay slots properly
     static constexpr uint8_t mainDependencyList[64] = {
         NoDep,   DepIfRs, NoDep,   NoDep,   DepIfRsOrRt, DepIfRsOrRt, DepIfRs, DepIfRs,  // 0x0-0x7
         DepIfRs, DepIfRs, DepIfRs, DepIfRs, DepIfRs,     DepIfRs,     DepIfRs, NoDep,    // 0x8-0xF
@@ -724,8 +724,10 @@ DynaRecCPU::LoadDelayDependencyType DynaRecCPU::getLoadDelayDependencyType(int i
         case 0x23:  // LW
         case 0x24:  // LBU
         case 0x25:  // LHU
+        case 0x22:  // LWL
+        case 0x26:  // LWR
             // A load into the same register in the delay slot cancels our pending load, so we emulate the delay and
-            // let the next load cancel it. LWL/LWR are excluded as they merge with the pending value instead.
+            // let the next load cancel it. LWL/LWR merge with the pending value instead, which never lands on its own.
             dependencyType = DepIfRsOrRt;
             break;
         default:

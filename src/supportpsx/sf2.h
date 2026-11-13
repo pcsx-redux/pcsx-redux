@@ -43,7 +43,8 @@ struct Sample {
 // Serializes a SoundFont 2.01 bank. Presets are numbered in order, 128 per bank.
 std::vector<uint8_t> write(const std::vector<Sample>& samples, const std::string& bankName, const std::string& comment);
 
-// Reads back the sample headers of a SoundFont 2 bank, with their data. A sample loops when
+// Reads back the sample headers of a SoundFont 2 bank, with their data, decoding the Ogg
+// Vorbis samples of an SF3 bank. A sample loops when
 // an instrument zone playing it sets sampleModes to 1 or 3. Presets, and every other
 // generator, are ignored. Returns an empty vector if the file is not a valid bank.
 std::vector<Sample> read(const uint8_t* data, size_t size);

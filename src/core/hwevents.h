@@ -34,6 +34,9 @@ namespace PCSX {
 // CPU cycle counter, the clock the CPU trace stamps its records with, so the two
 // streams can be merged on it. `pc` is the CPU's pc register when the event was
 // emitted; while an instruction is executing, that is the address after it.
+// Both are exact under the interpreter only. The dynarecs update the cycle counter
+// at the end of a block and the pc at branches, so an event raised by an
+// instruction in the middle of a block (a DMA start) carries the block's start.
 // `type` carries the source in its high byte. What `payload` holds is given per
 // type below.
 struct HWEvent {

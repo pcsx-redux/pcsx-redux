@@ -34,6 +34,7 @@
 #include "core/system.h"
 #include "fmt/format.h"
 #include "gui/gui.h"
+#include "gui/memeditor-route.h"
 #include "imgui.h"
 #include "imgui_stdlib.h"
 #include "support/gnu-c++-demangler.h"
@@ -343,15 +344,34 @@ const uint8_t* PCSX::Widgets::Assembly::ptr(uint32_t addr) {
 void PCSX::Widgets::Assembly::jumpToMemory(uint32_t addr, unsigned size, unsigned editorIndex /* = 0*/) {
     g_system->m_eventBus->signal(PCSX::Events::GUI::JumpToMemory{addr, size, editorIndex});
 }
+// Label of the dedicated editor an address outside main RAM opens, or nullptr for main RAM and unmapped addresses.
+static const char* dedicatedEditorLabel(uint32_t addr) {
+    switch (PCSX::MemEditorRoute::route(addr).target) {
+        case PCSX::MemEditorRoute::Target::ParallelPort:
+            return _("Go to in Parallel Port Editor");
+        case PCSX::MemEditorRoute::Target::Scratchpad:
+            return _("Go to in Scratchpad Editor");
+        case PCSX::MemEditorRoute::Target::HardwareRegisters:
+            return _("Go to in Hardware Registers Editor");
+        case PCSX::MemEditorRoute::Target::Bios:
+            return _("Go to in BIOS Editor");
+        default:
+            return nullptr;
+    }
+}
 void PCSX::Widgets::Assembly::addMemoryEditorContext(uint32_t addr, int size) {
     if (ImGui::BeginPopupContextItem()) {
-        if (ImGui::MenuItem(_("Go to in Memory Editor #1 (Default Click)"))) jumpToMemory(addr, size, 0);
-        if (ImGui::MenuItem(_("Go to in Memory Editor #2 (Shift+Click)"))) jumpToMemory(addr, size, 1);
-        if (ImGui::MenuItem(_("Go to in Memory Editor #3 (Ctrl+Click)"))) jumpToMemory(addr, size, 2);
-        std::string itemLabel;
-        for (unsigned i = 3; i < 8; ++i) {
-            itemLabel = fmt::format(f_("Go to in Memory Editor #{}"), i + 1);
-            if (ImGui::MenuItem(itemLabel.c_str())) jumpToMemory(addr, size, i);
+        if (const char* label = dedicatedEditorLabel(addr)) {
+            if (ImGui::MenuItem(label)) jumpToMemory(addr, size, 0);
+        } else {
+            if (ImGui::MenuItem(_("Go to in Memory Editor #1 (Default Click)"))) jumpToMemory(addr, size, 0);
+            if (ImGui::MenuItem(_("Go to in Memory Editor #2 (Shift+Click)"))) jumpToMemory(addr, size, 1);
+            if (ImGui::MenuItem(_("Go to in Memory Editor #3 (Ctrl+Click)"))) jumpToMemory(addr, size, 2);
+            std::string itemLabel;
+            for (unsigned i = 3; i < 8; ++i) {
+                itemLabel = fmt::format(f_("Go to in Memory Editor #{}"), i + 1);
+                if (ImGui::MenuItem(itemLabel.c_str())) jumpToMemory(addr, size, i);
+            }
         }
         if (ImGui::MenuItem(_("Create Memory Read Breakpoint"))) {
             g_emulator->m_debug->addBreakpoint(addr, Debug::BreakpointType::Read, size, _("GUI"));
@@ -363,6 +383,10 @@ void PCSX::Widgets::Assembly::addMemoryEditorContext(uint32_t addr, int size) {
     }
 }
 void PCSX::Widgets::Assembly::addMemoryEditorSubMenu(uint32_t addr, int size) {
+    if (const char* label = dedicatedEditorLabel(addr)) {
+        if (ImGui::MenuItem(label)) jumpToMemory(addr, size, 0);
+        return;
+    }
     if (ImGui::BeginMenu(_("Go to in Memory Editor..."))) {
         std::string itemLabel;
         for (unsigned i = 0; i < 8; ++i) {
@@ -411,7 +435,11 @@ void PCSX::Widgets::Assembly::OfB(int16_t offset, uint8_t reg, int size) {
                 ImGui::Text("%s[%8.8x] = %8.8x", longLabel.c_str(), addr, mem32(addr));
                 break;
         }
-        ImGui::Text(_("Go to in Memory Editor #%d"), targetEditorIndex + 1);
+        if (const char* label = dedicatedEditorLabel(addr)) {
+            ImGui::TextUnformatted(label);
+        } else {
+            ImGui::Text(_("Go to in Memory Editor #%d"), targetEditorIndex + 1);
+        }
         ImGui::PopTextWrapPos();
         ImGui::EndTooltip();
     }
@@ -472,7 +500,11 @@ void PCSX::Widgets::Assembly::Offset(uint32_t addr, int size) {
                 ImGui::Text("[%8.8x] = %8.8x", addr, mem32(addr));
                 break;
         }
-        ImGui::Text(_("Go to in Memory Editor #%u"), targetEditorIndex + 1);
+        if (const char* label = dedicatedEditorLabel(addr)) {
+            ImGui::TextUnformatted(label);
+        } else {
+            ImGui::Text(_("Go to in Memory Editor #%u"), targetEditorIndex + 1);
+        }
         ImGui::PopTextWrapPos();
         ImGui::EndTooltip();
     }

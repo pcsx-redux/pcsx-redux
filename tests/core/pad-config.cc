@@ -17,6 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include <SDL3/SDL_gamepad.h>
 #include <SDL3/SDL_scancode.h>
 
 #include "core/pad.h"
@@ -158,5 +159,65 @@ TEST(PadConfig, LeavesScancodesAlone) {
     stamped["KeyboardBindingsVersion"] = 1;
     before = stamped;
     EXPECT_FALSE(PCSX::Pads::migrateKeyboardBindings(stamped));
+    EXPECT_EQ(stamped, before);
+}
+
+static void expectSdlControllerDefaults(const nlohmann::json& pad) {
+    EXPECT_EQ(pad["Controller_PadUp"], SDL_GAMEPAD_BUTTON_DPAD_UP);
+    EXPECT_EQ(pad["Controller_PadRight"], SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
+    EXPECT_EQ(pad["Controller_PadDown"], SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+    EXPECT_EQ(pad["Controller_PadLeft"], SDL_GAMEPAD_BUTTON_DPAD_LEFT);
+    EXPECT_EQ(pad["Controller_PadCross"], SDL_GAMEPAD_BUTTON_SOUTH);
+    EXPECT_EQ(pad["Controller_PadTriangle"], SDL_GAMEPAD_BUTTON_NORTH);
+    EXPECT_EQ(pad["Controller_PadSquare"], SDL_GAMEPAD_BUTTON_WEST);
+    EXPECT_EQ(pad["Controller_PadCircle"], SDL_GAMEPAD_BUTTON_EAST);
+    EXPECT_EQ(pad["Controller_PadSelect"], SDL_GAMEPAD_BUTTON_BACK);
+    EXPECT_EQ(pad["Controller_PadSstart"], SDL_GAMEPAD_BUTTON_START);
+    EXPECT_EQ(pad["Controller_PadL1"], SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
+    EXPECT_EQ(pad["Controller_PadL2"], 100);
+    EXPECT_EQ(pad["Controller_PadL3"], SDL_GAMEPAD_BUTTON_LEFT_STICK);
+    EXPECT_EQ(pad["Controller_PadR1"], SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
+    EXPECT_EQ(pad["Controller_PadR2"], 101);
+    EXPECT_EQ(pad["Controller_PadR3"], SDL_GAMEPAD_BUTTON_RIGHT_STICK);
+}
+
+TEST(PadConfig, MigratesGlfwButtons) {
+    auto pads = nlohmann::json::parse(c_glfwPads);
+    auto& pad = pads[0];
+    EXPECT_TRUE(PCSX::Pads::migrateControllerBindings(pad));
+    EXPECT_EQ(pad["ControllerBindingsVersion"], 1);
+    expectSdlControllerDefaults(pad);
+    EXPECT_EQ(pad["Keyboard_PadUp"], 265);
+
+    EXPECT_FALSE(PCSX::Pads::migrateControllerBindings(pad));
+    expectSdlControllerDefaults(pad);
+
+    // Saved again by an SDL build after the keyboard migration: still GLFW buttons (issue #1278).
+    auto resaved = nlohmann::json::parse(c_glfwPads)[0];
+    PCSX::Pads::migrateKeyboardBindings(resaved);
+    EXPECT_TRUE(PCSX::Pads::migrateControllerBindings(resaved));
+    expectSdlControllerDefaults(resaved);
+
+    auto unbound = nlohmann::json::parse(c_glfwPads)[0];
+    unbound["Controller_PadR3"] = 17;
+    EXPECT_TRUE(PCSX::Pads::migrateControllerBindings(unbound));
+    EXPECT_EQ(unbound["Controller_PadR3"], SDL_GAMEPAD_BUTTON_INVALID);
+}
+
+TEST(PadConfig, LeavesSdlButtonsAlone) {
+    // Unstamped config from an SDL build: default bindings.
+    auto pad = nlohmann::json::parse(c_glfwPads)[0];
+    PCSX::Pads::migrateControllerBindings(pad);
+    pad.erase("ControllerBindingsVersion");
+    auto before = pad;
+    EXPECT_FALSE(PCSX::Pads::migrateControllerBindings(pad));
+    pad.erase("ControllerBindingsVersion");
+    EXPECT_EQ(pad, before);
+
+    // Stamped config: never touched, whatever the values look like.
+    auto stamped = nlohmann::json::parse(c_glfwPads)[0];
+    stamped["ControllerBindingsVersion"] = 1;
+    before = stamped;
+    EXPECT_FALSE(PCSX::Pads::migrateControllerBindings(stamped));
     EXPECT_EQ(stamped, before);
 }
