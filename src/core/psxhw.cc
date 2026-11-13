@@ -684,6 +684,10 @@ inline void PCSX::HW::dma3(uint32_t madr, uint32_t bcr, uint32_t chcr) {
 void PCSX::HW::write32(uint32_t add, uint32_t value) {
     uint32_t hwadd = add & 0x1fffffff;
 
+    // Bit 30 of the six delay/size registers is not stored: it reads back as 0 on SCPH-1000, 1001,
+    // 5501, 7001 and 9002.
+    if ((hwadd >= 0x1f801008) && (hwadd <= 0x1f80101c)) value &= ~0x40000000;
+
     switch (hwadd) {
         case 0x1f801008:
             PSXHW_LOG("EXP1 delay/size write %x\n", value);
