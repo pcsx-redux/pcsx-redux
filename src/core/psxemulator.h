@@ -179,6 +179,9 @@ class Emulator {
     typedef SettingPath<TYPESTRING("Mcd2D")> SettingMcd2D;
     typedef SettingPath<TYPESTRING("Bios")> SettingBios;
     typedef SettingPath<TYPESTRING("PpfDir")> SettingPpfDir;
+    // Where screenshots and save states are written. Empty means the persistent directory.
+    typedef SettingPath<TYPESTRING("ScreenshotDir")> SettingScreenshotDir;
+    typedef SettingPath<TYPESTRING("SaveStateDir")> SettingSaveStateDir;
     typedef SettingPath<TYPESTRING("PsxExe")> SettingPsxExe;
     typedef Setting<bool, TYPESTRING("Xa"), true> SettingXa;
     typedef Setting<bool, TYPESTRING("SpuIrq")> SettingSpuIrq;
@@ -209,6 +212,8 @@ class Emulator {
     typedef Setting<int, TYPESTRING("Dither"), 1> SettingDither;
     typedef Setting<bool, TYPESTRING("UseCachedDithering"), false> SettingCachedDithering;
     typedef Setting<bool, TYPESTRING("SoftGPUThreaded"), false> SettingSoftGPUThreaded;
+    // Draw every row in 480i, ignoring the GP0(E1h).10 field skip. Display only: GPUSTAT and timing are unchanged.
+    typedef Setting<bool, TYPESTRING("Deinterlace"), false> SettingDeinterlace;
     typedef Setting<bool, TYPESTRING("ReportGLErrors"), false> SettingGLErrorReporting;
     typedef Setting<int, TYPESTRING("ReportGLErrorsSeverity"), 1> SettingGLErrorReportingSeverity;
     typedef Setting<bool, TYPESTRING("FullCaching"), false> SettingFullCaching;
@@ -232,14 +237,15 @@ class Emulator {
              SettingBnWMdec, SettingAutoVideo, SettingVideo, SettingFastBoot, SettingDebugSettings, SettingRCntFix,
              SettingIsoPath, SettingLocale, SettingMcd1Inserted, SettingMcd2Inserted, SettingDynarec, Setting8MB,
              SettingMemoryFillValue, Setting2MBVRAM, SettingGUITheme, SettingDither, SettingCachedDithering,
-             SettingSoftGPUThreaded, SettingGLErrorReporting, SettingGLErrorReportingSeverity, SettingFullCaching,
-             SettingHardwareRenderer, SettingShownAutoUpdateConfig, SettingAutoUpdate, SettingMSAA,
+             SettingSoftGPUThreaded, SettingDeinterlace, SettingGLErrorReporting, SettingGLErrorReportingSeverity,
+             SettingFullCaching, SettingHardwareRenderer, SettingShownAutoUpdateConfig, SettingAutoUpdate, SettingMSAA,
              SettingLinearFiltering, SettingKioskMode, SettingMcd1Pocketstation, SettingMcd2Pocketstation,
-             SettingPocketstationBios, SettingBiosBrowsePath, SettingEXP1Filepath, SettingEXP1BrowsePath, SettingPIOConnected,
-             SettingMapBrowsePath, SettingOpenDialogFavorites, SettingRewindInterval, SettingRewindCount,
-             SettingCDRomEntropySeed, SettingMcd1B, SettingMcd1C, SettingMcd1D, SettingMcd2B, SettingMcd2C,
-             SettingMcd2D, SettingMcd1BInserted, SettingMcd1CInserted, SettingMcd1DInserted, SettingMcd2BInserted,
-             SettingMcd2CInserted, SettingMcd2DInserted>
+             SettingPocketstationBios, SettingBiosBrowsePath, SettingEXP1Filepath, SettingEXP1BrowsePath,
+             SettingPIOConnected, SettingMapBrowsePath, SettingOpenDialogFavorites, SettingRewindInterval,
+             SettingRewindCount, SettingCDRomEntropySeed, SettingMcd1B, SettingMcd1C, SettingMcd1D, SettingMcd2B,
+             SettingMcd2C, SettingMcd2D, SettingMcd1BInserted, SettingMcd1CInserted, SettingMcd1DInserted,
+             SettingMcd2BInserted, SettingMcd2CInserted, SettingMcd2DInserted, SettingScreenshotDir,
+             SettingSaveStateDir>
         settings;
     class PcsxConfig {
       public:

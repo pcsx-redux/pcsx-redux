@@ -95,6 +95,7 @@ class impl final : public SPUInterface {
     void resetCaptureBuffer() final;
     void writeDMAMem(uint16_t *, int) final;
     void readDMAMem(uint16_t *, int) final;
+    void writeDMAEndsAt(uint64_t endCycle) final;
     virtual void playADPCMchannel(xa_decode_t *) final;
     void setXAVolume(const uint8_t atv[4]) final {
         for (unsigned i = 0; i < 4; i++) xaAtv[i] = atv[i];
@@ -349,6 +350,9 @@ class impl final : public SPUInterface {
     // Set from the UI thread, read by the mixer at key-on.
     std::mutex m_overlayMutex;
     std::shared_ptr<const Overlay> m_overlay;
+    // The note each replaced original sounds at pitch 1000h, by signature. A signature names
+    // the sample's content, so an entry never goes stale. Mixer thread only.
+    std::unordered_map<uint64_t, double> m_overlayNotes;
     void startOverlay(SPUCHAN *voice);
     std::condition_variable m_mixerWake;
     std::condition_variable m_cpuWake;
@@ -499,6 +503,9 @@ class impl final : public SPUInterface {
     // The mixer thread writes these; the CPU thread reads SPUSTAT, so they stay atomic.
     std::atomic<uint16_t> spuCtrl = 0;
     std::atomic<uint16_t> spuStat = 0;
+    // CPU cycle at which the last sound RAM write DMA's data lands and SPUSTAT bits 7 and 9 rise;
+    // 0 while they are low. CPU thread only: the bits are put in at read time.
+    uint64_t m_writeDMALandedCycle = 0;
     uint16_t spuIrq = 0;
     // Address into SPU memory.
     uint32_t spuAddr = 0xffffffff;

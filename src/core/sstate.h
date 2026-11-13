@@ -97,10 +97,13 @@ typedef Protobuf::MessageField<GtePendingWriteInfo, TYPESTRING("gte_pending_3"),
 typedef Protobuf::FieldRef<Protobuf::UInt32, TYPESTRING("gte_pending_count"), 24> GtePendingCount;
 typedef Protobuf::FieldRef<Protobuf::Bool, TYPESTRING("next_is_branch_slot"), 25> NextIsBranchSlot;
 typedef Protobuf::FieldRef<Protobuf::UInt32, TYPESTRING("next_slot_branch_pc"), 26> NextSlotBranchPC;
+// Set by every save made since the i-cache keeps one tag per line. Without it, icache_addr holds the
+// older per-word addresses and is converted on load.
+typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("icache_line_tags"), 27> ICacheLineTags;
 typedef Protobuf::Message<TYPESTRING("Registers"), GPR, CP0, CP2D, CP2C, PC, Code, Cycle, ScheduleMask, ICacheAddr,
                           ICacheCode, NextIsDelaySlot, DelaySlotInfo1, DelaySlotInfo2, CurrentDelayedLoad,
                           ScheduleTargetsField, InISR, MulDivReady, GteReady, GtePending1, GtePending2, GtePending3,
-                          GtePendingCount, NextIsBranchSlot, NextSlotBranchPC>
+                          GtePendingCount, NextIsBranchSlot, NextSlotBranchPC, ICacheLineTags>
     Registers;
 typedef Protobuf::MessageField<Registers, TYPESTRING("registers"), 4> RegistersField;
 
@@ -108,7 +111,10 @@ typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("status"), 1> GPUStatus;
 typedef Protobuf::Field<Protobuf::FixedBytes<0x400>, TYPESTRING("control"), 2> GPUControl;
 typedef Protobuf::Field<Protobuf::FixedBytes<0x00200000>, TYPESTRING("vram"), 3> GPUVRam;
 typedef Protobuf::Field<Protobuf::FixedBytes<24>, TYPESTRING("environment"), 4> GPUEnvironment;
-typedef Protobuf::Message<TYPESTRING("GPU"), GPUStatus, GPUControl, GPUVRam, GPUEnvironment> GPU;
+// Bit 0: the frozen interlace field flag is 0. Bit 1: the field flag's phase is flipped. Absent
+// on older states, which then hold the flag at 1 with no flip.
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("field_flags"), 5> GPUFieldFlags;
+typedef Protobuf::Message<TYPESTRING("GPU"), GPUStatus, GPUControl, GPUVRam, GPUEnvironment, GPUFieldFlags> GPU;
 typedef Protobuf::MessageField<GPU, TYPESTRING("gpu"), 5> GPUField;
 
 typedef Protobuf::Field<Protobuf::FixedBytes<0x80000>, TYPESTRING("ram"), 1> SPURam;
@@ -197,12 +203,16 @@ typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("reverbAltLeftTick"), 26> SPU
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("reverbCallCount"), 27> SPUReverbCallCount;
 // The reverb work-area address (REVERBInfo::CurrAddr), in samples. Zero in a state saved without it.
 typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("reverbCurrAddr"), 28> SPUReverbCurrAddr;
+// The noise clock's position in its period, in samples. Older states carry noiseCount instead.
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("noisePosition"), 29> SPUNoisePosition;
+// CPU cycle at which SPUSTAT bits 7 and 9 rise after a sound RAM write DMA; 0 while they are low
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("writeDMALandedCycle"), 30> SPUWriteDMALandedCycle;
 
 typedef Protobuf::Message<TYPESTRING("SPU"), SPURam, SPUPorts, XAField, SPUIrq, SPUIrqPtr, Channels, SPUAddr, SPUCtrl,
                           SPUStat, CBStartIndex, CBCurrIndex, CBEndIndex, CBVoiceIndex, CBCDLeft, CBCDRight,
                           SPUNoiseClock, SPUNoiseCount, SPUNoiseVal, SPUEndx, SPUMainVolWritten, EnvelopeCheckpoints,
                           SPUReverbFirInL, SPUReverbFirInR, SPUReverbFirOutL, SPUReverbFirOutR, SPUReverbAltLeftTick,
-                          SPUReverbCallCount, SPUReverbCurrAddr>
+                          SPUReverbCallCount, SPUReverbCurrAddr, SPUNoisePosition, SPUWriteDMALandedCycle>
     SPU;
 typedef Protobuf::MessageField<SPU, TYPESTRING("spu"), 6> SPUField;
 
@@ -346,7 +356,9 @@ typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("hsync_count"), 2> HSyncCou
 // CPU's scanline schedule. DO NOT REUSE FIELD NUMBER 3 in Counters.
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("psx_next_counter"), 4> PSXNextCounter;
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("field_count"), 5> FieldCount;
-typedef Protobuf::Message<TYPESTRING("Counters"), Rcnts, HSyncCount, PSXNextCounter, FieldCount> Counters;
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("line_remainder"), 6> LineRemainder;
+typedef Protobuf::Message<TYPESTRING("Counters"), Rcnts, HSyncCount, PSXNextCounter, FieldCount, LineRemainder>
+    Counters;
 typedef Protobuf::MessageField<Counters, TYPESTRING("counters"), 10> CountersField;
 
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("reg0"), 1> MDECReg0;

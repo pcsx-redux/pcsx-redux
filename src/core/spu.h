@@ -55,6 +55,9 @@ class SPUInterface {
     virtual void setXAVolume(const uint8_t atv[4]) = 0;
     virtual void writeDMAMem(uint16_t *, int) = 0;
     virtual void readDMAMem(uint16_t *, int) = 0;
+    // A sound RAM write DMA started now leaves CHCR busy until endCycle. SPUSTAT bits 7 and 9
+    // drop for it and rise again once its data has landed, shortly after endCycle.
+    virtual void writeDMAEndsAt(uint64_t endCycle) = 0;
     virtual void lockSPURAM() = 0;
     virtual void unlockSPURAM() = 0;
     // Byte-addressable view of the sound RAM. Mixing happens on the SPU's own

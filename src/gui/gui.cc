@@ -61,6 +61,7 @@
 #include "gui/luaimguiextra.h"
 #include "gui/luaimplot.h"
 #include "gui/luatvg.h"
+#include "gui/memeditor-route.h"
 #include "gui/resources.h"
 #include "gui/shaders/crt-lottes.h"
 #include "imgui.h"
@@ -173,6 +174,8 @@ PCSX::GUI::GUI(std::vector<std::string>& favorites)
       m_openArchiveDialog(l_("Open Archive"), favorites),
       m_selectBiosDialog(l_("Select BIOS"), favorites),
       m_selectEXP1Dialog(l_("Select EXP1"), favorites),
+      m_selectScreenshotDirDialog(l_("Select screenshot folder"), favorites),
+      m_selectSaveStateDirDialog(l_("Select save state folder"), favorites),
       m_isoBrowser(
           settings.get<ShowIsoBrowser>().value, favorites, [this]() { useMonoFont(); },
           [this](const std::string& name, IO<File> file) { m_dalos.addSource(name, file); }),
@@ -830,8 +833,6 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
     m_outputShaderEditor.init();
 
     m_listener.listen<Events::GUI::JumpToMemory>([this](auto& event) {
-        const uint32_t base = (event.address >> 20) & 0xff8;
-        const uint32_t real = event.address & 0x7fffff;
         const uint32_t size = event.size;
         const uint32_t editorNum = event.editorNum;
         auto changeDataType = [](MemoryEditor* editor, int size) {
@@ -856,18 +857,30 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
                     break;
             }
         };
-        if ((base == 0x000) || (base == 0x800) || (base == 0xa00)) {
-            if (real < 0x00800000) {
-                m_mainMemEditors[editorNum].m_show = true;
-                m_mainMemEditors[editorNum].editor.GotoAddrAndHighlight(real, real + size);
-                changeDataType(&m_mainMemEditors[editorNum].editor, size);
-            }
-        } else if (base == 0x1f8) {
-            if (real >= 0x1000 && real < 0x3000) {
-                m_hwrEditor.m_show = true;
-                m_hwrEditor.editor.GotoAddrAndHighlight(real - 0x1000, real - 0x1000 + size);
-                changeDataType(&m_hwrEditor.editor, size);
-            }
+        const auto route = MemEditorRoute::route(event.address);
+        auto go = [&](MemoryEditorWrapper& wrapper) {
+            wrapper.m_show = true;
+            wrapper.editor.GotoAddrAndHighlight(route.offset, route.offset + size);
+            changeDataType(&wrapper.editor, size);
+        };
+        switch (route.target) {
+            case MemEditorRoute::Target::MainRam:
+                if (editorNum < 8) go(m_mainMemEditors[editorNum]);
+                break;
+            case MemEditorRoute::Target::ParallelPort:
+                go(m_parallelPortEditor);
+                break;
+            case MemEditorRoute::Target::Scratchpad:
+                go(m_scratchPadEditor);
+                break;
+            case MemEditorRoute::Target::HardwareRegisters:
+                go(m_hwrEditor);
+                break;
+            case MemEditorRoute::Target::Bios:
+                go(m_biosEditor);
+                break;
+            case MemEditorRoute::Target::None:
+                break;
         }
     });
 
@@ -1576,6 +1589,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
                     ImGui::EndMenu();
                 }
                 ImGui::MenuItem(_("Show PSYQo heap viewer"), nullptr, &m_heapViewer.m_show);
+                ImGui::MenuItem(_("Show PSYQo scope profiler"), nullptr, &m_scopeProfiler.m_show);
                 ImGui::MenuItem(_("Show PocketStation LCD"), nullptr, &m_pocketStationLCD.m_show);
                 ImGui::MenuItem(_("Show allocator tracker"), nullptr, &m_allocTrackerViewer.m_show);
                 ImGui::Separator();
@@ -1930,6 +1944,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
         m_spuSamplesWidget.draw(g_emulator->m_spuLogger.get(), g_emulator->m_spu->getSpuRam(), _("SPU Samples"));
     }
     if (m_heapViewer.m_show) m_heapViewer.draw(g_emulator->m_mem.get(), _("PSYQo Heap Viewer"));
+    if (m_scopeProfiler.m_show) m_scopeProfiler.draw(_("PSYQo Scope Profiler"), this);
     if (m_allocTrackerViewer.m_show) m_allocTrackerViewer.draw(_("Allocator Tracker"));
 
     if (m_pocketStationLCD.m_show) {
@@ -2063,13 +2078,14 @@ the update and manually apply it.)")));
                                 m_update.applyUpdate(g_system->getBinDir());
                                 g_system->quit();
                             } else {
-                                addNotification(
-                                    _("An error has occured while downloading\nand/or applying the update."));
+                                addNotice(_("An error has occured while downloading\nand/or applying the update."),
+                                          NoticeKind::Error);
                             }
                         },
                         g_system->getLoop());
                     if (!started) {
-                        addNotification(_("An error has occured while downloading\nand/or applying the update."));
+                        addNotice(_("An error has occured while downloading\nand/or applying the update."),
+                                  NoticeKind::Error);
                         m_updateAvailable = false;
                         m_updateDownloading = false;
                     }
@@ -2085,7 +2101,7 @@ the update and manually apply it.)")));
                         },
                         g_system->getLoop());
                     if (!started) {
-                        addNotification(_("An error has occured while downloading the update."));
+                        addNotice(_("An error has occured while downloading the update."), NoticeKind::Error);
                         m_updateAvailable = false;
                         m_updateDownloading = false;
                     }
@@ -2248,9 +2264,10 @@ bool PCSX::GUI::configure() {
     bool changed = false;
     bool selectBiosDialog = false;
     bool selectEXP1Dialog = false;
+    bool selectScreenshotDirDialog = false;
+    bool selectSaveStateDirDialog = false;
     bool showDynarecDebugWarning = false;
     bool showDynarecWarning = false;
-    bool show2MBVRAMHardwareWarning = false;
     auto& settings = g_emulator->settings;
     auto& debugSettings = settings.get<Emulator::SettingDebugSettings>();
 
@@ -2295,29 +2312,18 @@ This setting is useful for debugging purposes,
 to detect uninitialized memory reads that may
 cause issues in some cases.
 )"));
-        if (ImGui::Checkbox(_("OpenGL GPU *ALPHA STATE*"), &settings.get<Emulator::SettingHardwareRenderer>().value)) {
-            changed = true;
-            if (settings.get<Emulator::SettingHardwareRenderer>() && settings.get<Emulator::Setting2MBVRAM>()) {
-                show2MBVRAMHardwareWarning = true;
-            }
-        }
+        changed |= ImGui::Checkbox(_("OpenGL GPU *ALPHA STATE*"), &settings.get<Emulator::SettingHardwareRenderer>().value);
         ImGuiHelpers::ShowHelpMarker(_(R"(Enables the OpenGL GPU renderer.
 This is not recommended for normal use at the moment,
 as it is not fully implemented yet. It is recommended
 to use the software renderer instead. Requires a restart
 when changing this setting.)"));
-        if (ImGui::Checkbox(_("2MB VRAM"), &settings.get<Emulator::Setting2MBVRAM>().value)) {
-            changed = true;
-            if (settings.get<Emulator::SettingHardwareRenderer>() && settings.get<Emulator::Setting2MBVRAM>()) {
-                show2MBVRAMHardwareWarning = true;
-            }
-        }
+        changed |= ImGui::Checkbox(_("2MB VRAM"), &settings.get<Emulator::Setting2MBVRAM>().value);
         ImGuiHelpers::ShowHelpMarker(_(R"(Emulates a console fitted with 2MB of VRAM
 instead of the stock 1MB, exposing the upper bank through
 GP1(09h). Found on a handful of modded consoles and on
-some arcade boards. Only the software renderer supports
-it; the OpenGL GPU does not. Requires a restart when
-changing this setting.)"));
+some arcade boards. Requires a restart when changing
+this setting.)"));
 
         ImGui::Separator();
         {
@@ -2384,6 +2390,34 @@ sequence at each power-on.)"));
                          bios.length() + 1, ImGuiInputTextFlags_ReadOnly);
         ImGui::SameLine();
         selectBiosDialog = ImGui::Button("...");
+        auto directoryPicker = [&changed](const char* label, const char* id, std::filesystem::path& dir) {
+            auto str = dir.u8string();
+            const char* shown = dir.empty() ? _("(settings folder)") : reinterpret_cast<const char*>(str.c_str());
+            // Label on its own line and the field sized to leave room, so the buttons stay visible in a
+            // narrow window.
+            const auto& style = ImGui::GetStyle();
+            const char* reset = _("Reset");
+            float buttons = ImGui::CalcTextSize("...").x + style.FramePadding.x * 2 + style.ItemSpacing.x;
+            if (!dir.empty()) buttons += ImGui::CalcTextSize(reset).x + style.FramePadding.x * 2 + style.ItemSpacing.x;
+            ImGui::TextUnformatted(label);
+            ImGui::SetNextItemWidth(-buttons);
+            ImGui::InputText(fmt::format("##{}", id).c_str(), const_cast<char*>(shown), strlen(shown) + 1,
+                             ImGuiInputTextFlags_ReadOnly);
+            ImGui::SameLine();
+            bool open = ImGui::Button(fmt::format("...##{}", id).c_str());
+            if (!dir.empty()) {
+                ImGui::SameLine();
+                if (ImGui::Button(fmt::format("{}##{}", reset, id).c_str())) {
+                    dir.clear();
+                    changed = true;
+                }
+            }
+            return open;
+        };
+        selectScreenshotDirDialog = directoryPicker(_("Screenshot folder"), "ScreenshotDir",
+                                                    settings.get<Emulator::SettingScreenshotDir>().value);
+        selectSaveStateDirDialog = directoryPicker(_("Save state folder"), "SaveStateDir",
+                                                   settings.get<Emulator::SettingSaveStateDir>().value);
         if (ImGui::Checkbox(_("Enable Debugger"), &debugSettings.get<Emulator::DebugSettings::Debug>().value)) {
             changed = true;
             if (debugSettings.get<PCSX::Emulator::DebugSettings::Debug>() && settings.get<Emulator::SettingDynarec>()) {
@@ -2415,6 +2449,24 @@ can slow down emulation to a noticeable extent.)"));
             }
         }
     }
+    auto directoryDialog = [&changed](auto& dialog, bool open, std::filesystem::path& dir) {
+        if (open) {
+            dialog.m_currentPath = dir.empty() ? g_system->getPersistentDir() : dir;
+            dialog.openDialog();
+        }
+        if (dialog.draw()) {
+            const auto& selected = dialog.selected();
+            std::error_code ec;
+            if (!selected.empty() && std::filesystem::is_directory(std::filesystem::path(selected[0]), ec)) {
+                dir = selected[0];
+                changed = true;
+            }
+        }
+    };
+    directoryDialog(m_selectScreenshotDirDialog, selectScreenshotDirDialog,
+                    settings.get<Emulator::SettingScreenshotDir>().value);
+    directoryDialog(m_selectSaveStateDirDialog, selectSaveStateDirDialog,
+                    settings.get<Emulator::SettingSaveStateDir>().value);
     if (showDynarecDebugWarning && showDynarecWarning) {
         addNotification(R"(Debugger and dynarec enabled at the same time.
 Consider turning either one off, otherwise
@@ -2428,12 +2480,6 @@ debugging features may not work.)");
     } else if (showDynarecWarning) {
         addNotification(R"(Toggling the Dynarec option requires a restart
 of the emulator to take effect.)");
-    }
-    if (show2MBVRAMHardwareWarning) {
-        addNotification(R"(2MB VRAM is enabled together with the OpenGL GPU.
-The OpenGL renderer does not support the upper VRAM
-bank yet - only the software renderer does. Switch to
-the software renderer to make use of 2MB VRAM.)");
     }
     return changed;
 }
@@ -2727,6 +2773,25 @@ std::string PCSX::GUI::getSaveStatePrefix(bool includeSeparator) {
 
 std::string PCSX::GUI::getSaveStatePostfix() { return ".sstate"; }
 
+static std::filesystem::path resolveOutputDir(const std::filesystem::path& setting) {
+    std::filesystem::path dir = setting.empty() ? PCSX::g_system->getPersistentDir() : setting;
+    // Callers prepend this to relative names, so a relative result would get prefixed twice.
+    if (dir.is_relative()) {
+        std::error_code ec;
+        auto abs = std::filesystem::absolute(dir, ec);
+        if (!ec) dir = abs;
+    }
+    return dir;
+}
+
+std::filesystem::path PCSX::GUI::getSaveStateDir() {
+    return resolveOutputDir(g_emulator->settings.get<Emulator::SettingSaveStateDir>().value);
+}
+
+std::filesystem::path PCSX::GUI::getScreenshotDir() {
+    return resolveOutputDir(g_emulator->settings.get<Emulator::SettingScreenshotDir>().value);
+}
+
 std::string PCSX::GUI::buildSaveStateFilename(int i) {
     return fmt::format("{}{}{}", getSaveStatePrefix(false), getSaveStatePostfix(), i);
 }
@@ -2737,13 +2802,18 @@ std::string PCSX::GUI::buildSaveStateFilename(std::string saveStateName) {
 
 bool PCSX::GUI::saveSaveState(std::filesystem::path filename) {
     if (filename.is_relative()) {
-        filename = g_system->getPersistentDir() / filename;
+        filename = getSaveStateDir() / filename;
     }
     // TODO: yeet this to libuv's threadpool.
-    ZWriter save(new UvFile(filename, FileOps::TRUNCATE), ZWriter::GZIP);
-    bool success = !save.failed();
-    if (success) save.writeString(SaveStates::save());
-    save.close();
+    IO<UvFile> file(new UvFile(filename, FileOps::TRUNCATE));
+    bool success = !file->failed();
+    if (success) {
+        ZWriter save(file, ZWriter::GZIP);
+        save.writeString(SaveStates::save());
+        save.close();
+    }
+    // The writes are queued; only the close reports whether they landed.
+    if (file->closeAndWait() != 0) success = false;
     if (success) {
         addNotice(fmt::format(f_("State saved to {}"), filename.filename().string()), NoticeKind::Info);
     } else {
@@ -2754,7 +2824,7 @@ bool PCSX::GUI::saveSaveState(std::filesystem::path filename) {
 
 bool PCSX::GUI::loadSaveState(std::filesystem::path filename) {
     if (filename.is_relative()) {
-        filename = g_system->getPersistentDir() / filename;
+        filename = getSaveStateDir() / filename;
     }
     ZReader save(new PosixFile(filename));
     if (save.failed()) {
@@ -2848,9 +2918,10 @@ void PCSX::GUI::PassiveNotifier::draw() {
 
 bool PCSX::GUI::deleteSaveState(std::filesystem::path filename) {
     if (filename.is_relative()) {
-        filename = g_system->getPersistentDir() / filename;
+        filename = getSaveStateDir() / filename;
     }
-    return std::remove(filename.string().c_str()) == 0;
+    std::error_code ec;
+    return std::filesystem::remove(filename, ec);
 }
 
 bool PCSX::GUI::saveSaveStateSlot(uint32_t slot) { return saveSaveState(buildSaveStateFilename(slot)); }
@@ -2861,7 +2932,7 @@ bool PCSX::GUI::deleteSaveStateSlot(uint32_t slot) { return deleteSaveState(buil
 
 bool PCSX::GUI::saveStateExists(std::filesystem::path filename) {
     if (filename.is_relative()) {
-        filename = g_system->getPersistentDir() / filename;
+        filename = getSaveStateDir() / filename;
     }
     ZReader save(new PosixFile(filename));
     return !save.failed();
@@ -3048,13 +3119,16 @@ void PCSX::GUI::changeScale(float scale) {
 
 void PCSX::GUI::saveScreenShot() {
     std::filesystem::path path =
-        g_system->getPersistentDir() / (getSaveStatePrefix(true) + PCSX::ScreenShot::getDateString() + ".png");
+        getScreenshotDir() / (getSaveStatePrefix(true) + PCSX::ScreenShot::getDateString() + ".png");
     auto screenshot = g_emulator->m_gpu->takeScreenShot();
     clip::image img = PCSX::ScreenShot::convertScreenshotToImage(std::move(screenshot));
-    bool success = PCSX::ScreenShot::writeImagePNG(path.string(), std::move(img));
+    auto pathStr = path.u8string();
+    // The PNG writer takes UTF-8 on every platform.
+    std::string utf8Path(reinterpret_cast<const char*>(pathStr.c_str()), pathStr.size());
+    bool success = PCSX::ScreenShot::writeImagePNG(utf8Path, std::move(img));
 
     if (success) {
-        auto successMsg = fmt::format(f_("Screenshot saved to {}\n"), path.string());
+        auto successMsg = fmt::format(f_("Screenshot saved to {}\n"), utf8Path);
         g_system->log(LogClass::UI, std::move(successMsg));
         addNotice(fmt::format(f_("Screenshot saved to {}"), path.filename().string()), NoticeKind::Info);
     } else {

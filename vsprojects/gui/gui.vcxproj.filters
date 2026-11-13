@@ -154,6 +154,9 @@
     <ClCompile Include="..\..\src\gui\widgets\heap_viewer.cc">
       <Filter>Source Files\widgets</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\gui\widgets\scope_profiler.cc">
+      <Filter>Source Files\widgets</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\gui\widgets\hwregs.cc">
       <Filter>Source Files\widgets</Filter>
     </ClCompile>
@@ -285,6 +288,9 @@
     <ClInclude Include="..\..\src\gui\luaimplot.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\gui\memeditor-route.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\gui\widgets\patches.h">
       <Filter>Header Files\widgets</Filter>
     </ClInclude>
@@ -298,6 +304,9 @@
       <Filter>Header Files\widgets</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\gui\widgets\heap_viewer.h">
+      <Filter>Header Files\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\gui\widgets\scope_profiler.h">
       <Filter>Header Files\widgets</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\gui\widgets\hwregs.h">

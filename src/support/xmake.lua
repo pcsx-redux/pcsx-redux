@@ -15,5 +15,5 @@ target('pcsx.support', function()
                     path.join(support_root, 'third_party', 'PEGTL', 'include'))
 
     add_files('*.cc')
-    remove_files('ffmpeg-audio-file.cc', 'uvfile.cc', 'version*.cc')
+    remove_files('ffmpeg-audio-file.cc', 'network.cc', 'uvfile.cc', 'version*.cc')
 end)

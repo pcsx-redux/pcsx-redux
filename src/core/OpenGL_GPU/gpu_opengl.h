@@ -48,6 +48,7 @@ class OpenGL_GPU final : public GPU {
     void setLinearFiltering() override;
     Slice getVRAM(Ownership) override;
     void partialUpdateVRAM(int x, int y, int w, int h, const uint16_t *pixels, PartialUpdateVram) override;
+    void uploadVRAM(int x, int y, int w, int h, const uint16_t *pixels, PartialUpdateVram) override;
     void restoreStatus(uint32_t status) { m_gpustat = status; }
 
   private:
@@ -156,6 +157,23 @@ class OpenGL_GPU final : public GPU {
     GLint m_skipParityLoc;
     // GP0(E1h).10 as last written by GP0(E1h). A polygon's texpage cannot change it.
     bool m_drawToDisplay = false;
+    // GP0(E6h) bits 0 (set mask) and 1 (check mask). Bit 15 of a VRAM pixel lives in the alpha channel.
+    // Draws read the check-mask destination from m_maskTexture, a copy of the batch's bounding box
+    // taken in renderBatch(). While check-mask is on, a primitive whose box overlaps the batch's
+    // flushes it first, so no primitive reads a destination an earlier one in its batch wrote.
+    bool m_setMask = false;
+    bool m_checkMask = false;
+    bool m_maskDirty = true;
+    GLint m_setMaskLoc;
+    GLint m_checkMaskLoc;
+    GLint m_blendingLoc;
+    OpenGL::Texture m_maskTexture;
+    bool m_batchBoundsValid = false;
+    int m_batchMinX = 0, m_batchMinY = 0, m_batchMaxX = 0, m_batchMaxY = 0;
+    void setMaskBits(bool set, bool check);
+    void pushMaskConfig();
+    void addCheckMaskBounds(const int *xs, const int *ys, int n);
+    void readVRAMRect(int x, int y, int w, int h, uint16_t *pixels);
     void updateSkipParity();
     uint32_t m_lastTexwindowSetting = 0;
     uint32_t m_lastDrawOffsetSetting = 0;
@@ -166,9 +184,12 @@ class OpenGL_GPU final : public GPU {
         if ((m_vertexCount + count) >= vertexBufferSize) renderBatch();
     }
     void renderBatch();
+    void syncVRAMForRead();
+    void resolveMSAA(GLint x, GLint y, GLint w, GLint h);
+    void blitFromResolved(GLint srcX, GLint srcY, GLint dstX, GLint dstY, GLint w, GLint h);
     void vramConfigChanged() override { m_vramConfigDirty = true; }
     void pushVRAMConfig();
-    void clearVRAM(float r, float g, float b, float a = 1.0);
+    void clearVRAM(float r, float g, float b, float a = 0.0);
     void updateDrawArea();
     void setScissorArea();
     void setDrawOffset(uint32_t cmd);

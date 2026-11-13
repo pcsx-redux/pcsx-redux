@@ -111,7 +111,33 @@ class impl final : public GPU, private SoftRenderer {
         }
     }
 
+    void uploadVRAM(int x, int y, int w, int h, const uint16_t *pixels, PartialUpdateVram) override {
+        if (m_queue.running()) {
+            m_queue.push(std::make_unique<VramWriteOp>(x, y, w, h, pixels, true));
+        } else {
+            vramUpload(x, y, w, h, pixels);
+        }
+    }
+
     friend struct VramWriteOp;
+    // Runs where the renderer state lives, so it sees the GP0(E6h) setting in command order.
+    void vramUpload(int x, int y, int w, int h, const uint16_t *pixels) {
+        const uint16_t setMask = getSetMask16();
+        const bool checkMask = getCheckMask();
+        if (!setMask && !checkMask) {
+            vramWrite(x, y, w, h, pixels);
+            return;
+        }
+        auto ptr = m_vram16 + y * 1024 + x;
+        for (int i = 0; i < h; i++) {
+            for (int j = 0; j < w; j++) {
+                if (checkMask && (ptr[j] & 0x8000)) continue;
+                ptr[j] = pixels[j] | setMask;
+            }
+            ptr += 1024;
+            pixels += w;
+        }
+    }
     void vramWrite(int x, int y, int w, int h, const uint16_t *pixels) {
         auto ptr = m_vram16;
         ptr += y * 1024 + x;

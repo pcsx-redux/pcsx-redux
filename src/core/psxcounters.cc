@@ -23,6 +23,8 @@
 
 #include "core/psxcounters.h"
 
+#include <numeric>
+
 #include "core/debug.h"
 #include "core/gpu.h"
 #include "core/sio1.h"
@@ -232,6 +234,23 @@ void PCSX::Counters::update() {
     // rcnt base.
     if (int64_t(cycle - m_rcnts[3].cycleStart) >= int64_t(m_rcnts[3].cycle)) {
         reset(3);
+        // reset() scheduled the next line with this line's length; give it its own. When the CPU
+        // ran past the whole next line too, reset() picked the overflow event: keep counting to
+        // the target, so the overdue line fires on the next update instead of 65535 cycles later.
+        m_rcnts[3].target = nextLineLength();
+        m_rcnts[3].counterState = CountToTarget;
+        m_rcnts[3].cycle = m_rcnts[3].target;
+
+        // Counter 1 on the hblank clock ticks every whole-cycle rate, while lines alternate
+        // between two lengths. Re-anchor it on this hblank so it counts one tick per line.
+        if ((m_rcnts[1].mode & Rc1HSyncClock) && (m_rcnts[1].rate != 0xffffffff)) {
+            const uint64_t hblank = m_rcnts[3].cycleStart;
+            if (hblank >= m_rcnts[1].cycleStart) {
+                const uint32_t count = ((hblank - m_rcnts[1].cycleStart) / m_rcnts[1].rate) & 0xffff;
+                writeCounterInternal(1, count, int64_t(hblank) - int64_t(cycle));
+            }
+        }
+        set();
 
         m_hSyncCount++;
 
@@ -309,10 +328,7 @@ void PCSX::Counters::recalculateRate(uint32_t index) {
                 uint32_t divider = dotclockDividers[static_cast<int>(hres)];
                 uint32_t videoCyclesPerScanline = (videoMode == GPU::CtrlDisplayMode::VM_PAL) ? 3406 : 3413;
                 uint32_t dotsPerScanline = videoCyclesPerScanline / divider;
-                uint32_t cpuCyclesPerScanline =
-                    (PCSX::g_emulator->m_psxClockSpeed /
-                     (FrameRate[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()] *
-                      m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()]));
+                uint32_t cpuCyclesPerScanline = wholeCyclesPerLine();
                 m_rcnts[index].rate = std::max<uint32_t>(cpuCyclesPerScanline / dotsPerScanline, 1);
             } else {
                 m_rcnts[index].rate = 1;
@@ -320,9 +336,8 @@ void PCSX::Counters::recalculateRate(uint32_t index) {
             break;
         case 1:
             if (value & Rc1HSyncClock) {
-                m_rcnts[index].rate = (PCSX::g_emulator->m_psxClockSpeed /
-                                       (FrameRate[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()] *
-                                        m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()]));
+                // Whole cycles; update() re-anchors the phase on every hblank.
+                m_rcnts[index].rate = wholeCyclesPerLine();
             } else {
                 m_rcnts[index].rate = 1;
             }
@@ -417,6 +432,8 @@ uint32_t PCSX::Counters::readCounter(uint32_t index) {
     return count;
 }
 
+uint32_t PCSX::Counters::peekCounter(uint32_t index) { return readCounterInternal(index); }
+
 uint32_t PCSX::Counters::readMode(uint32_t index) {
     update();
 
@@ -432,6 +449,10 @@ uint32_t PCSX::Counters::readTarget(uint32_t index) {
     return m_rcnts[index].target;
 }
 
+uint32_t PCSX::Counters::linesPerFrame() {
+    return m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()];
+}
+
 uint32_t PCSX::Counters::linesSinceVBlank() {
     update();
     auto video = PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>();
@@ -439,9 +460,17 @@ uint32_t PCSX::Counters::linesSinceVBlank() {
     return (m_hSyncCount + total - VBlankStart[video]) % total;
 }
 
+uint32_t PCSX::Counters::nextLineLength() {
+    m_lineRemainder += m_lineNum;
+    const uint32_t length = m_lineRemainder / m_lineDen;
+    m_lineRemainder %= m_lineDen;
+    return length;
+}
+
 void PCSX::Counters::calculateHsync() {
-    m_HSyncTotal[PCSX::Emulator::PSX_TYPE_NTSC] = 263;
-    m_HSyncTotal[PCSX::Emulator::PSX_TYPE_PAL] = 314;  // actually one more on odd lines for PAL
+    static constexpr uint32_t kLines[] = {263, 314};
+    m_HSyncTotal[PCSX::Emulator::PSX_TYPE_NTSC] = kLines[PCSX::Emulator::PSX_TYPE_NTSC];
+    m_HSyncTotal[PCSX::Emulator::PSX_TYPE_PAL] = kLines[PCSX::Emulator::PSX_TYPE_PAL];
     if (PCSX::g_emulator->config().VSyncWA) {
         m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()] =
             m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()] / PCSX::Emulator::BIAS;
@@ -451,6 +480,20 @@ void PCSX::Counters::calculateHsync() {
             m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()] + 1;
 #endif
     }
+
+    // A scanline is 3412.5 (NTSC) or 3405 (PAL) video cycles, on the console's own video clock,
+    // 53.693175 MHz or 53.203425 MHz: 2152.55 or 2167.59 CPU cycles. Silicon reads 2152.51-2152.55
+    // on SCPH-1000, 1001 and 5501 in NTSC mode, and 2167.53 on SCPH-9002 in PAL mode. A shortened
+    // frame (VSyncWA) keeps the frame length and stretches its lines.
+    static constexpr uint64_t kVideoCyclesPerLineX2[] = {6825, 6810};
+    static constexpr uint64_t kVideoClock[] = {53693175, 53203425};
+    const auto video = PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>();
+    m_lineNum = kVideoCyclesPerLineX2[video] * PCSX::g_emulator->m_psxClockSpeed * kLines[video];
+    m_lineDen = 2 * kVideoClock[video] * m_HSyncTotal[video];
+    const uint64_t g = std::gcd(m_lineNum, m_lineDen);
+    m_lineNum /= g;
+    m_lineDen /= g;
+    m_lineRemainder = 0;
 }
 
 void PCSX::Counters::init() {
@@ -471,9 +514,7 @@ void PCSX::Counters::init() {
     // rcnt base.
     m_rcnts[3].rate = 1;
     m_rcnts[3].mode = RcCountToTarget;
-    m_rcnts[3].target = (PCSX::g_emulator->m_psxClockSpeed /
-                         (FrameRate[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()] *
-                          m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()]));
+    m_rcnts[3].target = nextLineLength();
 
     for (int i = 0; i < CounterQuantity; ++i) {
         writeCounterInternal(i, 0);

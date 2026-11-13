@@ -393,22 +393,73 @@ uint32_t PCSX::GPU::readStatus() {
     return ret;
 }
 
-uint32_t PCSX::GPU::readStatusFromBus() {
-    uint32_t ret = readStatus();
-    // NTSC 480i: GP1(08h) bits 2 and 5 set, bit 3 clear. Timeline measured on a v2 GPU (SCPH-1001)
-    // at 320 and 640 pixels wide, identical at both, counted in hblanks since the vblank that
-    // opened the field. Bit 31 is 1 from line 23 of the 263-line field until the next vblank, and
-    // 0 everywhere else, vblank included. Bit 13 is 1 from line 5 of the 262-line field until
-    // line 6 of the following 263-line field. A v0 GPU (SCPH-1000) gives the same bit 31 and never
-    // sets bit 13; there is no GPU revision setting, so this models v2. PAL is not measured.
-    if ((m_statusControl[8] & 0x2c) == 0x24) {
-        auto &counters = g_emulator->m_counters;
-        uint32_t line = counters->linesSinceVBlank();
-        bool longField = counters->longField();
-        ret &= ~0x80002000;
-        if (longField && (line >= 23)) ret |= 0x80000000;
-        if (longField ? (line < 6) : (line >= 5)) ret |= 0x00002000;
+bool PCSX::GPU::deinterlace() {
+    if (m_neverDeinterlace || (m_dumper && m_dumper->armed())) return false;
+    return g_emulator->settings.get<Emulator::SettingDeinterlace>();
+}
+
+// Measured on v2 GPUs (SCPH-1001, 5501, 7001, 9002) and a v0 one (SCPH-1000), counting hblanks
+// since the vblank IRQ. While GP1(08h).5 (interlace) is set, frames alternate between 263 and 262
+// lines (313 and 312 in PAL), and the field flag changes on the last scanline of each frame: it is
+// 1 through a long frame and 0 through a short one. Turning interlace off freezes the flag, and
+// GP1(00h) sets it. Progressive frames are 263 lines (314 in PAL). The vblank IRQ comes at line Y2.
+// Redux runs every frame at the progressive length and raises the IRQ at a fixed line, so this is
+// worked out from the lines since the IRQ, which is what a guest can observe.
+PCSX::GPU::BeamPosition PCSX::GPU::beamPosition(uint32_t mode) {
+    auto &counters = g_emulator->m_counters;
+    const bool pal = mode & 0x08;
+    uint32_t y1 = m_statusControl[7] & 0x3ff;
+    uint32_t y2 = (m_statusControl[7] >> 10) & 0x3ff;
+    // A range never written: Y1=10h, Y2=100h, the NTSC range the probes used by default.
+    if ((y1 | y2) == 0) {
+        y1 = 0x10;
+        y2 = 0x100;
     }
+    const uint32_t sinceVBlank = counters->linesSinceVBlank();
+    bool field;
+    uint32_t frame;
+    if (mode & 0x20) {
+        field = counters->longField() != m_fieldPhase;
+        frame = (pal ? 312 : 262) + (field ? 1 : 0);
+    } else {
+        field = m_heldField;
+        // 263 or 314 lines on the console. Redux's counters run the same lengths unless the
+        // system type is forced against the game's mode; follow the counters then, so every line
+        // they count gets a position.
+        frame = counters->linesPerFrame();
+    }
+    const uint32_t vblank = std::min(y2, frame - 1);
+    const uint32_t lastLine = frame - 1 - vblank;
+    BeamPosition ret;
+    if (sinceVBlank < lastLine) {
+        ret.line = vblank + sinceVBlank;
+    } else if (sinceVBlank == lastLine) {
+        ret.line = frame - 1;
+    } else {
+        // Redux's frame can outlast the console's by a line (314 against 313 in PAL 480i); the
+        // beam stays on the last line before Y2 until the IRQ instead of reaching Y2 early.
+        ret.line = sinceVBlank - lastLine - 1;
+        if (vblank && (ret.line >= vblank)) ret.line = vblank - 1;
+    }
+    ret.field = ((mode & 0x20) && (sinceVBlank >= lastLine)) ? !field : field;
+    ret.active = (ret.line >= y1) && (ret.line < y2);
+    return ret;
+}
+
+uint32_t PCSX::GPU::readStatusFromBus() {
+    uint32_t ret = readStatus() & ~0x80002000;
+    const uint32_t mode = m_statusControl[8];
+    // In 480i (GP1(08h) bits 5 and 2), bit 31 is 1 on the displayed lines of the frame that follows
+    // a long one and 0 everywhere else; in every other mode it is the line's parity on displayed
+    // lines and 0 elsewhere. Same on v0 and v2. Bit 13 is the field flag on v2 and stays clear in
+    // 480i on v0; there is no GPU revision setting, so this models v2.
+    if (((mode & 0x2c) == 0x24) && (m_fieldOverride >= 0)) return ret | (uint32_t(m_fieldOverride) << 31);
+    // A detached GPU (the dump player's) is not on the emulated machine's beam; reading the live
+    // counters would advance them. It reports the held flag and no displayed line.
+    if (m_detached) return ret | (m_heldField ? 0x00002000 : 0);
+    const auto beam = beamPosition(mode);
+    if (beam.field) ret |= 0x00002000;
+    if (beam.active && (((mode & 0x24) == 0x24) ? !beam.field : (beam.line & 1))) ret |= 0x80000000;
     return ret;
 }
 
@@ -544,6 +595,17 @@ void PCSX::GPU::writeStatus(uint32_t value) {
     bool gotUnknown = false;
 
     if (m_dumper) m_dumper->gp1(value);
+    if ((cmd == 8) && !m_detached && !m_replayingGP1) {
+        // Turning interlace off freezes the field flag; turning it on resumes the alternation
+        // from the frozen value.
+        const uint32_t old = m_statusControl[8];
+        if ((old & 0x20) && !(value & 0x20)) {
+            m_heldField = beamPosition(old).field;
+        } else if (!(old & 0x20) && (value & 0x20)) {
+            m_fieldPhase = false;
+            if (beamPosition(value).field != m_heldField) m_fieldPhase = true;
+        }
+    }
     m_statusControl[cmd] = value;
 
     switch (cmd) {
@@ -552,8 +614,10 @@ void PCSX::GPU::writeStatus(uint32_t value) {
             m_processor->reset();
             m_defaultProcessor.setActive();
             m_dmaDirection = 0;
-            // GP1(00h) also resets the display mode, which readStatusFromBus() keys on.
+            // GP1(00h) also resets the display mode, which readStatusFromBus() keys on, and sets
+            // the field flag.
             m_statusControl[8] = 0x08000000;
+            m_heldField = true;
             CtrlReset ctrl;
             m_logger->addNode(ctrl, Logged::Origin::CTRLWRITE, value, 1);
             write1(&ctrl);
@@ -655,14 +719,24 @@ void PCSX::GPU::write1(CtrlQuery *ctrl) {
     }
 }
 
+void PCSX::GPU::dumpField() {
+    if (m_dumper->recording() && ((m_statusControl[8] & 0x2c) == 0x24)) m_dumper->field(readStatusFromBus() >> 31);
+}
+
 void PCSX::GPU::writeData(uint32_t value) {
-    if (m_dumper) m_dumper->gp0(value);
+    if (m_dumper) {
+        dumpField();
+        m_dumper->gp0(value);
+    }
     Buffer buf(value);
     m_processor->processWrite(buf, Logged::Origin::DATAWRITE, value, 1);
 }
 
 void PCSX::GPU::directDMAWrite(const uint32_t *feed, int transferSize, uint32_t hwAddr) {
-    if (m_dumper) m_dumper->gp0LE(feed, transferSize);
+    if (m_dumper) {
+        dumpField();
+        m_dumper->gp0LE(feed, transferSize);
+    }
     Buffer buf(feed, transferSize);
     while (!buf.isEmpty()) {
         m_processor->processWrite(buf, Logged::Origin::DIRECT_DMA, hwAddr, transferSize);
@@ -720,7 +794,10 @@ void PCSX::GPU::chainedDMAWrite(const uint32_t *memory, uint32_t hwAddr) {
 
         // # 32-bit blocks to transfer
         uint32_t transferWords = header >> 24;
-        if (m_dumper && transferWords) m_dumper->gp0LE(feed, transferWords);
+        if (m_dumper && transferWords) {
+            dumpField();
+            m_dumper->gp0LE(feed, transferWords);
+        }
         Buffer buf(feed, transferWords);
         while (!buf.isEmpty()) {
             m_processor->processWrite(buf, Logged::Origin::CHAIN_DMA, addr, transferWords);
@@ -1057,8 +1134,8 @@ void PCSX::GPU::BlitRamVram::processWrite(Buffer &buf, Logged::Origin origin, ui
                 // Drop writes to an opened-but-unpopulated upper bank (1MB
                 // fitment): they hit floating bus and are lost.
                 if (m_gpu->vramOpenBus(y + row)) continue;
-                m_gpu->partialUpdateVRAM(x, m_gpu->resolveVramY(y + row), w, 1, src + row * w,
-                                         PartialUpdateVram::Synchronous);
+                m_gpu->uploadVRAM(x, m_gpu->resolveVramY(y + row), w, 1, src + row * w,
+                                  PartialUpdateVram::Synchronous);
             }
         }
     }
@@ -1069,7 +1146,7 @@ void PCSX::GPU::BlitRamVram::execute(GPU *gpu) {
     for (int row = 0; row < h; row++) {
         // Drop writes to an opened-but-unpopulated upper bank (1MB fitment).
         if (gpu->vramOpenBus(y + row)) continue;
-        gpu->partialUpdateVRAM(x, gpu->resolveVramY(y + row), w, 1, src + row * w);
+        gpu->uploadVRAM(x, gpu->resolveVramY(y + row), w, 1, src + row * w);
     }
 }
 
@@ -1290,6 +1367,32 @@ void PCSX::GPU::Logged::drawColorBox(uint32_t color, unsigned itemIndex, unsigne
     }
 }
 
+void PCSX::GPU::Logged::editColor(Overlay& overlay, unsigned i, uint32_t current) {
+    // The colour word is 0x00BBGGRR.
+    const uint32_t color = overlay.colors[i].value_or(current);
+    float rgb[3] = {float(color & 0xff) / 255.0f, float((color >> 8) & 0xff) / 255.0f,
+                    float((color >> 16) & 0xff) / 255.0f};
+    if (ImGui::ColorEdit3(_("Color"), rgb)) {
+        auto channel = [](float c) { return uint32_t(std::clamp(c, 0.0f, 1.0f) * 255.0f + 0.5f); };
+        overlay.colors[i] = channel(rgb[0]) | (channel(rgb[1]) << 8) | (channel(rgb[2]) << 16);
+    }
+}
+
+void PCSX::GPU::Logged::editXY(Overlay& overlay, unsigned i, int currentX, int currentY) {
+    int x = overlay.x[i].value_or(currentX);
+    int y = overlay.y[i].value_or(currentY);
+    // A GP0 vertex carries a signed 11-bit coordinate, so an edit cannot leave that range.
+    if (ImGui::InputInt("X", &x)) overlay.x[i] = std::clamp(x, -1024, 1023);
+    if (ImGui::InputInt("Y", &y)) overlay.y[i] = std::clamp(y, -1024, 1023);
+}
+
+void PCSX::GPU::Logged::editBlendFunction(Overlay& overlay, BlendFunction current) {
+    const char* names[] = {_("50% Back + 50% Front"), _("100% Back + 100% Front"), _("100% Back - 100% Front"),
+                           _("100% Back + 25% Front")};
+    int function = int(overlay.blendFunction.value_or(current));
+    if (ImGui::Combo(_("Blending"), &function, names, 4)) overlay.blendFunction = BlendFunction(function);
+}
+
 template <PCSX::GPU::Shading shading, PCSX::GPU::Shape shape, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend,
           PCSX::GPU::Modulation modulation>
 void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawLogNode(unsigned itemIndex,
@@ -1376,6 +1479,23 @@ void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawLogNode(u
     }
 }
 
+template <PCSX::GPU::Shading shading, PCSX::GPU::Shape shape, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend,
+          PCSX::GPU::Modulation modulation>
+void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawEditor(Overlay& overlay) {
+    for (unsigned i = 0; i < count; i++) {
+        ImGui::PushID(i);
+        ImGui::Separator();
+        ImGui::Text(_("Vertex %i"), i);
+        if (colorEditable(i)) editColor(overlay, i, colors[i]);
+        editXY(overlay, i, x[i], y[i]);
+        ImGui::PopID();
+    }
+    if constexpr (textured == Textured::Yes) {
+        ImGui::Separator();
+        editBlendFunction(overlay, tpage.blendFunction);
+    }
+}
+
 template <PCSX::GPU::Shading shading, PCSX::GPU::LineType lineType, PCSX::GPU::Blend blend>
 void PCSX::GPU::Line<shading, lineType, blend>::drawLogNode(unsigned itemIndex, const DrawLogSettings &settings) {
     int minX = x[0], minY = y[0], maxX = x[0], maxY = y[0];
@@ -1414,6 +1534,18 @@ void PCSX::GPU::Line<shading, lineType, blend>::drawLogNode(unsigned itemIndex, 
     std::string label = fmt::format(f_("Go to primitive##{}"), itemIndex);
     if (ImGui::Button(label.c_str())) {
         g_system->m_eventBus->signal(Events::GUI::VRAMFocus{minX, minY, maxX, maxY});
+    }
+}
+
+template <PCSX::GPU::Shading shading, PCSX::GPU::LineType lineType, PCSX::GPU::Blend blend>
+void PCSX::GPU::Line<shading, lineType, blend>::drawEditor(Overlay& overlay) {
+    for (unsigned i = 0; i < editableCount(); i++) {
+        ImGui::PushID(i);
+        ImGui::Separator();
+        ImGui::Text(_("Vertex %i"), i);
+        if (colorEditable(i)) editColor(overlay, i, colors[i]);
+        editXY(overlay, i, x[i], y[i]);
+        ImGui::PopID();
     }
 }
 
@@ -1469,6 +1601,15 @@ void PCSX::GPU::Rect<size, textured, blend, modulation>::drawLogNode(unsigned it
             }
         }
     }
+}
+
+template <PCSX::GPU::Size size, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend, PCSX::GPU::Modulation modulation>
+void PCSX::GPU::Rect<size, textured, blend, modulation>::drawEditor(Overlay& overlay) {
+    // A textured rectangle without modulation has no colour field, so this cannot be a runtime test.
+    if constexpr ((textured == Textured::No) || (modulation == Modulation::On)) {
+        editColor(overlay, 0, color);
+    }
+    editXY(overlay, 0, x, y);
 }
 
 static float triangleArea(float x1, float x2, float x3, float y1, float y2, float y3) {
