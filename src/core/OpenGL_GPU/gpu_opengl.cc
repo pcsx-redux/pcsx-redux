@@ -354,10 +354,26 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
 
         // Semi-transparency is computed here rather than by GL blending: u_maskTex then holds the
         // destination as it was before the batch, which overlap flushes keep current. The math is the
-        // GPU's in 5 bits per channel, with front = F and front / 4 = Fq, saturated to 31.
-        vec3 semiBlend(ivec3 F, ivec3 Fq) {
+        // GPU's in 5 bits per channel, with front = F and front / 4 = Fq, saturated to 31. A dithered
+        // primitive blends in 8 bits instead, the destination shifted up and front = F8, and is
+        // dithered before dropping to 5 bits.
+        vec3 semiBlend(ivec3 F, ivec3 Fq, ivec3 F8) {
             vec4 dest = texelFetch(u_maskTex, ivec2(gl_FragCoord.xy), 0);
             ivec3 B = ivec3(floor(dest.rgb * 31.0 + 0.5));
+            if (dither != 0) {
+                ivec3 B8 = B << 3;
+                ivec3 result8;
+                if (u_blendMode == 0) {
+                    result8 = (B8 + F8) >> 1;
+                } else if (u_blendMode == 1) {
+                    result8 = B8 + F8;
+                } else if (u_blendMode == 2) {
+                    result8 = max(B8 - F8, ivec3(0));
+                } else {
+                    result8 = B8 + (F8 >> 2);
+                }
+                return to5(min(result8, ivec3(255)));
+            }
             ivec3 result;
             if (u_blendMode == 0) {
                 result = (B + F) >> 1;
@@ -373,7 +389,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
 
         vec3 untexturedColour(vec3 c, bool semi) {
             ivec3 c8 = ivec3(colour8(c));
-            if (semi) return semiBlend(c8 >> 3, c8 >> 5);
+            if (semi) return semiBlend(c8 >> 3, c8 >> 5, c8);
             return to5(c8);
         }
 
@@ -384,7 +400,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
             ivec3 texel5 = ivec3(floor(colour1.rgb * 31.0 + 0.5));
             ivec3 c8 = ivec3(colour8(colour2.rgb));
             if (semi) {
-                ret.rgb = semiBlend((texel5 * c8) >> 7, ((texel5 >> 2) * c8) >> 7);
+                ret.rgb = semiBlend((texel5 * c8) >> 7, ((texel5 >> 2) * c8) >> 7, (texel5 * c8) >> 4);
             } else {
                 ret.rgb = to5((texel5 * c8) >> 4);
             }
