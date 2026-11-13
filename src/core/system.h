@@ -130,6 +130,9 @@ struct Keyboard {
 namespace Memory {
 struct SetLuts {};
 }  // namespace Memory
+namespace CPU {
+struct Interrupt {};
+}  // namespace CPU
 }  // namespace Events
 
 class System {

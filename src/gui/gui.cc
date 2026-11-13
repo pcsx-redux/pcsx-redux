@@ -2487,7 +2487,7 @@ of the emulator to take effect.)");
 void PCSX::GUI::interruptsScaler() {
     static const char* names[] = {
         "SIO",          "SIO1",    "CDR FIFO",    "CDR Command", "CDR Reads", "GPU DMA",
-        "MDEC Out DMA", "SPU DMA", "MDEC In DMA", "GPU OTC DMA", "CDR DMA",
+        "MDEC Out DMA", "SPU DMA", "MDEC In DMA", "GPU OTC DMA", "CDR DMA",   "Lua",
     };
     static_assert(std::size(names) == std::extent_v<decltype(R3000Acpu::m_scheduleScales)>);
     if (ImGui::Begin(_("Scheduler Scaler"), &m_showInterruptsScaler)) {

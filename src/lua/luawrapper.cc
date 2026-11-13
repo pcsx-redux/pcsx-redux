@@ -19,6 +19,8 @@
 
 #include "lua/luawrapper.h"
 
+#include "core/system.h"
+
 #include <assert.h>
 
 static int callwrap(lua_State* raw, lua_CFunction func) {
@@ -673,3 +675,5 @@ void PCSX::Lua::fromJson(const json& j, int t) {
         }
     }
 }
+
+void PCSX::Lua::interrupt() { PCSX::g_system->m_eventBus->signal<PCSX::Events::CPU::Interrupt>({}); }

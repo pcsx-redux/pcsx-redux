@@ -74,6 +74,7 @@ void luaLog(const char* msg);
 void jumpToPC(uint32_t address);
 void jumpToMemory(uint32_t address, unsigned width);
 void invalidateCache();
+void scheduleInterrupt(uint32_t eCycle);
 
 typedef struct {
     uint32_t pc, code, regRs, regRt, regRd, hilo, cop, memValue;
@@ -262,6 +263,12 @@ local function jumpToMemory(address, width)
     C.jumpToMemory(address, width)
 end
 
+local function scheduleInterrupt(eCycle)
+    if type(eCycle) ~= 'number' then error 'PCSX.scheduleInterrupt requires a numeric cycle count' end
+    if (eCycle < 0) or (eCycle > 0xffffffff) or (eCycle % 1 ~= 0) then error 'PCSX.scheduleInterrupt cycle count parameter should be an unsigned 32-bit integer' end
+    C.scheduleInterrupt(eCycle)
+end
+
 PCSX = {
     getCPUCycles = function() return C.getCPUCycles() end,
     getMemPtr = function() return C.getMemPtr() end,
@@ -284,6 +291,7 @@ PCSX = {
     softResetEmulator = function() C.softResetEmulator() end,
     hardResetEmulator = function() C.hardResetEmulator() end,
     invalidateCache = function() C.invalidateCache() end,
+    scheduleInterrupt = scheduleInterrupt,
     log = function(...) printLike(function(msg) C.luaLog(msg .. '\n') end, ...) end,
     GUI = { jumpToPC = jumpToPC, jumpToMemory = jumpToMemory },
     WebServer = { Handlers = {} },
