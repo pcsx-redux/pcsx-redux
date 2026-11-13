@@ -140,6 +140,19 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
         unsigned other = m_currentDelayedLoad ^ 1;
         if (m_delayedLoadInfo[other].index == index) m_delayedLoadInfo[other].active = false;
     }
+    // LWL and LWR in the delay slot of a load to the same register merge with the value still in
+    // flight, and that value never reaches the register on its own: until the merged result lands,
+    // the next instruction reads the register as it was before both loads.
+    void mergeUnalignedLoad(uint32_t index, uint32_t mask, uint32_t value) {
+        auto& pending = m_delayedLoadInfo[m_currentDelayedLoad ^ 1];
+        if (pending.active && pending.index == index) {
+            const uint32_t base = (m_regs.GPR.r[index] & pending.mask) | pending.value;
+            pending.active = false;
+            delayedLoadRef(index) = (base & mask) | value;
+            return;
+        }
+        delayedLoadRef(index, mask) = value;
+    }
     // For the GUI dynarec disassembly widget
     virtual const uint8_t* getBufferPtr() final { return nullptr; }
     virtual const size_t getBufferSize() final { return 0; }
@@ -1024,7 +1037,7 @@ void InterpretedCPU::psxLWL(uint32_t code) {
 
     // load delay = 1 latency
     if (!_Rt_) return;
-    delayedLoadRef(_Rt_, LWL_MASK[shift]) = mem << LWL_SHIFT[shift];
+    mergeUnalignedLoad(_Rt_, LWL_MASK[shift], mem << LWL_SHIFT[shift]);
 
     /*
     Mem = 1234.  Reg = abcd
@@ -1042,7 +1055,7 @@ void InterpretedCPU::psxLWR(uint32_t code) {
 
     // load delay = 1 latency
     if (!_Rt_) return;
-    delayedLoadRef(_Rt_, LWR_MASK[shift]) = mem >> LWR_SHIFT[shift];
+    mergeUnalignedLoad(_Rt_, LWR_MASK[shift], mem >> LWR_SHIFT[shift]);
 
     /*
     Mem = 1234.  Reg = abcd
