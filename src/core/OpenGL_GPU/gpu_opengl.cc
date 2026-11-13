@@ -333,7 +333,8 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
                ivec2 sampleCoords = ivec2(clutBase.x + clutIndex, clutBase.y);
                FragColor = sampleVRAM(sampleCoords);
 
-               if (FragColor.rgb == vec3(0.0, 0.0, 0.0)) discard;
+               // Only 0x0000 is transparent: black with bit 15 set (0x8000) is drawn.
+               if (FragColor.rgb == vec3(0.0, 0.0, 0.0) && FragColor.a < 0.5) discard;
                bool semi = u_blending != 0 && FragColor.a >= 0.5;
                BlendColor = FragColor.a >= 0.5 ? u_blendFactors : u_blendFactorsIfOpaque;
                FragColor = texBlend(FragColor, vertexColor, semi);
@@ -347,7 +348,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
                ivec2 sampleCoords = ivec2(clutBase.x + clutIndex, clutBase.y);
                FragColor = sampleVRAM(sampleCoords);
 
-               if (FragColor.rgb == vec3(0.0, 0.0, 0.0)) discard;
+               if (FragColor.rgb == vec3(0.0, 0.0, 0.0) && FragColor.a < 0.5) discard;
                bool semi = u_blending != 0 && FragColor.a >= 0.5;
                BlendColor = FragColor.a >= 0.5 ? u_blendFactors : u_blendFactorsIfOpaque;
                FragColor = texBlend(FragColor, vertexColor, semi);
@@ -355,7 +356,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
                ivec2 texelCoord = UV + texpageBase;
                FragColor = sampleVRAM(texelCoord);
 
-               if (FragColor.rgb == vec3(0.0, 0.0, 0.0)) discard;
+               if (FragColor.rgb == vec3(0.0, 0.0, 0.0) && FragColor.a < 0.5) discard;
                // As with CLUT entries, only texels with bit 15 set are semi-transparent.
                bool semi = u_blending != 0 && FragColor.a >= 0.5;
                BlendColor = FragColor.a >= 0.5 ? u_blendFactors : u_blendFactorsIfOpaque;
