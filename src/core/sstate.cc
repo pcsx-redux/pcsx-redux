@@ -579,6 +579,8 @@ void PCSX::Counters::serialize(SaveStateWrapper* w) {
         counters.get<Rcnts>().value[i].get<RcntGateStarted>().value = m_rcnts[i].gateStarted;
         counters.get<Rcnts>().value[i].get<RcntRateDen>().value = m_rcnts[i].rateDen;
         counters.get<Rcnts>().value[i].get<RcntStartFrac>().value = m_rcnts[i].startFrac;
+        counters.get<Rcnts>().value[i].get<RcntPauseUntil>().value = m_rcnts[i].pauseUntil;
+        counters.get<Rcnts>().value[i].get<RcntHoldFrom>().value = m_rcnts[i].holdFrom;
     }
     counters.get<HSyncCount>().value = m_hSyncCount;
     counters.get<PSXNextCounter>().value = m_psxNextCounter;
@@ -878,6 +880,8 @@ void PCSX::Counters::deserialize(const SaveStateWrapper* w) {
         // Older states carry no denominator: their rates are whole cycles.
         m_rcnts[i].rateDen = std::max<uint32_t>(counters.get<Rcnts>().value[i].get<RcntRateDen>().value, 1);
         m_rcnts[i].startFrac = counters.get<Rcnts>().value[i].get<RcntStartFrac>().value;
+        m_rcnts[i].pauseUntil = counters.get<Rcnts>().value[i].get<RcntPauseUntil>().value;
+        m_rcnts[i].holdFrom = counters.get<Rcnts>().value[i].get<RcntHoldFrom>().value;
     }
     m_hSyncCount = counters.get<HSyncCount>().value;
     m_psxNextCounter = counters.get<PSXNextCounter>().value;
