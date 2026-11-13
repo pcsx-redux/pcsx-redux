@@ -660,8 +660,44 @@ runner.init({
             // stays alive with everything intact. Nothing below runs on wasm -
             // no pause(), no Quitting signal - which is the honest shape for a
             // tab, since a tab is closed rather than quit.
+            //
+            // Pacing. Each Execute() is one emulated frame and the browser calls us once per
+            // display refresh, which is not the console's rate and may be anything. The main
+            // thread must not wait, so a callback that would put emulated time ahead of the
+            // wall clock does nothing and the canvas keeps the last frame. Emulated time is the
+            // CPU cycle counter, so PAL and NTSC pace alike. Half a frame of slack absorbs the
+            // jitter of a refresh close to the console's own rate. A gap of more than a quarter
+            // second either way (a slow host, a background tab, a save state, a reset) is not
+            // caught up: the clocks are realigned.
             static std::function<void()> s_frame;
-            s_frame = oneIteration;
+            s_frame = [oneIteration, system, emulator]() {
+                static bool s_aligned = false;
+                static double s_wallBase = 0.0;
+                static uint64_t s_cycleBase = 0;
+                if (system->running() && !system->hasPendingSaveStateLoad()) {
+                    constexpr double c_slackMs = 1000.0 / 60.0 / 2.0;
+                    constexpr double c_realignMs = 250.0;
+                    const double now = emscripten_get_now();
+                    const uint64_t cycle = emulator->m_cpu->m_regs.cycle;
+                    if (!s_aligned || cycle < s_cycleBase) {
+                        s_aligned = true;
+                        s_wallBase = now;
+                        s_cycleBase = cycle;
+                    }
+                    const double emulatedMs =
+                        double(cycle - s_cycleBase) * 1000.0 / PCSX::Emulator::m_psxClockSpeed;
+                    const double aheadMs = emulatedMs - (now - s_wallBase);
+                    if (aheadMs > c_realignMs || aheadMs < -c_realignMs) {
+                        s_wallBase = now;
+                        s_cycleBase = cycle;
+                    } else if (aheadMs > c_slackMs) {
+                        return;
+                    }
+                } else {
+                    s_aligned = false;
+                }
+                oneIteration();
+            };
             emscripten_set_main_loop([]() { s_frame(); }, 0, false);
             cleaner.disarm();
             return 0;
