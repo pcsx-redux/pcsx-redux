@@ -671,6 +671,15 @@ bool PCSX::SPU::impl::flushOutput() {
     if (buffered + frames > lead + devicePeriodFrames()) {
         m_audioOut.dropVoiceFrames(buffered + frames - lead);
     }
+#ifdef __EMSCRIPTEN__
+    // In a browser the device callback that drains this ring runs on the main thread, and so
+    // does the CPU, which may be in catchUp() waiting for this thread. Waiting here for room
+    // would hang the page whenever the device stops draining (an AudioContext that is still
+    // suspended) or drains slower than the CPU runs. Make room by dropping the oldest frames.
+    const size_t capacity = m_audioOut.getVoiceCapacity();
+    const size_t queued = m_audioOut.getFramesBuffered(0);
+    if (queued + frames >= capacity) m_audioOut.dropVoiceFrames(queued + frames - capacity + 1);
+#endif
     // Blocks while the device ring is full, which is what paces this thread when the CPU is
     // further ahead than the ring holds.
     while (!m_audioOut.feedStreamData(reinterpret_cast<SDLAudio::Frame *>(spuBuffer), frames)) {
