@@ -39,6 +39,12 @@ Reads from the File object at the specified position. No pointers are modified. 
 :readAt(pb_buffer, size, pos)
 ```
 
+Reads the whole file into a new `Slice`; use `tostring()` on it to get a Lua string.
+```lua
+:readWhole()
+```
+A seekable file is read from offset 0 to its end, and its read pointer does not move. A stream that cannot seek is read from its read pointer until a read returns nothing, which consumes it; on a live stream such as a `uvFifo`, that is only what has arrived so far. An empty file gives an empty `Slice`, and a failed file raises an error.
+
 Writes to the File object. The non-At variants will advances the write pointer accordingly. The At variants will not modify the write pointer, and simply write at the requested location. Returns the number of bytes written. The `string` variants will in fact take any object that can be transformed to a string using `tostring()`.
 ```lua
 :write(string)
