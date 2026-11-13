@@ -24,6 +24,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <random>
 #include <string>
 
 #include "core/psxemulator.h"
@@ -46,6 +47,7 @@ struct Seen {
     uint32_t startedChannels = 0;
     uint32_t completedChannels = 0;
     uint64_t unknownTypes = 0;
+    uint64_t completedBeforeStart = 0;
 };
 
 Seen s_seen;
@@ -70,6 +72,7 @@ void observe(const PCSX::HWEvent& e) {
             break;
         case PCSX::HWEvents::DMAComplete:
             s_seen.dmaCompletes++;
+            if ((s_seen.startedChannels & (1u << e.payload[0])) == 0) s_seen.completedBeforeStart++;
             s_seen.completedChannels |= 1u << e.payload[0];
             break;
         default:
@@ -90,7 +93,8 @@ struct ObserverScope {
 
 TEST(HWEvents, IRQAndDMAEventsAreStampedInOrder) {
     ObserverScope scope;
-    auto luaOut = std::filesystem::temp_directory_path() / "pcsx-hwevents-lua.txt";
+    auto luaOut = std::filesystem::temp_directory_path() /
+                  ("pcsx-hwevents-lua-" + std::to_string(std::random_device{}()) + ".txt");
     std::filesystem::remove(luaOut);
     // Arms from Lua before the exe runs, and reads the whole store back through
     // PCSX.HWEvents.read when the emulator quits.
@@ -98,10 +102,10 @@ TEST(HWEvents, IRQAndDMAEventsAreStampedInOrder) {
         "PCSX.HWEvents.arm('IRQ', 'DMA') "
         "hwEventsQuit = PCSX.Events.createEventListener('Quitting', function() "
         "local arr, n = PCSX.HWEvents.read() "
-        "local f = io.open('" +
+        "local f = io.open([==[" +
         luaOut.generic_string() +
-        "', 'w') "
-        "local sized = PCSX.HWEvents.size() == n "
+        "]==], 'w') "
+        "local sized = PCSX.HWEvents.size() == n and not PCSX.HWEvents.full() "
         "PCSX.HWEvents.clear() "
         "local cleared = PCSX.HWEvents.size() == 0 and PCSX.HWEvents.read() == nil "
         "local armedMask = PCSX.HWEvents.mask() "
@@ -128,8 +132,8 @@ TEST(HWEvents, IRQAndDMAEventsAreStampedInOrder) {
     EXPECT_GT(s_seen.vblankAsserts, 0u);
     EXPECT_GT(s_seen.dmaStarts, 0u);
     EXPECT_GT(s_seen.dmaCompletes, 0u);
-    // Every channel that completed was started first.
-    EXPECT_EQ(s_seen.completedChannels & ~s_seen.startedChannels, 0u);
+    // No channel completed before it had started.
+    EXPECT_EQ(s_seen.completedBeforeStart, 0u);
 
     std::ifstream in(luaOut);
     ASSERT_TRUE(in.good()) << "the Lua Quitting listener did not write " << luaOut;

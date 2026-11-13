@@ -99,6 +99,7 @@ typedef struct {
 uint64_t getHWEventsSize();
 void clearHWEvents();
 uint32_t getHWEventsMask();
+bool getHWEventsFull();
 void setHWEventsMask(uint32_t mask);
 uint64_t readHWEvents(void* dest, uint64_t start, uint64_t count);
 
@@ -327,6 +328,8 @@ PCSX = {
         size = function() return tonumber(C.getHWEventsSize()) end,
         clear = function() C.clearHWEvents() end,
         mask = function() return C.getHWEventsMask() end,
+        -- True once the store has hit its limit and stopped recording.
+        full = function() return C.getHWEventsFull() end,
         setMask = function(mask) C.setHWEventsMask(mask) end,
         arm = function(...)
             local mask = C.getHWEventsMask()

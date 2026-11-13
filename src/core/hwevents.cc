@@ -24,11 +24,12 @@
 
 void PCSX::HWEvents::record(Type type, uint32_t p0, uint32_t p1, uint32_t p2, uint32_t p3, uint16_t flags) {
     if (full()) return;
-    size_t idx = m_count++;
+    size_t idx = m_count;
     size_t chunk = idx / kRecordsPerChunk;
     if (chunk >= m_chunks.size()) {
         m_chunks.emplace_back(std::make_unique<HWEvent[]>(kRecordsPerChunk));
     }
+    m_count++;
     HWEvent& e = m_chunks[chunk][idx % kRecordsPerChunk];
     auto& regs = g_emulator->m_cpu->m_regs;
     e.cycle = regs.cycle;
