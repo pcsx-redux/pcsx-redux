@@ -195,6 +195,9 @@
     <ClCompile Include="..\..\..\tests\core\memorycard.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\core\memeditor-route.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\multitap.cc">
       <Filter>Source Files</Filter>
     </ClCompile>

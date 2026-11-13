@@ -600,6 +600,8 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
 
     template <int size, bool signExtend>
     void recompileLoadWithDelay(uint32_t code, LoadDelayDependencyType type);
+    template <bool left>
+    void recompileUnalignedLoad(uint32_t code);
 
     const recompilationFunc m_recBSC[64] = {
         &DynaRecCPU::recSpecial, &DynaRecCPU::recREGIMM,  &DynaRecCPU::recJ,       &DynaRecCPU::recJAL,      // 00

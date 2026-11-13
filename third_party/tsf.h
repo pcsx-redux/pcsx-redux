@@ -833,6 +833,9 @@ static int tsf_load_presets(tsf* res, struct tsf_hydra *hydra, unsigned int font
 								zoneRegion.sample_rate = pshdr->sampleRate;
 								if (zoneRegion.end && zoneRegion.end < fontSampleCount) zoneRegion.end++;
 								else zoneRegion.end = fontSampleCount;
+								// A compressed sample left empty by tsf_decode_sf3_samples (rejected) plays nothing, whatever the offset generators say.
+								if ((pshdr->sampleType & 0x30) && pshdr->start == pshdr->end)
+									zoneRegion.offset = zoneRegion.end = zoneRegion.loop_start = zoneRegion.loop_end = fontSampleCount;
 
 								preset->regions[region_index] = zoneRegion;
 								region_index++;
@@ -912,18 +915,22 @@ static int tsf_decode_sf3_samples(const void* rawBuffer, float** pFloatBuffer, u
 	const tsf_u8* smplBuffer = (const tsf_u8*)rawBuffer;
 	tsf_u32 smplLength = *pSmplCount, resNum = 0, resMax = 0, resInitial = (smplLength > 0x100000 ? (smplLength & ~0xFFFFF) : 65536);
 	float *res = TSF_NULL, *oldres;
-	int i, shdrLast = hydra->shdrNum - 1, is_sf3 = 0;
+	int i, shdrLast = hydra->shdrNum - 1, is_sf3 = 0, had_compressed = 0;
 	for (i = 0; i <= shdrLast; i++)
 	{
 		struct tsf_hydra_shdr *shdr = &hydra->shdrs[i];
 		if (shdr->sampleType & 0x30) // compression flags (sometimes Vorbis flag)
 		{
-			const tsf_u8 *pSmpl = smplBuffer + shdr->start, *pSmplEnd = smplBuffer + shdr->end;
-			if (pSmpl + 4 > pSmplEnd || !TSF_FourCCEquals(pSmpl, "OggS"))
+			const tsf_u8 *pSmpl, *pSmplEnd;
+			had_compressed = 1;
+			if (shdr->start > shdr->end || shdr->end > smplLength || shdr->end - shdr->start < 4 || !TSF_FourCCEquals((smplBuffer + shdr->start), "OggS"))
 			{
+				// Rejected: left empty here, and pointed past the decoded samples below.
 				shdr->start = shdr->end = shdr->startLoop = shdr->endLoop = 0;
 				continue;
 			}
+			pSmpl = smplBuffer + shdr->start;
+			pSmplEnd = smplBuffer + shdr->end;
 
 			// Fix up sample indices in shdr (end index is set after decoding)
 			shdr->start = resNum;
@@ -946,7 +953,8 @@ static int tsf_decode_sf3_samples(const void* rawBuffer, float** pFloatBuffer, u
 				shdr->endLoop += fix_offset;
 			}
 			inEnd = in + ((shdr->end >= shdr->endLoop ? shdr->end : shdr->endLoop) - resNum);
-			if (i == shdrLast || (tsf_u8*)inEnd > (smplBuffer + smplLength)) inEnd = (short*)(smplBuffer + smplLength);
+			// The terminal record takes in any PCM left at the end of smpl, unless smpl holds compressed data.
+			if ((i == shdrLast && !had_compressed) || (tsf_u8*)inEnd > (smplBuffer + smplLength)) inEnd = (short*)(smplBuffer + smplLength);
 			if (inEnd <= in) continue;
 
 			// expand our output buffer if necessary then convert the PCM data from short to float
@@ -965,8 +973,23 @@ static int tsf_decode_sf3_samples(const void* rawBuffer, float** pFloatBuffer, u
 		}
 	}
 
-	// Trim the sample buffer down then return success (unless out of memory)
-	if (!(*pFloatBuffer = (float*)TSF_REALLOC(res, resNum * sizeof(float)))) *pFloatBuffer = res;
+	// Rejected compressed samples become empty regions at the end of the decoded samples.
+	for (i = 0; i < shdrLast; i++)
+	{
+		struct tsf_hydra_shdr *shdr = &hydra->shdrs[i];
+		if ((shdr->sampleType & 0x30) && shdr->start == shdr->end) shdr->start = shdr->end = shdr->startLoop = shdr->endLoop = resNum;
+	}
+
+	// Trim the sample buffer down, keeping one zero point past the end for the renderer's interpolation,
+	// then return success (unless out of memory)
+	if (res)
+	{
+		float* trimmed = (float*)TSF_REALLOC(res, (resNum + 1) * sizeof(float));
+		if (!trimmed && resMax < resNum + 1) { TSF_FREE(res); return 0; }
+		if (trimmed) res = trimmed;
+		res[resNum] = 0.0f;
+	}
+	*pFloatBuffer = res;
 	*pSmplCount = resNum;
 	return (res ? 1 : 0);
 }
