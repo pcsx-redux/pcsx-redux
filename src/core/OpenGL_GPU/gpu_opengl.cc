@@ -61,7 +61,8 @@ void PCSX::OpenGL_GPU::resetBackend() {
     m_program.use();
     setDrawOffset(0x00000000);
     setTexWindowUnchecked(0x00000000);
-    setBlendFactors(0.0, 0.0);
+    // Semi-transparency is blended in the shader, so GL blending only ever passes the fragment through.
+    setBlendFactors(1.0, 0.0);
     setDisplayEnable(false);
 
     clearVRAM();
@@ -326,8 +327,10 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
             return r | (g << 5) | (b << 10) | msb;
         }
 
-        // 1 while GL blending is on, i.e. the primitive is semi-transparent.
+        // 1 when the primitive is semi-transparent.
         uniform int u_blending = 0;
+        // GP0(E1h) bits 5-6 of a semi-transparent primitive.
+        uniform int u_blendMode = 0;
 
         // The 8-bit vertex colour as an integer.
         vec3 colour8(vec3 c) {
@@ -341,30 +344,49 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
         // The GPU writes 5 bits per channel, dropping the low 3 bits of an 8-bit colour, after the
         // dither offset if the primitive is dithered. Writing k / 31 keeps VRAM 5-bit exact through
         // the RGBA8 framebuffer.
-        vec3 to5(vec3 c8) {
+        vec3 to5(ivec3 c8) {
             if (dither != 0) {
                 ivec2 p = ivec2(gl_FragCoord.xy) & 3;
-                c8 += float(ditherTable[p.y * 4 + p.x]);
+                c8 += ditherTable[p.y * 4 + p.x];
             }
-            return floor(clamp(c8, 0.0, 255.0) / 8.0) / 31.0;
+            return vec3(clamp(c8, ivec3(0), ivec3(255)) >> 3) / 31.0;
         }
 
-        // Semi-transparent fragments are left unquantized: the GPU blends before dropping the bits,
-        // and GL blending happens after the shader.
+        // Semi-transparency is computed here rather than by GL blending: u_maskTex then holds the
+        // destination as it was before the batch, which overlap flushes keep current. The math is the
+        // GPU's in 5 bits per channel, with front = F and front / 4 = Fq, saturated to 31.
+        vec3 semiBlend(ivec3 F, ivec3 Fq) {
+            vec4 dest = texelFetch(u_maskTex, ivec2(gl_FragCoord.xy), 0);
+            ivec3 B = ivec3(floor(dest.rgb * 31.0 + 0.5));
+            ivec3 result;
+            if (u_blendMode == 0) {
+                result = (B + F) >> 1;
+            } else if (u_blendMode == 1) {
+                result = B + F;
+            } else if (u_blendMode == 2) {
+                result = max(B - F, ivec3(0));
+            } else {
+                result = B + Fq;
+            }
+            return vec3(min(result, ivec3(31))) / 31.0;
+        }
+
         vec3 untexturedColour(vec3 c, bool semi) {
-            if (semi) return c;
-            return to5(colour8(c));
+            ivec3 c8 = ivec3(colour8(c));
+            if (semi) return semiBlend(c8 >> 3, c8 >> 5);
+            return to5(c8);
         }
 
         // Apply texture blending: (texel * colour) / 128 per channel, with a 5-bit texel and an 8-bit
         // colour, truncated and saturated to 5 bits. The 8-bit intermediate is (texel * colour) / 16.
         vec4 texBlend(vec4 colour1, vec4 colour2, bool semi) {
             vec4 ret;
+            ivec3 texel5 = ivec3(floor(colour1.rgb * 31.0 + 0.5));
+            ivec3 c8 = ivec3(colour8(colour2.rgb));
             if (semi) {
-                ret.rgb = (colour1.rgb * colour2.rgb) / (128.0 / 255.0);
+                ret.rgb = semiBlend((texel5 * c8) >> 7, ((texel5 >> 2) * c8) >> 7);
             } else {
-                vec3 texel5 = floor(colour1.rgb * 31.0 + 0.5);
-                ret.rgb = to5(floor(texel5 * colour8(colour2.rgb) / 16.0));
+                ret.rgb = to5((texel5 * c8) >> 4);
             }
             // The texel's mask bit is written through, ORed with set-mask.
             ret.a = max(step(0.5, colour1.a), u_setMask);
@@ -451,6 +473,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
     m_setMaskLoc = OpenGL::uniformLocation(m_program, "u_setMask");
     m_checkMaskLoc = OpenGL::uniformLocation(m_program, "u_checkMask");
     m_blendingLoc = OpenGL::uniformLocation(m_program, "u_blending");
+    m_blendModeLoc = OpenGL::uniformLocation(m_program, "u_blendMode");
     glUniform1i(OpenGL::uniformLocation(m_program, "u_maskTex"), 1);
     m_maskDirty = true;
 
@@ -604,6 +627,7 @@ bool PCSX::OpenGL_GPU::configure() {
             m_setMaskLoc = OpenGL::uniformLocation(m_program, "u_setMask");
             m_checkMaskLoc = OpenGL::uniformLocation(m_program, "u_checkMask");
             m_blendingLoc = OpenGL::uniformLocation(m_program, "u_blending");
+            m_blendModeLoc = OpenGL::uniformLocation(m_program, "u_blendMode");
             glUniform1i(OpenGL::uniformLocation(m_program, "u_maskTex"), 1);
             m_maskDirty = true;
             glUniform4f(m_blendFactorsIfOpaqueLoc, 1.0, 1.0, 1.0, 0.0);
@@ -826,7 +850,7 @@ void PCSX::OpenGL_GPU::setMaskBits(bool set, bool check) {
 // vertices; with MSAA, also one pixel to the right and below, for the samples taken past the right and
 // bottom edges. If the box overlaps the pending batch, the batch is drawn first.
 void PCSX::OpenGL_GPU::addCheckMaskBounds(const int *xs, const int *ys, int n) {
-    if (!m_checkMask) return;
+    if (!readsDestination()) return;
     // A primitive adds at most 6 vertices. Flush now if they would not fit, so the primitive and its
     // bounds land in the same batch.
     maybeRenderBatch<6>();
@@ -886,9 +910,10 @@ void PCSX::OpenGL_GPU::renderBatch() {
         pushVRAMConfig();
         pushMaskConfig();
         glUniform1i(m_blendingLoc, m_lastTransparency == Transparency::Transparent ? 1 : 0);
-        if (m_checkMask) {
-            // Snapshot the destination the batch reads for check-mask. Without bounds (a primitive split
-            // across a full vertex buffer), take all of VRAM.
+        glUniform1i(m_blendModeLoc, std::max(m_lastBlendingMode, 0));
+        if (readsDestination()) {
+            // Snapshot the destination the batch reads for check-mask and semi-transparency. Without
+            // bounds (a primitive split across a full vertex buffer), take all of VRAM.
             int x = 0, y = 0, w = vramWidth, h = vramHeight;
             if (m_batchBoundsValid) {
                 x = m_batchMinX;
@@ -927,24 +952,7 @@ void PCSX::OpenGL_GPU::renderBatch() {
             setDrawOffset(m_lastDrawOffsetSetting);
         }
         m_vbo.bufferVertsSub(&m_vertices[0], m_vertexCount);
-
-        // Special handling if we're using subtractive blending
-        if (m_lastBlendingMode == 2) {
-            // Draw opaque only
-            OpenGL::setBlendEquation(OpenGL::BlendEquation::Add);
-            setBlendFactors(0.0, 1.0);
-            OpenGL::draw(OpenGL::Triangles, m_vertexCount);
-
-            // Draw transparent only
-            OpenGL::setBlendEquation(OpenGL::BlendEquation::ReverseSub, OpenGL::BlendEquation::Add);
-            setBlendFactors(1.0, 1.0);
-            glUniform4f(m_blendFactorsIfOpaqueLoc, 0.0, 0.0, 0.0, 1.0);
-            OpenGL::draw(OpenGL::Triangles, m_vertexCount);
-
-            glUniform4f(m_blendFactorsIfOpaqueLoc, 1.0, 1.0, 1.0, 0.0);
-        } else {
-            OpenGL::draw(OpenGL::Triangles, m_vertexCount);
-        }
+        OpenGL::draw(OpenGL::Triangles, m_vertexCount);
         m_vertexCount = 0;
     }
 }
@@ -1033,10 +1041,10 @@ void PCSX::OpenGL_GPU::syncVRAMForRead() {
     } else {
         OpenGL::disableBlend();
     }
-    // Same blend state setBlendingModeFromTexpage() leaves; mode 2 sets its equations in renderBatch().
+    // Same blend state setBlendingModeFromTexpage() leaves.
     if (m_lastBlendingMode >= 0) {
         OpenGL::setBlendFactor(GL_SRC1_COLOR, GL_SRC1_ALPHA, GL_ONE, GL_ZERO);
-        if (m_lastBlendingMode != 2) OpenGL::setBlendEquation(OpenGL::BlendEquation::Add);
+        OpenGL::setBlendEquation(OpenGL::BlendEquation::Add);
     }
     renderBatch();
 
@@ -1160,25 +1168,11 @@ void PCSX::OpenGL_GPU::setBlendingModeFromTexpage(uint32_t texpage) {
 
     if (m_lastBlendingMode != newBlendingMode) {
         renderBatch();  // This must be executed before we set the new blend mode
+        // The shader does the blending (semiBlend), from u_blendMode, pushed in renderBatch(). GL blending
+        // stays set to write the fragment as is: u_blendFactors is (1, 1, 1, 0).
         m_lastBlendingMode = newBlendingMode;
         OpenGL::setBlendFactor(GL_SRC1_COLOR, GL_SRC1_ALPHA, GL_ONE, GL_ZERO);
-
-        switch (newBlendingMode) {
-            case 0:  // B/2 + F/2
-                OpenGL::setBlendEquation(OpenGL::BlendEquation::Add);
-                setBlendFactors(0.5, 0.5);
-                break;
-            case 1:  // B + F
-                OpenGL::setBlendEquation(OpenGL::BlendEquation::Add);
-                setBlendFactors(1.0, 1.0);
-                break;
-            case 2:  // B - F. We special handle this in the renderBatch() function
-                break;
-            case 3:  // B + F/4
-                OpenGL::setBlendEquation(OpenGL::BlendEquation::Add);
-                setBlendFactors(0.25, 1.0);
-                break;
-        }
+        OpenGL::setBlendEquation(OpenGL::BlendEquation::Add);
     }
 }
 

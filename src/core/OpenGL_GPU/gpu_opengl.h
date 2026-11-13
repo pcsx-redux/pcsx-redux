@@ -174,12 +174,15 @@ class OpenGL_GPU final : public GPU {
     GLint m_setMaskLoc;
     GLint m_checkMaskLoc;
     GLint m_blendingLoc;
+    GLint m_blendModeLoc;
     OpenGL::Texture m_maskTexture;
     bool m_batchBoundsValid = false;
     int m_batchMinX = 0, m_batchMinY = 0, m_batchMaxX = 0, m_batchMaxY = 0;
     void setMaskBits(bool set, bool check);
     void pushMaskConfig();
     void addCheckMaskBounds(const int *xs, const int *ys, int n);
+    // Check-mask and semi-transparent batches read the destination from a snapshot taken before the batch.
+    bool readsDestination() const { return m_checkMask || m_lastTransparency == Transparency::Transparent; }
     void readVRAMRect(int x, int y, int w, int h, uint16_t *pixels);
     void updateSkipParity();
     uint32_t m_lastTexwindowSetting = 0;
