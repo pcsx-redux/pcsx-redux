@@ -170,6 +170,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
         flat out ivec2 clutBase;
         flat out ivec2 texpageBase;
         flat out int texMode;
+        flat out int dither;
 
         // We always apply a 0.5 offset in addition to the drawing offsets, to cover up OpenGL inaccuracies
         uniform vec2 u_vertexOffsets = vec2(+0.5, +0.5);
@@ -198,6 +199,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
 
            gl_Position = vec4(xx, yy, 1.0, 1.0);
            vertexColor = vec4(color / 255.0, 1.0);
+           dither = (inTexpage >> 14) & 1;
 
            if ((inTexpage & 0x8000) != 0) { // Untextured primitive
                texMode = 4;
@@ -218,6 +220,7 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
         flat in ivec2 clutBase;
         flat in ivec2 texpageBase;
         flat in int texMode;
+        flat in int dither;
 
         // We use dual-source blending in order to emulate the fact that the GPU can enable blending per-pixel
         // FragColor: The colour of the pixel before alpha blending comes into play
@@ -270,23 +273,37 @@ int PCSX::OpenGL_GPU::initBackend(UI *ui) {
             return floor(c * 255.0 + 0.5);
         }
 
-        // The GPU writes 5 bits per channel, dropping the low 3 bits of an 8-bit colour. Writing k / 31
-        // keeps VRAM 5-bit exact through the RGBA8 framebuffer. Semi-transparent fragments are left
-        // unquantized: the GPU blends before dropping the bits, and GL blending happens after the shader.
+        // 4x4 dither offsets, added to the 8-bit colour before it drops to 5 bits, indexed by the
+        // VRAM coordinates of the pixel.
+        const int ditherTable[16] = int[16](-4, 0, -3, 1, 2, -2, 3, -1, -3, 1, -4, 0, 3, -1, 2, -2);
+
+        // The GPU writes 5 bits per channel, dropping the low 3 bits of an 8-bit colour, after the
+        // dither offset if the primitive is dithered. Writing k / 31 keeps VRAM 5-bit exact through
+        // the RGBA8 framebuffer.
+        vec3 to5(vec3 c8) {
+            if (dither != 0) {
+                ivec2 p = ivec2(gl_FragCoord.xy) & 3;
+                c8 += float(ditherTable[p.y * 4 + p.x]);
+            }
+            return floor(clamp(c8, 0.0, 255.0) / 8.0) / 31.0;
+        }
+
+        // Semi-transparent fragments are left unquantized: the GPU blends before dropping the bits,
+        // and GL blending happens after the shader.
         vec3 untexturedColour(vec3 c, bool semi) {
             if (semi) return c;
-            return floor(colour8(c) / 8.0) / 31.0;
+            return to5(colour8(c));
         }
 
         // Apply texture blending: (texel * colour) / 128 per channel, with a 5-bit texel and an 8-bit
-        // colour, truncated and saturated to 5 bits.
+        // colour, truncated and saturated to 5 bits. The 8-bit intermediate is (texel * colour) / 16.
         vec4 texBlend(vec4 colour1, vec4 colour2, bool semi) {
             vec4 ret;
             if (semi) {
                 ret.rgb = (colour1.rgb * colour2.rgb) / (128.0 / 255.0);
             } else {
                 vec3 texel5 = floor(colour1.rgb * 31.0 + 0.5);
-                ret.rgb = min(floor(texel5 * colour8(colour2.rgb) / 128.0), vec3(31.0)) / 31.0;
+                ret.rgb = to5(floor(texel5 * colour8(colour2.rgb) / 16.0));
             }
             // The texel's mask bit is written through, ORed with set-mask.
             ret.a = max(step(0.5, colour1.a), u_setMask);
@@ -1111,12 +1128,12 @@ void PCSX::OpenGL_GPU::setBlendFactors(float sourceFactor, float destFactor) {
     }
 }
 
-void PCSX::OpenGL_GPU::drawTri(int *x, int *y, uint32_t *colors) {
+void PCSX::OpenGL_GPU::drawTri(int *x, int *y, uint32_t *colors, uint16_t flags) {
     maybeRenderBatch<3>();
 
-    m_vertices[m_vertexCount++] = Vertex(x[0], y[0], colors[0]);
-    m_vertices[m_vertexCount++] = Vertex(x[1], y[1], colors[1]);
-    m_vertices[m_vertexCount++] = Vertex(x[2], y[2], colors[2]);
+    m_vertices[m_vertexCount++] = Vertex(x[0], y[0], colors[0], flags);
+    m_vertices[m_vertexCount++] = Vertex(x[1], y[1], colors[1], flags);
+    m_vertices[m_vertexCount++] = Vertex(x[2], y[2], colors[2], flags);
 }
 
 void PCSX::OpenGL_GPU::drawTriTextured(int *x, int *y, uint32_t *colors, uint16_t clut, uint16_t texpage, unsigned *u,
@@ -1141,7 +1158,8 @@ void PCSX::OpenGL_GPU::drawRect(int x, int y, int w, int h, uint32_t color) {
 void PCSX::OpenGL_GPU::drawRectTextured(int x, int y, int w, int h, uint32_t color, uint16_t clut, unsigned u,
                                         unsigned v) {
     maybeRenderBatch<6>();
-    const uint32_t texpage = m_rectTexpage;
+    // Bits 14 and 15 of the vertex texpage are our own flags: rectangles are textured and never dithered.
+    const uint32_t texpage = m_rectTexpage & ~(Vertex::c_untexturedPrimitiveTexpage | Vertex::c_ditherTexpage);
     m_vertices[m_vertexCount++] = Vertex(x, y, color, clut, texpage, u, v);
     m_vertices[m_vertexCount++] = Vertex(x + w, y, color, clut, texpage, u + w, v);
     m_vertices[m_vertexCount++] = Vertex(x + w, y + h, color, clut, texpage, u + w, v + h);
@@ -1431,6 +1449,13 @@ void PCSX::OpenGL_GPU::polyExec(Poly<shading, shape, textured, blend, modulation
         }
     }
 
+    // As in the soft renderer, only gouraud-shaded polygons are dithered, following GP0(E1h) bit 9
+    // and the dithering setting (0 = never, 1 = as the game asks, 2 = always).
+    uint16_t ditherFlag = 0;
+    if constexpr (shading == Shading::Gouraud) {
+        if (m_useDither == 2 || (m_useDither != 0 && (m_rectTexpage & 0x200))) ditherFlag = Vertex::c_ditherTexpage;
+    }
+
     constexpr int n = shape == Shape::Quad ? 4 : 3;
     forEachPixelWrap(m_lastDrawOffsetSetting, x, y, n, [&](int dx, int dy) {
         int sx[n], sy[n];
@@ -1440,15 +1465,15 @@ void PCSX::OpenGL_GPU::polyExec(Poly<shading, shape, textured, blend, modulation
         }
         addCheckMaskBounds(sx, sy, n);
         if constexpr (textured == Textured::No) {
-            drawTri(&sx[0], &sy[0], &prim->colors[0]);
+            drawTri(&sx[0], &sy[0], &prim->colors[0], ditherFlag);
             if constexpr (shape == Shape::Quad) {
-                drawTri(&sx[1], &sy[1], &prim->colors[1]);
+                drawTri(&sx[1], &sy[1], &prim->colors[1], ditherFlag);
             }
         } else if constexpr (textured == Textured::Yes) {
-            drawTriTextured(&sx[0], &sy[0], &prim->colors[0], prim->clutraw, prim->tpage.raw, &prim->u[0], &prim->v[0]);
+            const uint16_t texpage = prim->tpage.raw | ditherFlag;
+            drawTriTextured(&sx[0], &sy[0], &prim->colors[0], prim->clutraw, texpage, &prim->u[0], &prim->v[0]);
             if constexpr (shape == Shape::Quad) {
-                drawTriTextured(&sx[1], &sy[1], &prim->colors[1], prim->clutraw, prim->tpage.raw, &prim->u[1],
-                                &prim->v[1]);
+                drawTriTextured(&sx[1], &sy[1], &prim->colors[1], prim->clutraw, texpage, &prim->u[1], &prim->v[1]);
             }
         }
     });
