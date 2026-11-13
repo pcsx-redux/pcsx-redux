@@ -672,20 +672,30 @@ runner.init({
             static std::function<void()> s_frame;
             s_frame = [oneIteration, system, emulator]() {
                 static bool s_aligned = false;
+                static int s_turbo = 1;
                 static double s_wallBase = 0.0;
                 static uint64_t s_cycleBase = 0;
-                if (system->running() && !system->hasPendingSaveStateLoad()) {
-                    constexpr double c_slackMs = 1000.0 / 60.0 / 2.0;
-                    constexpr double c_realignMs = 250.0;
+                constexpr double c_slackMs = 1000.0 / 60.0 / 2.0;
+                constexpr double c_realignMs = 250.0;
+                // Turbo divides emulated time, so a refresh near the console's rate has to run
+                // more than one frame per callback to keep up.
+                const int turbo = emulator->getTurboFactor();
+                for (int frame = 0; frame < turbo; frame++) {
+                    if (!system->running() || system->hasPendingSaveStateLoad()) {
+                        s_aligned = false;
+                        if (frame == 0) oneIteration();
+                        return;
+                    }
                     const double now = emscripten_get_now();
                     const uint64_t cycle = emulator->m_cpu->m_regs.cycle;
-                    if (!s_aligned || cycle < s_cycleBase) {
+                    if (!s_aligned || cycle < s_cycleBase || turbo != s_turbo) {
                         s_aligned = true;
+                        s_turbo = turbo;
                         s_wallBase = now;
                         s_cycleBase = cycle;
                     }
                     const double emulatedMs =
-                        double(cycle - s_cycleBase) * 1000.0 / PCSX::Emulator::m_psxClockSpeed;
+                        double(cycle - s_cycleBase) * 1000.0 / PCSX::Emulator::m_psxClockSpeed / turbo;
                     const double aheadMs = emulatedMs - (now - s_wallBase);
                     if (aheadMs > c_realignMs || aheadMs < -c_realignMs) {
                         s_wallBase = now;
@@ -693,10 +703,8 @@ runner.init({
                     } else if (aheadMs > c_slackMs) {
                         return;
                     }
-                } else {
-                    s_aligned = false;
+                    oneIteration();
                 }
-                oneIteration();
             };
             emscripten_set_main_loop([]() { s_frame(); }, 0, false);
             cleaner.disarm();
