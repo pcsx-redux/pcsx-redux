@@ -300,6 +300,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     GTE_WRAPPER(SQR);
 #undef GTE_WRAPPER
     void gteSWC2(uint32_t code) {
+        if (userAddressError(m_regs.GPR.r[_Rs_] + _Imm_, Exception::StoreAddressError)) return;
         gteDrainIfStalling();
         gteStall();
         PCSX::g_emulator->m_gte->SWC2(code);
@@ -332,6 +333,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     void gteCTC2(uint32_t code) { gteQueueWrite(true, _Rd_, m_regs.GPR.r[_Rt_]); }
     void gteLWC2(uint32_t code) {
         uint32_t addr = m_regs.GPR.r[_Rs_] + _Imm_;
+        if (userAddressError(addr, Exception::LoadAddressError)) return;
         if (addr & 3) {
             PCSX::g_emulator->m_gte->LWC2(code);
             return;
@@ -1925,7 +1927,9 @@ inline void InterpretedCPU::execBlock() {
         }
         if constexpr (debug) {
             uint32_t newPC = m_regs.pc;
-            uint32_t newCode = readICache(newPC);
+            // A user-mode fetch above 80000000h faults before it reads anything.
+            const bool newFetchFaults = (newPC & 0x80000000) && (m_regs.CP0.n.Status & 2);
+            uint32_t newCode = newFetchFaults ? 0 : readICache(newPC);
             PCSX::g_emulator->m_debug->process(pc, newPC, code, newCode, fromLink);
         }
         /* A detached block returns per instruction, like a debug one. Block granularity
