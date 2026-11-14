@@ -78,7 +78,7 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         const auto root = RootKey::combineCounts(SPU::sampleFundamental(spuRam, s), pitches);
         o.rootKey = root.key;
         o.correction = root.correction;
-        records.push_back(SPUSample::noteRecord(s.signature, root.note));
+        records.push_back(SPUSample::recordLine(s.signature, s.end - s.start, root.note));
         switch (root.status) {
             case RootKey::Status::Unpitched:
                 note(unpitched, o.name);
@@ -106,8 +106,9 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         "root key 255 and play on note 60 at their stored rate. Each pitched sample's fundamental was checked "
         "against the pitches the game keyed it on with, which land on whole notes when the game is tuned to A440; "
         "an octave error is not caught by this check. Loops come from the ADPCM loop flags only; a loop address "
-        "the game wrote to the voice register is not exported. Each spu-note line records a sample's note at pitch "
-        "1000h as measured here, which its replacement is tuned against; keep these lines when editing the bank.";
+        "the game wrote to the voice register is not exported. Each spu-sample line records a sample's size in sound "
+        "RAM and its note at pitch 1000h as measured here, which its replacement is tuned against; keep these lines "
+        "when editing the bank.";
     // ICMT is limited to 65536 bytes, terminator included. The lists stop at a whole name, with
     // room left to say so.
     constexpr std::string_view cut = "\n(list truncated)";

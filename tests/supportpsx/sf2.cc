@@ -160,36 +160,45 @@ TEST(SPUSample, MatchesTheStandardTestVectors) {
     EXPECT_EQ(signature(ram.data(), walk(ram.data(), 0x5000)), 0x9fcd6f024aae4596u);
 }
 
-TEST(SPUSample, NoteRecordsRoundTrip) {
-    EXPECT_EQ(noteRecord(0x849b04794e5240df, 64.97123), "spu-note 849b04794e5240df 64.9712");
-    const auto records = noteRecords(
+TEST(SPUSample, RecordsRoundTrip) {
+    EXPECT_EQ(recordLine(0x849b04794e5240df, 48, 64.97123), "spu-sample 849b04794e5240df 48 64.9712");
+    const auto parsed = records(
         "Some prose.\n"
-        "spu-note 849b04794e5240df 64.9712\r\n"
-        "spu-note D7E212B88D167B07 60\n"
-        "spu-note 0000000000000001 127.9999\n"
-        "spu-note 0000000000000002 128\n"
-        "spu-note 0000000000000003 0060.5\n"
-        "spu-note 0000000000000004 60.\n"
-        "spu-note 0000000000000005 -1\n"
-        "spu-note 000000000000006 60\n"
-        "spu-note 00000000000000g7 60\n"
-        "spu-note 0000000000000008  60\n"
-        " spu-note 0000000000000009 60\n"
-        "spu-note 000000000000000a 61\n"
-        "spu-note 000000000000000a 62.25");
-    ASSERT_EQ(records.size(), 4u);
-    EXPECT_DOUBLE_EQ(records.at(0x849b04794e5240df), 64.9712);
-    EXPECT_DOUBLE_EQ(records.at(0xd7e212b88d167b07), 60.0);
-    EXPECT_DOUBLE_EQ(records.at(1), 127.9999);
-    EXPECT_DOUBLE_EQ(records.at(10), 62.25);
+        "spu-sample 849b04794e5240df 48 64.9712\r\n"
+        "spu-sample D7E212B88D167B07 16 60\n"
+        "spu-sample 0000000000000001 524288 127.9999\n"
+        "spu-sample 0000000000000002 16 128\n"
+        "spu-sample 0000000000000003 16 0060.5\n"
+        "spu-sample 0000000000000004 16 60.\n"
+        "spu-sample 0000000000000005 16 -1\n"
+        "spu-sample 000000000000006 16 60\n"
+        "spu-sample 00000000000000g7 16 60\n"
+        "spu-sample 0000000000000008  16 60\n"
+        " spu-sample 0000000000000009 16 60\n"
+        "spu-sample 000000000000000b 24 60\n"
+        "spu-sample 000000000000000c 0 60\n"
+        "spu-sample 000000000000000d 524304 60\n"
+        "spu-sample 000000000000000e 60\n"
+        "spu-note 000000000000000f 60\n"
+        "spu-sample 000000000000000a 32 61\n"
+        "spu-sample 000000000000000a 64 62.25");
+    ASSERT_EQ(parsed.size(), 4u);
+    EXPECT_EQ(parsed.at(0x849b04794e5240df).size, 48u);
+    EXPECT_DOUBLE_EQ(parsed.at(0x849b04794e5240df).note, 64.9712);
+    EXPECT_EQ(parsed.at(0xd7e212b88d167b07).size, 16u);
+    EXPECT_DOUBLE_EQ(parsed.at(0xd7e212b88d167b07).note, 60.0);
+    EXPECT_EQ(parsed.at(1).size, 524288u);
+    EXPECT_DOUBLE_EQ(parsed.at(1).note, 127.9999);
+    EXPECT_EQ(parsed.at(10).size, 64u);
+    EXPECT_DOUBLE_EQ(parsed.at(10).note, 62.25);
 }
 
 TEST(SF2, ReadsBackTheComment) {
     PCSX::SF2::Sample s;
     s.name = "a";
     s.pcm.assign(64, 0);
-    auto data = PCSX::SF2::write({s}, "bank", "line one\nspu-note 0000000000000001 60.5");
-    EXPECT_EQ(PCSX::SF2::readComment(data.data(), data.size()), "line one\nspu-note 0000000000000001 60.5");
+    auto data = PCSX::SF2::write({s}, "bank", "line one\nspu-sample 0000000000000001 16 60.5");
+    EXPECT_EQ(PCSX::SF2::readComment(data.data(), data.size()), "line one\nspu-sample 0000000000000001 16 60.5");
     data = PCSX::SF2::write({s}, "bank", "");
     EXPECT_EQ(PCSX::SF2::readComment(data.data(), data.size()), "");
 }

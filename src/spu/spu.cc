@@ -88,6 +88,8 @@ void PCSX::SPU::impl::startOverlay(SPUCHAN *voice) {
     if (!overlay || !start) return;
     const auto extent = SPUSample::walk(spuRamBase, uint32_t(start - spuRamBase));
     if (extent.truncated) return;
+    // The walk is cheap and the hash is not: a size no record carries cannot match.
+    if (!overlay->mayReplace(extent.end - extent.start)) return;
     const uint64_t signature = SPUSample::signature(spuRamBase, extent);
     const auto *entry = overlay->find(signature);
     if (!entry) return;

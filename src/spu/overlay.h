@@ -26,6 +26,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace PCSX {
@@ -50,7 +51,7 @@ class Overlay {
         double loopStart = 0;
         double loopEnd = 0;
         // The original's note at pitch 1000h as the pack's writer measured it, from the pack's
-        // note records. Absent in a pack without one, and then measured at key-on instead.
+        // record for it. Absent in a pack without one, and then measured at key-on instead.
         std::optional<double> originalNote;
     };
 
@@ -62,9 +63,15 @@ class Overlay {
         return it == m_entries.end() ? nullptr : &it->second;
     }
     size_t size() const { return m_entries.size(); }
+    // Whether a sample whose signature covers `bytes` of sound RAM can have a replacement here.
+    // False only when every replacement has a record and none has that size, so the key-on can
+    // skip computing the signature.
+    bool mayReplace(uint32_t bytes) const { return m_unrecorded != 0 || m_sizes.contains(bytes); }
 
   private:
     std::unordered_map<uint64_t, Entry> m_entries;
+    std::unordered_set<uint32_t> m_sizes;
+    size_t m_unrecorded = 0;
 };
 
 // One voice's playhead into its replacement. It only produces the voice's audio: the ADPCM

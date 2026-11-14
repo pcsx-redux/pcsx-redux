@@ -59,9 +59,9 @@ uint64_t PCSX::SPUSample::signature(const uint8_t* spuRam, const Extent& extent)
     return ret;
 }
 
-std::string PCSX::SPUSample::noteRecord(uint64_t signature, double note) {
-    char buf[64];
-    snprintf(buf, sizeof(buf), "spu-note %016llx %.4f", static_cast<unsigned long long>(signature), note);
+std::string PCSX::SPUSample::recordLine(uint64_t signature, uint32_t size, double note) {
+    char buf[80];
+    snprintf(buf, sizeof(buf), "spu-sample %016llx %u %.4f", static_cast<unsigned long long>(signature), size, note);
     return buf;
 }
 
@@ -86,17 +86,30 @@ bool parseNote(std::string_view s, double& out) {
     return true;
 }
 
+// size = 1*6DIGIT, a multiple of 16 from 16 to the size of sound RAM.
+bool parseSize(std::string_view s, uint32_t& out) {
+    if (s.empty() || s.size() > 6) return false;
+    uint32_t value = 0;
+    for (char c : s) {
+        if (c < '0' || c > '9') return false;
+        value = value * 10 + (c - '0');
+    }
+    if (value == 0 || value > PCSX::SPUSample::c_ramSize || value % PCSX::SPUSample::c_blockSize) return false;
+    out = value;
+    return true;
+}
+
 }  // namespace
 
-std::unordered_map<uint64_t, double> PCSX::SPUSample::noteRecords(std::string_view comment) {
-    std::unordered_map<uint64_t, double> ret;
-    constexpr std::string_view prefix = "spu-note ";
+std::unordered_map<uint64_t, PCSX::SPUSample::Record> PCSX::SPUSample::records(std::string_view comment) {
+    std::unordered_map<uint64_t, Record> ret;
+    constexpr std::string_view prefix = "spu-sample ";
     while (!comment.empty()) {
         const size_t eol = comment.find('\n');
         std::string_view line = comment.substr(0, eol);
         comment = eol == std::string_view::npos ? std::string_view{} : comment.substr(eol + 1);
         if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
-        if (line.size() < prefix.size() + 18 || line.substr(0, prefix.size()) != prefix) continue;
+        if (line.size() < prefix.size() + 17 || line.substr(0, prefix.size()) != prefix) continue;
         line.remove_prefix(prefix.size());
         uint64_t signature = 0;
         bool valid = line[16] == ' ';
@@ -115,8 +128,14 @@ std::unordered_map<uint64_t, double> PCSX::SPUSample::noteRecords(std::string_vi
             }
             signature = (signature << 4) | v;
         }
-        double note;
-        if (valid && parseNote(line.substr(17), note)) ret[signature] = note;
+        if (!valid) continue;
+        line.remove_prefix(17);
+        const size_t space = line.find(' ');
+        if (space == std::string_view::npos) continue;
+        Record record;
+        if (parseSize(line.substr(0, space), record.size) && parseNote(line.substr(space + 1), record.note)) {
+            ret[signature] = record;
+        }
     }
     return ret;
 }

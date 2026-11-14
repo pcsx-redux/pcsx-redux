@@ -187,12 +187,29 @@ TEST(SPUSamplePitch, LoopDecodeKeepsTheFilterHistory) {
     EXPECT_EQ(PCSX::SPU::decodeSample(ram.data(), extent).size(), 3 * c_samplesPerBlock);
 }
 
-TEST(SPUOverlay, ReadsTheRecordedOriginalNote) {
+TEST(SPUOverlay, ReadsTheRecords) {
     std::vector<PCSX::SF2::Sample> samples = {ramp("00000000000000ff", 10), ramp("00000000000000fe", 10)};
-    auto data = PCSX::SF2::write(samples, "pack", "prose\nspu-note 00000000000000ff 57.25\n");
+    auto data = PCSX::SF2::write(samples, "pack",
+                                 "prose\nspu-sample 00000000000000ff 48 57.25\nspu-sample 0000000000000001 64 60\n");
     auto overlay = PCSX::SPU::Overlay::fromSF2(data.data(), data.size());
     ASSERT_NE(overlay, nullptr);
     ASSERT_TRUE(overlay->find(0xff)->originalNote.has_value());
     EXPECT_DOUBLE_EQ(*overlay->find(0xff)->originalNote, 57.25);
     EXPECT_FALSE(overlay->find(0xfe)->originalNote.has_value());
+    // 0xfe has no record, so any size may be a replacement.
+    EXPECT_TRUE(overlay->mayReplace(16));
+}
+
+TEST(SPUOverlay, RecordedSizesFilterKeyOns) {
+    std::vector<PCSX::SF2::Sample> samples = {ramp("00000000000000ff", 10), ramp("00000000000000fe", 10)};
+    auto data = PCSX::SF2::write(
+        samples, "pack",
+        "spu-sample 00000000000000ff 48 57.25\nspu-sample 00000000000000fe 4096 60\nspu-sample 0000000000000001 64 60");
+    auto overlay = PCSX::SPU::Overlay::fromSF2(data.data(), data.size());
+    ASSERT_NE(overlay, nullptr);
+    EXPECT_TRUE(overlay->mayReplace(48));
+    EXPECT_TRUE(overlay->mayReplace(4096));
+    EXPECT_FALSE(overlay->mayReplace(16));
+    // A record with no replacement does not count.
+    EXPECT_FALSE(overlay->mayReplace(64));
 }

@@ -30,7 +30,7 @@ std::shared_ptr<const PCSX::SPU::Overlay> PCSX::SPU::Overlay::fromSF2(const uint
     auto samples = SF2::read(data, size);
     if (samples.empty()) return nullptr;
     auto overlay = std::make_shared<Overlay>();
-    const auto notes = SPUSample::noteRecords(SF2::readComment(data, size));
+    const auto records = SPUSample::records(SF2::readComment(data, size));
     unsigned bad = 0;
     for (auto& s : samples) {
         uint64_t signature = 0;
@@ -60,8 +60,17 @@ std::shared_ptr<const PCSX::SPU::Overlay> PCSX::SPU::Overlay::fromSF2(const uint
         e.loops = s.loops;
         e.loopStart = s.loopStart;
         e.loopEnd = s.loopEnd;
-        auto note = notes.find(signature);
-        if (note != notes.end()) e.originalNote = note->second;
+        auto record = records.find(signature);
+        e.originalNote.reset();
+        if (record != records.end()) e.originalNote = record->second.note;
+    }
+    for (auto& [signature, entry] : overlay->m_entries) {
+        auto record = records.find(signature);
+        if (record == records.end()) {
+            overlay->m_unrecorded++;
+        } else {
+            overlay->m_sizes.insert(record->second.size);
+        }
     }
     if (skipped) *skipped = bad;
     return overlay;
