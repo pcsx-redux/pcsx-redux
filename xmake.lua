@@ -312,6 +312,9 @@ target("pcsx-redux", function()
                     -- the generated pcsx-redux.html instead would work until
                     -- the next build overwrote it.
                     "--shell-file", "src/gui/shell-wasm.html",
+                    -- The shell copies picked and dropped files into the virtual
+                    -- filesystem and calls pcsxOpenFile on them.
+                    "-sEXPORTED_RUNTIME_METHODS=FS,ccall",
                     "-Wl,--error-limit=0", {force = true})
     -- The virtual filesystem. findResource() walks seven candidate paths off
     -- m_binDir, and on wasm getExecutablePath() returns an empty string, so
