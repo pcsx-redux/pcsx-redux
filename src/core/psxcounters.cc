@@ -563,6 +563,12 @@ void PCSX::Counters::calculateHsync() {
 void PCSX::Counters::init() {
     calculateHsync();
 
+    // A reset clears the CPU cycle, so gate timestamps from before it would freeze the counters.
+    for (auto& rcnt : m_rcnts) {
+        rcnt.pauseUntil = 0;
+        rcnt.holdFrom = 0;
+    }
+
     // rcnt 0.
     setRate(0, 1);
     m_rcnts[0].irq = 0x10;
