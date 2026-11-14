@@ -1005,10 +1005,19 @@ void PadsImpl::Pad::getButtons() {
         return;
     }
 
-    // Hotplug is handled in gui.cc's SDL_PollEvent loop (it drains the queue
-    // every frame, so PeepEvents here would never see ADDED/REMOVED).
-    // Refresh gamepad state without draining the queue, so non-GUI modes
-    // still see current button and axis values.
+    // GUI: gui.cc's PollEvent loop drains ADDED/REMOVED and rescans.
+    // Non-GUI has no event loop (and no ImGui context), so pump and claim
+    // those events here — including when m_gamepad is null (first plug /
+    // reconnect). UpdateGamepads keeps open-pad button/axis state current.
+    if (!ImGui::GetCurrentContext()) {
+        SDL_PumpEvents();
+        SDL_Event scratch[16];
+        if (SDL_PeepEvents(scratch, 16, SDL_GETEVENT, SDL_EVENT_GAMEPAD_ADDED, SDL_EVENT_GAMEPAD_REMOVED) > 0) {
+            const PadType activeType = m_activeType;
+            s_pads->rescanGamepads();
+            m_activeType = activeType;
+        }
+    }
     SDL_UpdateGamepads();
 
     if (m_gamepad && !SDL_GamepadConnected(m_gamepad)) {
