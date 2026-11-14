@@ -84,6 +84,7 @@
     <ClCompile Include="..\..\..\tests\supportpsx\fundamental.cc" />
     <ClCompile Include="..\..\..\tests\supportpsx\rootkey.cc" />
     <ClCompile Include="..\..\..\tests\supportpsx\sf2.cc" />
+    <ClCompile Include="..\..\..\tests\supportpsx\sf3.cc" />
     <ClCompile Include="..\..\..\tests\supportpsx\str.cc" />
     <ClCompile Include="..\..\..\tests\support\binstruct.cc" />
     <ClCompile Include="..\..\..\tests\support\circular.cc" />

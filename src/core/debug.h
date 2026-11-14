@@ -32,6 +32,17 @@
 
 namespace PCSX {
 
+// Debug::Replay. Not nested: some standard libraries then reject std::optional<Replay>::emplace().
+struct DebugReplay {
+    uint64_t stopAt = 0;
+    // The boundary the replay paused at.
+    std::optional<uint64_t> reached;
+    // The last boundary before stopAt, and the last one of those with a breakpoint hit.
+    uint64_t lastBoundary = 0;
+    std::optional<uint64_t> lastHit;
+    bool hitPending = false;
+};
+
 class Debug {
   public:
     Debug();
@@ -134,15 +145,7 @@ class Debug {
     // snapshot, and checks the boundary the snapshot sits on, which process() saw before the
     // capture. It returns false when that boundary is already at or past stopAt, in which
     // case there is nothing to run.
-    struct Replay {
-        uint64_t stopAt = 0;
-        // The boundary the replay paused at.
-        std::optional<uint64_t> reached;
-        // The last boundary before stopAt, and the last one of those with a breakpoint hit.
-        uint64_t lastBoundary = 0;
-        std::optional<uint64_t> lastHit;
-        bool hitPending = false;
-    };
+    using Replay = DebugReplay;
     bool startReplay(uint64_t stopAt);
     std::optional<Replay> stopReplay() { return std::exchange(m_replay, std::nullopt); }
     bool replaying() const { return m_replay.has_value(); }

@@ -140,6 +140,19 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
         unsigned other = m_currentDelayedLoad ^ 1;
         if (m_delayedLoadInfo[other].index == index) m_delayedLoadInfo[other].active = false;
     }
+    // LWL and LWR in the delay slot of a load to the same register merge with the value still in
+    // flight, and that value never reaches the register on its own: until the merged result lands,
+    // the next instruction reads the register as it was before both loads.
+    void mergeUnalignedLoad(uint32_t index, uint32_t mask, uint32_t value) {
+        auto& pending = m_delayedLoadInfo[m_currentDelayedLoad ^ 1];
+        if (pending.active && pending.index == index) {
+            const uint32_t base = (m_regs.GPR.r[index] & pending.mask) | pending.value;
+            pending.active = false;
+            delayedLoadRef(index) = (base & mask) | value;
+            return;
+        }
+        delayedLoadRef(index, mask) = value;
+    }
     // For the GUI dynarec disassembly widget
     virtual const uint8_t* getBufferPtr() final { return nullptr; }
     virtual const size_t getBufferSize() final { return 0; }
@@ -254,20 +267,22 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
 
     /* Moves between GPR and COPx */
     void psxMFC0(uint32_t code);
-    void psxCFC0(uint32_t code);
     void psxMTC0(uint32_t code);
-    void psxCTC0(uint32_t code);
     void psxMFC2(uint32_t code);
     void psxCFC2(uint32_t code);
 
     /* Misc */
     void psxNULL(uint32_t code);
+    void psxUserFetchError(uint32_t code);
+    bool userAddressError(uint32_t addr, Exception e);
     void psxSPECIAL(uint32_t code);
     void psxREGIMM(uint32_t code);
     void psxCOP0(uint32_t code);
     void psxCOP1(uint32_t code);
     void psxCOP2(uint32_t code);
     void psxCOP3(uint32_t code);
+    void psxLSCz(uint32_t code);
+    bool copUsable(unsigned z);
     void psxBCz(uint32_t code, unsigned z);
     void gteMove(uint32_t code);
 
@@ -298,6 +313,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     GTE_WRAPPER(SQR);
 #undef GTE_WRAPPER
     void gteSWC2(uint32_t code) {
+        if (userAddressError(m_regs.GPR.r[_Rs_] + _Imm_, Exception::StoreAddressError)) return;
         gteDrainIfStalling();
         gteStall();
         PCSX::g_emulator->m_gte->SWC2(code);
@@ -330,6 +346,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     void gteCTC2(uint32_t code) { gteQueueWrite(true, _Rd_, m_regs.GPR.r[_Rt_]); }
     void gteLWC2(uint32_t code) {
         uint32_t addr = m_regs.GPR.r[_Rs_] + _Imm_;
+        if (userAddressError(addr, Exception::LoadAddressError)) return;
         if (addr & 3) {
             PCSX::g_emulator->m_gte->LWC2(code);
             return;
@@ -396,9 +413,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     void pgxpPsxLWC2(uint32_t code);
     void pgxpPsxSWC2(uint32_t code);
     void pgxpPsxMFC0(uint32_t code);
-    void pgxpPsxCFC0(uint32_t code);
     void pgxpPsxMTC0(uint32_t code);
-    void pgxpPsxCTC0(uint32_t code);
     void pgxpPsxRFE(uint32_t code);
 
     static const intFunc_t s_pgxpPsxBSC[64];
@@ -934,7 +949,27 @@ void InterpretedCPU::psxJALR(uint32_t code) {
 
 #define _oB_ (_rRs_ + _Imm_)
 
+// In user mode (SR.KUc set), a load or store above 80000000h raises an address error, with BadVAddr set to the
+// address.
+bool InterpretedCPU::userAddressError(uint32_t addr, Exception e) {
+    if (!(m_regs.CP0.n.Status & 2) || !(addr & 0x80000000)) [[likely]] {
+        return false;
+    }
+    m_regs.pc.raw() -= 4;
+    m_regs.CP0.n.BadVAddr = addr;
+    exception(e, m_inDelaySlot);
+    return true;
+}
+
+// Run instead of the instruction when user mode fetches above 80000000h: EPC and BadVAddr are the fetch address.
+void InterpretedCPU::psxUserFetchError(uint32_t code) {
+    m_regs.pc.raw() -= 4;
+    m_regs.CP0.n.BadVAddr = m_regs.pc;
+    exception(Exception::LoadAddressError, m_inDelaySlot);
+}
+
 void InterpretedCPU::psxLB(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     // load delay = 1 latency
     if (_Rt_) {
         maybeCancelDelayedLoad(_Rt_);
@@ -945,6 +980,7 @@ void InterpretedCPU::psxLB(uint32_t code) {
 }
 
 void InterpretedCPU::psxLBU(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     // load delay = 1 latency
     if (_Rt_) {
         maybeCancelDelayedLoad(_Rt_);
@@ -955,6 +991,7 @@ void InterpretedCPU::psxLBU(uint32_t code) {
 }
 
 void InterpretedCPU::psxLH(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     // load delay = 1 latency
     if (_oB_ & 1) {
         m_regs.pc.raw() -= 4;
@@ -973,6 +1010,7 @@ void InterpretedCPU::psxLH(uint32_t code) {
 }
 
 void InterpretedCPU::psxLHU(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     // load delay = 1 latency
     if (_oB_ & 1) {
         m_regs.pc.raw() -= 4;
@@ -991,6 +1029,7 @@ void InterpretedCPU::psxLHU(uint32_t code) {
 }
 
 void InterpretedCPU::psxLW(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     // load delay = 1 latency
     if (_oB_ & 3) {
         m_regs.pc.raw() -= 4;
@@ -1018,13 +1057,14 @@ void InterpretedCPU::psxLW(uint32_t code) {
 }
 
 void InterpretedCPU::psxLWL(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     uint32_t addr = _oB_;
     uint32_t shift = addr & 3;
     uint32_t mem = PCSX::g_emulator->m_mem->read32Masked(addr & ~3, PCSX::Memory::leftByteMask(addr));
 
     // load delay = 1 latency
     if (!_Rt_) return;
-    delayedLoadRef(_Rt_, LWL_MASK[shift]) = mem << LWL_SHIFT[shift];
+    mergeUnalignedLoad(_Rt_, LWL_MASK[shift], mem << LWL_SHIFT[shift]);
 
     /*
     Mem = 1234.  Reg = abcd
@@ -1036,13 +1076,14 @@ void InterpretedCPU::psxLWL(uint32_t code) {
 }
 
 void InterpretedCPU::psxLWR(uint32_t code) {
+    if (userAddressError(_oB_, Exception::LoadAddressError)) return;
     uint32_t addr = _oB_;
     uint32_t shift = addr & 3;
     uint32_t mem = PCSX::g_emulator->m_mem->read32Masked(addr & ~3, PCSX::Memory::rightByteMask(addr));
 
     // load delay = 1 latency
     if (!_Rt_) return;
-    delayedLoadRef(_Rt_, LWR_MASK[shift]) = mem >> LWR_SHIFT[shift];
+    mergeUnalignedLoad(_Rt_, LWR_MASK[shift], mem >> LWR_SHIFT[shift]);
 
     /*
     Mem = 1234.  Reg = abcd
@@ -1053,8 +1094,12 @@ void InterpretedCPU::psxLWR(uint32_t code) {
     */
 }
 
-void InterpretedCPU::psxSB(uint32_t code) { PCSX::g_emulator->m_mem->write8(_oB_, _rRt_); }
+void InterpretedCPU::psxSB(uint32_t code) {
+    if (userAddressError(_oB_, Exception::StoreAddressError)) return;
+    PCSX::g_emulator->m_mem->write8(_oB_, _rRt_);
+}
 void InterpretedCPU::psxSH(uint32_t code) {
+    if (userAddressError(_oB_, Exception::StoreAddressError)) return;
     if (_oB_ & 1) {
         m_regs.pc.raw() -= 4;
         PCSX::g_system->log(PCSX::LogClass::CPU, _("Unaligned address 0x%08x in SH from 0x%08x\n"), _oB_, m_regs.pc);
@@ -1066,6 +1111,7 @@ void InterpretedCPU::psxSH(uint32_t code) {
 }
 
 void InterpretedCPU::psxSW(uint32_t code) {
+    if (userAddressError(_oB_, Exception::StoreAddressError)) return;
     if (_oB_ & 3) {
         m_regs.pc.raw() -= 4;
         PCSX::g_system->log(PCSX::LogClass::CPU, _("Unaligned address 0x%08x in SW from 0x%08x\n"), _oB_, m_regs.pc);
@@ -1080,6 +1126,7 @@ void InterpretedCPU::psxSW(uint32_t code) {
 }
 
 void InterpretedCPU::psxSWL(uint32_t code) {
+    if (userAddressError(_oB_, Exception::StoreAddressError)) return;
     uint32_t addr = _oB_;
     uint32_t shift = addr & 3;
     addr ^= shift;
@@ -1098,6 +1145,7 @@ void InterpretedCPU::psxSWL(uint32_t code) {
 }
 
 void InterpretedCPU::psxSWR(uint32_t code) {
+    if (userAddressError(_oB_, Exception::StoreAddressError)) return;
     uint32_t addr = _oB_;
     uint32_t shift = addr & 3;
     addr ^= shift;
@@ -1123,13 +1171,15 @@ void InterpretedCPU::psxSWR(uint32_t code) {
 void InterpretedCPU::psxMFC0(uint32_t code) {
     // load delay = 1 latency
     if (!_Rt_) return;
-    delayedLoadRef<int32_t>(_Rt_) = (int)m_regs.CP0.r[_Rd_];
-}
-
-void InterpretedCPU::psxCFC0(uint32_t code) {
-    // load delay = 1 latency
-    if (!_Rt_) return;
-    delayedLoadRef<int32_t>(_Rt_) = (int)m_regs.CP0.r[_Rd_];
+    uint32_t value = m_regs.CP0.r[_Rd_];
+    if (_Rd_ == 13) {
+        // Cause bit 10 follows I_STAT & I_MASK, both ways, with no latch.
+        auto& mem = PCSX::g_emulator->m_mem;
+        const uint32_t pending = mem->readHardwareRegister<PCSX::Memory::ISTAT>() &
+                                 mem->readHardwareRegister<PCSX::Memory::IMASK>() & 0x7ff;
+        value = (value & ~0x400) | (pending ? 0x400 : 0);
+    }
+    delayedLoadRef<int32_t>(_Rt_) = (int)value;
 }
 
 void InterpretedCPU::psxTestSWInts() {
@@ -1146,7 +1196,7 @@ inline void InterpretedCPU::MTC0(int reg, uint32_t val) {
     //  PCSX::g_system->log(PCSX::LogClass::CPU, "MTC0 %d: %x\n", reg, val);
     switch (reg) {
         case 12:  // Status
-            m_regs.CP0.n.Status = val;
+            m_regs.CP0.n.Status = val & PCSX::c_cop0StatusWritableMask;
             psxTestSWInts();
             break;
 
@@ -1162,7 +1212,6 @@ inline void InterpretedCPU::MTC0(int reg, uint32_t val) {
 }
 
 void InterpretedCPU::psxMTC0(uint32_t code) { MTC0(_Rd_, _rRt_); }
-void InterpretedCPU::psxCTC0(uint32_t code) { MTC0(_Rd_, _rRt_); }
 
 void InterpretedCPU::psxMFC2(uint32_t code) {
     gteDrainIfStalling();
@@ -1216,13 +1265,24 @@ void InterpretedCPU::psxCOP0(uint32_t code) {
     (*this.*(s_pPsxCP0[_Rs_]))(code);
 }
 
+// There is no COP1 or COP3. With SR.CU1 (CU3) clear, their opcodes, LWCz and SWCz included, raise a
+// coprocessor unusable exception, even in kernel mode. With the bit set they raise nothing, and are
+// ignored here: on silicon, MFCz and CFCz load an unspecified value and SWCz stores one.
+bool InterpretedCPU::copUsable(unsigned z) {
+    if (m_regs.CP0.n.Status & (0x10000000 << z)) return true;
+    m_regs.pc.raw() -= 4;
+    exception((static_cast<uint32_t>(Exception::CoprocessorUnusable) << 2) | (z << 28), m_inDelaySlot);
+    return false;
+}
+
+void InterpretedCPU::psxLSCz(uint32_t code) { copUsable((code >> 26) & 3); }
+
 void InterpretedCPU::psxCOP1(uint32_t code) {  // Accesses to the (nonexistent) FPU
     if (_Rs_ == 8) {
         psxBCz(code, 1);
         return;
     }
-    // TODO: Verify that COP1 doesn't throw a coprocessor unusable exception
-    // Supposedly the COP1/COP3 ops don't fire RI, and they're NOPs
+    if (!copUsable(1)) return;
     PCSX::g_system->log(PCSX::LogClass::CPU,
                         _("Attempted to use an invalid floating point instruction from 0x%08x. Ignored.\n"),
                         m_regs.pc - 4);
@@ -1252,6 +1312,7 @@ void InterpretedCPU::psxCOP3(uint32_t code) {
         psxBCz(code, 3);
         return;
     }
+    if (!copUsable(3)) return;
     PCSX::g_system->log(PCSX::LogClass::CPU, _("Attempted to access COP3 from 0x%08x. Ignored\n"), m_regs.pc - 4);
 }
 
@@ -1270,9 +1331,9 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_psxBSC[64] = {
     &InterpretedCPU::psxLBU,     &InterpretedCPU::psxLHU,    &InterpretedCPU::psxLWR,  &InterpretedCPU::psxNULL,   // 24
     &InterpretedCPU::psxSB,      &InterpretedCPU::psxSH,     &InterpretedCPU::psxSWL,  &InterpretedCPU::psxSW,     // 28
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxSWR,  &InterpretedCPU::psxNULL,   // 2c
-    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::gteLWC2, &InterpretedCPU::psxNULL,   // 30
+    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteLWC2, &InterpretedCPU::psxLSCz,   // 30
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,   // 34
-    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::gteSWC2, &InterpretedCPU::psxNULL,   // 38
+    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteSWC2, &InterpretedCPU::psxLSCz,   // 38
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,   // 3c
 };
 
@@ -1310,8 +1371,8 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_psxREG[32] = {
 };
 
 const InterpretedCPU::intFunc_t InterpretedCPU::s_psxCP0[32] = {
-    &InterpretedCPU::psxMFC0, &InterpretedCPU::psxNULL, &InterpretedCPU::psxCFC0, &InterpretedCPU::psxNULL,  // 00
-    &InterpretedCPU::psxMTC0, &InterpretedCPU::psxNULL, &InterpretedCPU::psxCTC0, &InterpretedCPU::psxNULL,  // 04
+    &InterpretedCPU::psxMFC0, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,  // 00
+    &InterpretedCPU::psxMTC0, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,  // 04
     &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,  // 08
     &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,  // 0c
     &InterpretedCPU::psxRFE,  &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,  // 10
@@ -1535,9 +1596,7 @@ PGXP_INT_FUNC_1_1(GTE, SWC2, 0, 2, m_regs.CP2D.r[_Rt_], _oB_)
 
 // COP0
 PGXP_INT_FUNC_1_1(CP0, MFC0, !_Rd_, 2, m_regs.GPR.r[_Rt_], m_regs.CP0.r[_Rd_])
-PGXP_INT_FUNC_1_1(CP0, CFC0, !_Rd_, 2, m_regs.GPR.r[_Rt_], m_regs.CP0.r[_Rd_])
 PGXP_INT_FUNC_1_1(CP0, MTC0, !_Rt_, 2, m_regs.CP0.r[_Rd_], m_regs.GPR.r[_Rt_])
-PGXP_INT_FUNC_1_1(CP0, CTC0, !_Rt_, 2, m_regs.CP0.r[_Rd_], m_regs.GPR.r[_Rt_])
 PGXP_INT_FUNC(CP0, RFE)
 
 // end of PGXP
@@ -1568,12 +1627,12 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxBSC[64] = {
     &InterpretedCPU::pgxpPsxSWL,  &InterpretedCPU::pgxpPsxSW,     // 2a
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,   // 2c
     &InterpretedCPU::pgxpPsxSWR,  &InterpretedCPU::pgxpPsxNULL,   // 2e
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 30
-    &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxNULL,       // 32
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,       // 30
+    &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxLSCz,       // 32
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 34
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 36
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 38
-    &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxNULL,       // 3a
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,       // 38
+    &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxLSCz,       // 3a
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 3c
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 3e
 };
@@ -1615,9 +1674,9 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxSPC[64] = {
 
 const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxCP0[32] = {
     &InterpretedCPU::pgxpPsxMFC0, &InterpretedCPU::pgxpPsxNULL,  // 00
-    &InterpretedCPU::pgxpPsxCFC0, &InterpretedCPU::pgxpPsxNULL,  // 02
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::pgxpPsxNULL,  // 02
     &InterpretedCPU::pgxpPsxMTC0, &InterpretedCPU::pgxpPsxNULL,  // 04
-    &InterpretedCPU::pgxpPsxCTC0, &InterpretedCPU::pgxpPsxNULL,  // 06
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::pgxpPsxNULL,  // 06
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,  // 08
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,  // 0a
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,  // 0c
@@ -1677,12 +1736,12 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxBSCMem[64] = {
     &InterpretedCPU::pgxpPsxSWL,  &InterpretedCPU::pgxpPsxSW,    // 2a
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,  // 2c
     &InterpretedCPU::pgxpPsxSWR,  &InterpretedCPU::pgxpPsxNULL,  // 2e
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 30
-    &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxNULL,      // 32
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,      // 30
+    &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxLSCz,      // 32
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 34
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 36
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 38
-    &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxNULL,      // 3a
+    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,      // 38
+    &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxLSCz,      // 3a
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 3c
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 3e
 };
@@ -1832,7 +1891,8 @@ inline void InterpretedCPU::execBlock() {
         // TODO: throw an exception here if pc is out of range
         const uint32_t pc = m_regs.pc;
         // TODO: throw an exception here if we don't have a pointer
-        uint32_t code = readICache(pc);
+        const bool userFetchError = (pc & 0x80000000) && (m_regs.CP0.n.Status & 2);
+        uint32_t code = userFetchError ? 0 : readICache(pc);
 
         m_regs.code = code;
 
@@ -1844,7 +1904,7 @@ inline void InterpretedCPU::execBlock() {
         m_regs.cycle += PCSX::Emulator::BIAS;
         if ((m_regs.pc & 0xffc00000) == 0xbfc00000) m_regs.cycle += PCSX::Emulator::BIAS * 10;
 
-        cIntFunc_t func = s_pPsxBSC[code >> 26];
+        cIntFunc_t func = userFetchError ? &InterpretedCPU::psxUserFetchError : s_pPsxBSC[code >> 26];
         (*this.*func)(code);
 
         m_currentDelayedLoad ^= 1;
@@ -1889,7 +1949,9 @@ inline void InterpretedCPU::execBlock() {
         }
         if constexpr (debug) {
             uint32_t newPC = m_regs.pc;
-            uint32_t newCode = readICache(newPC);
+            // A user-mode fetch above 80000000h faults before it reads anything.
+            const bool newFetchFaults = (newPC & 0x80000000) && (m_regs.CP0.n.Status & 2);
+            uint32_t newCode = newFetchFaults ? 0 : readICache(newPC);
             PCSX::g_emulator->m_debug->process(pc, newPC, code, newCode, fromLink);
         }
         /* A detached block returns per instruction, like a debug one. Block granularity

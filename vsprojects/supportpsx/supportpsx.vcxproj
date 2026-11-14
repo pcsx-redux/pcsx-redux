@@ -156,6 +156,7 @@
     <ClCompile Include="..\..\src\supportpsx\rootkey.cc" />
     <ClCompile Include="..\..\src\supportpsx\sf2.cc" />
     <ClCompile Include="..\..\src\supportpsx\spusample.cc" />
+    <ClCompile Include="..\..\src\supportpsx\stb-vorbis.cc" />
     <ClCompile Include="..\..\src\supportpsx\str.cc" />
     <ClCompile Include="..\..\src\supportpsx\ucl-glue.c" />
     <ClCompile Include="..\..\src\supportpsx\ucl-utils.cc" />

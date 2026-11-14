@@ -9,7 +9,9 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # On main, let a running build finish so wasm-deploy can land; a newer push
+  # still replaces any run that is only pending.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   # The build container runs as root, and xmake refuses outright to run as root

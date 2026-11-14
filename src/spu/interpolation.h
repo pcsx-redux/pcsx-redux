@@ -48,18 +48,20 @@ namespace SPU {
 // and this class only mentions Protobuf in the savestate mirrors.
 class Interpolator {
   public:
+    // Gauss/cubic: the first output sample already has four decoded samples in its window,
+    // the newest of them at the pitch counter. Matches silicon captures at pitch 2000h, 1300h
+    // and 1500h, which a three-sample start puts one source sample behind.
+    static constexpr int32_t kGaussKeyOnPosition = 0x40000;
+
     // Key-on: clear the interpolation window and seed the fractional pitch
     // position for the active mode, exactly as StartSound used to do inline.
-    // Gauss/cubic start further ahead so the four-tap window is primed before
-    // the first output sample.
     void keyOn(int interpolationType) {
         // Initialize the interpolation helpers.
         m_state[1] = 0;
         m_state[2] = 0;
 
         if (interpolationType >= 2) {
-            // Gauss/cubic interpolation starts with more decoding.
-            m_spos = 0x30000L;
+            m_spos = kGaussKeyOnPosition;
             m_state[0] = 0;
         } else {
             // No/simple interpolation starts with one 44100Hz decode.
