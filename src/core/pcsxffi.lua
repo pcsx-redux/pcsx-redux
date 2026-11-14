@@ -97,6 +97,8 @@ typedef struct {
 } PCSX_HWEvent;
 
 uint64_t getHWEventsSize();
+bool saveHWEvents(const char* path);
+bool loadHWEvents(const char* path);
 void clearHWEvents();
 uint32_t getHWEventsMask();
 bool getHWEventsFull();
@@ -323,9 +325,23 @@ PCSX = {
     -- Nothing is recorded until a source is armed: arm('IRQ', 'DMA'). read() works
     -- like PCSX.CPU.Trace.read.
     HWEvents = {
-        Sources = { IRQ = 1, DMA = 2 },
-        Types = { IRQAssert = 0x0101, DMAStart = 0x0201, DMAComplete = 0x0202 },
+        Sources = { IRQ = 1, DMA = 2, CDROM = 3, GPU = 4, SPU = 5 },
+        Types = {
+            IRQAssert = 0x0101,
+            DMAStart = 0x0201,
+            DMAComplete = 0x0202,
+            CDCommand = 0x0301,
+            CDResponse = 0x0302,
+            CDSector = 0x0303,
+            GPUCommand = 0x0401,
+            GPUControl = 0x0402,
+            SPURegWrite = 0x0501,
+            SPUKeyOn = 0x0502,
+            SPUKeyOff = 0x0503,
+        },
         size = function() return tonumber(C.getHWEventsSize()) end,
+        save = function(path) return C.saveHWEvents(path) end,
+        load = function(path) return C.loadHWEvents(path) end,
         clear = function() C.clearHWEvents() end,
         mask = function() return C.getHWEventsMask() end,
         -- True once the store has hit its limit and stopped recording.

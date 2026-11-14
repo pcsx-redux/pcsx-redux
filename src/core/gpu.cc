@@ -28,6 +28,7 @@
 #include "core/debug.h"
 #include "core/gpudump.h"
 #include "core/gpulogger.h"
+#include "core/hwevents.h"
 #include "core/pgxp_mem.h"
 #include "core/psxcounters.h"
 #include "core/psxdma.h"
@@ -594,6 +595,11 @@ void PCSX::GPU::writeStatus(uint32_t value) {
     uint32_t cmd = (value >> 24) & 0xff;
     bool gotUnknown = false;
 
+    // A detached GPU, like the one replaying a dump, is not the emulated machine's.
+    auto &events = *g_emulator->m_hwEvents;
+    if (!m_detached && events.armed(HWEvents::Source::GPU)) [[unlikely]] {
+        events.record(HWEvents::GPUControl, value);
+    }
     if (m_dumper) m_dumper->gp1(value);
     if ((cmd == 8) && !m_detached && !m_replayingGP1) {
         // Turning interlace off freezes the field flag; turning it on resumes the alternation
@@ -816,6 +822,10 @@ void PCSX::GPU::chainedDMAWrite(const uint32_t *memory, uint32_t hwAddr) {
 void PCSX::GPU::Command::processWrite(Buffer &buf, Logged::Origin origin, uint32_t originValue, uint32_t length) {
     while (!buf.isEmpty()) {
         uint32_t value = buf.get();
+        auto &events = *g_emulator->m_hwEvents;
+        if (!m_gpu->isDetached() && events.armed(HWEvents::Source::GPU)) [[unlikely]] {
+            events.record(HWEvents::GPUCommand, value, static_cast<uint32_t>(origin), originValue, length);
+        }
         bool gotUnknown = false;
         const uint8_t cmdType = value >> 29;           // 3 topmost bits = command "type"
         const uint8_t command = (value >> 24) & 0x1f;  // 5 next bits = "command", which may be a bitfield
