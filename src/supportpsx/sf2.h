@@ -49,6 +49,9 @@ std::vector<uint8_t> write(const std::vector<Sample>& samples, const std::string
 // generator, are ignored. Returns an empty vector if the file is not a valid bank.
 std::vector<Sample> read(const uint8_t* data, size_t size);
 
+// The bank's comment (INFO ICMT) up to its terminator, or empty if it has none.
+std::string readComment(const uint8_t* data, size_t size);
+
 }  // namespace SF2
 
 }  // namespace PCSX

@@ -32,8 +32,13 @@
 
 namespace {
 
+// A bank with a record, at note 60, for every sample named like a signature.
 std::shared_ptr<const PCSX::SPU::Overlay> pack(std::vector<PCSX::SF2::Sample> samples, unsigned* skipped = nullptr) {
-    auto data = PCSX::SF2::write(samples, "pack", "");
+    std::string comment;
+    for (auto& s : samples) {
+        if (s.name.size() == 16) comment += "spu-sample " + s.name + " 16 60\n";
+    }
+    auto data = PCSX::SF2::write(samples, "pack", comment);
     return PCSX::SPU::Overlay::fromSF2(data.data(), data.size(), skipped);
 }
 
@@ -185,4 +190,33 @@ TEST(SPUSamplePitch, LoopDecodeKeepsTheFilterHistory) {
 
     // Without a minimum, one pass.
     EXPECT_EQ(PCSX::SPU::decodeSample(ram.data(), extent).size(), 3 * c_samplesPerBlock);
+}
+
+TEST(SPUOverlay, ReadsTheRecords) {
+    std::vector<PCSX::SF2::Sample> samples = {ramp("00000000000000ff", 10), ramp("00000000000000fe", 10)};
+    auto data = PCSX::SF2::write(samples, "pack",
+                                 "prose\nspu-sample 00000000000000ff 48 57.25\nspu-sample 0000000000000001 64 60\n");
+    unsigned skipped = 0;
+    auto overlay = PCSX::SPU::Overlay::fromSF2(data.data(), data.size(), &skipped);
+    ASSERT_NE(overlay, nullptr);
+    ASSERT_NE(overlay->find(0xff), nullptr);
+    EXPECT_DOUBLE_EQ(overlay->find(0xff)->originalNote, 57.25);
+    // A sample with no record is not a replacement.
+    EXPECT_EQ(overlay->find(0xfe), nullptr);
+    EXPECT_EQ(skipped, 1u);
+    EXPECT_EQ(overlay->size(), 1u);
+}
+
+TEST(SPUOverlay, RecordedSizesFilterKeyOns) {
+    std::vector<PCSX::SF2::Sample> samples = {ramp("00000000000000ff", 10), ramp("00000000000000fe", 10)};
+    auto data = PCSX::SF2::write(
+        samples, "pack",
+        "spu-sample 00000000000000ff 48 57.25\nspu-sample 00000000000000fe 4096 60\nspu-sample 0000000000000001 64 60");
+    auto overlay = PCSX::SPU::Overlay::fromSF2(data.data(), data.size());
+    ASSERT_NE(overlay, nullptr);
+    EXPECT_TRUE(overlay->mayReplace(48));
+    EXPECT_TRUE(overlay->mayReplace(4096));
+    EXPECT_FALSE(overlay->mayReplace(16));
+    // A record with no replacement does not count.
+    EXPECT_FALSE(overlay->mayReplace(64));
 }

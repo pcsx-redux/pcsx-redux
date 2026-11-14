@@ -60,7 +60,7 @@ void PCSX::Widgets::SPUSamples::decode(const uint8_t* spuRam, const Sample& samp
 std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
                                                           const std::map<uint32_t, Sample>& samples) {
     std::vector<SF2::Sample> out;
-    std::vector<std::string> unpitched, unconfirmed, disagrees;
+    std::vector<std::string> unpitched, unconfirmed, disagrees, records;
     auto note = [](std::vector<std::string>& list, const std::string& name) { list.push_back(name); };
     for (auto& [start, cached] : samples) {
         // Sound RAM may have changed since the map was last rebuilt.
@@ -78,6 +78,7 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         const auto root = RootKey::combineCounts(SPU::sampleFundamental(spuRam, s), pitches);
         o.rootKey = root.key;
         o.correction = root.correction;
+        records.push_back(SPUSample::recordLine(s.signature, s.end - s.start, root.note));
         switch (root.status) {
             case RootKey::Status::Unpitched:
                 note(unpitched, o.name);
@@ -105,7 +106,9 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         "root key 255 and play on note 60 at their stored rate. Each pitched sample's fundamental was checked "
         "against the pitches the game keyed it on with, which land on whole notes when the game is tuned to A440; "
         "an octave error is not caught by this check. Loops come from the ADPCM loop flags only; a loop address "
-        "the game wrote to the voice register is not exported.";
+        "the game wrote to the voice register is not exported. Each spu-sample line records a sample's size in sound "
+        "RAM and its note at pitch 1000h as measured here, which its replacement is tuned against; keep these lines "
+        "when editing the bank.";
     // ICMT is limited to 65536 bytes, terminator included. The lists stop at a whole name, with
     // room left to say so.
     constexpr std::string_view cut = "\n(list truncated)";
@@ -124,6 +127,15 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         }
         if (line.find(' ', heading.size() + 1) != std::string::npos) comment += line;
     };
+    // The note records go first, so that they are the last thing a long bank loses.
+    for (auto& record : records) {
+        if (comment.size() + 1 + record.size() > limit) {
+            truncated = true;
+            break;
+        }
+        comment += '\n';
+        comment += record;
+    }
     list("Key-on pitches disagree, check by ear", disagrees);
     list("No key-on pitch to check against", unconfirmed);
     list("Unpitched", unpitched);
@@ -363,9 +375,9 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
             if (!loaded) {
                 m_overlayStatus = _("Not a SoundFont file.");
             } else {
-                m_overlayStatus =
-                    fmt::format(f_("{} replacements loaded, {} samples without a signature name skipped."),
-                                loaded->size(), skipped);
+                m_overlayStatus = fmt::format(f_("{} replacements loaded, {} samples skipped for a name that is not a "
+                                                 "signature or no spu-sample line."),
+                                              loaded->size(), skipped);
                 g_emulator->m_spu->setOverlay(std::move(loaded));
             }
         }

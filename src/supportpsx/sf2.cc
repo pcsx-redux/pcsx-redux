@@ -369,3 +369,15 @@ std::vector<PCSX::SF2::Sample> PCSX::SF2::read(const uint8_t* data, size_t size)
     }
     return ret;
 }
+
+std::string PCSX::SF2::readComment(const uint8_t* data, size_t size) {
+    if (size < 12 || memcmp(data, "RIFF", 4) != 0 || memcmp(data + 8, "sfbk", 4) != 0) return {};
+    const uint32_t riffSize = std::min<uint32_t>(rd32(data + 4), uint32_t(size - 8));
+    if (riffSize < 4) return {};
+    const Chunk info = find(data + 12, riffSize - 4, nullptr, "INFO");
+    if (!info.data) return {};
+    const Chunk icmt = find(info.data, info.size, "ICMT");
+    if (!icmt.data) return {};
+    return std::string(reinterpret_cast<const char*>(icmt.data),
+                       strnlen(reinterpret_cast<const char*>(icmt.data), icmt.size));
+}
