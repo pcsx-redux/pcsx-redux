@@ -79,6 +79,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\tests\supportpsx\ps1-packer-overlap.cc" />
+    <ClCompile Include="..\..\..\tests\supportpsx\binloader-symbols.cc" />
     <ClCompile Include="..\..\..\tests\supportpsx\psyq-obj.cc" />
     <ClCompile Include="..\..\..\tests\support\ansi-sgr.cc" />
     <ClCompile Include="..\..\..\tests\supportpsx\fundamental.cc" />
