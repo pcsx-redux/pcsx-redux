@@ -274,7 +274,7 @@ Usage: {} input.json [-h] -o output.bin
         work[i].fileInfo = fileInfo;
     }
     auto createSectorHeader = [](uint8_t sector[2352]) {
-        memset(sector + 1, 0xff, 10);
+        memcpy(sector, PCSX::IEC60908b::SYNC, sizeof(PCSX::IEC60908b::SYNC));
         sector[15] = 2;
         sector[18] = sector[22] = 8;
     };

@@ -215,18 +215,7 @@ ssize_t PCSX::CDRIso::cdread_2048(IO<File> f, unsigned int base, void *dest_, in
 
     ret = f->readAt(dest + 12 + 4 + 8, 2048, base + sector * 2048);
 
-    dest[0] = 0x00;
-    dest[1] = 0xff;
-    dest[2] = 0xff;
-    dest[3] = 0xff;
-    dest[4] = 0xff;
-    dest[5] = 0xff;
-    dest[6] = 0xff;
-    dest[7] = 0xff;
-    dest[8] = 0xff;
-    dest[9] = 0xff;
-    dest[10] = 0xff;
-    dest[11] = 0x00;
+    memcpy(dest, IEC60908b::SYNC, sizeof(IEC60908b::SYNC));
     IEC60908b::MSF(sector + 150).toBCD(dest + 12);
     dest[15] = 2;
     dest[16] = dest[20] = 0;
