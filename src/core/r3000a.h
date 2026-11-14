@@ -179,6 +179,7 @@ enum class Schedule : unsigned {
     MDECINDMA,
     GPUOTCDMA,
     CDRDMA,
+    LUA,
 };
 
 // The program counter. Reads convert to uint32_t. Outside the cpu core, writes go through
@@ -409,8 +410,8 @@ class R3000Acpu {
     void muldivCancel() { m_regs.muldivReady = 0; }
 
     psxRegisters m_regs;
-    float m_scheduleScales[static_cast<unsigned>(Schedule::CDRDMA) + 1] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-                                                                           1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+    float m_scheduleScales[static_cast<unsigned>(Schedule::LUA) + 1] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+                                                                        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
     bool m_shellStarted = false;
     // Set by Emulator::vsync(), consumed by hasToRun(). It makes Execute()
     // RETURN once per emulated frame rather than only when the emulator is

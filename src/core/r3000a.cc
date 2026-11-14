@@ -538,6 +538,7 @@ void PCSX::R3000Acpu::branchTestEvents() {
         checkAndUpdate(Schedule::MDECINDMA, g_emulator->m_mdec->scheduledCallback0);
         checkAndUpdate(Schedule::GPUOTCDMA, gpuotcInterrupt);
         checkAndUpdate(Schedule::CDRDMA, g_emulator->m_cdrom->scheduledDmaCallback);
+        checkAndUpdate(Schedule::LUA, g_emulator->m_lua->interrupt);
         m_regs.lowestTarget = lowestTarget;
     }
     auto& mem = g_emulator->m_mem;

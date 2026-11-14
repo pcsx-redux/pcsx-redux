@@ -151,6 +151,7 @@ TEST(LuaIsoBuilder, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.isobuilder"), 
 TEST(LuaMds, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.mds"), 0); }
 TEST(LuaBinary, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.binary"), 0); }
 TEST(LuaCDRomApi, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.cdromapi"), 0); }
+TEST(LuaScheduleInterrupt, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.scheduleinterrupt"), 0); }
 
 TEST(LuaStartup, DofileError) {
     MainInvoker failing("-no-ui", "-cli", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
