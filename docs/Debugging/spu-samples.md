@@ -31,7 +31,7 @@ Open the exported file in any SoundFont editor, such as [Polyphone](https://www.
 - set the root key and pitch correction to the note the new recording sounds, so it is played at the same pitch as the original;
 - to make it loop, set the loop points on the sample and the loop mode of the instrument zone that plays it to loop.
 
-Leave the `spu-sample` lines in the file's comment: a replacement is tuned against the note its line records for the original, and the recorded sizes let the emulator skip most samples at key-on without hashing them. A pack without the lines still loads, and the note is then measured from the original when it is first keyed on.
+Leave the `spu-sample` lines in the file's comment: a replacement is tuned against the note its line records for the original, and the recorded sizes let the emulator skip most samples at key-on without hashing them. A sample whose line is missing is not used as a replacement.
 
 The new recording does not need to be the same length or the same rate as the original. Samples you do not want to replace can be deleted from the pack, and samples whose name is not a signature are ignored, so the file can carry other material. A SoundFont 3 file, with Ogg Vorbis samples, works too.
 
