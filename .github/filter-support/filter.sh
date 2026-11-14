@@ -27,7 +27,7 @@ git filter-branch -f --tree-filter 'find third_party -maxdepth 1 -type d -and -n
 # Delete ffmpeg, versionning, Lua, libuv and network source code (network needs libuv)
 git filter-branch -f --tree-filter 'find src -type f -name \*lua\* -and -not -name xmake.lua -delete || true' --tag-name-filter cat --prune-empty
 git filter-branch -f --tree-filter 'find src -type f -name assembler.\* -delete || true' --tag-name-filter cat --prune-empty
-git filter-branch -f --tree-filter 'find src -type f -name ffmpeg\* -delete || true' --tag-name-filter cat --prune-empty
+git filter-branch -f --tree-filter 'find src -type f -name ffmpeg\* -and -not -name ffmpeg-movie-file\* -delete || true' --tag-name-filter cat --prune-empty
 git filter-branch -f --tree-filter 'find src -type f -name uv\* -delete || true' --tag-name-filter cat --prune-empty
 git filter-branch -f --tree-filter 'find src -type f -name network\* -delete || true' --tag-name-filter cat --prune-empty
 git filter-branch -f --tree-filter 'find src -type f -name version\* -delete || true' --tag-name-filter cat --prune-empty

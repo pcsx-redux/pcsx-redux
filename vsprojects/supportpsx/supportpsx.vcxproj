@@ -157,6 +157,7 @@
     <ClCompile Include="..\..\src\supportpsx\sf2.cc" />
     <ClCompile Include="..\..\src\supportpsx\spusample.cc" />
     <ClCompile Include="..\..\src\supportpsx\stb-vorbis.cc" />
+    <ClCompile Include="..\..\src\supportpsx\str.cc" />
     <ClCompile Include="..\..\src\supportpsx\ucl-glue.c" />
     <ClCompile Include="..\..\src\supportpsx\ucl-utils.cc" />
     <ClCompile Include="..\..\third_party\iec-60908b\edcecc.c" />
@@ -197,6 +198,7 @@
     <ClInclude Include="..\..\src\supportpsx\rootkey.h" />
     <ClInclude Include="..\..\src\supportpsx\sf2.h" />
     <ClInclude Include="..\..\src\supportpsx\spusample.h" />
+    <ClInclude Include="..\..\src\supportpsx\str.h" />
     <ClInclude Include="..\..\src\supportpsx\ucl-utils.h" />
     <ClInclude Include="..\..\third_party\iec-60908b\edcecc.h" />
     <ClInclude Include="..\..\third_party\iec-60908b\tables.h" />
