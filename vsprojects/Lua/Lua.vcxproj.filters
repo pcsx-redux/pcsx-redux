@@ -24,6 +24,9 @@
     <ClCompile Include="..\..\src\lua\compressionffi.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\lua\sqliteffi.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\lua\zlibffi.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -45,6 +48,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\lua\luawrapper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\lua\sqliteffi.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\lua\zlibffi.h">
@@ -77,6 +83,9 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include="..\..\src\lua\compressionffi-cdef.lua">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="..\..\src\lua\sqliteffi.lua">
       <Filter>Source Files</Filter>
     </None>
     <None Include="..\..\src\lua\compressionffi.lua">
