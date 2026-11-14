@@ -142,6 +142,9 @@ TEST(LuaSaveStateBranchSlot, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.s
 TEST(LuaSaveStateSPUCnt, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sstate-spucnt"), 0); }
 TEST(LuaSaveStateResult, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sstate-result"), 0); }
 TEST(LuaSPULogger, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.spulogger"), 0); }
+TEST(LuaWebServer, Interpreter) {
+    EXPECT_EQ(runLuaInt("-webserver", "-webserver-port", "34568", "-exec", "require 'tests.lua.webserver'"), 0);
+}
 TEST(LuaGdbServer, Interpreter) {
     EXPECT_EQ(runLuaInt("-gdb", "-gdb-port", "3464", "-exec", "require 'tests.lua.gdbserver'"), 0);
 }
