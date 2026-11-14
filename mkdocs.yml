@@ -73,6 +73,7 @@ nav:
       - 'Lua/assembler.md'
       - 'Lua/binary.md'
       - 'Lua/compression.md'
+      - 'Lua/text-tables.md'
       - 'Lua/guest-calls.md'
       - 'Lua/implot.md'
       - 'Lua/case-studies.md'
