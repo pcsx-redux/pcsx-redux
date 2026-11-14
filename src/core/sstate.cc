@@ -892,8 +892,11 @@ void PCSX::Counters::deserialize(const SaveStateWrapper* w) {
     // so a restored state replays the same hblank times. A state saved before the remainder was
     // stored loads it as 0.
     m_lineRemainder = counters.get<LineRemainder>().value % m_lineDen;
-    // Recalculate rates from mode registers (handles overclock changes and dotclock)
+    // Recalculate rates from mode registers (handles overclock changes and dotclock). A state saved
+    // without a rate denominator keeps its whole-cycle timer 0 rate, which its saved timing uses.
+    const bool legacyTimer0 = counters.get<Rcnts>().value[0].get<RcntRateDen>().value == 0;
     for (unsigned i = 0; i < 3; i++) {
+        if (i == 0 && legacyTimer0) continue;
         recalculateRate(i);
     }
 
