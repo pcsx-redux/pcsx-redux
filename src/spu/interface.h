@@ -146,8 +146,9 @@ class impl final : public SPUInterface {
         //
         // In a browser the pacing belongs to the frame callback instead:
         // Execute() unwinds after one emulated frame, and main.cc only calls it
-        // when emulated time is not ahead of the wall clock, whatever the
-        // display refresh. The caller advances m_audioFrames either way.
+        // while the CPU is less than the lead ahead of what the device has
+        // played, whatever the display refresh. The caller advances
+        // m_audioFrames either way.
         (void)goal;
 #else
         m_audioOut.waitForGoal(goal);

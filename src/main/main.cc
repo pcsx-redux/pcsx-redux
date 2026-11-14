@@ -663,44 +663,61 @@ runner.init({
             //
             // Pacing. Each Execute() is one emulated frame and the browser calls us once per
             // display refresh, which is not the console's rate and may be anything. The main
-            // thread must not wait, so a callback that would put emulated time ahead of the
-            // wall clock does nothing and the canvas keeps the last frame. Emulated time is the
-            // CPU cycle counter, so PAL and NTSC pace alike. Half a frame of slack absorbs the
-            // jitter of a refresh close to the console's own rate. A gap of more than a quarter
-            // second either way (a slow host, a background tab, a save state, a reset) is not
-            // caught up: the clocks are realigned.
+            // thread must not wait, so this is the desktop's audio throttle (psxcounters.cc,
+            // waitForGoal) turned inside out: a callback runs frames while the CPU is less than
+            // the SPU's lead ahead of what the audio device has played, and returns as soon as
+            // it is that far ahead. The lead is what keeps the device fed, so the mixer, which
+            // cannot mix past the CPU, always has a period's worth queued. Played frames already
+            // include turbo. While the device is not playing (a suspended AudioContext) the wall
+            // clock stands in for it. A gap of more than a quarter second past the lead either
+            // way (a slow host, a background tab, a save state, a reset) is not caught up: the
+            // clocks are realigned.
             static std::function<void()> s_frame;
             s_frame = [oneIteration, system, emulator]() {
                 static bool s_aligned = false;
-                static int s_turbo = 1;
-                static double s_wallBase = 0.0;
+                static bool s_deviceClock = false;
                 static uint64_t s_cycleBase = 0;
-                constexpr double c_slackMs = 1000.0 / 60.0 / 2.0;
-                constexpr double c_realignMs = 250.0;
-                // Turbo divides emulated time, so a refresh near the console's rate has to run
-                // more than one frame per callback to keep up.
-                const int turbo = emulator->getTurboFactor();
-                for (int frame = 0; frame < turbo; frame++) {
+                static double s_clockBase = 0.0;
+                static uint32_t s_lastPlayed = 0;
+                static double s_lastPlayedMs = -1e9;
+                constexpr double c_sampleRate = 44100.0;
+                constexpr double c_deviceStallMs = 250.0;
+                constexpr int c_maxFramesPerCallback = 8;
+                for (int frame = 0; frame < c_maxFramesPerCallback; frame++) {
                     if (!system->running() || system->hasPendingSaveStateLoad()) {
                         s_aligned = false;
                         if (frame == 0) oneIteration();
                         return;
                     }
                     const double now = emscripten_get_now();
-                    const uint64_t cycle = emulator->m_cpu->m_regs.cycle;
-                    if (!s_aligned || cycle < s_cycleBase || turbo != s_turbo) {
-                        s_aligned = true;
-                        s_turbo = turbo;
-                        s_wallBase = now;
-                        s_cycleBase = cycle;
+                    const uint32_t played = emulator->m_spu->getCurrentFrames();
+                    if (played != s_lastPlayed) {
+                        s_lastPlayed = played;
+                        s_lastPlayedMs = now;
                     }
-                    const double emulatedMs =
-                        double(cycle - s_cycleBase) * 1000.0 / PCSX::Emulator::m_psxClockSpeed / turbo;
-                    const double aheadMs = emulatedMs - (now - s_wallBase);
-                    if (aheadMs > c_realignMs || aheadMs < -c_realignMs) {
-                        s_wallBase = now;
+                    const bool deviceClock = now - s_lastPlayedMs < c_deviceStallMs;
+                    // Samples on the master clock: the device's played count, or the wall clock.
+                    const double clock = deviceClock ? double(played)
+                                                     : now * c_sampleRate / 1000.0 * emulator->getTurboFactor();
+                    const uint64_t cycle = emulator->m_cpu->m_regs.cycle;
+                    const double lead = emulator->m_spu->getLeadFrames();
+                    const double realign = lead + c_sampleRate / 4.0;
+                    if (!s_aligned || deviceClock != s_deviceClock || cycle < s_cycleBase) {
+                        s_aligned = true;
+                        s_deviceClock = deviceClock;
                         s_cycleBase = cycle;
-                    } else if (aheadMs > c_slackMs) {
+                        s_clockBase = clock;
+                    }
+                    // The played count is 32 bits and wraps; the wrapped difference is still right.
+                    const double elapsed = deviceClock ? double(uint32_t(played - uint32_t(s_clockBase)))
+                                                       : clock - s_clockBase;
+                    const double emulated =
+                        double(cycle - s_cycleBase) * c_sampleRate / PCSX::Emulator::m_psxClockSpeed;
+                    const double ahead = emulated - elapsed;
+                    if (ahead > realign || ahead < -realign) {
+                        s_cycleBase = cycle;
+                        s_clockBase = clock;
+                    } else if (ahead > lead) {
                         return;
                     }
                     oneIteration();
