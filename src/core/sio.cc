@@ -34,7 +34,7 @@
 #include "support/strings-helpers.h"
 
 PCSX::SIO::SIO() : m_listener(g_system->m_eventBus) {
-    m_listener.listen<Events::ExecutionFlow::SaveStateLoaded>([this](const auto &) {
+    m_listener.listen<Events::ExecutionFlow::SaveStateLoaded>([this](const auto&) {
         m_psxCycleValid = false;
         m_wallClockValid = false;
     });
@@ -46,7 +46,7 @@ PCSX::SIO::SIO() : m_listener(g_system->m_eventBus) {
 // each docked PocketStation that far. See sio.h for why this is at the inter-burst boundary and not
 // per-instruction or per-frame. Cheap when nothing is docked (early return).
 void PCSX::SIO::stepPocketstation() {
-    PocketStation::PocketStation *devs[c_cardCount];
+    PocketStation::PocketStation* devs[c_cardCount];
     bool any = false;
     for (unsigned i = 0; i < c_cardCount; i++) {
         // Dock before stepping, so the edge is taken by the cycles this call is about to run.
@@ -100,7 +100,7 @@ void PCSX::SIO::stepPocketstation() {
 // once per GUI frame from main.cc's not-running branch; that gating is what prevents double-driving
 // with stepPocketstation() (which only runs while the core executes). Inert when nothing is enabled.
 void PCSX::SIO::stepPocketstationWallClock() {
-    PocketStation::PocketStation *devs[c_cardCount];
+    PocketStation::PocketStation* devs[c_cardCount];
     bool any = false;
     for (unsigned i = 0; i < c_cardCount; i++) {
         // Dock before stepping, so the edge is taken by the cycles this call is about to run.
@@ -408,7 +408,7 @@ void PCSX::SIO::transmitData() {
             const unsigned index = portIndex * 3 + m_currentDevice - DeviceType::TapMemoryCardB;
             const auto port = portIndex ? Pads::Port::Port2 : Pads::Port::Port1;
             const auto [inserted, path] = tapMcdSettings(index);
-            auto &card = m_tapMemoryCard[index];
+            auto& card = m_tapMemoryCard[index];
             const bool tap = PCSX::g_emulator->m_pads->hasMultitap(port);
             if (tap && inserted && !m_tapMemoryCardLoaded[index]) {
                 // loadMcd resets the directory flag; keep the one a save state may have restored.

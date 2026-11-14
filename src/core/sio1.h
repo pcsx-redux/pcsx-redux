@@ -150,7 +150,7 @@ class SIO1 {
 
     uint8_t readGuizmo8() { return m_regs.guizmo; }
     uint16_t readGuizmo16() { return m_regs.guizmo; }
-    uint32_t readGuizmo32() { return ((uint32_t) m_regs.guizmo) | ((uint32_t) m_regs.baud << 16); }
+    uint32_t readGuizmo32() { return ((uint32_t)m_regs.guizmo) | ((uint32_t)m_regs.baud << 16); }
 
     void writeBaud8(uint8_t v) { writeBaud16(v); }
     void writeBaud16(uint16_t v);

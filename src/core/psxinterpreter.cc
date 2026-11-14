@@ -1175,8 +1175,8 @@ void InterpretedCPU::psxMFC0(uint32_t code) {
     if (_Rd_ == 13) {
         // Cause bit 10 follows I_STAT & I_MASK, both ways, with no latch.
         auto& mem = PCSX::g_emulator->m_mem;
-        const uint32_t pending = mem->readHardwareRegister<PCSX::Memory::ISTAT>() &
-                                 mem->readHardwareRegister<PCSX::Memory::IMASK>() & 0x7ff;
+        const uint32_t pending =
+            mem->readHardwareRegister<PCSX::Memory::ISTAT>() & mem->readHardwareRegister<PCSX::Memory::IMASK>() & 0x7ff;
         value = (value & ~0x400) | (pending ? 0x400 : 0);
     }
     delayedLoadRef<int32_t>(_Rt_) = (int)value;
@@ -1963,7 +1963,8 @@ inline void InterpretedCPU::execBlock() {
         if constexpr (debug || detached) break;
         // Stop on the offending instruction, as a breakpoint would: the paused cpu then sits right
         // after it, and nothing further in the block can report again.
-        if (stackTripped) [[unlikely]] break;
+        if (stackTripped) [[unlikely]]
+            break;
     } while (!ranDelaySlot && !cop0Armed());
 }
 

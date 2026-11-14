@@ -44,7 +44,7 @@ class PocketStationLCD {
     bool& m_show;
 
   private:
-    GLuint m_texture = 0;            // lazily created on first draw (needs a GL context).
+    GLuint m_texture = 0;             // lazily created on first draw (needs a GL context).
     uint32_t m_pixels[32 * 32] = {};  // RGBA8 staging buffer expanded from the 1bpp vram.
 };
 

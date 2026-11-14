@@ -1527,8 +1527,8 @@ void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
     const unsigned destY0 = resolveVramY(destY);
     bool contiguous = true;
     for (uint32_t j = 0; contiguous && (j < height); j++) {
-        contiguous = !vramOpenBus(destY + j) && (resolveVramY(srcY + j) == srcY0 + j) &&
-                     (resolveVramY(destY + j) == destY0 + j);
+        contiguous =
+            !vramOpenBus(destY + j) && (resolveVramY(srcY + j) == srcY0 + j) && (resolveVramY(destY + j) == destY0 + j);
     }
 
     if (m_setMask || m_checkMask || !contiguous) {
@@ -1685,13 +1685,12 @@ void PCSX::OpenGL_GPU::lineExec(Line<shading, lineType, blend> *prim) {
         if (edgeOverLimit(x0, y0, x1, y1)) continue;
         const int bx[2] = {x0, x1};
         const int by[2] = {y0, y1};
-        forEachPixelWrap(m_lastDrawOffsetSetting, bx, by, 2,
-                         [&](int dx, int dy) {
-                             const int lx[2] = {x0 + dx, x1 + dx};
-                             const int ly[2] = {y0 + dy, y1 + dy};
-                             addCheckMaskBounds(lx, ly, 2);
-                             drawLine(x0 + dx, y0 + dy, c0, x1 + dx, y1 + dy, c1);
-                         });
+        forEachPixelWrap(m_lastDrawOffsetSetting, bx, by, 2, [&](int dx, int dy) {
+            const int lx[2] = {x0 + dx, x1 + dx};
+            const int ly[2] = {y0 + dy, y1 + dy};
+            addCheckMaskBounds(lx, ly, 2);
+            drawLine(x0 + dx, y0 + dy, c0, x1 + dx, y1 + dy, c1);
+        });
     }
 }
 

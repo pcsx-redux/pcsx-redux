@@ -440,7 +440,9 @@ PCSX = {
             -- Nodes are indexed from 0 in the order they were logged. An edited node replays with the
             -- edit; the logged node itself is left alone.
             getNodeName = function(index) return ffi.string(C.getGPUDumpPlayerNodeName(index)) end,
-            setNodeColor = function(index, vertex, color) return C.setGPUDumpPlayerNodeColor(index, vertex, color) end,
+            setNodeColor = function(index, vertex, color)
+                return C.setGPUDumpPlayerNodeColor(index, vertex, color)
+            end,
             clearNodeOverlay = function(index) C.clearGPUDumpPlayerNodeOverlay(index) end,
             replay = function() C.replayGPUDumpPlayer() end,
             getVRAM = function() return Support.File._createSliceWrapper(C.getGPUDumpPlayerVRAM()) end,

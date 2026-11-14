@@ -1088,16 +1088,16 @@ void PCSX::GUI::startFrame() {
         io.Fonts->Clear();
         io.Fonts->AddFontDefault();
         for (auto& scale : scales) {
-            m_mainFonts[scale] = loadFont(MAKEU8("NotoSans-Regular.ttf"), settings.get<MainFontSize>().value * scale,
-                                          io, false);
+            m_mainFonts[scale] =
+                loadFont(MAKEU8("NotoSans-Regular.ttf"), settings.get<MainFontSize>().value * scale, io, false);
             for (auto& e : g_system->getLocaleExtra()) {
                 loadFont(e, settings.get<MainFontSize>().value * scale, io, true);
             }
             // try loading the japanese font for memory card manager
-            m_hasJapanese = loadFont(MAKEU8("NotoSansCJKjp-Regular.otf"), settings.get<MainFontSize>().value * scale,
-                                     io, true);
-            m_monoFonts[scale] = loadFont(MAKEU8("NotoMono-Regular.ttf"), settings.get<MonoFontSize>().value * scale,
-                                          io, false);
+            m_hasJapanese =
+                loadFont(MAKEU8("NotoSansCJKjp-Regular.otf"), settings.get<MainFontSize>().value * scale, io, true);
+            m_monoFonts[scale] =
+                loadFont(MAKEU8("NotoMono-Regular.ttf"), settings.get<MonoFontSize>().value * scale, io, false);
             // NotoMono has no U+2713 (cester's pass mark) and no CJK; merge them in from the japanese font.
             loadFont(MAKEU8("NotoSansCJKjp-Regular.otf"), settings.get<MonoFontSize>().value * scale, io, true);
         }
@@ -1952,9 +1952,8 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
         // rather than the device because the window also drives that slot's dock control.
         unsigned psSlot = 0;
         if (g_emulator->m_sio->getPocketstation(0) == nullptr) psSlot = 1;
-        PCSX::MemoryCard* psCard = g_emulator->m_sio->getPocketstation(psSlot) != nullptr
-                                       ? g_emulator->m_sio->getMemoryCard(psSlot)
-                                       : nullptr;
+        PCSX::MemoryCard* psCard =
+            g_emulator->m_sio->getPocketstation(psSlot) != nullptr ? g_emulator->m_sio->getMemoryCard(psSlot) : nullptr;
         m_pocketStationLCD.draw(psCard, psSlot, _("PocketStation LCD"));
     }
 
@@ -2312,7 +2311,8 @@ This setting is useful for debugging purposes,
 to detect uninitialized memory reads that may
 cause issues in some cases.
 )"));
-        changed |= ImGui::Checkbox(_("OpenGL GPU *ALPHA STATE*"), &settings.get<Emulator::SettingHardwareRenderer>().value);
+        changed |=
+            ImGui::Checkbox(_("OpenGL GPU *ALPHA STATE*"), &settings.get<Emulator::SettingHardwareRenderer>().value);
         ImGuiHelpers::ShowHelpMarker(_(R"(Enables the OpenGL GPU renderer.
 This is not recommended for normal use at the moment,
 as it is not fully implemented yet. It is recommended

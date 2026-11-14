@@ -36,7 +36,7 @@ constexpr size_t c_maxLag = PCSX::Fundamental::c_maxInput / 2 + 1;
 struct Scratch {
     Scratch() {
         static std::once_flag flag;
-        std::call_once(flag, []{
+        std::call_once(flag, [] {
             for (size_t k = 0; k < c_fftMax / 2; k++) {
                 const double angle = -2.0 * std::numbers::pi * double(k) / double(c_fftMax);
                 twiddle[k] = Complex(std::cos(angle), std::sin(angle));

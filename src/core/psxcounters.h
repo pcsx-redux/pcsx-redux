@@ -99,6 +99,7 @@ class Counters {
     // A scanline lasts m_lineNum / m_lineDen CPU cycles, which is not a whole number. Each line
     // gets the floor or the ceiling, and m_lineRemainder carries the fraction to the next one.
     uint64_t m_lineNum = 1, m_lineDen = 1, m_lineRemainder = 0;
+
   public:
     uint64_t m_psxNextCounter;
     bool m_pollSIO1 = false;

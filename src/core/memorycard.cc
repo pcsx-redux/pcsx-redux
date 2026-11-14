@@ -153,7 +153,8 @@ void PCSX::MemoryCard::createPocketstation() {
 
     // The ARM7 needs a 16 KiB PocketStation BIOS dump, configured via SettingPocketstationBios.
     // If it is unset or unreadable, leave the device absent rather than crashing.
-    const PCSX::u8string kernelPath = PCSX::g_emulator->settings.get<PCSX::Emulator::SettingPocketstationBios>().string();
+    const PCSX::u8string kernelPath =
+        PCSX::g_emulator->settings.get<PCSX::Emulator::SettingPocketstationBios>().string();
     if (kernelPath.empty()) return;
     const char *fname = reinterpret_cast<const char *>(kernelPath.c_str());
 
@@ -166,8 +167,8 @@ void PCSX::MemoryCard::createPocketstation() {
     const size_t got = fread(kernel, 1, sizeof(kernel), f);
     fclose(f);
     if (got != sizeof(kernel)) {
-        PCSX::g_system->printf(
-            _("PocketStation: kernel image %s is %zu bytes, expected 16384; device not started.\n"), fname, got);
+        PCSX::g_system->printf(_("PocketStation: kernel image %s is %zu bytes, expected 16384; device not started.\n"),
+                               fname, got);
         return;
     }
 
@@ -181,10 +182,10 @@ void PCSX::MemoryCard::createPocketstation() {
     m_pocketstation = std::move(dev);
 }
 
-void PCSX::MemoryCard::savePocketstationState(SaveStates::PocketStationSlot& slot) {
+void PCSX::MemoryCard::savePocketstationState(SaveStates::PocketStationSlot &slot) {
     if (!m_pocketstation) return;
     const auto blob = m_pocketstation->saveState();
-    slot.get<SaveStates::PocketStationDevice>().value.assign(reinterpret_cast<const char*>(blob.data()), blob.size());
+    slot.get<SaveStates::PocketStationDevice>().value.assign(reinterpret_cast<const char *>(blob.data()), blob.size());
     slot.get<SaveStates::PocketStationDocked>().value = m_pocketstationDocked;
     slot.get<SaveStates::PocketStationManualDock>().value = m_pocketstationManualDock;
     slot.get<SaveStates::PocketStationSelected>().value = m_pocketstationSelected;
@@ -193,8 +194,8 @@ void PCSX::MemoryCard::savePocketstationState(SaveStates::PocketStationSlot& slo
     slot.get<SaveStates::PocketStationArmAccum>().value = m_sio->m_psxArmAccum[this - m_sio->m_memoryCard];
 }
 
-void PCSX::MemoryCard::loadPocketstationState(SaveStates::PocketStationSlot& slot) {
-    const auto& blob = slot.get<SaveStates::PocketStationDevice>().value;
+void PCSX::MemoryCard::loadPocketstationState(SaveStates::PocketStationSlot &slot) {
+    const auto &blob = slot.get<SaveStates::PocketStationDevice>().value;
     if (blob.empty()) return;  // the state has no device for this slot; leave ours running as it is.
     if (!m_pocketstation) {
         PCSX::g_system->printf(_("PocketStation: the savestate has a device in slot %i, but that slot has none.\n"),
@@ -202,7 +203,7 @@ void PCSX::MemoryCard::loadPocketstationState(SaveStates::PocketStationSlot& slo
         return;
     }
     syncPocketstationFlash();
-    if (!m_pocketstation->loadState(reinterpret_cast<const uint8_t*>(blob.data()), blob.size())) {
+    if (!m_pocketstation->loadState(reinterpret_cast<const uint8_t *>(blob.data()), blob.size())) {
         PCSX::g_system->printf(_("PocketStation: the device state in this savestate is not one this build reads.\n"));
         return;
     }
