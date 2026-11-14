@@ -660,8 +660,69 @@ runner.init({
             // stays alive with everything intact. Nothing below runs on wasm -
             // no pause(), no Quitting signal - which is the honest shape for a
             // tab, since a tab is closed rather than quit.
+            //
+            // Pacing. Each Execute() is one emulated frame and the browser calls us once per
+            // display refresh, which is not the console's rate and may be anything. The main
+            // thread must not wait, so this is the desktop's audio throttle (psxcounters.cc,
+            // waitForGoal) turned inside out: a callback runs frames while the CPU is less than
+            // the SPU's lead ahead of what the audio device has played, and returns as soon as
+            // it is that far ahead. The lead is what keeps the device fed, so the mixer, which
+            // cannot mix past the CPU, always has a period's worth queued. Played frames already
+            // include turbo. While the device is not playing (a suspended AudioContext) the wall
+            // clock stands in for it. A gap of more than a quarter second past the lead either
+            // way (a slow host, a background tab, a save state, a reset) is not caught up: the
+            // clocks are realigned.
             static std::function<void()> s_frame;
-            s_frame = oneIteration;
+            s_frame = [oneIteration, system, emulator]() {
+                static bool s_aligned = false;
+                static bool s_deviceClock = false;
+                static uint64_t s_cycleBase = 0;
+                static double s_clockBase = 0.0;
+                static uint32_t s_lastPlayed = 0;
+                static double s_lastPlayedMs = -1e9;
+                constexpr double c_sampleRate = 44100.0;
+                constexpr double c_deviceStallMs = 250.0;
+                constexpr int c_maxFramesPerCallback = 8;
+                for (int frame = 0; frame < c_maxFramesPerCallback; frame++) {
+                    if (!system->running() || system->hasPendingSaveStateLoad()) {
+                        s_aligned = false;
+                        if (frame == 0) oneIteration();
+                        return;
+                    }
+                    const double now = emscripten_get_now();
+                    const uint32_t played = emulator->m_spu->getCurrentFrames();
+                    if (played != s_lastPlayed) {
+                        s_lastPlayed = played;
+                        s_lastPlayedMs = now;
+                    }
+                    const bool deviceClock = now - s_lastPlayedMs < c_deviceStallMs;
+                    // Samples on the master clock: the device's played count, or the wall clock.
+                    const double clock = deviceClock ? double(played)
+                                                     : now * c_sampleRate / 1000.0 * emulator->getTurboFactor();
+                    const uint64_t cycle = emulator->m_cpu->m_regs.cycle;
+                    const double lead = emulator->m_spu->getLeadFrames();
+                    const double realign = lead + c_sampleRate / 4.0;
+                    if (!s_aligned || deviceClock != s_deviceClock || cycle < s_cycleBase) {
+                        s_aligned = true;
+                        s_deviceClock = deviceClock;
+                        s_cycleBase = cycle;
+                        s_clockBase = clock;
+                    }
+                    // The played count is 32 bits and wraps; the wrapped difference is still right.
+                    const double elapsed = deviceClock ? double(uint32_t(played - uint32_t(s_clockBase)))
+                                                       : clock - s_clockBase;
+                    const double emulated =
+                        double(cycle - s_cycleBase) * c_sampleRate / PCSX::Emulator::m_psxClockSpeed;
+                    const double ahead = emulated - elapsed;
+                    if (ahead > realign || ahead < -realign) {
+                        s_cycleBase = cycle;
+                        s_clockBase = clock;
+                    } else if (ahead > lead) {
+                        return;
+                    }
+                    oneIteration();
+                }
+            };
             emscripten_set_main_loop([]() { s_frame(); }, 0, false);
             cleaner.disarm();
             return 0;
