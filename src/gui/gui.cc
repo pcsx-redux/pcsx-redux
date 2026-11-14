@@ -557,7 +557,14 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
     m_listener.listen<Events::ExecutionFlow::Run>([this](const auto& event) {
         m_enableSplashScreen = false;
 
+#ifdef __EMSCRIPTEN__
+        // In a browser the swap interval picks the main loop's scheduler: 0 is setTimeout(0),
+        // which runs as fast as the page allows. Stay on requestAnimationFrame; main.cc paces
+        // emulated time against the clock.
+        SDL_GL_SetSwapInterval(1);
+#else
         SDL_GL_SetSwapInterval(0);
+#endif
         setRawMouseMotion();
     });
 

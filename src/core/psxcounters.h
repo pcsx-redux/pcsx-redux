@@ -34,7 +34,44 @@ class Counters {
     void writeCounterInternal(uint32_t index, uint32_t value, int64_t startAdjust = 0);
     // Cycles a counter sits at 0 after a reset on target before counting again. Measured as 2 on
     // the system clock for Timer 2 (period target + 2); 0 on sysclock/8. Timers 0 and 1 unmeasured.
-    uint32_t resetDwell(uint32_t index) const { return (index == 2 && m_rcnts[index].rate == 1) ? 2 : 0; }
+    uint32_t resetDwell(uint32_t index) const {
+        return (index == 2 && m_rcnts[index].rate == 1 && m_rcnts[index].rateDen == 1) ? 2 : 0;
+    }
+    // A counter ticks every rate / rateDen CPU cycles. Only the dotclock has a fractional rate.
+    void setRate(uint32_t index, uint32_t rate, uint32_t rateDen = 1) {
+        m_rcnts[index].rate = rate;
+        m_rcnts[index].rateDen = rateDen;
+    }
+    // The counter's exact start is cycleStart - startFrac / rateDen CPU cycles.
+    // CPU cycles after cycleStart until the counter reaches `ticks`.
+    uint64_t ticksToCycles(uint32_t index, uint64_t ticks) const {
+        const auto& r = m_rcnts[index];
+        if (r.rateDen <= 1) return ticks * r.rate;
+        const uint64_t span = ticks * r.rate;
+        if (span <= r.startFrac) return 0;
+        return (span - r.startFrac + r.rateDen - 1) / r.rateDen;
+    }
+    // Ticks counted `cycles` CPU cycles after cycleStart.
+    uint64_t cyclesToTicks(uint32_t index, uint64_t cycles) const {
+        const auto& r = m_rcnts[index];
+        if (r.rateDen <= 1) return cycles / r.rate;
+        return (cycles * r.rateDen + r.startFrac) / r.rate;
+    }
+    // Move the exact start forward by `ticks`, keeping the fraction of a cycle.
+    void advanceStart(uint32_t index, uint64_t ticks) {
+        auto& r = m_rcnts[index];
+        if (r.rateDen <= 1) {
+            r.cycleStart += ticks * r.rate;
+            return;
+        }
+        const uint64_t span = ticks * r.rate - r.startFrac;
+        const uint64_t whole = (span + r.rateDen - 1) / r.rateDen;
+        r.cycleStart += whole;
+        r.startFrac = uint32_t(whole * r.rateDen - span);
+    }
+    void scheduleEvent(uint32_t index, uint32_t value);
+    // Guest writes to counter 1 on the hblank clock count from the last hblank edge.
+    void anchorToHblank(uint32_t index);
 
     void set();
     void reset(uint32_t index);
@@ -46,6 +83,7 @@ class Counters {
     struct Rcnt {
         uint16_t mode, target;
         uint32_t rate, irq, counterState, irqState;
+        uint32_t rateDen = 1, startFrac = 0;
         uint64_t cycle, cycleStart;
         uint32_t gateStarted;  // Gate mode 3: first blank has occurred, counter is free running
     };

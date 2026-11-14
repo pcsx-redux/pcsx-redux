@@ -31,6 +31,7 @@ SOFTWARE.
 #include <emscripten/emscripten.h>
 #include <emscripten/html5_webgl.h>
 
+#include <deque>
 #include <string>
 
 #include "core/psxemulator.h"
@@ -75,13 +76,13 @@ void presentFrame(SDL_Window* window) {
 // filesystem. Posting it as a drop event hands it to the same place a desktop drop goes,
 // GUI::magicOpen, on the next frame rather than from inside a browser callback.
 extern "C" EMSCRIPTEN_KEEPALIVE void pcsxOpenFile(const char* path) {
-    // A drop event's path is only borrowed for the duration of the event, so keep this one
-    // alive until the next call.
-    static std::string s_path;
-    s_path = path;
+    // A pushed event does not own the string it points to, and two loads can be queued before
+    // the next frame polls them, so every path stays alive for the life of the page. That is
+    // one short string per load.
+    static std::deque<std::string> s_paths;
     SDL_Event event = {};
     event.type = SDL_EVENT_DROP_FILE;
-    event.drop.data = s_path.c_str();
+    event.drop.data = s_paths.emplace_back(path).c_str();
     SDL_PushEvent(&event);
 }
 

@@ -21,7 +21,7 @@
 //
 // Every golden below was taken from the emulator BEFORE its decoder moved into
 // src/core/mdec-decoder.cc: the block hash from src/core/mdec.cc's own rl2blk, and the pixel
-// hashes from a booted guest (src/mips/tests/mdec-roundtrip) pushing each case
+// hashes from a booted guest (src/mips/tests/mdec/roundtrip) pushing each case
 // through the emulated MDEC at 24 bits, and at 15 bits with STP set. So these
 // pin the shared code to what the emulator's MDEC did, and the emulator's MDEC
 // is what the hardware arms were graded against. A mismatch here is a change in

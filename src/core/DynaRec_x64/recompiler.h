@@ -512,7 +512,7 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
     void recCOP2(uint32_t code);
     void recCOP1or3(uint32_t code);
     void recLSCz(uint32_t code);
-    void emitCopUnusableCheck(unsigned z);
+    void emitCopUnusableCheck(unsigned z, bool userModeOnly = false);
     void recBCz(uint32_t code);
     void recCTC2(uint32_t code);
     void recDIV(uint32_t code);
@@ -644,9 +644,9 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
         &DynaRecCPU::recLBU,     &DynaRecCPU::recLHU,     &DynaRecCPU::recLWR,     &DynaRecCPU::recUnknown,  // 24
         &DynaRecCPU::recSB,      &DynaRecCPU::recSH,      &DynaRecCPU::recSWL,     &DynaRecCPU::recSW,       // 28
         &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown, &DynaRecCPU::recSWR,     &DynaRecCPU::recUnknown,  // 2c
-        &DynaRecCPU::recUnknown, &DynaRecCPU::recLSCz,    &DynaRecCPU::recLWC2,    &DynaRecCPU::recLSCz,     // 30
+        &DynaRecCPU::recLSCz,    &DynaRecCPU::recLSCz,    &DynaRecCPU::recLWC2,    &DynaRecCPU::recLSCz,     // 30
         &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown,  // 34
-        &DynaRecCPU::recUnknown, &DynaRecCPU::recLSCz,    &DynaRecCPU::recSWC2,    &DynaRecCPU::recLSCz,     // 38
+        &DynaRecCPU::recLSCz,    &DynaRecCPU::recLSCz,    &DynaRecCPU::recSWC2,    &DynaRecCPU::recLSCz,     // 38
         &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown,  // 3c
     };
 

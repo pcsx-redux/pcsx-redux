@@ -36,9 +36,7 @@ PCSX::CDRIsoFile::CDRIsoFile(std::shared_ptr<CDRIso> iso, uint32_t lba, int32_t 
         do {
             m_cachedLBA = lba;
             iso->readSectors(lba, sector, 1);
-            static constexpr uint8_t syncPattern[] = {0x00, 0xff, 0xff, 0xff, 0xff, 0xff,
-                                                      0xff, 0xff, 0xff, 0xff, 0xff, 0x00};
-            if (memcmp(sector, syncPattern, sizeof(syncPattern)) != 0) {
+            if (memcmp(sector, IEC60908b::SYNC, sizeof(IEC60908b::SYNC)) != 0) {
                 break;
             }
             uint8_t bcd[3];

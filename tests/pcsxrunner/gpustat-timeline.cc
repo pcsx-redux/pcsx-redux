@@ -24,14 +24,14 @@
 // switches, as measured on v2 GPUs. ret == 0 means every check in the guest passed.
 TEST(GPUSTATTimeline, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpustat-timeline/gpustat-timeline.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/gpustat-timeline/gpustat-timeline.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(GPUSTATTimeline, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-loadexe", "src/mips/tests/gpustat-timeline/gpustat-timeline.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/gpustat-timeline/gpustat-timeline.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

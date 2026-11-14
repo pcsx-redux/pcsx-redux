@@ -313,8 +313,8 @@ target("pcsx-redux", function()
                     -- the next build overwrote it.
                     "--shell-file", "src/gui/shell-wasm.html",
                     -- The shell copies picked and dropped files into the virtual
-                    -- filesystem and calls pcsxOpenFile on them, and its
-                    -- Fullscreen button calls Module.requestFullscreen.
+                    -- filesystem and calls pcsxOpenFile on them, and its Fullscreen
+                    -- button calls Module.requestFullscreen.
                     "-sEXPORTED_RUNTIME_METHODS=FS,ccall,requestFullscreen",
                     "-Wl,--error-limit=0", {force = true})
     -- The virtual filesystem. findResource() walks seven candidate paths off

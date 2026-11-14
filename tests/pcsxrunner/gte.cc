@@ -23,14 +23,14 @@
 
 TEST(GTE, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-loadexe", "src/mips/tests/gte/gte.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/gte/gte/gte.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(GTE, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/gte/gte.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/gte/gte/gte.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -212,13 +212,13 @@ TEST(GTE, MvmvaAfterMtc2Dynarec) {
     EXPECT_EQ(ret, 0);
 }
 
-// nugget tests/gte-write-to-use: each (command, input register) pair, with N = 0..3 instructions
+// nugget tests/gte/write-to-use: each (command, input register) pair, with N = 0..3 instructions
 // between the write and the command. The program exits 0 when every checked result matches the
 // consoles, and 2 when only the results that mix old and new terms differ, which a delay per
 // command and register cannot produce. Both CPUs are expected to get to 2.
 TEST(GTE, WriteToUseCoarseInterpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gte-write-to-use/gte-write-to-use.ps-exe");
+                        "-loadexe", "src/mips/tests/gte/write-to-use/gte-write-to-use.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 2);
 }
@@ -229,7 +229,7 @@ TEST(GTE, WriteToUseCoarseDynarec) {
     GTEST_SKIP();
 #endif
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-loadexe", "src/mips/tests/gte-write-to-use/gte-write-to-use.ps-exe");
+                        "-loadexe", "src/mips/tests/gte/write-to-use/gte-write-to-use.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 2);
 }

@@ -25,7 +25,7 @@
 // exit code is the number of the check that failed.
 TEST(AllocTracker, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-debugger", "-loadexe", "src/mips/tests/alloc-tracker/alloc-tracker.ps-exe");
+                        "-debugger", "-loadexe", "src/mips/tests/tooling/alloc-tracker/alloc-tracker.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -39,7 +39,7 @@ TEST(AllocTracker, Interpreter) {
 // which lives in the hardware write path and works under either core.
 TEST(AllocTracker, DynarecObservesNothing) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-debugger", "-loadexe", "src/mips/tests/alloc-tracker/alloc-tracker.ps-exe");
+                        "-debugger", "-loadexe", "src/mips/tests/tooling/alloc-tracker/alloc-tracker.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 8);
 }
