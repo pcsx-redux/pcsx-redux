@@ -1025,6 +1025,11 @@ void PCSX::GUI::startFrame() {
                                                               static_cast<int>(event.key.mod)});
                 break;
             }
+            case SDL_EVENT_GAMEPAD_ADDED:
+            case SDL_EVENT_GAMEPAD_REMOVED:
+                // gui drains the SDL queue; pad.cc cannot see these via PeepEvents.
+                if (g_emulator && g_emulator->m_pads) g_emulator->m_pads->rescanGamepads();
+                break;
             default:
                 break;
         }
