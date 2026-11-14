@@ -17,6 +17,9 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include <algorithm>
+#include <cctype>
+
 #include "cdrom/cdriso.h"
 #include "core/cdrom.h"
 #include "cueparser/cueparser.h"
@@ -35,9 +38,12 @@ bool PCSX::CDRIso::parsecue(const char *isofileString) {
 
     m_numtracks = 0;
 
-    // copy name of the iso and change extension from .bin to .cue
+    // copy name of the iso and change extension from .bin to .cue, keeping an extension that
+    // already is .cue in any case, since GAME.CUE and GAME.cue are different files here
     cuename = isofile;
-    cuename.replace_extension("cue");
+    auto ext = cuename.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+    if (ext != ".cue") cuename.replace_extension("cue");
 
     fi.setFile(new UvFile(cuename));
     if (fi->failed()) return false;
