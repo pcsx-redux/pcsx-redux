@@ -36,7 +36,7 @@ Every failure raises a Lua error. The message is SQLite's own, followed by its e
 
 ### Leaving a `rows()` loop early
 
-A `rows()` loop left early, through `break`, `return`, or an error raised in the loop body, does not finalize its statement. The statement stays alive, and on a database file it keeps its read lock, until the garbage collector gets to it, which may be much later. While it lives, it can keep other connections from writing to the file, and in the same connection a `DROP TABLE` on the table it reads fails with `database table is locked`. Use `rows()` only for loops that always run to the end. When the loop may stop early, use `db:each()`, which stops when `fn` returns `false` and finalizes in every case, or `db:first()` for a single row, or `db:prepare()` with an explicit `stmt:finalize()`.
+A `rows()` loop left early, through `break`, `return`, or an error raised in the loop body, does not finalize its statement. The statement stays alive, and on a database file it keeps its read lock, until the garbage collector gets to it, which may be much later. While it lives, other connections cannot write to the file in the default rollback journal mode (they get `database is locked`; in WAL mode they can), and in the same connection a `DROP TABLE` on the table it reads fails with `database table is locked`. Use `rows()` only for loops that always run to the end. When the loop may stop early, use `db:each()`, which stops when `fn` returns `false` and finalizes in every case, or `db:first()` for a single row, or `db:prepare()` with an explicit `stmt:finalize()`.
 
 ## Statements
 
