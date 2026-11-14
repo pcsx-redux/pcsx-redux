@@ -66,19 +66,7 @@ ssize_t PCSX::CDRIso::ecmDecode(IO<File> f, unsigned int base, void *dest, int s
 
     auto reconstructSector = [](uint8_t *sector, int8_t type) {
         auto ref32 = [sector](uint32_t offset) -> uint32_t & { return *reinterpret_cast<uint32_t *>(sector + offset); };
-        // Sync
-        sector[0x000] = 0x00;
-        sector[0x001] = 0xff;
-        sector[0x002] = 0xff;
-        sector[0x003] = 0xff;
-        sector[0x004] = 0xff;
-        sector[0x005] = 0xff;
-        sector[0x006] = 0xff;
-        sector[0x007] = 0xff;
-        sector[0x008] = 0xff;
-        sector[0x009] = 0xff;
-        sector[0x00a] = 0xff;
-        sector[0x00b] = 0x00;
+        memcpy(sector, IEC60908b::SYNC, sizeof(IEC60908b::SYNC));
 
         switch (type) {
             case 1:

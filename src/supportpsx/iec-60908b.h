@@ -50,6 +50,8 @@ enum class SectorMode {
 
 static constexpr size_t FRAMESIZE_RAW = 2352;
 static constexpr size_t DATA_SIZE = FRAMESIZE_RAW - 12;
+// The 12 bytes a raw sector opens with, before its header.
+static constexpr uint8_t SYNC[12] = {0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00};
 static constexpr size_t SUB_FRAMESIZE = 96;
 
 union Sub {
