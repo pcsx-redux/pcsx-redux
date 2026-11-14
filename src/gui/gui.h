@@ -345,6 +345,8 @@ class GUI final : public UI {
 
     void startFrame();
     void endFrame();
+    void notifyControllerHotplug(bool connected, const char *name, int port);
+    void announceConnectedControllers();
 
     bool showThemes();  // Theme window : Allows for custom imgui themes
     bool about();
@@ -578,6 +580,7 @@ class GUI final : public UI {
   public:
     bool hasJapanese() { return m_hasJapanese; }
     bool m_setupScreenSize = true;
+    bool m_announcedStartupControllers = false;
     bool m_clearTextures = true;
     bool m_presentAfterHardReset = false;
     Widgets::ShaderEditor m_offscreenShaderEditor = {"offscreen"};
