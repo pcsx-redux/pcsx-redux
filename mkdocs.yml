@@ -54,6 +54,7 @@ nav:
       - 'Debugging/misc-features.md'
       - 'Debugging/vram-viewer.md'
       - 'Debugging/gpu-logger.md'
+      - 'Debugging/spu-samples.md'
     - 'mips_api.md'
     - 'web_server.md'
     - 'sio1_networking.md'
