@@ -415,3 +415,22 @@ TEST(Profiler, SharedSymbolNamesCarryTheirAddress) {
     EXPECT_EQ(name(0x00001000, &start), "0x00001000");
     EXPECT_EQ(start, 0x00001000);
 }
+
+// Demangling happens before the shared-name check, so two statics that demangle to the
+// same text stay apart, and the suffix lands on the name as shown.
+TEST(Profiler, SharedNamesAreComparedDemangled) {
+    std::map<uint32_t, std::string> symbols = {
+        {0x80010000, "_ZL6helperv"},
+        {0x80010100, "_ZN3foo3barEv"},
+        {0x80020000, "_ZL6helperv"},
+        {0x80030000, "main"},
+    };
+    PCSX::Profiler::SymbolNamer shown(symbols, true);
+    EXPECT_EQ(shown(0x80010004), "helper()@0x80010000");
+    EXPECT_EQ(shown(0x80020004), "helper()@0x80020000");
+    EXPECT_EQ(shown(0x80010104), "foo::bar()");
+    EXPECT_EQ(shown(0x80030004), "main");
+    PCSX::Profiler::SymbolNamer linked(symbols);
+    EXPECT_EQ(linked(0x80010104), "_ZN3foo3barEv");
+    EXPECT_EQ(linked(0x80010004), "_ZL6helperv@0x80010000");
+}

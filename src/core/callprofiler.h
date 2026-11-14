@@ -78,30 +78,33 @@ class Profiler {
     // up to the root.
     std::vector<uint32_t> frames(uint32_t path, uint32_t pc) const;
     // Self and inclusive counters per function, by containing symbol. Recursion counts a
-    // function's inclusive cost once per sample.
-    std::vector<Function> functions() const;
+    // function's inclusive cost once per sample. Names are C++-demangled when asked.
+    std::vector<Function> functions(bool demangle = false) const;
 
     // The google/pprof profile.proto format, uncompressed.
     std::string serializePprof() const;
     // The callgrind format KCachegrind reads.
     std::string serializeCallgrind() const;
 
-    // Names code addresses after the symbol containing them, against one symbol table. A
-    // name the table holds at more than one address gets "@0x<start>" appended, so functions
-    // sharing a name stay apart in every export; a unique name stays bare. An address no
-    // symbol covers is named by its own hex value, and is its own start.
+    // Names code addresses after the symbol containing them, against one symbol table,
+    // optionally C++-demangled. A name the table holds at more than one address, compared
+    // as it will be shown, gets "@0x<start>" appended, so functions sharing a name stay
+    // apart in every export; a unique name stays bare. An address no symbol covers is
+    // named by its own hex value, and is its own start.
     class SymbolNamer {
       public:
-        explicit SymbolNamer(const std::map<uint32_t, std::string>& symbols);
+        explicit SymbolNamer(const std::map<uint32_t, std::string>& symbols, bool demangle = false);
         std::string operator()(uint32_t addr, uint32_t* start = nullptr) const;
 
       private:
+        std::string display(const std::string& name) const;
         const std::map<uint32_t, std::string>& m_symbols;
+        bool m_demangle;
         std::unordered_set<std::string> m_shared;
     };
     // A namer over the cpu's current symbol table. Build one per export: it indexes the
     // whole table.
-    static SymbolNamer symbolNamer();
+    static SymbolNamer symbolNamer(bool demangle = false);
 
     bool m_running = false;
 
