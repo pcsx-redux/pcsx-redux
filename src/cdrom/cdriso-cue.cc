@@ -179,7 +179,16 @@ bool PCSX::CDRIso::parsecue(const char *isofileString) {
     for (unsigned i = 1; i <= disc.trackCount; i++) {
         CueTrack *track = &disc.tracks[i];
         File *fi = reinterpret_cast<File *>(track->file->opaque);
-        m_ti[i].handle.setFile(new SubFile(fi, (track->indices[1] - track->fileOffset) * 2352, track->size * 2352));
+        // track->size counts the sectors of a PREGAP directive, which aren't in the file, so stop the
+        // track at the next track's INDEX 01 in the same file, or at the end of the file.
+        uint32_t start = track->indices[1] - track->fileOffset;
+        uint32_t end = fi->size() / 2352;
+        if (i < disc.trackCount) {
+            CueTrack *next = &disc.tracks[i + 1];
+            if (next->file == track->file) end = next->indices[1] - next->fileOffset;
+        }
+        uint32_t size = end > start ? std::min(track->size, end - start) : 0;
+        m_ti[i].handle.setFile(new SubFile(fi, start * 2352, size * 2352));
         m_ti[i].type = track->trackType == TRACK_TYPE_AUDIO ? TrackType::CDDA : TrackType::DATA;
         m_ti[i].cddatype = track->compressed ? trackinfo::CCDDA : trackinfo::BIN;
         m_ti[i].start = IEC60908b::MSF(track->indices[1] + 150);
