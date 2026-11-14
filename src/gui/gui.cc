@@ -169,6 +169,7 @@ PCSX::GUI::GUI(std::vector<std::string>& favorites)
       m_memcardManager(settings.get<ShowMemcardManager>().value, favorites),
       m_assembly(settings.get<ShowAssembly>().value, favorites),
       m_cpuTrace(settings.get<ShowCpuTrace>().value, favorites),
+      m_hwEvents(settings.get<ShowHWEvents>().value, favorites),
       m_openIsoFileDialog(l_("Open Disk Image"), favorites),
       m_openBinaryDialog(l_("Open Binary"), favorites),
       m_openArchiveDialog(l_("Open Archive"), favorites),
@@ -1514,6 +1515,7 @@ void PCSX::GUI::endFrame() {
 in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
                     }
                     ImGui::MenuItem(_("Show CPU Trace"), nullptr, &m_cpuTrace.m_show);
+                    ImGui::MenuItem(_("Show Hardware Events"), nullptr, &m_hwEvents.m_show);
                     ImGui::MenuItem(_("Show Breakpoints"), nullptr, &m_breakpoints.m_show);
                     ImGui::MenuItem(_("Show Callstacks"), nullptr, &m_callstacks.m_show);
                     if (ImGui::BeginMenu(_("Memory Editors"))) {
@@ -1867,6 +1869,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
     }
 
     m_cpuTrace.draw(this, _("CPU Trace"));
+    m_hwEvents.draw(this, _("Hardware Events"));
 
     if (m_breakpoints.m_show) {
         m_breakpoints.draw(_("Breakpoints"));

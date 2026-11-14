@@ -35,9 +35,7 @@ void dma4(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // SPU
 
     switch (chcr) {
         case 0x01000201:  // cpu to spu transfer
-            PSXDMA_LOG("*** DMA4 SPU - mem2spu *** %x addr = %x size = %x\n", chcr, madr, bcr);
             if (ptr == nullptr) {
-                PSXDMA_LOG("*** DMA4 SPU - mem2spu *** NULL Pointer!!!\n");
                 break;
             }
             size = (bcr >> 16) * (bcr & 0xffff) * 2;
@@ -63,9 +61,7 @@ void dma4(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // SPU
             return;
 
         case 0x01000200:  // spu to cpu transfer
-            PSXDMA_LOG("*** DMA4 SPU - spu2mem *** %x addr = %x size = %x\n", chcr, madr, bcr);
             if (ptr == nullptr) {
-                PSXDMA_LOG("*** DMA4 SPU - spu2mem *** NULL Pointer!!!\n");
                 break;
             }
             size = (bcr >> 16) * (bcr & 0xffff) * 2;
@@ -88,7 +84,6 @@ void dma4(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // SPU
             return;
 
         default:
-            PSXDMA_LOG("*** DMA4 SPU - unknown *** %x addr = %x size = %x\n", chcr, madr, bcr);
             break;
     }
 
@@ -99,13 +94,11 @@ void dma6(uint32_t madr, uint32_t bcr, uint32_t chcr) {
     uint32_t size;
     uint32_t *mem = PCSX::g_emulator->m_mem->getPointer<uint32_t>(madr);
 
-    PSXDMA_LOG("*** DMA6 OT *** %x addr = %x size = %x\n", chcr, madr, bcr);
 
     // The OTC never raises a DMA request, so bit 28 (start/trigger) is required: with bit 24 alone the
     // channel stays busy until software clears bit 24.
     if ((chcr & 0x11000000) == 0x11000000) {
         if (mem == nullptr) {
-            PSXDMA_LOG("*** DMA6 OT *** NULL Pointer!!!\n");
             gpuotcInterrupt();
             return;
         }

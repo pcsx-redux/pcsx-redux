@@ -522,7 +522,6 @@ void PCSX::R3000Acpu::branchTestEvents() {
                 }                                                     \
             } else {                                                  \
                 m_regs.scheduleMask &= ~mask;                         \
-                PSXIRQ_LOG("Calling scheduled callback %08x\n", irq); \
                 act();                                                \
             }                                                         \
         }                                                             \
@@ -554,7 +553,6 @@ void PCSX::R3000Acpu::branchTestEvents() {
             return;
         }
 
-        PSXIRQ_LOG("Interrupt: %x %x\n", istat, imask);
         // A branch in the delay slot of a taken branch leaves its own jump pending here, and the next
         // instruction is that branch's delay slot. The interrupt is taken on that delay slot: EPC is the
         // branch with BD set, and the pending jump is dropped, since returning runs the branch again.

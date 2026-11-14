@@ -43,6 +43,7 @@
 #include "gui/widgets/cdrom-viewer.h"
 #include "gui/widgets/console.h"
 #include "gui/widgets/cputrace.h"
+#include "gui/widgets/hwevents.h"
 #include "gui/widgets/dalos.h"
 #include "gui/widgets/dynarec_disassembly.h"
 #include "gui/widgets/events.h"
@@ -125,6 +126,7 @@ class GUI final : public UI {
     typedef Setting<bool, TYPESTRING("ShowAssembly")> ShowAssembly;
     typedef Setting<bool, TYPESTRING("ShowDisassembly")> ShowDisassembly;
     typedef Setting<bool, TYPESTRING("ShowCpuTrace")> ShowCpuTrace;
+    typedef Setting<bool, TYPESTRING("ShowHWEvents")> ShowHWEvents;
     typedef Setting<bool, TYPESTRING("ShowBreakpoints")> ShowBreakpoints;
     typedef Setting<bool, TYPESTRING("ShowNamedSaveStates")> ShowNamedSaveStates;
     typedef Setting<bool, TYPESTRING("ShowEvents")> ShowEvents;
@@ -193,7 +195,7 @@ class GUI final : public UI {
              WindowMaximized, IdleSwapInterval, ShowLuaConsole, ShowLuaInspector, ShowLuaEditor, ShowMainVRAMViewer,
              ShowCLUTVRAMViewer, ShowVRAMViewer1, ShowVRAMViewer2, ShowVRAMViewer3, ShowVRAMViewer4, ShowMemoryObserver,
              ShowTypedDebugger, ShowPatches, ShowMemcardManager, ShowRegisters, ShowAssembly, ShowDisassembly,
-             ShowCpuTrace, ShowBreakpoints, ShowNamedSaveStates, ShowEvents, ShowHandlers, ShowKernelLog,
+             ShowCpuTrace, ShowHWEvents, ShowBreakpoints, ShowNamedSaveStates, ShowEvents, ShowHandlers, ShowKernelLog,
              ShowCallstacks, ShowSIO1, ShowNetwork, ShowIsoBrowser, ShowGPULogger, ShowGPUDump, ShowRAMViewer,
              ShowCDRomViewer, ShowHeapViewer, ShowScopeProfiler, ShowPocketStationLCD, ShowAllocTracker, ShowHWRegs, MainFontSize, MonoFontSize, GUITheme,
              AllowMouseCaptureToggle, EnableRawMouseMotion, WidescreenRatio, ShowPIOCartConfig, ShowMemoryEditor1,
@@ -467,6 +469,7 @@ class GUI final : public UI {
     Widgets::Assembly m_assembly;
     Widgets::Disassembly m_disassembly = {settings.get<ShowDisassembly>().value};
     Widgets::CpuTrace m_cpuTrace;
+    Widgets::HWEvents m_hwEvents;
     Widgets::FileDialog<> m_openIsoFileDialog;
     Widgets::FileDialog<> m_openBinaryDialog;
     Widgets::FileDialog<> m_openArchiveDialog;
