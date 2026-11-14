@@ -61,7 +61,7 @@ jobs:
     - name: Test
       run: |
         cp openbios.bin src/mips/openbios/
-        ./pcsx-redux -stdout -lua_stdout -testmode -no-gui-log -exec "dofile 'src/mips/tests/cdrom/create-test-iso.lua'"
+        ./pcsx-redux -stdout -lua_stdout -testmode -no-gui-log -exec "dofile 'src/mips/tests/cdrom/common/create-test-iso.lua'"
         ./pcsx-redux-tests
     - name: Bundle
       run: ./.github/scripts/create-app.sh

@@ -31,14 +31,14 @@ PCSX.SIO0.slots[1].pads[1].map()
 
 TEST(Rumble, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-exec", setup, "-loadexe", "src/mips/tests/rumble/rumble.ps-exe");
+                        "-luacov", "-exec", setup, "-loadexe", "src/mips/tests/sio/rumble/rumble.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(Rumble, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-exec", setup, "-loadexe", "src/mips/tests/rumble/rumble.ps-exe");
+                        "-luacov", "-exec", setup, "-loadexe", "src/mips/tests/sio/rumble/rumble.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

@@ -227,7 +227,7 @@ static const int16_t c_standardScaleTable[DSIZE2] = {
 // now been checked against real consoles with an arm that varies ONE term. Five
 // of those arms are bit-exact, 0 of 768 bytes differing: the q_scale == 0 DC rule
 // and its ordinary-route control, both zigzag arms, and the DC-saturation arm.
-// The rig is src/mips/tests/mdec-roundtrip, one arm per clause, and genjob.py
+// The rig is src/mips/tests/mdec/roundtrip, one arm per clause, and genjob.py
 // documents what each one holds fixed.
 //
 // What is left is NOT in this function. Every single-term arm's residual is

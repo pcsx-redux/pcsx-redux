@@ -27,14 +27,14 @@
 // every check in the guest passed.
 TEST(GPUDFE480i, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpu-dfe-480i/gpu-dfe-480i.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/dfe-480i/gpu-dfe-480i.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(GPUDFE480i, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-loadexe", "src/mips/tests/gpu-dfe-480i/gpu-dfe-480i.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/dfe-480i/gpu-dfe-480i.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

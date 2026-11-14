@@ -22,14 +22,14 @@
 
 TEST(SRWrite, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-loadexe", "src/mips/tests/sr-write/sr-write.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/cpu/cop0-write-keeps-registers/cop0-write-keeps-registers.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(SRWrite, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/sr-write/sr-write.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/cpu/cop0-write-keeps-registers/cop0-write-keeps-registers.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

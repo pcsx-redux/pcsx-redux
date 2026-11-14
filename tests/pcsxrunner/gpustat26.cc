@@ -25,14 +25,14 @@
 // ret == 0 means every check in the guest passed.
 TEST(GPUSTAT26, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpustat26/gpustat26.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/gpustat-cmd-ready/gpustat-cmd-ready.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(GPUSTAT26, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-loadexe", "src/mips/tests/gpustat26/gpustat26.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/gpustat-cmd-ready/gpustat-cmd-ready.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

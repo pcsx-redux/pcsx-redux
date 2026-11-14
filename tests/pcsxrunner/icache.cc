@@ -24,7 +24,7 @@
 // through the cache, so the fill, eviction and stale-line tests have nothing to observe there.
 TEST(ICache, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-loadexe", "src/mips/tests/icache/icache.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/cpu/icache/icache.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

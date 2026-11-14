@@ -33,15 +33,15 @@ static int runThreaded(const char *exe) {
 
 TEST(GPUAsyncStress, Inline) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpu-async-stress/gpu-async-stress.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/async-stress/gpu-async-stress.ps-exe");
     EXPECT_EQ(invoker.invoke(), 0);
 }
 
-TEST(GPUAsyncStress, Threaded) { EXPECT_EQ(runThreaded("src/mips/tests/gpu-async-stress/gpu-async-stress.ps-exe"), 0); }
-TEST(GPUThreaded, Command) { EXPECT_EQ(runThreaded("src/mips/tests/gpu-command/gpu-command.ps-exe"), 0); }
-TEST(GPUThreaded, FBRect) { EXPECT_EQ(runThreaded("src/mips/tests/gpu-fbrect/gpu-fbrect.ps-exe"), 0); }
-TEST(GPUThreaded, VRAMMove) { EXPECT_EQ(runThreaded("src/mips/tests/gpu-vram-move/gpu-vram-move.ps-exe"), 0); }
-TEST(GPUThreaded, Polyline) { EXPECT_EQ(runThreaded("src/mips/tests/gpu-polyline/gpu-polyline.ps-exe"), 0); }
+TEST(GPUAsyncStress, Threaded) { EXPECT_EQ(runThreaded("src/mips/tests/gpu/async-stress/gpu-async-stress.ps-exe"), 0); }
+TEST(GPUThreaded, Command) { EXPECT_EQ(runThreaded("src/mips/tests/gpu/command/gpu-command.ps-exe"), 0); }
+TEST(GPUThreaded, FBRect) { EXPECT_EQ(runThreaded("src/mips/tests/gpu/fbrect/gpu-fbrect.ps-exe"), 0); }
+TEST(GPUThreaded, VRAMMove) { EXPECT_EQ(runThreaded("src/mips/tests/gpu/vram-move/gpu-vram-move.ps-exe"), 0); }
+TEST(GPUThreaded, Polyline) { EXPECT_EQ(runThreaded("src/mips/tests/gpu/polyline/gpu-polyline.ps-exe"), 0); }
 
 // The 2MB VRAM suites under the worker. Only GateFlipQueued writes GP1(09h)
 // while primitives are still queued; the others set the gate with nothing in
@@ -53,23 +53,23 @@ static int runThreaded2MB(const char *exe) {
 }
 
 TEST(GPUThreaded, BankProbe1MB) {
-    EXPECT_EQ(runThreaded("src/mips/tests/2mb-vram/bank-probe/bank-probe.ps-exe"), 0);
+    EXPECT_EQ(runThreaded("src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe"), 0);
 }
 TEST(GPUThreaded, BankProbe2MB) {
-    EXPECT_EQ(runThreaded2MB("src/mips/tests/2mb-vram/bank-probe/bank-probe.ps-exe"), 0);
+    EXPECT_EQ(runThreaded2MB("src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe"), 0);
 }
 TEST(GPUThreaded, TexpageUpper) {
-    EXPECT_EQ(runThreaded2MB("src/mips/tests/2mb-vram/texpage-upper/texpage-upper.ps-exe"), 0);
+    EXPECT_EQ(runThreaded2MB("src/mips/tests/gpu/2mb-vram/texpage-upper/texpage-upper.ps-exe"), 0);
 }
 TEST(GPUThreaded, VramBlitY) {
-    EXPECT_EQ(runThreaded2MB("src/mips/tests/2mb-vram/vram-blit-y/vram-blit-y.ps-exe"), 0);
+    EXPECT_EQ(runThreaded2MB("src/mips/tests/gpu/2mb-vram/vram-blit-y/vram-blit-y.ps-exe"), 0);
 }
 TEST(GPUThreaded, DrawingAreaY) {
-    EXPECT_EQ(runThreaded2MB("src/mips/tests/2mb-vram/drawing-area-y/drawing-area-y.ps-exe"), 0);
+    EXPECT_EQ(runThreaded2MB("src/mips/tests/gpu/2mb-vram/drawing-area-y/drawing-area-y.ps-exe"), 0);
 }
 TEST(GPUThreaded, PrimitivesCross) {
-    EXPECT_EQ(runThreaded2MB("src/mips/tests/2mb-vram/primitives-cross/primitives-cross.ps-exe"), 0);
+    EXPECT_EQ(runThreaded2MB("src/mips/tests/gpu/2mb-vram/primitives-cross/primitives-cross.ps-exe"), 0);
 }
 TEST(GPUThreaded, GateFlipQueued) {
-    EXPECT_EQ(runThreaded2MB("src/mips/tests/2mb-vram/gate-flip-queued/gate-flip-queued.ps-exe"), 0);
+    EXPECT_EQ(runThreaded2MB("src/mips/tests/gpu/2mb-vram/gate-flip-queued/gate-flip-queued.ps-exe"), 0);
 }

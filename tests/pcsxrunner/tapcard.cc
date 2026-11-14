@@ -27,24 +27,24 @@
 
 TEST(Tapcard, TapInterpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-dofile", "src/mips/tests/tapcard/setup-tap.lua", "-loadexe",
-                        "src/mips/tests/tapcard/tapcard.ps-exe");
+                        "-luacov", "-dofile", "src/mips/tests/sio/tapcard/setup-tap.lua", "-loadexe",
+                        "src/mips/tests/sio/tapcard/tapcard.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(Tapcard, TapDynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-luacov",
-                        "-dofile", "src/mips/tests/tapcard/setup-tap.lua", "-loadexe",
-                        "src/mips/tests/tapcard/tapcard.ps-exe");
+                        "-dofile", "src/mips/tests/sio/tapcard/setup-tap.lua", "-loadexe",
+                        "src/mips/tests/sio/tapcard/tapcard.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(Tapcard, NoTapInterpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-dofile", "src/mips/tests/tapcard/setup-notap.lua", "-loadexe",
-                        "src/mips/tests/tapcard/tapcard.ps-exe");
+                        "-luacov", "-dofile", "src/mips/tests/sio/tapcard/setup-notap.lua", "-loadexe",
+                        "src/mips/tests/sio/tapcard/tapcard.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -53,10 +53,10 @@ TEST(Tapcard, NoTapInterpreter) {
 // must look like no card at all, so the guest's empty slot C checks still hold.
 TEST(Tapcard, FailedLoadInterpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-dofile", "src/mips/tests/tapcard/setup-tap.lua", "-exec",
+                        "-luacov", "-dofile", "src/mips/tests/sio/tapcard/setup-tap.lua", "-exec",
                         "PCSX.settings.emulator.Mcd1CInserted = true "
                         "PCSX.settings.emulator.Mcd1C = '/nonexistent-pcsx-redux-tapcard/memcard1c.mcd'",
-                        "-loadexe", "src/mips/tests/tapcard/tapcard.ps-exe");
+                        "-loadexe", "src/mips/tests/sio/tapcard/tapcard.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
