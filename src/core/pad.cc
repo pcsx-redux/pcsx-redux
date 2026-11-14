@@ -1013,7 +1013,9 @@ void PadsImpl::Pad::getButtons() {
         PCSX::g_system->printf("Gamepad error: joystick id %u disconnected, rescanning\n",
                                static_cast<unsigned>(jid));
         // Defense if REMOVED was missed; rescan+map refreshes m_gamepad.
+        const PadType activeType = m_activeType;
         s_pads->rescanGamepads();
+        m_activeType = activeType;
     }
 
     // Push the motor state the last read command asked for. This runs here, once per
