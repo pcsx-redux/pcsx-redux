@@ -211,6 +211,7 @@ void DynaRecCPU::recCOP2(uint32_t code) {
         recBCz(code);
         return;
     }
+    emitCu2Check();
     if ((code & 0x02000000) == 0) {
         const auto func = m_recGTE[m_regs.code & 0x3F];  // Look up the opcode in our decoding LUT
         (*this.*func)(code);                             // Jump into the handler to recompile it
@@ -462,6 +463,7 @@ void DynaRecCPU::recCFC2(uint32_t code) {
 }
 
 void DynaRecCPU::recLWC2(uint32_t code) {
+    emitCu2Check();
     makeRoomForGTEWrite();
     if (m_gprs[_Rs_].isConst()) {  // Store address in arg2
         gen.mov(arg2, m_gprs[_Rs_].val + _Imm_);
@@ -475,6 +477,7 @@ void DynaRecCPU::recLWC2(uint32_t code) {
 }
 
 void DynaRecCPU::recSWC2(uint32_t code) {
+    emitCu2Check();
     emitGTEStall();
     loadGTEDataRegister(arg3, _Rt_);  // Load the register we'll write to memory in arg3
 

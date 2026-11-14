@@ -319,6 +319,7 @@ void DynaRecCPU::emitDispatcher() {
 // Returns the address of the compiled block
 DynarecCallback DynaRecCPU::recompile(uint32_t pc, bool fullLoadDelayEmulation, bool align) {
     m_stopCompiling = false;
+    m_cu2Checked = false;
     m_inDelaySlot = false;
     m_nextIsDelaySlot = false;
     m_pcWrittenBack = false;
@@ -487,6 +488,7 @@ DynarecCallback DynaRecCPU::recompile(uint32_t pc, bool fullLoadDelayEmulation, 
             const auto savedLoads1 = m_delayedLoadInfo[1];
             const auto savedCurrentLoad = m_currentDelayedLoad;
             const auto savedGTEQueue = m_gteQueue;
+            const bool savedCu2Checked = m_cu2Checked;  // a CU2 check emitted on the taken path does not cover this one
             const auto savedCount = count;
             const auto savedExtra = extra;
             Label notTaken;
@@ -531,6 +533,7 @@ DynarecCallback DynaRecCPU::recompile(uint32_t pc, bool fullLoadDelayEmulation, 
             m_delayedLoadInfo[1] = savedLoads1;
             m_currentDelayedLoad = savedCurrentLoad;
             m_gteQueue = savedGTEQueue;
+            m_cu2Checked = savedCu2Checked;
             count = savedCount;
             extra = savedExtra;
             m_pc = slotPC;

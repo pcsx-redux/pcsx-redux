@@ -313,6 +313,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     GTE_WRAPPER(SQR);
 #undef GTE_WRAPPER
     void gteSWC2(uint32_t code) {
+        if (!copUsable(2)) return;
         if (userAddressError(m_regs.GPR.r[_Rs_] + _Imm_, Exception::StoreAddressError)) return;
         gteDrainIfStalling();
         gteStall();
@@ -345,6 +346,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     void gteMTC2(uint32_t code) { gteQueueWrite(false, _Rd_, m_regs.GPR.r[_Rt_]); }
     void gteCTC2(uint32_t code) { gteQueueWrite(true, _Rd_, m_regs.GPR.r[_Rt_]); }
     void gteLWC2(uint32_t code) {
+        if (!copUsable(2)) return;
         uint32_t addr = m_regs.GPR.r[_Rs_] + _Imm_;
         if (userAddressError(addr, Exception::LoadAddressError)) return;
         if (addr & 3) {
@@ -1262,12 +1264,15 @@ void InterpretedCPU::psxCOP0(uint32_t code) {
         psxBCz(code, 0);
         return;
     }
+    // In user mode, MFC0, MTC0 and RFE need SR.CU0.
+    if ((_Rs_ == 0 || _Rs_ == 4 || _Rs_ == 16) && (m_regs.CP0.n.Status & 2) && !copUsable(0)) return;
     (*this.*(s_pPsxCP0[_Rs_]))(code);
 }
 
-// There is no COP1 or COP3. With SR.CU1 (CU3) clear, their opcodes, LWCz and SWCz included, raise a
-// coprocessor unusable exception, even in kernel mode. With the bit set they raise nothing, and are
-// ignored here: on silicon, MFCz and CFCz load an unspecified value and SWCz stores one.
+// Raises a coprocessor unusable exception for coprocessor z, and returns false, if SR.CUz is clear.
+// There is no COP1 or COP3. With SR.CU1 (CU3) clear, their opcodes, LWCz and SWCz included, raise one even in
+// kernel mode, and so do LWC0 and SWC0 with SR.CU0 clear. With the bit set they raise nothing, and are ignored
+// here: on silicon, MFCz and CFCz load an unspecified value and SWCz stores one.
 bool InterpretedCPU::copUsable(unsigned z) {
     if (m_regs.CP0.n.Status & (0x10000000 << z)) return true;
     m_regs.pc.raw() -= 4;
@@ -1293,7 +1298,7 @@ void InterpretedCPU::psxCOP2(uint32_t code) {
         psxBCz(code, 2);
         return;
     }
-    if ((m_regs.CP0.n.Status & 0x40000000) == 0) return;
+    if (!copUsable(2)) return;
 
     if ((code & 0x02000000) == 0) {
         (*this.*(s_pPsxCP2[_Funct_]))(code);
@@ -1331,9 +1336,9 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_psxBSC[64] = {
     &InterpretedCPU::psxLBU,     &InterpretedCPU::psxLHU,    &InterpretedCPU::psxLWR,  &InterpretedCPU::psxNULL,   // 24
     &InterpretedCPU::psxSB,      &InterpretedCPU::psxSH,     &InterpretedCPU::psxSWL,  &InterpretedCPU::psxSW,     // 28
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxSWR,  &InterpretedCPU::psxNULL,   // 2c
-    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteLWC2, &InterpretedCPU::psxLSCz,   // 30
+    &InterpretedCPU::psxLSCz,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteLWC2, &InterpretedCPU::psxLSCz,   // 30
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,   // 34
-    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteSWC2, &InterpretedCPU::psxLSCz,   // 38
+    &InterpretedCPU::psxLSCz,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteSWC2, &InterpretedCPU::psxLSCz,   // 38
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,   // 3c
 };
 
@@ -1627,11 +1632,11 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxBSC[64] = {
     &InterpretedCPU::pgxpPsxSWL,  &InterpretedCPU::pgxpPsxSW,     // 2a
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,   // 2c
     &InterpretedCPU::pgxpPsxSWR,  &InterpretedCPU::pgxpPsxNULL,   // 2e
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,       // 30
+    &InterpretedCPU::psxLSCz,     &InterpretedCPU::psxLSCz,       // 30
     &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxLSCz,       // 32
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 34
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 36
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,       // 38
+    &InterpretedCPU::psxLSCz,     &InterpretedCPU::psxLSCz,       // 38
     &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxLSCz,       // 3a
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 3c
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 3e
@@ -1736,11 +1741,11 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxBSCMem[64] = {
     &InterpretedCPU::pgxpPsxSWL,  &InterpretedCPU::pgxpPsxSW,    // 2a
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,  // 2c
     &InterpretedCPU::pgxpPsxSWR,  &InterpretedCPU::pgxpPsxNULL,  // 2e
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,      // 30
+    &InterpretedCPU::psxLSCz,     &InterpretedCPU::psxLSCz,      // 30
     &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxLSCz,      // 32
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 34
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 36
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,      // 38
+    &InterpretedCPU::psxLSCz,     &InterpretedCPU::psxLSCz,      // 38
     &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxLSCz,      // 3a
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 3c
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 3e
