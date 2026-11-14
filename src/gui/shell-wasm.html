@@ -17,35 +17,90 @@
          cold visit a register-and-reload for nothing. -->
     <script src="enable-threads.js"></script>
     <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Emscripten-Generated Code</title>
-    <style>{{{ SHELL_CSS }}}</style>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>pcsx-redux - ps1dev tools</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { background:#15171a; color:#d6d9dd; margin:0;
+             font:15px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+      main { max-width:72rem; margin:0 auto; padding:2.5rem 1.5rem; }
+      h1 { font-size:1.6rem; margin:0 0 .25rem; color:#fff; letter-spacing:.02em; }
+      p.sub { margin:0 0 1.5rem; color:#8b9299; }
+      p.note { margin:0 0 1.5rem; padding:.7rem .9rem; border-left:3px solid #c9a227; background:#1b1e22;
+               color:#b9bfc6; font-size:.9rem; }
+      p.note.bad { border-left-color:#d0574b; }
+      a { color:#7fb2e5; text-decoration:none; }
+      a:hover { text-decoration:underline; }
+      #controls { display:flex; flex-wrap:wrap; gap:.6rem 1.4rem; align-items:center; margin:0 0 1rem; }
+      #controls label { color:#b9bfc6; }
+      button, input[type=number] { font:inherit; color:#d6d9dd; background:#23272c; border:1px solid #3a4047;
+                                   border-radius:3px; padding:.2rem .7rem; }
+      button:hover { border-color:#7fb2e5; cursor:pointer; }
+      input[type=number] { width:4.5rem; padding:.15rem .4rem; }
+      .hint { color:#6b7279; font-size:.85rem; }
+      #status { color:#8b9299; min-height:1.6em; }
+      progress { width:100%; height:.4rem; }
+      .frame { border:1px solid #2c3136; background:#000; }
+      canvas.emscripten { display:block; margin:0 auto; border:0; max-width:100%; }
+      details { margin-top:1rem; color:#8b9299; }
+      textarea { width:100%; box-sizing:border-box; background:#0f1113; color:#b9bfc6; border:1px solid #2c3136;
+                 font:12px/1.4 ui-monospace,monospace; }
+      footer { margin-top:2rem; color:#6b7279; font-size:.9rem; }
+      .spinner { display:none; }
+    </style>
   </head>
   <body>
-    <a href="http://emscripten.org">{{{ SHELL_LOGO }}}</a>
+    <main>
+      <h1>pcsx-redux</h1>
+      <p class="sub">The PlayStation emulator and debugger, running in your browser. Discs and executables
+        you load are read locally and never uploaded. <a href="/">More ps1dev tools</a>.</p>
+      <p class="note" id="requirements">Needs a browser with WebGL 2 and SharedArrayBuffer: a current Chrome,
+        Edge or Firefox. The first visit reloads the page once to enable the latter.</p>
 
-    <div class="spinner" id='spinner'></div>
-    <div class="emscripten" id="status">Downloading...</div>
+      <div id="controls">
+        <span><button type="button" onclick="document.getElementById('loadFiles').click()">Load disc or exe...</button>
+          <input type="file" id="loadFiles" multiple hidden>
+          <span class="hint">or drop the files on the page (a .cue with its .bin files)</span></span>
+        <span><button type="button" onclick="Module.requestFullscreen(document.getElementById('pointerLock').checked,
+                                                                       document.getElementById('resize').checked)">Fullscreen</button>
+          <label><input type="checkbox" id="pointerLock" checked> lock mouse</label>
+          <label><input type="checkbox" id="resize"> resize canvas</label></span>
+        <label>Audio latency <input type="number" id="latency" min="0" max="100" step="5" disabled> ms</label>
+        <span class="hint">Then Emulation &rarr; Start.</span>
+      </div>
 
-    <span id='controls'>
-      <span><input type="button" value="Load files..." onclick="document.getElementById('loadFiles').click()">
-        <input type="file" id="loadFiles" multiple hidden> or drop them on the page &nbsp;&nbsp;&nbsp;</span>
-      <span><input type="checkbox" id="resize">Resize canvas</span>
-      <span><input type="checkbox" id="pointerLock" checked>Lock/hide mouse pointer &nbsp;&nbsp;&nbsp;</span>
-      <span><input type="button" value="Fullscreen" onclick="Module.requestFullscreen(document.getElementById('pointerLock').checked,
-                                                                                document.getElementById('resize').checked)">
-      </span>
-    </span>
-
-    <div class="emscripten">
+      <div class="spinner" id='spinner'></div>
+      <div id="status">Downloading...</div>
       <progress value="0" max="100" id="progress" hidden=1></progress>
-    </div>
 
-    <div class="emscripten_border">
-      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
-    </div>
-    <textarea id="output" rows="8"></textarea>
+      <div class="frame">
+        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+      </div>
 
+      <details><summary>Log</summary>
+        <textarea id="output" rows="10"></textarea>
+      </details>
+
+      <footer>
+        Source and issues: <a href="https://github.com/pcsx-redux/pcsx-redux">github.com/pcsx-redux/pcsx-redux</a>.
+        The desktop build adds the dynarec, the GDB server and the web server.
+      </footer>
+    </main>
+
+    <script type='text/javascript'>
+      (() => {
+        var missing = [];
+        try { if (!document.createElement('canvas').getContext('webgl2')) missing.push('WebGL 2'); }
+        catch (e) { missing.push('WebGL 2'); }
+        if (typeof SharedArrayBuffer === 'undefined' && navigator.serviceWorker && navigator.serviceWorker.controller)
+          missing.push('SharedArrayBuffer');
+        if (missing.length) {
+          var r = document.getElementById('requirements');
+          r.className = 'note bad';
+          r.textContent = 'This browser is missing ' + missing.join(' and ') + ', which pcsx-redux needs to run.';
+        }
+      })();
+    </script>
     <script type='text/javascript'>
       var statusElement = document.getElementById('status');
       var progressElement = document.getElementById('progress');
@@ -106,6 +161,17 @@
         },
         canvas: canvasElement,
         setStatus: setStatus,
+        postRun: [() => {
+          // main() has returned with the main loop registered, so the emulator exists.
+          var latency = document.getElementById('latency');
+          latency.value = Module.ccall('pcsxGetLatencyMargin', 'number', [], []);
+          latency.disabled = false;
+          latency.addEventListener('change', () => {
+            var ms = Math.max(0, Math.min(100, parseInt(latency.value) || 0));
+            latency.value = ms;
+            Module.ccall('pcsxSetLatencyMargin', null, ['number'], [ms]);
+          });
+        }],
         totalDependencies: 0,
         monitorRunDependencies(left) {
           this.totalDependencies = Math.max(this.totalDependencies, left);
