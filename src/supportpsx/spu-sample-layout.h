@@ -24,7 +24,6 @@ SOFTWARE.
 
 */
 
-
 #pragma once
 
 #include <stdint.h>
@@ -74,8 +73,8 @@ struct Layout {
 // The caller decides whether the sample loops, and clamps the loop to the sample beforehand.
 // `skip` is the number of samples dropped from the front; for a looped sample it has to be at most
 // `loopStart`.
-Layout compute(unsigned length, bool hasLoop, unsigned loopStart, unsigned loopLength, unsigned skip,
-               bool allowUnroll, unsigned maxEncodedLength, bool rotateLoop = false);
+Layout compute(unsigned length, bool hasLoop, unsigned loopStart, unsigned loopLength, unsigned skip, bool allowUnroll,
+               unsigned maxEncodedLength, bool rotateLoop = false);
 
 // Encodes `source` (the full sample, `length` samples, before skip) according to `layout`, and writes the
 // SPU blocks to `out`. Returns the number of bytes written, which is layout.encodedLength.

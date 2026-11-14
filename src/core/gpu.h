@@ -325,7 +325,7 @@ class GPU {
 
         Logged() = default;
         // Copies start without an overlay.
-        Logged(const Logged& other)
+        Logged(const Logged &other)
             : LoggedList::Node(other),
               frame(other.frame),
               value(other.value),
@@ -334,7 +334,7 @@ class GPU {
               origin(other.origin),
               enabled(other.enabled),
               highlight(other.highlight) {}
-        Logged& operator=(const Logged& other) {
+        Logged &operator=(const Logged &other) {
             LoggedList::Node::operator=(other);
             frame = other.frame;
             value = other.value;
@@ -358,8 +358,8 @@ class GPU {
         virtual bool editable() const { return false; }
         // Whether replay reads an edited colour in this slot.
         virtual bool colorEditable(unsigned slot) const { return false; }
-        virtual void executeEdited(GPU* gpu, const Overlay&) { execute(gpu); }
-        virtual void drawEditor(Overlay&) {}
+        virtual void executeEdited(GPU *gpu, const Overlay &) { execute(gpu); }
+        virtual void drawEditor(Overlay &) {}
         void addLine(AddTri &&, int x1, int y1, int x2, int y2);
 
         uint64_t frame;
@@ -373,9 +373,9 @@ class GPU {
         std::unique_ptr<Overlay> overlay;
 
       protected:
-        static void editColor(Overlay&, unsigned i, uint32_t current);
-        static void editXY(Overlay&, unsigned i, int currentX, int currentY);
-        static void editBlendFunction(Overlay&, BlendFunction current);
+        static void editColor(Overlay &, unsigned i, uint32_t current);
+        static void editXY(Overlay &, unsigned i, int currentX, int currentY);
+        static void editBlendFunction(Overlay &, BlendFunction current);
         static bool isInsideTriangle(int x, int y, int x1, int y1, int x2, int y2, int x3, int y3);
         static bool isInsideLine(int x, int y, int x1, int y1, int x2, int y2);
         // The pixel address wraps modulo 2048 on both axes, and vertex plus offset sums range over
@@ -768,11 +768,11 @@ class GPU {
             if constexpr ((textured == Textured::Yes) && (modulation == Modulation::Off)) return false;
             return shading == Shading::Gouraud ? slot < count : slot == 0;
         }
-        void executeEdited(GPU* gpu, const Overlay& edits) override {
+        void executeEdited(GPU *gpu, const Overlay &edits) override {
             auto copy = *this;
             for (unsigned i = 0; i < count; i++) {
                 // A flat primitive's colour is vertex 0's, copied to every vertex at decode.
-                const auto& color = shading == Shading::Flat ? edits.colors[0] : edits.colors[i];
+                const auto &color = shading == Shading::Flat ? edits.colors[0] : edits.colors[i];
                 if (color) copy.colors[i] = *color;
                 if (edits.x[i]) copy.x[i] = *edits.x[i];
                 if (edits.y[i]) copy.y[i] = *edits.y[i];
@@ -782,7 +782,7 @@ class GPU {
             }
             gpu->write0(&copy);
         }
-        void drawEditor(Overlay&) override;
+        void drawEditor(Overlay &) override;
         void generateStatsInfo() override;
         void cumulateStats(GPUStats *) override;
         void getVertices(AddTri &&, PixelOp) override;
@@ -856,7 +856,7 @@ class GPU {
         bool colorEditable(unsigned slot) const override {
             return shading == Shading::Gouraud ? slot < std::min<size_t>(editableCount(), colors.size()) : slot == 0;
         }
-        void executeEdited(GPU* gpu, const Overlay& edits) override {
+        void executeEdited(GPU *gpu, const Overlay &edits) override {
             auto copy = *this;
             if constexpr (shading == Shading::Flat) {
                 // The colour is vertex 0's, copied to every vertex at decode.
@@ -871,7 +871,7 @@ class GPU {
             }
             gpu->write0(&copy);
         }
-        void drawEditor(Overlay&) override;
+        void drawEditor(Overlay &) override;
         void generateStatsInfo() override;
         void cumulateStats(GPUStats *) override;
         void getVertices(AddTri &&, PixelOp) override;
@@ -892,8 +892,8 @@ class GPU {
         bool isInside(unsigned x, unsigned y) override {
             return isInsideWrapped(x, y, [this](int x, int y) {
                 for (unsigned i = 1; i < this->x.size(); i++) {
-                    if (isInsideLine(x, y, this->x[i - 1] + offset.x, this->y[i - 1] + offset.y,
-                                     this->x[i] + offset.x, this->y[i] + offset.y)) {
+                    if (isInsideLine(x, y, this->x[i - 1] + offset.x, this->y[i - 1] + offset.y, this->x[i] + offset.x,
+                                     this->y[i] + offset.y)) {
                         return true;
                     }
                 }
@@ -926,7 +926,7 @@ class GPU {
             return ((textured == Textured::No) || (modulation == Modulation::On)) && (slot == 0);
         }
         // No blend function edit: the renderers draw a rectangle with the current texture page, not this one.
-        void executeEdited(GPU* gpu, const Overlay& edits) override {
+        void executeEdited(GPU *gpu, const Overlay &edits) override {
             auto copy = *this;
             if (edits.x[0]) copy.x = *edits.x[0];
             if (edits.y[0]) copy.y = *edits.y[0];
@@ -935,7 +935,7 @@ class GPU {
             }
             gpu->write0(&copy);
         }
-        void drawEditor(Overlay&) override;
+        void drawEditor(Overlay &) override;
         void generateStatsInfo() override {}
         void cumulateStats(GPUStats *) override;
         void getVertices(AddTri &&, PixelOp) override;

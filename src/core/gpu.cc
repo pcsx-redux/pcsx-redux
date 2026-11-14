@@ -1134,8 +1134,7 @@ void PCSX::GPU::BlitRamVram::processWrite(Buffer &buf, Logged::Origin origin, ui
                 // Drop writes to an opened-but-unpopulated upper bank (1MB
                 // fitment): they hit floating bus and are lost.
                 if (m_gpu->vramOpenBus(y + row)) continue;
-                m_gpu->uploadVRAM(x, m_gpu->resolveVramY(y + row), w, 1, src + row * w,
-                                  PartialUpdateVram::Synchronous);
+                m_gpu->uploadVRAM(x, m_gpu->resolveVramY(y + row), w, 1, src + row * w, PartialUpdateVram::Synchronous);
             }
         }
     }
@@ -1367,7 +1366,7 @@ void PCSX::GPU::Logged::drawColorBox(uint32_t color, unsigned itemIndex, unsigne
     }
 }
 
-void PCSX::GPU::Logged::editColor(Overlay& overlay, unsigned i, uint32_t current) {
+void PCSX::GPU::Logged::editColor(Overlay &overlay, unsigned i, uint32_t current) {
     // The colour word is 0x00BBGGRR.
     const uint32_t color = overlay.colors[i].value_or(current);
     float rgb[3] = {float(color & 0xff) / 255.0f, float((color >> 8) & 0xff) / 255.0f,
@@ -1378,7 +1377,7 @@ void PCSX::GPU::Logged::editColor(Overlay& overlay, unsigned i, uint32_t current
     }
 }
 
-void PCSX::GPU::Logged::editXY(Overlay& overlay, unsigned i, int currentX, int currentY) {
+void PCSX::GPU::Logged::editXY(Overlay &overlay, unsigned i, int currentX, int currentY) {
     int x = overlay.x[i].value_or(currentX);
     int y = overlay.y[i].value_or(currentY);
     // A GP0 vertex carries a signed 11-bit coordinate, so an edit cannot leave that range.
@@ -1386,8 +1385,8 @@ void PCSX::GPU::Logged::editXY(Overlay& overlay, unsigned i, int currentX, int c
     if (ImGui::InputInt("Y", &y)) overlay.y[i] = std::clamp(y, -1024, 1023);
 }
 
-void PCSX::GPU::Logged::editBlendFunction(Overlay& overlay, BlendFunction current) {
-    const char* names[] = {_("50% Back + 50% Front"), _("100% Back + 100% Front"), _("100% Back - 100% Front"),
+void PCSX::GPU::Logged::editBlendFunction(Overlay &overlay, BlendFunction current) {
+    const char *names[] = {_("50% Back + 50% Front"), _("100% Back + 100% Front"), _("100% Back - 100% Front"),
                            _("100% Back + 25% Front")};
     int function = int(overlay.blendFunction.value_or(current));
     if (ImGui::Combo(_("Blending"), &function, names, 4)) overlay.blendFunction = BlendFunction(function);
@@ -1481,7 +1480,7 @@ void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawLogNode(u
 
 template <PCSX::GPU::Shading shading, PCSX::GPU::Shape shape, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend,
           PCSX::GPU::Modulation modulation>
-void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawEditor(Overlay& overlay) {
+void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawEditor(Overlay &overlay) {
     for (unsigned i = 0; i < count; i++) {
         ImGui::PushID(i);
         ImGui::Separator();
@@ -1538,7 +1537,7 @@ void PCSX::GPU::Line<shading, lineType, blend>::drawLogNode(unsigned itemIndex, 
 }
 
 template <PCSX::GPU::Shading shading, PCSX::GPU::LineType lineType, PCSX::GPU::Blend blend>
-void PCSX::GPU::Line<shading, lineType, blend>::drawEditor(Overlay& overlay) {
+void PCSX::GPU::Line<shading, lineType, blend>::drawEditor(Overlay &overlay) {
     for (unsigned i = 0; i < editableCount(); i++) {
         ImGui::PushID(i);
         ImGui::Separator();
@@ -1604,7 +1603,7 @@ void PCSX::GPU::Rect<size, textured, blend, modulation>::drawLogNode(unsigned it
 }
 
 template <PCSX::GPU::Size size, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend, PCSX::GPU::Modulation modulation>
-void PCSX::GPU::Rect<size, textured, blend, modulation>::drawEditor(Overlay& overlay) {
+void PCSX::GPU::Rect<size, textured, blend, modulation>::drawEditor(Overlay &overlay) {
     // A textured rectangle without modulation has no colour field, so this cannot be a runtime test.
     if constexpr ((textured == Textured::No) || (modulation == Modulation::On)) {
         editColor(overlay, 0, color);

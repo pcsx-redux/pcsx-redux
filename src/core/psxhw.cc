@@ -778,7 +778,7 @@ void PCSX::HW::write32(uint32_t add, uint32_t value) {
             return;
         case 0x1f8010f0: {
             PSXHW_LOG("DMA PCR 32bit write %x\n", value);
-            auto& mem = g_emulator->m_mem;
+            auto &mem = g_emulator->m_mem;
             const bool otcWasEnabled = mem->isDMAEnabled<6>();
             mem->writeHardwareRegister<0x10f0>(value);
             // Enabling DMA6 starts a transfer already latched in its CHCR. Whether the other channels do the

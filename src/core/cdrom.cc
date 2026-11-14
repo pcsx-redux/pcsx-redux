@@ -872,9 +872,7 @@ class CDRomImpl final : public PCSX::CDRom {
     // spindle runs: GetStat with the motor off takes 481-1199 us on SCPH-1000 through SCPH-9002;
     // spinning, SCPH-7001 / SCPH-9002 acknowledge GetID and ReadN in 1.0-1.4 ms at the median,
     // with a tail to 5 ms not modelled here.
-    std::chrono::nanoseconds pickupDelay() {
-        return m_motorOn ? jitter(1150us, 350us) : jitter(797us, 250us);
-    }
+    std::chrono::nanoseconds pickupDelay() { return m_motorOn ? jitter(1150us, 350us) : jitter(797us, 250us); }
 
     void maybeScheduleNextCommand() {
         const bool debug = PCSX::g_emulator->settings.get<PCSX::Emulator::SettingDebugSettings>()
@@ -1351,11 +1349,10 @@ class CDRomImpl final : public PCSX::CDRom {
     std::chrono::nanoseconds initDelay() {
         int32_t distance = int32_t(m_currentPosition.toLBA()) - 150;
         if (distance < 0) distance = -distance;
-        std::chrono::nanoseconds delay = distance == 0
-                                             ? jitter(15ms, 50)
-                                             : jitter(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                                          60ms + 1900us * std::sqrt(double(distance))),
-                                                      15);
+        std::chrono::nanoseconds delay = distance == 0 ? jitter(15ms, 50)
+                                                       : jitter(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                                                    60ms + 1900us * std::sqrt(double(distance))),
+                                                                15);
         if (m_speed == Speed::Double) delay += jitter(470ms, 15);
         return delay + spinUp();
     }

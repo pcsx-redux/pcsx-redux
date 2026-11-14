@@ -1,5 +1,4 @@
 -- lualoader, R"EOF(--
-
 --[[
 
 Schema-driven LZSS-family codec, authored from Lua.
@@ -40,24 +39,34 @@ token width, and the encoder handles it by running its candidate token back
 through this same selector rather than by re-deriving which encodings are
 still free.
 
-]]
-
-local C = ffi.load 'SUPPORT_COMPRESSION'
+]] local C = ffi.load 'SUPPORT_COMPRESSION'
 
 -- Order must match the switch in compressionffi.cc.
-local SIZEOF = { 'CompressionTerm', 'CompressionField', 'CompressionGuard', 'CompressionProduction', 'CompressionSchema', 'CompressionDecodeStats' }
+local SIZEOF = {
+    'CompressionTerm', 'CompressionField', 'CompressionGuard', 'CompressionProduction', 'CompressionSchema',
+    'CompressionDecodeStats',
+}
 for i, name in ipairs(SIZEOF) do
     local theirs = tonumber(C.compressionSizeof(i - 1))
     local ours = tonumber(ffi.sizeof(name))
     if theirs ~= ours then
         error(string.format(
-            'compressionffi: %s is %d bytes in C and %d in the cdef - the struct changed on one side only',
-            name, theirs, ours))
+                  'compressionffi: %s is %d bytes in C and %d in the cdef - the struct changed on one side only', name,
+                  theirs, ours))
     end
 end
 
-local FIELD = { len = 'COMPRESSION_F_LEN', dist = 'COMPRESSION_F_DIST', run = 'COMPRESSION_F_RUN', value = 'COMPRESSION_F_VAL' }
-local BASE = { relative = 'COMPRESSION_OB_RELATIVE', windowEnd = 'COMPRESSION_OB_WINDOW_END', absolute = 'COMPRESSION_OB_ABSOLUTE' }
+local FIELD = {
+    len = 'COMPRESSION_F_LEN',
+    dist = 'COMPRESSION_F_DIST',
+    run = 'COMPRESSION_F_RUN',
+    value = 'COMPRESSION_F_VAL',
+}
+local BASE = {
+    relative = 'COMPRESSION_OB_RELATIVE',
+    windowEnd = 'COMPRESSION_OB_WINDOW_END',
+    absolute = 'COMPRESSION_OB_ABSOLUTE',
+}
 
 -- A field is up to three (byte, mask, shift) terms OR'd together, plus a bias
 -- added afterwards. `at` is either one term or a list of them; a positive shift
@@ -154,8 +163,8 @@ local function build(desc)
     s.nprods = #prods
 
     if C.compressionValidate(s) ~= 0 then
-        error('schema: invalid: token bytes must be 1..4, every term inside its token, control unit 1 or 2, '
-              .. '1..8 flags per group, and windowEnd needs maxDist')
+        error('schema: invalid: token bytes must be 1..4, every term inside its token, control unit 1 or 2, ' ..
+                  '1..8 flags per group, and windowEnd needs maxDist')
     end
 
     return s, pinned
@@ -184,9 +193,12 @@ local function statsToTable(st)
 end
 
 local ERRORS = {
-    [-3] = 'ran out of input', [-4] = 'output buffer full',
-    [-6] = 'no production matched a token', [-7] = 'encoder output buffer full',
-    [-8] = 'a match points at or past the output position', [-9] = 'invalid schema',
+    [-3] = 'ran out of input',
+    [-4] = 'output buffer full',
+    [-6] = 'no production matched a token',
+    [-7] = 'encoder output buffer full',
+    [-8] = 'a match points at or past the output position',
+    [-9] = 'invalid schema',
     [-10] = 'the encoder only supports relative windows',
 }
 

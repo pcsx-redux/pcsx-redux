@@ -177,7 +177,5 @@ end
 -- only LuaJIT fills in.
 local ok, why = M.install()
 local luajit = type(rawget(_G, 'jit')) == 'table' and type(jit.version) == 'string'
-if not ok and not luajit then
-    print('_CLIBS adapter not installed: ' .. tostring(why))
-end
+if not ok and not luajit then print('_CLIBS adapter not installed: ' .. tostring(why)) end
 -- )EOF"

@@ -98,8 +98,8 @@ class MemoryCard {
     void runPocketstation(uint64_t armCycles);
     // Savestate fields for this slot's device. Save leaves the slot message empty without a device;
     // load restores only when the state carries a device and this slot has one to restore into.
-    void savePocketstationState(SaveStates::PocketStationSlot& slot);
-    void loadPocketstationState(SaveStates::PocketStationSlot& slot);
+    void savePocketstationState(SaveStates::PocketStationSlot &slot);
+    void loadPocketstationState(SaveStates::PocketStationSlot &slot);
     char *getMcdData() { return m_mcdData; }
     // Reads the card from mcd, creating a formatted file first if it does not exist and createIfMissing is
     // set. Returns false, logging why and leaving the card's data as it was, when the file cannot be read.
