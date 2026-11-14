@@ -21,7 +21,7 @@ Clicking a row plots the selected sample's decoded waveform, with its loop marke
 
 ## Exporting a SoundFont
 
-`Export SoundFont...` writes every complete sample in the list to a SoundFont 2 file, one preset per sample. Each sample is named by its signature, decoded at 44100 Hz, which is what pitch 1000h plays, and carries its loop when it has one. Its root key and pitch correction describe the note it sounds; unpitched samples get root key 255. The file's comment repeats these rules, records the note each sample sounds in one `spu-note` line per sample, and lists the samples whose pitch disagrees with the game, the samples with no key-on to check against, and the unpitched ones.
+`Export SoundFont...` writes every complete sample in the list to a SoundFont 2 file, one preset per sample. Each sample is named by its signature, decoded at 44100 Hz, which is what pitch 1000h plays, and carries its loop when it has one. Its root key and pitch correction describe the note it sounds; unpitched samples get root key 255. The file's comment repeats these rules, records each sample's size and the note it sounds in one `spu-sample` line per sample, and lists the samples whose pitch disagrees with the game, the samples with no key-on to check against, and the unpitched ones.
 
 ## Editing the pack
 
@@ -31,7 +31,7 @@ Open the exported file in any SoundFont editor, such as [Polyphone](https://www.
 - set the root key and pitch correction to the note the new recording sounds, so it is played at the same pitch as the original;
 - to make it loop, set the loop points on the sample and the loop mode of the instrument zone that plays it to loop.
 
-Leave the `spu-note` lines in the file's comment: a replacement is tuned against the note its line records for the original. A pack without them still loads, and the note is then measured from the original when it is first keyed on.
+Leave the `spu-sample` lines in the file's comment: a replacement is tuned against the note its line records for the original, and the recorded sizes let the emulator skip most samples at key-on without hashing them. A pack without the lines still loads, and the note is then measured from the original when it is first keyed on.
 
 The new recording does not need to be the same length or the same rate as the original. Samples you do not want to replace can be deleted from the pack, and samples whose name is not a signature are ignored, so the file can carry other material. A SoundFont 3 file, with Ogg Vorbis samples, works too.
 
