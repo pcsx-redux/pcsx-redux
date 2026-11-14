@@ -67,6 +67,7 @@ class PadsImpl : public PCSX::Pads {
     void reset() override;
     void getTransferState(Port port, TransferState& state) override;
     void setTransferState(Port port, const TransferState& state) override;
+    void rescanGamepads() override;
     void map();
 
     void setLua(PCSX::Lua L) override;
@@ -885,6 +886,11 @@ void PadsImpl::Pad::applyRumble(bool force) {
     m_rumbleRefreshedAt = now;
 }
 
+void PadsImpl::rescanGamepads() {
+    scanGamepads();
+    map();
+}
+
 void PadsImpl::map() {
     m_pads[0].map();
     m_pads[1].map();
@@ -999,17 +1005,15 @@ void PadsImpl::Pad::getButtons() {
         return;
     }
 
-    // Drive SDL's internal gamepad state and pluck out hotplug events. Other
-    // SDL events stay in the queue (gui.cc still owns the rest of the input
-    // surface today). Move this to the central event pump when Phase 3 lands.
-    SDL_PumpEvents();
-    {
-        SDL_Event scratch[16];
-        int drained = SDL_PeepEvents(scratch, 16, SDL_GETEVENT, SDL_EVENT_GAMEPAD_ADDED, SDL_EVENT_GAMEPAD_REMOVED);
-        if (drained > 0) {
-            s_pads->scanGamepads();
-            s_pads->map();
-        }
+    // Hotplug is handled in gui.cc's SDL_PollEvent loop (it drains the queue
+    // every frame, so PeepEvents here would never see ADDED/REMOVED).
+
+    if (m_gamepad && !SDL_GamepadConnected(m_gamepad)) {
+        const SDL_JoystickID jid = SDL_GetGamepadID(m_gamepad);
+        PCSX::g_system->printf("Gamepad error: joystick id %u disconnected, rescanning\n",
+                               static_cast<unsigned>(jid));
+        // Defense if REMOVED was missed; rescan+map refreshes m_gamepad.
+        s_pads->rescanGamepads();
     }
 
     // Push the motor state the last read command asked for. This runs here, once per
@@ -1018,25 +1022,18 @@ void PadsImpl::Pad::getButtons() {
     // hand SDL half-updated pairs.
     applyRumble(false);
 
-    if (m_gamepad) {
-        if (!SDL_GamepadConnected(m_gamepad)) {
-            const SDL_JoystickID jid = SDL_GetGamepadID(m_gamepad);
-            PCSX::g_system->printf("Gamepad error: joystick id %u disconnected, disabling pad\n",
-                                   static_cast<unsigned>(jid));
-            m_gamepad = nullptr;
-        } else {
-            for (int i = 0; i < SDL_GAMEPAD_BUTTON_COUNT; i++) {
-                state.buttons[i] = SDL_GetGamepadButton(m_gamepad, static_cast<SDL_GamepadButton>(i));
-            }
-            // SDL reports axes as int16_t [-32768, 32767]. Triggers are signed but
-            // only ever positive in practice. Normalize to [-1, 1] to match the
-            // shape the rest of this code was built around.
-            for (int i = 0; i < SDL_GAMEPAD_AXIS_COUNT; i++) {
-                int16_t raw = SDL_GetGamepadAxis(m_gamepad, static_cast<SDL_GamepadAxis>(i));
-                state.axes[i] = raw < 0 ? raw / 32768.0f : raw / 32767.0f;
-            }
-            hasPad = true;
+    if (m_gamepad && SDL_GamepadConnected(m_gamepad)) {
+        for (int i = 0; i < SDL_GAMEPAD_BUTTON_COUNT; i++) {
+            state.buttons[i] = SDL_GetGamepadButton(m_gamepad, static_cast<SDL_GamepadButton>(i));
         }
+        // SDL reports axes as int16_t [-32768, 32767]. Triggers are signed but
+        // only ever positive in practice. Normalize to [-1, 1] to match the
+        // shape the rest of this code was built around.
+        for (int i = 0; i < SDL_GAMEPAD_AXIS_COUNT; i++) {
+            int16_t raw = SDL_GetGamepadAxis(m_gamepad, static_cast<SDL_GamepadAxis>(i));
+            state.axes[i] = raw < 0 ? raw / 32768.0f : raw / 32767.0f;
+        }
+        hasPad = true;
     }
 
     if (!hasPad) {

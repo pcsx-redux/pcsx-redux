@@ -75,6 +75,8 @@ class Pads {
     virtual void getTransferState(Port port, TransferState& state) = 0;
     virtual void setTransferState(Port port, const TransferState& state) = 0;
 
+    virtual void rescanGamepads() = 0;
+
     virtual void setLua(PCSX::Lua L) = 0;
 
     virtual bool isPadConnected(int pad) = 0;
