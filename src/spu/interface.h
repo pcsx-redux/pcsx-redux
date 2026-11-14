@@ -350,9 +350,6 @@ class impl final : public SPUInterface {
     // Set from the UI thread, read by the mixer at key-on.
     std::mutex m_overlayMutex;
     std::shared_ptr<const Overlay> m_overlay;
-    // The note each replaced original sounds at pitch 1000h, by signature. A signature names
-    // the sample's content, so an entry never goes stale. Mixer thread only.
-    std::unordered_map<uint64_t, double> m_overlayNotes;
     void startOverlay(SPUCHAN *voice);
     std::condition_variable m_mixerWake;
     std::condition_variable m_cpuWake;

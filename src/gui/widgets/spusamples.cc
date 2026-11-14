@@ -375,9 +375,9 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
             if (!loaded) {
                 m_overlayStatus = _("Not a SoundFont file.");
             } else {
-                m_overlayStatus =
-                    fmt::format(f_("{} replacements loaded, {} samples without a signature name skipped."),
-                                loaded->size(), skipped);
+                m_overlayStatus = fmt::format(f_("{} replacements loaded, {} samples skipped for a name that is not a "
+                                                 "signature or no spu-sample line."),
+                                              loaded->size(), skipped);
                 g_emulator->m_spu->setOverlay(std::move(loaded));
             }
         }

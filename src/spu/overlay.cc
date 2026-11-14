@@ -50,7 +50,8 @@ std::shared_ptr<const PCSX::SPU::Overlay> PCSX::SPU::Overlay::fromSF2(const uint
             }
             signature = (signature << 4) | v;
         }
-        if (!valid) {
+        auto record = records.find(signature);
+        if (!valid || record == records.end()) {
             bad++;
             continue;
         }
@@ -60,17 +61,8 @@ std::shared_ptr<const PCSX::SPU::Overlay> PCSX::SPU::Overlay::fromSF2(const uint
         e.loops = s.loops;
         e.loopStart = s.loopStart;
         e.loopEnd = s.loopEnd;
-        auto record = records.find(signature);
-        e.originalNote.reset();
-        if (record != records.end()) e.originalNote = record->second.note;
-    }
-    for (auto& [signature, entry] : overlay->m_entries) {
-        auto record = records.find(signature);
-        if (record == records.end()) {
-            overlay->m_unrecorded++;
-        } else {
-            overlay->m_sizes.insert(record->second.size);
-        }
+        e.originalNote = record->second.note;
+        overlay->m_sizes.insert(record->second.size);
     }
     if (skipped) *skipped = bad;
     return overlay;

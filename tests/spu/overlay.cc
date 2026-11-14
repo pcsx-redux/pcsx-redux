@@ -32,8 +32,13 @@
 
 namespace {
 
+// A bank with a record, at note 60, for every sample named like a signature.
 std::shared_ptr<const PCSX::SPU::Overlay> pack(std::vector<PCSX::SF2::Sample> samples, unsigned* skipped = nullptr) {
-    auto data = PCSX::SF2::write(samples, "pack", "");
+    std::string comment;
+    for (auto& s : samples) {
+        if (s.name.size() == 16) comment += "spu-sample " + s.name + " 16 60\n";
+    }
+    auto data = PCSX::SF2::write(samples, "pack", comment);
     return PCSX::SPU::Overlay::fromSF2(data.data(), data.size(), skipped);
 }
 
@@ -191,13 +196,15 @@ TEST(SPUOverlay, ReadsTheRecords) {
     std::vector<PCSX::SF2::Sample> samples = {ramp("00000000000000ff", 10), ramp("00000000000000fe", 10)};
     auto data = PCSX::SF2::write(samples, "pack",
                                  "prose\nspu-sample 00000000000000ff 48 57.25\nspu-sample 0000000000000001 64 60\n");
-    auto overlay = PCSX::SPU::Overlay::fromSF2(data.data(), data.size());
+    unsigned skipped = 0;
+    auto overlay = PCSX::SPU::Overlay::fromSF2(data.data(), data.size(), &skipped);
     ASSERT_NE(overlay, nullptr);
-    ASSERT_TRUE(overlay->find(0xff)->originalNote.has_value());
-    EXPECT_DOUBLE_EQ(*overlay->find(0xff)->originalNote, 57.25);
-    EXPECT_FALSE(overlay->find(0xfe)->originalNote.has_value());
-    // 0xfe has no record, so any size may be a replacement.
-    EXPECT_TRUE(overlay->mayReplace(16));
+    ASSERT_NE(overlay->find(0xff), nullptr);
+    EXPECT_DOUBLE_EQ(overlay->find(0xff)->originalNote, 57.25);
+    // A sample with no record is not a replacement.
+    EXPECT_EQ(overlay->find(0xfe), nullptr);
+    EXPECT_EQ(skipped, 1u);
+    EXPECT_EQ(overlay->size(), 1u);
 }
 
 TEST(SPUOverlay, RecordedSizesFilterKeyOns) {

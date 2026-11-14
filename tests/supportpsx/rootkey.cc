@@ -75,6 +75,10 @@ TEST(RootKey, UnpitchedStaysOnTheNativeFrame) {
     // Outside the MIDI range.
     EXPECT_EQ(fromFundamental(5.0).status, Status::Unpitched);
     EXPECT_EQ(fromFundamental(20000.0).status, Status::Unpitched);
+    // A note just below 0 rounds to key 0 but cannot be recorded; it counts as unpitched.
+    const auto low = fromFundamental(440.0 * std::exp2((-0.3 - 69.0) / 12.0));
+    EXPECT_EQ(low.status, Status::Unpitched);
+    EXPECT_DOUBLE_EQ(low.note, 60.0);
 }
 
 TEST(RootKey, KeyOnsOnTheGridAgree) {

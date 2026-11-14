@@ -30,8 +30,6 @@
 #include "spu/adsr.h"
 #include "spu/externals.h"
 #include "spu/interface.h"
-#include "spu/samplepitch.h"
-#include "supportpsx/rootkey.h"
 #include "supportpsx/spusample.h"
 
 namespace {
@@ -93,18 +91,7 @@ void PCSX::SPU::impl::startOverlay(SPUCHAN *voice) {
     const uint64_t signature = SPUSample::signature(spuRamBase, extent);
     const auto *entry = overlay->find(signature);
     if (!entry) return;
-    // A pack that recorded the note its writer measured is played against that note.
-    if (entry->originalNote) {
-        voice->overlay.start(std::move(overlay), entry, *entry->originalNote);
-        return;
-    }
-    // Otherwise it is measured once per sample, on its first replaced key-on.
-    auto note = m_overlayNotes.find(signature);
-    if (note == m_overlayNotes.end()) {
-        const double measured = RootKey::fromFundamental(sampleFundamental(spuRamBase, extent)).note;
-        note = m_overlayNotes.emplace(signature, measured).first;
-    }
-    voice->overlay.start(std::move(overlay), entry, note->second);
+    voice->overlay.start(std::move(overlay), entry, entry->originalNote);
 }
 
 ////////////////////////////////////////////////////////////////////////

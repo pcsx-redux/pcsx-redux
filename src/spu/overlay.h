@@ -23,7 +23,6 @@
 
 #include <cmath>
 #include <memory>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -38,10 +37,7 @@ namespace SPU {
 // is what the SPU Samples export writes. A replacement's rate, root key and pitch correction
 // say what note it sounds, and it is played so that it sounds the same note as the original
 // at every pitch. The original's note at pitch 1000h is the one the pack records for it, which
-// is what the export measured, so an unedited export plays back unchanged. A pack with no record
-// for a sample has it measured from the original's own data (SPU::sampleFundamental,
-// RootKey::fromFundamental), the way the export measures it. An original with no fundamental
-// counts as note 60.
+// is what the export measured, so an unedited export plays back unchanged.
 class Overlay {
   public:
     struct Entry {
@@ -50,12 +46,12 @@ class Overlay {
         bool loops = false;
         double loopStart = 0;
         double loopEnd = 0;
-        // The original's note at pitch 1000h as the pack's writer measured it, from the pack's
-        // record for it. Absent in a pack without one, and then measured at key-on instead.
-        std::optional<double> originalNote;
+        // The original's note at pitch 1000h as the pack's writer measured it, from its record.
+        double originalNote = 60.0;
     };
 
-    // Samples whose name is not exactly 16 hex digits are skipped and counted in `skipped`.
+    // Samples whose name is not exactly 16 hex digits, or with no record in the bank's comment,
+    // are skipped and counted in `skipped`.
     static std::shared_ptr<const Overlay> fromSF2(const uint8_t* data, size_t size, unsigned* skipped = nullptr);
 
     const Entry* find(uint64_t signature) const {
@@ -64,14 +60,12 @@ class Overlay {
     }
     size_t size() const { return m_entries.size(); }
     // Whether a sample whose signature covers `bytes` of sound RAM can have a replacement here.
-    // False only when every replacement has a record and none has that size, so the key-on can
-    // skip computing the signature.
-    bool mayReplace(uint32_t bytes) const { return m_unrecorded != 0 || m_sizes.contains(bytes); }
+    // When it cannot, the key-on can skip computing the signature.
+    bool mayReplace(uint32_t bytes) const { return m_sizes.contains(bytes); }
 
   private:
     std::unordered_map<uint64_t, Entry> m_entries;
     std::unordered_set<uint32_t> m_sizes;
-    size_t m_unrecorded = 0;
 };
 
 // One voice's playhead into its replacement. It only produces the voice's audio: the ADPCM
