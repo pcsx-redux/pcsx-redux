@@ -347,8 +347,10 @@ typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("irq_state"), 6> RcntIRQSta
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cycle"), 7> RcntCycle;
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cycle_start"), 8> RcntCycleStart;
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("gate_started"), 9> RcntGateStarted;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("rate_den"), 10> RcntRateDen;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("start_frac"), 11> RcntStartFrac;
 typedef Protobuf::Message<TYPESTRING("Rcnt"), RcntMode, RcntTarget, RcntRate, RcntIRQ, RcntCounterState, RcntIRQState,
-                          RcntCycle, RcntCycleStart, RcntGateStarted>
+                          RcntCycle, RcntCycleStart, RcntGateStarted, RcntRateDen, RcntStartFrac>
     Rcnt;
 typedef Protobuf::RepeatedField<Rcnt, 4, TYPESTRING("rcnts"), 1> Rcnts;
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("hsync_count"), 2> HSyncCount;
