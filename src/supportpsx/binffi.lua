@@ -125,7 +125,7 @@ PCSX.Binary.createExe = function(src, dest, addr, pc, gp, sp)
     dest:writeU32(0)
     dest:writeU32(sp)
     while dest:size() < 0x800 do dest:writeU8(0) end
-    dest:write(src:read(src:size()))
+    dest:writeMoveSlice(src:readWhole())
     while bit.band(dest:size(), 0x7ff) ~= 0 do dest:writeU8(0) end
 end
 
@@ -145,7 +145,7 @@ PCSX.Binary.createCpe = function(src, dest, addr, pc)
     dest:writeU8(1)
     dest:writeU32(addr)
     dest:writeU32(size)
-    dest:write(src:read(src:size()))
+    dest:writeMoveSlice(src:readWhole())
     dest:writeU8(0)
 end
 
@@ -155,7 +155,7 @@ PCSX.Misc.uclPack = function(src, dest)
     local srcPtr
     local srcSize
     if type(src) == 'table' and src._type == 'File' then
-        src = src:read(src:size())
+        src = src:readWhole()
         srcPtr = ffi.cast('uint8_t*', src.data)
         srcSize = src.size
     elseif type(src) == 'string' then
@@ -225,7 +225,7 @@ PCSX.Misc.uclUnpack = function(src, decompressedSize, dest)
     local srcPtr
     local srcSize
     if type(src) == 'table' and src._type == 'File' then
-        src = src:read(src:size())
+        src = src:readWhole()
         srcPtr = ffi.cast('uint8_t*', src.data)
         srcSize = src.size
     elseif type(src) == 'string' then
@@ -286,7 +286,7 @@ PCSX.Misc.uclGetOverlapMargin = function(src, decompressedSize)
     local srcPtr
     local srcSize
     if type(src) == 'table' and src._type == 'File' then
-        src = src:read(src:size())
+        src = src:readWhole()
         srcPtr = ffi.cast('uint8_t*', src.data)
         srcSize = src.size
     elseif type(src) == 'string' then

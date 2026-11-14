@@ -126,3 +126,64 @@ function TestFile:test_readToSlice()
     lu.assertEquals(slice.size, 6)
     lu.assertEquals(ffi.string(slice.data, slice.size), ' world')
 end
+
+function TestFile:test_readWhole_seekable_ignores_the_cursor()
+    local f = helloFile()
+    f:rSeek(6)
+    local slice = f:readWhole()
+    lu.assertEquals(slice._type, 'Slice')
+    lu.assertEquals(tostring(slice), 'hello world')
+    lu.assertEquals(tonumber(f:rTell()), 6)
+end
+
+function TestFile:test_readWhole_empty_file()
+    local slice = Support.File.buffer():readWhole()
+    lu.assertEquals(slice._type, 'Slice')
+    lu.assertEquals(slice.size, 0)
+    lu.assertEquals(tostring(slice), '')
+end
+
+function TestFile:test_readWhole_failed_file_raises()
+    local ok, err = pcall(function() return Support.File.failedFile():readWhole() end)
+    lu.assertFalse(ok)
+    lu.assertStrContains(tostring(err), 'readWhole')
+end
+
+-- A raw deflate stream holding one stored block of 'hello world'.
+local function storedDeflate()
+    local f = Support.File.buffer()
+    f:write('\x01\x0b\x00\xf4\xffhello world')
+    return f
+end
+
+function TestFile:test_readWhole_seekable_without_a_size()
+    local z = Support.File.zReader(storedDeflate(), 'RAW')
+    lu.assertTrue(z:seekable())
+    lu.assertFalse(pcall(z.size, z))
+    lu.assertEquals(tostring(z:readWhole()), 'hello world')
+    lu.assertEquals(tonumber(z:rTell()), 0)
+end
+
+function TestFile:test_readWhole_seekable_with_a_size()
+    local z = Support.File.zReader(storedDeflate(), 11, 'RAW')
+    lu.assertEquals(tostring(z:readWhole()), 'hello world')
+end
+
+-- No File reachable from here is readable and non-seekable without a network peer, so this drives readWhole
+-- through a stream that only answers the calls a stream answers.
+function TestFile:test_readWhole_stream_reads_from_the_cursor_to_the_end()
+    local text = string.rep('abc', 50000)
+    local backing = Support.File.buffer()
+    backing:write(text)
+    local stream = {
+        failed = function() return false end,
+        seekable = function() return false end,
+        readToSlice = function(_, size) return backing:readToSlice(size) end,
+        readWhole = backing.readWhole,
+    }
+    lu.assertEquals(tostring(backing:readToSlice(3)), 'abc')
+    local slice = stream:readWhole()
+    lu.assertEquals(slice.size, #text - 3)
+    lu.assertEquals(tostring(slice), text:sub(4))
+    lu.assertEquals(stream:readWhole().size, 0)
+end
