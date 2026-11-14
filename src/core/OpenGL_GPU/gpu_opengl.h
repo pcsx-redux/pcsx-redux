@@ -53,23 +53,30 @@ class OpenGL_GPU final : public GPU {
 
   private:
     // Actual emulation stuff
+    // Two left-edge sections of ten integers each, then the per-pixel U and V steps, padded to six ivec4.
+    static constexpr int c_affineSetupSize = 24;
     struct Vertex {
         OpenGL::ivec2 positions;
         uint32_t colour;
         uint16_t texpage;
         uint16_t clut;
         OpenGL::Vector<uint16_t, 2> uv;
+        // A textured triangle's UV walk, set up the way the GPU does it (see computeAffineSetup).
+        // All zeroes for anything else, which then samples at its interpolated UV.
+        std::array<int32_t, c_affineSetupSize> affine{};
 
         // We use bit 15 of the texpage attribute (normally unused) to indicate an untextured prim.
         static constexpr uint16_t c_untexturedPrimitiveTexpage = 0x8000;
+        // Bit 14 marks a dithered primitive.
+        static constexpr uint16_t c_ditherTexpage = 0x4000;
 
         Vertex() : Vertex(0, 0, 0) {}
 
-        Vertex(int x, int y, uint32_t col) {
+        Vertex(int x, int y, uint32_t col, uint16_t flags = 0) {
             positions.x() = x;
             positions.y() = y;
             colour = col;
-            texpage = c_untexturedPrimitiveTexpage;
+            texpage = c_untexturedPrimitiveTexpage | flags;
         }
 
         Vertex(int x, int y, uint32_t col, uint16_t clut, uint16_t texpage, unsigned u, unsigned v)
@@ -167,12 +174,15 @@ class OpenGL_GPU final : public GPU {
     GLint m_setMaskLoc;
     GLint m_checkMaskLoc;
     GLint m_blendingLoc;
+    GLint m_blendModeLoc;
     OpenGL::Texture m_maskTexture;
     bool m_batchBoundsValid = false;
     int m_batchMinX = 0, m_batchMinY = 0, m_batchMaxX = 0, m_batchMaxY = 0;
     void setMaskBits(bool set, bool check);
     void pushMaskConfig();
     void addCheckMaskBounds(const int *xs, const int *ys, int n);
+    // Check-mask and semi-transparent batches read the destination from a snapshot taken before the batch.
+    bool readsDestination() const { return m_checkMask || m_lastTransparency == Transparency::Transparent; }
     void readVRAMRect(int x, int y, int w, int h, uint16_t *pixels);
     void updateSkipParity();
     uint32_t m_lastTexwindowSetting = 0;
@@ -217,11 +227,14 @@ class OpenGL_GPU final : public GPU {
     // And 0x808080 as the blend colour
     static constexpr uint32_t c_rawTextureBlendColour = 0x808080;
 
-    void drawTri(int *x, int *y, uint32_t *colors);
-    void drawTriTextured(int *x, int *y, uint32_t *colors, uint16_t clut, uint16_t texpage, unsigned *u, unsigned *v);
+    void drawTri(int *x, int *y, uint32_t *colors, uint16_t flags);
+    // walkOrder is the vertex order the GPU sets the triangle up in, which can differ from the drawing order.
+    void drawTriTextured(int *x, int *y, uint32_t *colors, uint16_t clut, uint16_t texpage, unsigned *u, unsigned *v,
+                         const int (&walkOrder)[3] = {0, 1, 2});
     void drawRect(int x, int y, int w, int h, uint32_t color);
     void drawRectTextured(int x, int y, int w, int h, uint32_t color, uint16_t clut, unsigned u, unsigned v);
-    void drawLine(int x1, int y1, uint32_t color1, int x2, int y2, uint32_t color2);
+    void drawLine(int x0, int y0, uint32_t color0, int x1, int y1, uint32_t color1);
+    void drawPixel(int x, int y, uint32_t color);
 
     template <Transparency setting>
     void setTransparency();

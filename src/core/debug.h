@@ -32,11 +32,7 @@
 
 namespace PCSX {
 
-// The state of a Debug replay, see Debug::startReplay. It lives at namespace scope because a
-// nested struct with default member initializers is not default-constructible until Debug is
-// complete, and std::optional<Replay> is instantiated inside Debug: with some standard libraries
-// (MSVC STL 14.52, libstdc++ under clang) is_constructible then sticks at false and
-// std::optional::emplace() fails.
+// Debug::Replay. Not nested: some standard libraries then reject std::optional<Replay>::emplace().
 struct DebugReplay {
     uint64_t stopAt = 0;
     // The boundary the replay paused at.

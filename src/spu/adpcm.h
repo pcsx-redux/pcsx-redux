@@ -40,6 +40,7 @@ class AdpcmDecoder {
     // history, exactly as StartSound used to do inline.
     void keyOn() {
         m_curr = m_start;
+        m_block = nullptr;
         m_s1 = 0;
         m_s2 = 0;
     }
@@ -77,6 +78,7 @@ class AdpcmDecoder {
         m_start = nullptr;
         m_curr = nullptr;
         m_loop = nullptr;
+        m_block = nullptr;
         m_s1 = 0;
         m_s2 = 0;
     }
@@ -95,6 +97,11 @@ class AdpcmDecoder {
     uint8_t *start() const { return m_start; }
     uint8_t *curr() const { return m_curr; }
     uint8_t *loop() const { return m_loop; }
+    // The 16-byte block whose samples are being played, or nullptr before the first decode. Unlike
+    // curr(), it stays on that block after a loop-end redirect. Not saved: a loaded state has none
+    // until the next decode.
+    uint8_t *block() const { return m_block; }
+    void clearBlock() { m_block = nullptr; }
     void setStart(uint8_t *p) { m_start = p; }
     void setCurr(uint8_t *p) { m_curr = p; }
     void setLoop(uint8_t *p) { m_loop = p; }
@@ -129,7 +136,10 @@ class AdpcmDecoder {
     bool bufferExhausted() const { return m_pos >= kSamplesPerBlock; }
     int32_t takeSample() { return m_samples[m_pos++]; }
     // Key-on leaves the buffer empty so the first sample forces a decode.
-    void emptyBuffer() { m_pos = kSamplesPerBlock; }
+    void emptyBuffer() {
+        m_pos = kSamplesPerBlock;
+        m_block = nullptr;
+    }
 
   private:
     // ADPCM IIR filter coefficient pairs, indexed by the block's predictor. The
@@ -141,6 +151,7 @@ class AdpcmDecoder {
     uint8_t *m_start = nullptr;                // start pointer into sound RAM
     uint8_t *m_curr = nullptr;                 // current position in sound RAM
     uint8_t *m_loop = nullptr;                 // loop pointer into sound RAM
+    uint8_t *m_block = nullptr;                // block being played
     int32_t m_s1 = 0;                          // last decoded sample (IIR history)
     int32_t m_s2 = 0;                          // next-to-last decoded sample (IIR history)
     int m_keyOnAge = 1 << 30;                  // samples since key-on reached the mixer

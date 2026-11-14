@@ -1358,17 +1358,19 @@ void DynaRecCPU::recCOP1or3(uint32_t code) {
     if (_Rs_ == 8) {
         recBCz(code);
     } else {
-        recUnknown(code);
+        // There is no COP1 or COP3: with SR.CUz set the opcode does nothing here. On silicon MFCz and CFCz
+        // load an unspecified value.
+        emitCopUnusableCheck((code >> 26) & 3);
     }
 }
 
-// BCzF / BCzT. None of the coprocessors drives the condition input, so BCzF
-// always branches and BCzT never does. Bit 1 of rt is ignored. With SR.CUz
-// clear, the branch raises a coprocessor unusable exception, COP0 included,
-// and leaves the block without running the delay slot.
-void DynaRecCPU::recBCz(uint32_t code) {
-    const unsigned z = (code >> 26) & 3;
-    const auto target = _Imm_ * 4 + m_pc;
+// LWC1, LWC3, SWC1, SWC3. Like the other COP1/COP3 opcodes, these trap with SR.CUz clear and do nothing here
+// otherwise. On silicon SWCz stores an unspecified value.
+void DynaRecCPU::recLSCz(uint32_t code) { emitCopUnusableCheck((code >> 26) & 3); }
+
+// Raises a coprocessor unusable exception, and leaves the block, if SR.CUz is clear. Code emitted after
+// this only runs with the coprocessor usable.
+void DynaRecCPU::emitCopUnusableCheck(unsigned z) {
     Label usable;
 
     flushRegs();
@@ -1405,6 +1407,16 @@ void DynaRecCPU::recBCz(uint32_t code) {
     gen.jmp((void*)m_returnFromBlock);
 
     gen.L(usable);
+}
+
+// BCzF / BCzT. None of the coprocessors drives the condition input, so BCzF
+// always branches and BCzT never does. Bit 1 of rt is ignored. With SR.CUz
+// clear, the branch raises a coprocessor unusable exception, COP0 included,
+// and leaves the block without running the delay slot.
+void DynaRecCPU::recBCz(uint32_t code) {
+    const unsigned z = (code >> 26) & 3;
+    const auto target = _Imm_ * 4 + m_pc;
+    emitCopUnusableCheck(z);
     m_nextIsDelaySlot = true;
 
     if ((_Rt_ & 1) || target == m_pc + 4) {
@@ -1424,6 +1436,18 @@ void DynaRecCPU::recMFC0(uint32_t code) {
     m_gprs[_Rt_].setWriteback(true);
 
     gen.mov(m_gprs[_Rt_].allocatedReg, dword[contextPointer + COP0_OFFSET(_Rd_)]);
+    if (_Rd_ == 13) {
+        // Cause bit 10 follows I_STAT & I_MASK, both ways, with no latch.
+        gen.mov(rax, (uint64_t)&PCSX::g_emulator->m_mem->m_hard[0x1070]);
+        gen.mov(ecx, dword[rax]);
+        gen.and_(ecx, dword[rax + 4]);
+        gen.and_(ecx, 0x7ff);
+        gen.setnz(cl);
+        gen.movzx(ecx, cl);
+        gen.shl(ecx, 10);
+        gen.and_(m_gprs[_Rt_].allocatedReg, ~0x400);
+        gen.or_(m_gprs[_Rt_].allocatedReg, ecx);
+    }
 }
 
 // TODO: Handle all COP0 register writes properly. Don't treat read-only field as writeable!
