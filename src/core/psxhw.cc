@@ -516,6 +516,7 @@ void PCSX::HW::write8(uint32_t add, uint32_t rawvalue) {
             if (addressInRegisterSpace(hwadd)) {
                 const uint32_t v = SWAP_LEu32(rawvalue);
                 memcpy(&g_emulator->m_mem->m_hard[hwadd & 0xffff], &v, sizeof(v));
+                clearDelaySizeBit30(hwadd);
                 PSXHW_LOG("*Unknown 8bit(actually 32bit) write at address %x value %x\n", add, rawvalue);
             } else {
                 g_emulator->m_mem->m_hard[hwadd & 0xffff] = value;
@@ -643,6 +644,7 @@ void PCSX::HW::write16(uint32_t add, uint32_t rawvalue) {
             if (addressInRegisterSpace(hwadd)) {
                 const uint32_t v = SWAP_LEu32(rawvalue);
                 memcpy(&g_emulator->m_mem->m_hard[hwadd & 0xffff], &v, sizeof(v));
+                clearDelaySizeBit30(hwadd);
                 PSXHW_LOG("*Unknown 16bit(actually 32bit) write at address %x value %x\n", add, rawvalue);
             } else {
                 uint16_t *ptr = (uint16_t *)&g_emulator->m_mem->m_hard[hwadd & 0xffff];
@@ -679,6 +681,17 @@ inline bool PCSX::HW::dma2(uint32_t madr, uint32_t bcr, uint32_t chcr) {
 inline void PCSX::HW::dma3(uint32_t madr, uint32_t bcr, uint32_t chcr) {
     PSXDMA_LOG("*** DMA3 CDROM *** %x addr = %x size = %x\n", chcr, madr, bcr);
     g_emulator->m_cdrom->dma(madr, bcr, chcr);
+}
+
+// 8- and 16-bit stores land as 32 bits and can straddle two words. Delay/size registers drop bit 30.
+void PCSX::HW::clearDelaySizeBit30(uint32_t hwadd) {
+    for (uint32_t w = hwadd & ~3; w <= ((hwadd + 3) & ~3); w += 4) {
+        if ((w < 0x1f801008) || (w > 0x1f80101c)) continue;
+        uint32_t word;
+        memcpy(&word, &g_emulator->m_mem->m_hard[w & 0xffff], sizeof(word));
+        word = SWAP_LEu32(SWAP_LEu32(word) & ~0x40000000);
+        memcpy(&g_emulator->m_mem->m_hard[w & 0xffff], &word, sizeof(word));
+    }
 }
 
 void PCSX::HW::write32(uint32_t add, uint32_t value) {
