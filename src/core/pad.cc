@@ -887,8 +887,15 @@ void PadsImpl::Pad::applyRumble(bool force) {
 }
 
 void PadsImpl::rescanGamepads() {
+    // map() resets each pad's m_activeType to the configured m_type; keep the
+    // in-use type (game/user analog switch, host override) across the rescan so
+    // GUI and non-GUI hotplug callers don't need their own save/restore.
+    const PadType active0 = m_pads[0].m_activeType;
+    const PadType active1 = m_pads[1].m_activeType;
     scanGamepads();
     map();
+    m_pads[0].m_activeType = active0;
+    m_pads[1].m_activeType = active1;
 }
 
 void PadsImpl::map() {
@@ -1013,9 +1020,7 @@ void PadsImpl::Pad::getButtons() {
         SDL_PumpEvents();
         SDL_Event scratch[16];
         if (SDL_PeepEvents(scratch, 16, SDL_GETEVENT, SDL_EVENT_GAMEPAD_ADDED, SDL_EVENT_GAMEPAD_REMOVED) > 0) {
-            const PadType activeType = m_activeType;
             s_pads->rescanGamepads();
-            m_activeType = activeType;
         }
     }
     SDL_UpdateGamepads();
@@ -1025,9 +1030,7 @@ void PadsImpl::Pad::getButtons() {
         PCSX::g_system->printf("Gamepad error: joystick id %u disconnected, rescanning\n",
                                static_cast<unsigned>(jid));
         // Defense if REMOVED was missed; rescan+map refreshes m_gamepad.
-        const PadType activeType = m_activeType;
         s_pads->rescanGamepads();
-        m_activeType = activeType;
     }
 
     // Push the motor state the last read command asked for. This runs here, once per
