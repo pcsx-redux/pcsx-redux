@@ -28,7 +28,7 @@ FB07=<WAIT %d>
 
 ## Decoding and encoding
 
-`tbl:decode(bytes)` takes a Lua string of bytes and returns the text. At each position it takes the longest entry that matches. A byte no entry covers becomes `<$XX>`, and so does an entry whose parameter bytes would run past the end of the input.
+`tbl:decode(bytes)` takes a Lua string of bytes and returns the text. At each position it takes the entry with the longest matching bytes; parameter bytes do not count toward that, so `FB07=<WAIT %d>` wins over `FB=<OP %x>` on `FB 07`. A byte no entry covers becomes `<$XX>`, and so does an entry whose parameter bytes would run past the end of the input.
 
 `tbl:encode(text)` returns the bytes as a Lua string, or `nil` and an error naming the offset of the first text it cannot encode. It also takes the longest match, `<$XX>` turns back into that byte, and when two entries share a text the first one in the table wins. Text produced by `decode()` encodes back to the same bytes as long as the table is unambiguous: no two entries share a text, and no entry's text can also be spelled by a run of other entries (`10=A`, `11=B` and `12=AB` would turn `10 11` into `12`). Unknown bytes never break this, so a table can be built up a few entries at a time while the script still round-trips.
 
