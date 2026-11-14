@@ -52,6 +52,7 @@ double sqlite3_column_double(sqlite3_stmt* stmt, int index);
 const unsigned char* sqlite3_column_text(sqlite3_stmt* stmt, int index);
 const void* sqlite3_column_blob(sqlite3_stmt* stmt, int index);
 int sqlite3_column_bytes(sqlite3_stmt* stmt, int index);
+sqlite3_stmt* sqlite3_next_stmt(sqlite3* db, sqlite3_stmt* stmt);
 ]]
 
 local C = ffi.load 'SQLITE'
@@ -115,6 +116,44 @@ local function checkColumn(h, i)
     return i - 1
 end
 
+local int64Max = ffi.new('uint64_t', 0x7fffffffffffffffULL)
+local maxBlobSize = 0x7fffffff
+
+local function bindBlob(h, index, data, size)
+    if size > maxBlobSize then error('SQLite bind: blob of ' .. tostring(size) .. ' bytes is too large', 4) end
+    return C.sqliteBindBlob(h, index, data, size)
+end
+
+local function isLuaBuffer(value)
+    local LuaBuffer = type(Support) == 'table' and type(Support.File) == 'table' and Support.File._LuaBuffer
+    return LuaBuffer and ffi.typeof(value) == LuaBuffer
+end
+
+-- Slices raise on unknown fields, so probing an arbitrary table must not throw.
+local function tableType(value)
+    local ok, tt = pcall(function() return value._type end)
+    if ok and type(tt) == 'string' then return tt end
+end
+
+local function unsupported(value)
+    local t = type(value)
+    if t == 'cdata' then
+        return 'SQLite bind: cannot bind cdata of type ' .. tostring(ffi.typeof(value)) ..
+                   '; cdata is accepted only when it is a number or a LuaBuffer'
+    elseif t == 'table' then
+        local tt = tableType(value)
+        return 'SQLite bind: cannot bind a table' .. (tt and (' of _type ' .. tt) or '') ..
+                   '; the only tables accepted are SQLiteBlob (from PCSX.SQLite.blob) and Slice,' ..
+                   ' and LuaBuffer cdata is accepted as a blob too'
+    end
+    return 'SQLite bind: cannot bind a value of type ' .. t
+end
+
+local function bindNumber(h, index, value)
+    if value % 1 == 0 and value >= -2 ^ 63 and value < 2 ^ 63 then return C.sqlite3_bind_int64(h, index, value) end
+    return C.sqlite3_bind_double(h, index, value)
+end
+
 local function bindOne(stmt, h, index, value)
     if type(index) == 'string' then
         local named = C.sqlite3_bind_parameter_index(h, index)
@@ -132,19 +171,30 @@ local function bindOne(stmt, h, index, value)
     elseif t == 'boolean' then
         rc = C.sqlite3_bind_int64(h, index, value and 1 or 0)
     elseif t == 'number' then
-        if value % 1 == 0 and value >= -2 ^ 63 and value < 2 ^ 63 then
-            rc = C.sqlite3_bind_int64(h, index, value)
-        else
-            rc = C.sqlite3_bind_double(h, index, value)
-        end
+        rc = bindNumber(h, index, value)
     elseif t == 'string' then
         rc = C.sqliteBindText(h, index, value, #value)
-    elseif t == 'table' and value._type == 'SQLiteBlob' then
+    elseif t == 'table' and tableType(value) == 'SQLiteBlob' then
         rc = C.sqliteBindBlob(h, index, value.data, #value.data)
+    elseif t == 'table' and tableType(value) == 'Slice' then
+        rc = bindBlob(h, index, value.data, value.size)
     elseif t == 'cdata' and ffi.istype('int64_t', value) then
         rc = C.sqlite3_bind_int64(h, index, value)
+    elseif t == 'cdata' and ffi.istype('uint64_t', value) then
+        if value > int64Max then
+            error('SQLite bind: uint64_t value ' .. tostring(value) .. ' does not fit in a signed 64-bit integer', 3)
+        end
+        rc = C.sqlite3_bind_int64(h, index, ffi.cast('int64_t', value))
+    elseif t == 'cdata' and isLuaBuffer(value) then
+        local size = tonumber(value.size)
+        if size > value:maxsize() then error('SQLite bind: corrupted LuaBuffer, size exceeds its storage', 3) end
+        rc = bindBlob(h, index, value.data, size)
+    elseif t == 'cdata' and not ffi.istype('complex', value) and not ffi.istype('complex float', value) and
+        tonumber(value) ~= nil then
+        -- Every other numeric cdata (narrower integers, floats, enums, bool).
+        rc = bindNumber(h, index, tonumber(value))
     else
-        error('SQLite bind: cannot bind a value of type ' .. t, 3)
+        error(unsupported(value), 3)
     end
     if rc ~= SQLITE_OK then fail(stmt._owner._db, 3) end
 end
@@ -265,11 +315,15 @@ function dbMethods:run(sql, ...)
 end
 
 -- A loop that leaves early keeps its statement, and on a file its read lock,
--- until the garbage collector finalizes it. Use first() for a single row, or
--- prepare() and finalize() for explicit control.
+-- until the garbage collector finalizes it. Use each() or first() when the
+-- loop may stop early, or prepare() and finalize() for explicit control.
 function dbMethods:rows(sql, ...)
     local stmt = self:prepare(sql)
-    stmt:bindAll(...)
+    local ok, err = pcall(stmt.bindAll, stmt, ...)
+    if not ok then
+        stmt:finalize()
+        error(err, 2)
+    end
     return function()
         if stmt._stmt == nil then return nil end
         local ok, more = pcall(stmt.step, stmt)
@@ -280,6 +334,26 @@ function dbMethods:rows(sql, ...)
         if more then return stmt:row() end
         stmt:finalize()
     end
+end
+
+-- Calls fn(row) for every row, stopping early when fn returns false. The
+-- statement is finalized before each() returns or raises. Returns the number
+-- of rows handed to fn.
+function dbMethods:each(sql, fn, ...)
+    if type(fn) ~= 'function' then error('SQLite each: needs a function', 2) end
+    local stmt = self:prepare(sql)
+    local ok, count = pcall(function(...)
+        stmt:bindAll(...)
+        local n = 0
+        while stmt:step() do
+            n = n + 1
+            if fn(stmt:row()) == false then break end
+        end
+        return n
+    end, ...)
+    stmt:finalize()
+    if not ok then error(count, 0) end
+    return count
 end
 
 function dbMethods:first(sql, ...)

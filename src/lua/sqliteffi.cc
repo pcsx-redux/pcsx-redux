@@ -87,6 +87,7 @@ void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, sqlite3_column_text);
     REGISTER(L, sqlite3_column_blob);
     REGISTER(L, sqlite3_column_bytes);
+    REGISTER(L, sqlite3_next_stmt);
     L.settable();
     L.pop();
 }

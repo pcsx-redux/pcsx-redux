@@ -237,3 +237,114 @@ function TestSQLite:test_use_after_close_is_an_error()
     db:close()
     lu.assertErrorMsgContains('after close', function() db:exec 'SELECT 1' end)
 end
+
+-- Not part of the API: lets the tests see whether a statement is still alive.
+pcall(ffi.cdef, 'sqlite3_stmt* sqlite3_next_stmt(sqlite3* db, sqlite3_stmt* stmt);')
+local function liveStatement(db) return ffi.load('SQLITE').sqlite3_next_stmt(db._db, nil) ~= nil end
+
+local function roundtrip(db, value)
+    local row = db:first('SELECT ? AS v, typeof(?) AS t', value, value)
+    return row.v, row.t
+end
+
+function TestSQLite:test_numeric_cdata()
+    local db = PCSX.SQLite.open()
+    lu.assertEquals({ roundtrip(db, ffi.new('int32_t', 7)) }, { 7, 'integer' })
+    lu.assertEquals({ roundtrip(db, ffi.new('uint8_t', 255)) }, { 255, 'integer' })
+    lu.assertEquals({ roundtrip(db, ffi.new('double', 1.5)) }, { 1.5, 'real' })
+    lu.assertEquals({ roundtrip(db, ffi.new('float', 2)) }, { 2, 'integer' })
+    lu.assertEquals({ roundtrip(db, ffi.new('int64_t', -5)) }, { -5, 'integer' })
+    lu.assertEquals({ roundtrip(db, 0x7fffffffffffffffLL) }, { 0x7fffffffffffffffLL, 'integer' })
+    lu.assertEquals({ roundtrip(db, 0x7fffffffffffffffULL) }, { 0x7fffffffffffffffLL, 'integer' })
+    lu.assertEquals({ roundtrip(db, 12ULL) }, { 12, 'integer' })
+    lu.assertErrorMsgContains('does not fit in a signed 64-bit integer',
+                              function() db:first('SELECT ?', 0x8000000000000000ULL) end)
+    db:close()
+end
+
+function TestSQLite:test_unsupported_value_message()
+    local db = PCSX.SQLite.open()
+    local ok, err = pcall(db.first, db, 'SELECT ?', ffi.new('int[2]'))
+    lu.assertFalse(ok)
+    lu.assertStrContains(err, 'cannot bind cdata of type ctype<int [2]>')
+    ok, err = pcall(db.first, db, 'SELECT ?', {})
+    lu.assertFalse(ok)
+    lu.assertStrContains(err, 'cannot bind a table;')
+    lu.assertStrContains(err, 'SQLiteBlob (from PCSX.SQLite.blob)')
+    lu.assertStrContains(err, 'Slice')
+    lu.assertStrContains(err, 'LuaBuffer')
+    ok, err = pcall(db.first, db, 'SELECT ?', { _type = 'Widget' })
+    lu.assertStrContains(err, 'cannot bind a table of _type Widget')
+    ok, err = pcall(db.first, db, 'SELECT ?', print)
+    lu.assertStrContains(err, 'cannot bind a value of type function')
+    db:close()
+end
+
+local binary = 'a\0b\255c'
+
+function TestSQLite:test_slice_binds_as_blob()
+    local db = PCSX.SQLite.open()
+    local file = Support.File.buffer()
+    file:write('xx' .. binary)
+    local slice = file:readAtToSlice(#binary, 2)
+    lu.assertEquals(slice._type, 'Slice')
+    lu.assertEquals({ roundtrip(db, slice) }, { binary, 'blob' })
+    db:close()
+end
+
+function TestSQLite:test_luabuffer_binds_as_blob()
+    local db = PCSX.SQLite.open()
+    local buf = Support.NewLuaBuffer(#binary)
+    for i = 0, #binary - 1 do buf[i] = string.byte(binary, i + 1) end
+    lu.assertEquals({ roundtrip(db, buf) }, { binary, 'blob' })
+    db:close()
+end
+
+local function numbers(db)
+    db:exec 'CREATE TABLE t (n INTEGER); INSERT INTO t VALUES (1), (2), (3), (4)'
+end
+
+function TestSQLite:test_each_visits_every_row()
+    local db = PCSX.SQLite.open()
+    numbers(db)
+    local seen = {}
+    lu.assertEquals(db:each('SELECT n FROM t WHERE n > ? ORDER BY n', function(row) seen[#seen + 1] = row.n end, 1), 3)
+    lu.assertEquals(seen, { 2, 3, 4 })
+    lu.assertFalse(liveStatement(db))
+    db:close()
+end
+
+function TestSQLite:test_each_stops_on_false()
+    local db = PCSX.SQLite.open()
+    numbers(db)
+    local seen = {}
+    local count = db:each('SELECT n FROM t ORDER BY n', function(row)
+        seen[#seen + 1] = row.n
+        return row.n < 2
+    end)
+    lu.assertEquals(count, 2)
+    lu.assertEquals(seen, { 1, 2 })
+    lu.assertFalse(liveStatement(db))
+    db:exec 'DROP TABLE t'
+    db:close()
+end
+
+function TestSQLite:test_each_finalizes_when_fn_errors()
+    local db = PCSX.SQLite.open()
+    numbers(db)
+    local ok, err = pcall(db.each, db, 'SELECT n FROM t ORDER BY n', function(row) error({ code = row.n }) end)
+    lu.assertFalse(ok)
+    -- The original error value comes back untouched.
+    lu.assertEquals(err, { code = 1 })
+    lu.assertFalse(liveStatement(db))
+    -- A pending read on t would make this fail with "database table is locked".
+    db:exec 'DROP TABLE t'
+    db:close()
+end
+
+function TestSQLite:test_rows_bad_bind_finalizes()
+    local db = PCSX.SQLite.open()
+    lu.assertErrorMsgContains('cannot bind', function() db:rows('SELECT ?', {}) end)
+    lu.assertFalse(liveStatement(db))
+    db:close()
+end
