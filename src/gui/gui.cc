@@ -1059,10 +1059,25 @@ void PCSX::GUI::startFrame() {
                 break;
             }
             case SDL_EVENT_GAMEPAD_ADDED:
-            case SDL_EVENT_GAMEPAD_REMOVED:
+            case SDL_EVENT_GAMEPAD_REMOVED: {
                 // gui drains the SDL queue; pad.cc cannot see these via PeepEvents.
-                if (g_emulator && g_emulator->m_pads) g_emulator->m_pads->rescanGamepads();
+                const bool added = event.type == SDL_EVENT_GAMEPAD_ADDED;
+                const SDL_JoystickID jid = event.gdevice.which;
+                const char* name = SDL_GetGamepadNameForID(jid);
+                if (!name || !*name) name = _("Unknown controller");
+                int port = 0;
+                if (g_emulator && g_emulator->m_pads) {
+                    // Port is known before close on remove, after map on add.
+                    if (!added) port = g_emulator->m_pads->portForController(jid);
+                    g_emulator->m_pads->rescanGamepads();
+                    if (added) port = g_emulator->m_pads->portForController(jid);
+                }
+                addNotice(fmt::format(added ? f_("Controller connected: {} (port {})")
+                                            : f_("Controller disconnected: {} (port {})"),
+                                      name, port),
+                          NoticeKind::Info);
                 break;
+            }
             default:
                 break;
         }
