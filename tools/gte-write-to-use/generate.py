@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Generates src/core/gte-write-to-use.h from the RESULTS.md of nugget's tests/gte/write-to-use:
 #
-#   python3 tools/gte-write-to-use/generate.py path/to/nugget/tests/gte-write-to-use/RESULTS.md \
+#   python3 tools/gte-write-to-use/generate.py path/to/nugget/tests/gte/write-to-use/RESULTS.md \
 #       > src/core/gte-write-to-use.h
 #
 # The "min N" column of each (command, register) row becomes the number of instructions that must
