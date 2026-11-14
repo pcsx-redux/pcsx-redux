@@ -312,6 +312,8 @@ target("pcsx-redux", function()
                     -- the generated pcsx-redux.html instead would work until
                     -- the next build overwrote it.
                     "--shell-file", "src/gui/shell-wasm.html",
+                    -- The shell's Fullscreen button calls Module.requestFullscreen.
+                    "-sEXPORTED_RUNTIME_METHODS=requestFullscreen",
                     "-Wl,--error-limit=0", {force = true})
     -- The virtual filesystem. findResource() walks seven candidate paths off
     -- m_binDir, and on wasm getExecutablePath() returns an empty string, so
