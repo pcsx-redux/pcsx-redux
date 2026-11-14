@@ -1335,15 +1335,18 @@ void DynaRecCPU::recSWR(uint32_t code) {
 void DynaRecCPU::recCOP0(uint32_t code) {
     switch (_Rs_) {  // figure out the type of COP0 opcode
         case 0:
+            emitCopUnusableCheck(0, true);
             recMFC0(code);
             break;
         case 4:
+            emitCopUnusableCheck(0, true);
             recMTC0(code);
             break;
         case 8:
             recBCz(code);
             break;
         case 16:
+            emitCopUnusableCheck(0, true);
             recRFE(code);
             break;
         default:
@@ -1364,18 +1367,26 @@ void DynaRecCPU::recCOP1or3(uint32_t code) {
     }
 }
 
-// LWC1, LWC3, SWC1, SWC3. Like the other COP1/COP3 opcodes, these trap with SR.CUz clear and do nothing here
-// otherwise. On silicon SWCz stores an unspecified value.
+// LWCz and SWCz for z = 0, 1, 3. Like the COP1/COP3 opcodes, these trap with SR.CUz clear, in kernel mode too, and
+// do nothing here otherwise. On silicon SWCz stores an unspecified value.
 void DynaRecCPU::recLSCz(uint32_t code) { emitCopUnusableCheck((code >> 26) & 3); }
 
-// Raises a coprocessor unusable exception, and leaves the block, if SR.CUz is clear. Code emitted after
-// this only runs with the coprocessor usable.
-void DynaRecCPU::emitCopUnusableCheck(unsigned z) {
+// Raises a coprocessor unusable exception, and leaves the block, if SR.CUz is clear, or with userModeOnly, if
+// SR.CUz is clear and the CPU is in user mode (KUc set). Code emitted after this only runs with the
+// coprocessor usable.
+void DynaRecCPU::emitCopUnusableCheck(unsigned z, bool userModeOnly) {
     Label usable;
 
     flushRegs();
-    gen.test(dword[contextPointer + COP0_OFFSET(12)], 0x10000000 << z);
-    gen.jnz(usable, Xbyak::CodeGenerator::T_NEAR);
+    if (userModeOnly) {
+        gen.mov(eax, dword[contextPointer + COP0_OFFSET(12)]);
+        gen.and_(eax, (0x10000000 << z) | 2);
+        gen.cmp(eax, 2);
+        gen.jne(usable, Xbyak::CodeGenerator::T_NEAR);
+    } else {
+        gen.test(dword[contextPointer + COP0_OFFSET(12)], 0x10000000 << z);
+        gen.jnz(usable, Xbyak::CodeGenerator::T_NEAR);
+    }
 
     // The load started by the previous instruction still lands
     if (m_firstInstruction && m_fullLoadDelayEmulation) {
