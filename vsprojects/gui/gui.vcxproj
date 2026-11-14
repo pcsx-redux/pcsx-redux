@@ -146,6 +146,7 @@
     <ClCompile Include="..\..\src\gui\widgets\events.cc" />
     <ClCompile Include="..\..\src\gui\widgets\filedialog.cc" />
     <ClCompile Include="..\..\src\gui\widgets\cputrace.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\hwevents.cc" />
     <ClCompile Include="..\..\src\gui\widgets\gpudump.cc" />
     <ClCompile Include="..\..\src\gui\widgets\gpulogger.cc" />
     <ClCompile Include="..\..\src\gui\widgets\spulogger.cc" />
@@ -198,6 +199,7 @@
     <ClInclude Include="..\..\src\gui\widgets\events.h" />
     <ClInclude Include="..\..\src\gui\widgets\filedialog.h" />
     <ClInclude Include="..\..\src\gui\widgets\cputrace.h" />
+    <ClInclude Include="..\..\src\gui\widgets\hwevents.h" />
     <ClInclude Include="..\..\src\gui\widgets\gpudump.h" />
     <ClInclude Include="..\..\src\gui\widgets\gpulogger.h" />
     <ClInclude Include="..\..\src\gui\widgets\spulogger.h" />
