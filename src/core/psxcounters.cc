@@ -43,15 +43,22 @@ inline void PCSX::Counters::writeCounterInternal(uint32_t index, uint32_t value,
     }
 
     m_rcnts[index].cycleStart = PCSX::g_emulator->m_cpu->m_regs.cycle;
-    // On the hblank clock, counter 1 ticks on each hblank edge, so a write mid-line counts from
-    // the last edge: the first tick after it comes at the next hblank, not a whole line later.
-    if (index == 1 && (m_rcnts[1].mode & Rc1HSyncClock) && (m_rcnts[1].rate != 0xffffffff)) {
-        m_rcnts[index].cycleStart = m_rcnts[3].cycleStart;
-    }
+    m_rcnts[index].startFrac = 0;
     m_rcnts[index].cycleStart -= ticksToCycles(index, value);
     // A positive adjust puts cycleStart in the future: the counter reads 0 until then.
     m_rcnts[index].cycleStart += startAdjust;
+    scheduleEvent(index, value);
+}
 
+void PCSX::Counters::anchorToHblank(uint32_t index) {
+    // On the hblank clock, counter 1 ticks on each hblank edge, so a write mid-line counts from
+    // the last edge: the first tick after it comes at the next hblank, not a whole line later.
+    if (index != 1 || !(m_rcnts[1].mode & Rc1HSyncClock) || (m_rcnts[1].rate == 0xffffffff)) return;
+    const uint64_t now = PCSX::g_emulator->m_cpu->m_regs.cycle;
+    if (now > m_rcnts[3].cycleStart) m_rcnts[1].cycleStart -= now - m_rcnts[3].cycleStart;
+}
+
+void PCSX::Counters::scheduleEvent(uint32_t index, uint32_t value) {
     // Hardware tested (SCPH-5501): counter reaches target value briefly before
     // resetting. Fast reads can observe the target value; slow reads (printf) cannot.
     // The comparison boundary needs more precise measurement to determine if
@@ -132,13 +139,13 @@ void PCSX::Counters::reset(uint32_t index) {
             // at 0 for 2 more cycles, making the period target + 2 (measured on SCPH-1000, 5501
             // and 7001 for Timer 2; the /8 source stays exactly 8 * target). Timers 0 and 1 are
             // unmeasured and get no dwell.
-            const uint64_t elapsed = PCSX::g_emulator->m_cpu->m_regs.cycle - m_rcnts[index].cycleStart;
-            const uint64_t over = elapsed - ticksToCycles(index, m_rcnts[index].target);
-            const uint64_t dwell = resetDwell(index);
+            const uint64_t now = PCSX::g_emulator->m_cpu->m_regs.cycle;
+            advanceStart(index, m_rcnts[index].target);
+            m_rcnts[index].cycleStart += resetDwell(index);
             // The count the next event is chosen from is the one after the dwell: a reset
-            // that runs late but still inside the dwell leaves the counter at 0, not at `over`.
-            count = over > dwell ? cyclesToTicks(index, over - dwell) : 0;
-            writeCounterInternal(index, count, int64_t(dwell) - int64_t(over) + int64_t(ticksToCycles(index, count)));
+            // that runs late but still inside the dwell leaves the counter at 0.
+            count = now > m_rcnts[index].cycleStart ? cyclesToTicks(index, now - m_rcnts[index].cycleStart) : 0;
+            scheduleEvent(index, count);
         } else {
             count = readCounterInternal(index);
             writeCounterInternal(index, count);
@@ -155,10 +162,9 @@ void PCSX::Counters::reset(uint32_t index) {
         m_rcnts[index].mode |= RcCountEqTarget;
     } else if (m_rcnts[index].counterState == CountToOverflow) {
         // Keep the sub-tick phase across the wrap, as for the target reset above.
-        const uint64_t elapsed = PCSX::g_emulator->m_cpu->m_regs.cycle - m_rcnts[index].cycleStart;
-        const uint64_t over = elapsed - ticksToCycles(index, 0xffff);
-        count = cyclesToTicks(index, over);
-        writeCounterInternal(index, count, int64_t(ticksToCycles(index, count)) - int64_t(over));
+        advanceStart(index, 0xffff);
+        count = cyclesToTicks(index, PCSX::g_emulator->m_cpu->m_regs.cycle - m_rcnts[index].cycleStart);
+        scheduleEvent(index, count);
 
         if (m_rcnts[index].mode & RcIrqOnOverflow) {
             if ((m_rcnts[index].mode & RcIrqRegenerate) || (!m_rcnts[index].irqState)) {
@@ -252,7 +258,7 @@ void PCSX::Counters::update() {
             const uint64_t hblank = m_rcnts[3].cycleStart;
             if (hblank >= m_rcnts[1].cycleStart) {
                 const uint32_t count = cyclesToTicks(1, hblank - m_rcnts[1].cycleStart) & 0xffff;
-                writeCounterInternal(1, count);
+                writeCounterInternal(1, count, int64_t(hblank) - int64_t(cycle));
             }
         }
         set();
@@ -318,6 +324,7 @@ void PCSX::Counters::writeCounter(uint32_t index, uint32_t value) {
 
     update();
     writeCounterInternal(index, value);
+    anchorToHblank(index);
     set();
 }
 
@@ -395,6 +402,7 @@ void PCSX::Counters::writeMode(uint32_t index, uint32_t value) {
     }
 
     writeCounterInternal(index, 0);
+    anchorToHblank(index);
     set();
 }
 
@@ -405,6 +413,7 @@ void PCSX::Counters::writeTarget(uint32_t index, uint32_t value) {
     // The target is only 16 bits. To make sure of this, the 32-bit write handlers mask it with 0xFFFF
     m_rcnts[index].target = value;
     writeCounterInternal(index, readCounterInternal(index));
+    anchorToHblank(index);
     set();
 }
 
