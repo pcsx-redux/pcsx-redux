@@ -28,6 +28,8 @@
     <div class="emscripten" id="status">Downloading...</div>
 
     <span id='controls'>
+      <span><input type="button" value="Load files..." onclick="document.getElementById('loadFiles').click()">
+        <input type="file" id="loadFiles" multiple hidden> or drop them on the page &nbsp;&nbsp;&nbsp;</span>
       <span><input type="checkbox" id="resize">Resize canvas</span>
       <span><input type="checkbox" id="pointerLock" checked>Lock/hide mouse pointer &nbsp;&nbsp;&nbsp;</span>
       <span><input type="button" value="Fullscreen" onclick="Module.requestFullscreen(document.getElementById('pointerLock').checked,
@@ -126,5 +128,37 @@
       {{{ EXPORT_NAME }}}(moduleArgs);
     </script>
 #endif
+    <script type='text/javascript'>
+      // Picked or dropped files go into one directory of the virtual filesystem together, so a
+      // .cue finds the .bin files it names, then the cue (or the only file) is opened the way a
+      // desktop drop is. This replaces SDL's own drop handling, which puts every dropped file in
+      // a directory of its own.
+      var loadCount = 0;
+      function loadFiles(files) {
+        var list = Array.from(files || []);
+        if (!list.length) return;
+        var dir = '/tmp/load/' + (loadCount++);
+        try { FS.mkdir('/tmp/load'); } catch (e) {}
+        FS.mkdir(dir);
+        Promise.all(list.map((f) => f.arrayBuffer().then((b) => FS.writeFile(dir + '/' + f.name, new Uint8Array(b)))))
+          .then(() => {
+            var pick = list.find((f) => f.name.toLowerCase().endsWith('.cue')) || list[0];
+            Module.ccall('pcsxOpenFile', null, ['string'], [dir + '/' + pick.name]);
+          })
+          .catch((e) => console.error('Loading ' + list.map((f) => f.name).join(', ') + ' failed:', e));
+      }
+      document.getElementById('loadFiles').addEventListener('change', (e) => {
+        loadFiles(e.target.files);
+        e.target.value = '';
+      });
+      var hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
+      window.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); }, true);
+      window.addEventListener('drop', (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        loadFiles(e.dataTransfer.files);
+      }, true);
+    </script>
   </body>
 </html>
