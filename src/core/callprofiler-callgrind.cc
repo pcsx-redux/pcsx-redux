@@ -34,6 +34,7 @@ std::string PCSX::Profiler::serializeCallgrind() const {
     std::map<uint32_t, FunctionData> functions;
     std::unordered_map<uint32_t, uint32_t> startCache;
     std::unordered_map<uint32_t, std::string> names;
+    auto symbolize = symbolNamer();
     auto functionOf = [&](uint32_t addr) {
         auto cached = startCache.find(addr);
         if (cached != startCache.end()) return cached->second;

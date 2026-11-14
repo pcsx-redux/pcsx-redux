@@ -27,6 +27,7 @@
 #include <utility>
 #include <vector>
 
+#include "core/callprofiler.h"
 #include "gtest/gtest.h"
 #include "main/main.h"
 
@@ -389,4 +390,28 @@ TEST(Profiler, CallgrindMatchesControl) {
             EXPECT_TRUE(edges.count(edge)) << "unexpected edge " << edge.first << " -> " << edge.second;
         }
     }
+}
+
+// Two functions can share a name: static functions in different files, or a symbol
+// table that lists one name twice. Every export keys functions by start address but
+// shows them by name, so a shared name has to carry its address or readers merge them.
+TEST(Profiler, SharedSymbolNamesCarryTheirAddress) {
+    std::map<uint32_t, std::string> symbols = {
+        {0x80010000, "helper"},
+        {0x80010100, "main"},
+        {0x80020000, "helper"},
+        {0x80030000, "other"},
+    };
+    PCSX::Profiler::SymbolNamer name(symbols);
+    uint32_t start = 0;
+    EXPECT_EQ(name(0x80010010, &start), "helper@0x80010000");
+    EXPECT_EQ(start, 0x80010000);
+    EXPECT_EQ(name(0x80020000, &start), "helper@0x80020000");
+    EXPECT_EQ(start, 0x80020000);
+    EXPECT_EQ(name(0x80020044, &start), "helper@0x80020000");
+    EXPECT_EQ(name(0x80010104, &start), "main");
+    EXPECT_EQ(start, 0x80010100);
+    EXPECT_EQ(name(0x80030008), "other");
+    EXPECT_EQ(name(0x00001000, &start), "0x00001000");
+    EXPECT_EQ(start, 0x00001000);
 }

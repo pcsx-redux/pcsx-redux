@@ -22,8 +22,10 @@
 #include <stdint.h>
 
 #include <array>
+#include <map>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace PCSX {
@@ -84,8 +86,22 @@ class Profiler {
     // The callgrind format KCachegrind reads.
     std::string serializeCallgrind() const;
 
-    // Name and start address of the symbol containing addr, or a hex name and addr itself.
-    static std::string symbolize(uint32_t addr, uint32_t* start = nullptr);
+    // Names code addresses after the symbol containing them, against one symbol table. A
+    // name the table holds at more than one address gets "@0x<start>" appended, so functions
+    // sharing a name stay apart in every export; a unique name stays bare. An address no
+    // symbol covers is named by its own hex value, and is its own start.
+    class SymbolNamer {
+      public:
+        explicit SymbolNamer(const std::map<uint32_t, std::string>& symbols);
+        std::string operator()(uint32_t addr, uint32_t* start = nullptr) const;
+
+      private:
+        const std::map<uint32_t, std::string>& m_symbols;
+        std::unordered_set<std::string> m_shared;
+    };
+    // A namer over the cpu's current symbol table. Build one per export: it indexes the
+    // whole table.
+    static SymbolNamer symbolNamer();
 
     bool m_running = false;
 

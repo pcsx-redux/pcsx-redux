@@ -661,8 +661,13 @@ void PCSX::R3000Acpu::processB0KernelCall(uint32_t call) {
 }
 
 std::pair<const uint32_t, std::string>* PCSX::R3000Acpu::findContainingSymbol(uint32_t addr) {
-    auto symBefore = m_symbols.upper_bound(addr);
-    if (symBefore != m_symbols.begin()) {  // verify there is actually a symbol before addr
+    return const_cast<std::pair<const uint32_t, std::string>*>(findContainingSymbol(m_symbols, addr));
+}
+
+const std::pair<const uint32_t, std::string>* PCSX::R3000Acpu::findContainingSymbol(
+    const std::map<uint32_t, std::string>& symbols, uint32_t addr) {
+    auto symBefore = symbols.upper_bound(addr);
+    if (symBefore != symbols.begin()) {  // verify there is actually a symbol before addr
         symBefore--;
         if (symBefore->first != addr) {
             PCSX::PSXAddress addrInfo(addr);

@@ -89,19 +89,30 @@ std::vector<uint32_t> PCSX::Profiler::frames(uint32_t path, uint32_t pc) const {
     return ret;
 }
 
-std::string PCSX::Profiler::symbolize(uint32_t addr, uint32_t* start) {
-    auto symbol = g_emulator->m_cpu->findContainingSymbol(addr);
+PCSX::Profiler::SymbolNamer::SymbolNamer(const std::map<uint32_t, std::string>& symbols) : m_symbols(symbols) {
+    std::unordered_set<std::string> seen;
+    for (auto& [address, name] : symbols) {
+        if (!seen.insert(name).second) m_shared.insert(name);
+    }
+}
+
+std::string PCSX::Profiler::SymbolNamer::operator()(uint32_t addr, uint32_t* start) const {
+    auto symbol = R3000Acpu::findContainingSymbol(m_symbols, addr);
     if (!symbol) {
         if (start) *start = addr;
         return fmt::format("0x{:08x}", addr);
     }
     if (start) *start = symbol->first;
+    if (m_shared.contains(symbol->second)) return fmt::format("{}@0x{:08x}", symbol->second, symbol->first);
     return symbol->second;
 }
+
+PCSX::Profiler::SymbolNamer PCSX::Profiler::symbolNamer() { return SymbolNamer(g_emulator->m_cpu->m_symbols); }
 
 std::vector<PCSX::Profiler::Function> PCSX::Profiler::functions() const {
     std::map<uint32_t, Function> byAddress;
     std::unordered_map<uint32_t, uint32_t> addressCache;
+    auto symbolize = symbolNamer();
     auto functionOf = [&](uint32_t addr) -> Function& {
         auto cached = addressCache.find(addr);
         uint32_t start;
@@ -221,6 +232,7 @@ std::string PCSX::Profiler::serializePprof() const {
     std::unordered_map<uint32_t, uint64_t> functionIds;
     auto& locations = profile.get<ProfileLocation>().value;
     std::unordered_map<uint32_t, uint64_t> locationIds;
+    auto symbolize = symbolNamer();
     auto locationId = [&](uint32_t addr) -> uint64_t {
         auto found = locationIds.find(addr);
         if (found != locationIds.end()) return found->second;
