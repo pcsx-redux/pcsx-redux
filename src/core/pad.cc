@@ -1007,6 +1007,9 @@ void PadsImpl::Pad::getButtons() {
 
     // Hotplug is handled in gui.cc's SDL_PollEvent loop (it drains the queue
     // every frame, so PeepEvents here would never see ADDED/REMOVED).
+    // Refresh gamepad state without draining the queue, so non-GUI modes
+    // still see current button and axis values.
+    SDL_UpdateGamepads();
 
     if (m_gamepad && !SDL_GamepadConnected(m_gamepad)) {
         const SDL_JoystickID jid = SDL_GetGamepadID(m_gamepad);
