@@ -66,6 +66,7 @@ nav:
       - 'Lua/iso-builder.md'
       - 'Lua/ppf.md'
       - 'Lua/web-server.md'
+      - 'Lua/html.md'
       - 'Lua/memory-and-registers.md'
       - 'Lua/expansion-carts.md'
       - 'Lua/events.md'
