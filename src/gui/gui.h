@@ -83,6 +83,7 @@
 #include "widgets/memory_observer.h"
 #include "widgets/typed_debugger.h"
 #include "widgets/ui-config.h"
+#include "widgets/updater.h"
 
 #if defined(__APPLE__)
 #define GL_SHADER_VERSION "#version 410\n"
@@ -571,9 +572,7 @@ class GUI final : public UI {
 
     static void byteRateToString(float rate, std::string &out);
 
-    Update m_update;
-    bool m_updateAvailable = false;
-    bool m_updateDownloading = false;
+    Widgets::Updater m_updater;
     bool m_aboutSelectAuthors = false;
     bool m_enableSplashScreen = true;
 
