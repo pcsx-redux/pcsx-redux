@@ -162,6 +162,7 @@ class impl final : public SPUInterface {
         const int marginMs = std::max(0, settings.get<LatencyMargin>().value);
         return devicePeriodFrames() + 2 * NSSIZE + marginMs * 441 / 10;
     }
+    int getEffectiveSpeed() override;
     uint32_t devicePeriodFrames() {
         const uint32_t period = m_audioOut.getPeriodFrames();
         return period ? period : 1024;
