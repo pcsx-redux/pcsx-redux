@@ -79,12 +79,16 @@ std::map<uint32_t, std::string> loadSymbols() {
 
     auto path = (std::filesystem::temp_directory_path() / "binloader-symbols.elf").string();
     EXPECT_TRUE(writer.save(path));
-    PCSX::IO<PCSX::File> in(new PCSX::PosixFile(path));
-    PCSX::IO<PCSX::File> dest(new PCSX::BufferFile(PCSX::FileOps::READWRITE));
-    PCSX::BinaryLoader::Info info;
     std::map<uint32_t, std::string> ret;
-    EXPECT_TRUE(PCSX::BinaryLoader::load(in, dest, info, ret));
-    std::filesystem::remove(path);
+    {
+        // Closed before the remove: Windows will not delete an open file.
+        PCSX::IO<PCSX::File> in(new PCSX::PosixFile(path));
+        PCSX::IO<PCSX::File> dest(new PCSX::BufferFile(PCSX::FileOps::READWRITE));
+        PCSX::BinaryLoader::Info info;
+        EXPECT_TRUE(PCSX::BinaryLoader::load(in, dest, info, ret));
+    }
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
     return ret;
 }
 
