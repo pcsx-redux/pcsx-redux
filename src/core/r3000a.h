@@ -103,6 +103,10 @@ typedef union {
     uint32_t r[32];
 } psxCP0Regs;
 
+// The SR bits that keep a written value. The rest read back as 0 whatever is written: bits 6-7, PE, TS,
+// bits 23-24, RE and bits 26-27.
+static constexpr uint32_t c_cop0StatusWritableMask = 0xf04fff3f;
+
 typedef struct {
     int16_t x, y;
 } SVector2D;
@@ -635,7 +639,7 @@ Formula One 2001
        every valid bit. The refill runs from the missed word to the end of the line, or to the end
        of its two-word half when BIU_CONFIG.IBLKSZ (bit 8) is clear, and sets the valid bits of the
        words it fetched. A fill entered at word 0 with the tag matching and some words invalid is
-       a full-line refill, as the nugget tests/icache suite measures; a tag-matching miss at words
+       a full-line refill, as the nugget tests/cpu/icache suite measures; a tag-matching miss at words
        1 to 3 refills from that word on, which is the same rule and is not measured on its own. */
     static constexpr uint32_t c_iCachePageMask = 0x1ffff000;
     uint32_t *iCacheTag(uint32_t addr) { return reinterpret_cast<uint32_t *>(m_regs.iCacheAddr) + (addr & 0xff0) / 4; }

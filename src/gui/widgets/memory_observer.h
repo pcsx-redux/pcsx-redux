@@ -199,6 +199,7 @@ class MemoryObserver {
 
     int m_sequenceSize = 255;
     char m_sequence[256]{};
+    size_t m_searchedSequenceLength = 0;
     int m_step = 1;
     std::vector<uint32_t> m_addresses;
 };

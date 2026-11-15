@@ -111,7 +111,10 @@ typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("status"), 1> GPUStatus;
 typedef Protobuf::Field<Protobuf::FixedBytes<0x400>, TYPESTRING("control"), 2> GPUControl;
 typedef Protobuf::Field<Protobuf::FixedBytes<0x00200000>, TYPESTRING("vram"), 3> GPUVRam;
 typedef Protobuf::Field<Protobuf::FixedBytes<24>, TYPESTRING("environment"), 4> GPUEnvironment;
-typedef Protobuf::Message<TYPESTRING("GPU"), GPUStatus, GPUControl, GPUVRam, GPUEnvironment> GPU;
+// Bit 0: the frozen interlace field flag is 0. Bit 1: the field flag's phase is flipped. Absent
+// on older states, which then hold the flag at 1 with no flip.
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("field_flags"), 5> GPUFieldFlags;
+typedef Protobuf::Message<TYPESTRING("GPU"), GPUStatus, GPUControl, GPUVRam, GPUEnvironment, GPUFieldFlags> GPU;
 typedef Protobuf::MessageField<GPU, TYPESTRING("gpu"), 5> GPUField;
 
 typedef Protobuf::Field<Protobuf::FixedBytes<0x80000>, TYPESTRING("ram"), 1> SPURam;
@@ -344,8 +347,13 @@ typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("irq_state"), 6> RcntIRQSta
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cycle"), 7> RcntCycle;
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cycle_start"), 8> RcntCycleStart;
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("gate_started"), 9> RcntGateStarted;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("rate_den"), 10> RcntRateDen;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("start_frac"), 11> RcntStartFrac;
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("pause_until"), 12> RcntPauseUntil;
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("hold_from"), 13> RcntHoldFrom;
 typedef Protobuf::Message<TYPESTRING("Rcnt"), RcntMode, RcntTarget, RcntRate, RcntIRQ, RcntCounterState, RcntIRQState,
-                          RcntCycle, RcntCycleStart, RcntGateStarted>
+                          RcntCycle, RcntCycleStart, RcntGateStarted, RcntRateDen, RcntStartFrac, RcntPauseUntil,
+                          RcntHoldFrom>
     Rcnt;
 typedef Protobuf::RepeatedField<Rcnt, 4, TYPESTRING("rcnts"), 1> Rcnts;
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("hsync_count"), 2> HSyncCount;

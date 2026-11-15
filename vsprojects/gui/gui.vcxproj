@@ -143,6 +143,7 @@
     <ClCompile Include="..\..\src\gui\widgets\cdrom-viewer.cc" />
     <ClCompile Include="..\..\src\gui\widgets\console.cc" />
     <ClCompile Include="..\..\src\gui\widgets\dynarec_disassembly.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\emulation-config.cc" />
     <ClCompile Include="..\..\src\gui\widgets\events.cc" />
     <ClCompile Include="..\..\src\gui\widgets\filedialog.cc" />
     <ClCompile Include="..\..\src\gui\widgets\cputrace.cc" />
@@ -184,6 +185,7 @@
     <ClInclude Include="..\..\src\gui\gui.h" />
     <ClInclude Include="..\..\src\gui\luaimguiextra.h" />
     <ClInclude Include="..\..\src\gui\luaimplot.h" />
+    <ClInclude Include="..\..\src\gui\memeditor-route.h" />
     <ClInclude Include="..\..\src\gui\luatvg.h" />
     <ClInclude Include="..\..\src\gui\resources.h" />
     <ClInclude Include="..\..\src\gui\shaders\crt-lottes.h" />
@@ -194,6 +196,7 @@
     <ClInclude Include="..\..\src\gui\widgets\cdrom-viewer.h" />
     <ClInclude Include="..\..\src\gui\widgets\console.h" />
     <ClInclude Include="..\..\src\gui\widgets\dynarec_disassembly.h" />
+    <ClInclude Include="..\..\src\gui\widgets\emulation-config.h" />
     <ClInclude Include="..\..\src\gui\widgets\events.h" />
     <ClInclude Include="..\..\src\gui\widgets\filedialog.h" />
     <ClInclude Include="..\..\src\gui\widgets\cputrace.h" />

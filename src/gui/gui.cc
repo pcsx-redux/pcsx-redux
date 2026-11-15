@@ -61,6 +61,7 @@
 #include "gui/luaimguiextra.h"
 #include "gui/luaimplot.h"
 #include "gui/luatvg.h"
+#include "gui/memeditor-route.h"
 #include "gui/resources.h"
 #include "gui/shaders/crt-lottes.h"
 #include "imgui.h"
@@ -171,11 +172,11 @@ PCSX::GUI::GUI(std::vector<std::string>& favorites)
       m_openIsoFileDialog(l_("Open Disk Image"), favorites),
       m_openBinaryDialog(l_("Open Binary"), favorites),
       m_openArchiveDialog(l_("Open Archive"), favorites),
-      m_selectBiosDialog(l_("Select BIOS"), favorites),
       m_selectEXP1Dialog(l_("Select EXP1"), favorites),
       m_isoBrowser(
           settings.get<ShowIsoBrowser>().value, favorites, [this]() { useMonoFont(); },
           [this](const std::string& name, IO<File> file) { m_dalos.addSource(name, file); }),
+      m_emulationConfig(m_showCfg, m_idleSwapInterval, favorites),
       m_pioCart(settings.get<ShowPIOCartConfig>().value, favorites),
       m_gpuDump(settings.get<ShowGPUDump>().value, favorites),
       m_spuLoggerWidget(settings.get<ShowSPULogger>().value, settings.get<SPULoggerEnabled>().value, favorites),
@@ -554,7 +555,14 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
     m_listener.listen<Events::ExecutionFlow::Run>([this](const auto& event) {
         m_enableSplashScreen = false;
 
+#ifdef __EMSCRIPTEN__
+        // In a browser the swap interval picks the main loop's scheduler: 0 is setTimeout(0),
+        // which runs as fast as the page allows. Stay on requestAnimationFrame; main.cc paces
+        // emulated time against the clock.
+        SDL_GL_SetSwapInterval(1);
+#else
         SDL_GL_SetSwapInterval(0);
+#endif
         setRawMouseMotion();
     });
 
@@ -830,8 +838,6 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
     m_outputShaderEditor.init();
 
     m_listener.listen<Events::GUI::JumpToMemory>([this](auto& event) {
-        const uint32_t base = (event.address >> 20) & 0xff8;
-        const uint32_t real = event.address & 0x7fffff;
         const uint32_t size = event.size;
         const uint32_t editorNum = event.editorNum;
         auto changeDataType = [](MemoryEditor* editor, int size) {
@@ -856,18 +862,30 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
                     break;
             }
         };
-        if ((base == 0x000) || (base == 0x800) || (base == 0xa00)) {
-            if (real < 0x00800000) {
-                m_mainMemEditors[editorNum].m_show = true;
-                m_mainMemEditors[editorNum].editor.GotoAddrAndHighlight(real, real + size);
-                changeDataType(&m_mainMemEditors[editorNum].editor, size);
-            }
-        } else if (base == 0x1f8) {
-            if (real >= 0x1000 && real < 0x3000) {
-                m_hwrEditor.m_show = true;
-                m_hwrEditor.editor.GotoAddrAndHighlight(real - 0x1000, real - 0x1000 + size);
-                changeDataType(&m_hwrEditor.editor, size);
-            }
+        const auto route = MemEditorRoute::route(event.address);
+        auto go = [&](MemoryEditorWrapper& wrapper) {
+            wrapper.m_show = true;
+            wrapper.editor.GotoAddrAndHighlight(route.offset, route.offset + size);
+            changeDataType(&wrapper.editor, size);
+        };
+        switch (route.target) {
+            case MemEditorRoute::Target::MainRam:
+                if (editorNum < 8) go(m_mainMemEditors[editorNum]);
+                break;
+            case MemEditorRoute::Target::ParallelPort:
+                go(m_parallelPortEditor);
+                break;
+            case MemEditorRoute::Target::Scratchpad:
+                go(m_scratchPadEditor);
+                break;
+            case MemEditorRoute::Target::HardwareRegisters:
+                go(m_hwrEditor);
+                break;
+            case MemEditorRoute::Target::Bios:
+                go(m_biosEditor);
+                break;
+            case MemEditorRoute::Target::None:
+                break;
         }
     });
 
@@ -1012,6 +1030,11 @@ void PCSX::GUI::startFrame() {
                                                               static_cast<int>(event.key.mod)});
                 break;
             }
+            case SDL_EVENT_GAMEPAD_ADDED:
+            case SDL_EVENT_GAMEPAD_REMOVED:
+                // gui drains the SDL queue; pad.cc cannot see these via PeepEvents.
+                if (g_emulator && g_emulator->m_pads) g_emulator->m_pads->rescanGamepads();
+                break;
             default:
                 break;
         }
@@ -1915,7 +1938,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
     }
     m_dalos.fileViewers().draw();
 
-    if (m_showCfg) changed |= configure();
+    if (m_showCfg) changed |= m_emulationConfig.draw(this);
     if (g_emulator->m_spu->m_showCfg) changed |= g_emulator->m_spu->configure();
     g_emulator->m_spu->debug();
     changed |= g_emulator->m_pads->configure(this);
@@ -2247,201 +2270,6 @@ the update and manually apply it.)")));
     FrameMark;
 }
 
-bool PCSX::GUI::configure() {
-    bool changed = false;
-    bool selectBiosDialog = false;
-    bool selectEXP1Dialog = false;
-    bool showDynarecDebugWarning = false;
-    bool showDynarecWarning = false;
-    bool show2MBVRAMHardwareWarning = false;
-    auto& settings = g_emulator->settings;
-    auto& debugSettings = settings.get<Emulator::SettingDebugSettings>();
-
-    ImGui::SetNextWindowPos(ImVec2(50, 30), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin(_("Emulation Configuration"), &m_showCfg)) {
-        if (ImGui::SliderInt(_("Idle Swap Interval"), &m_idleSwapInterval, 0, 10)) {
-            changed = true;
-            if (!g_system->running()) SDL_GL_SetSwapInterval(m_idleSwapInterval);
-        }
-        ImGui::Separator();
-        // Emulation speed now lives at the audio sink (SPU::Speed), set in the SPU configuration window.
-        changed |= ImGui::Checkbox(_("Enable XA decoder"), &settings.get<Emulator::SettingXa>().value);
-        changed |= ImGui::Checkbox(_("Always enable SPU IRQ"), &settings.get<Emulator::SettingSpuIrq>().value);
-        changed |= ImGui::Checkbox(_("Decode MDEC videos in B&W"), &settings.get<Emulator::SettingBnWMdec>().value);
-        if (ImGui::Checkbox(_("Dynarec CPU"), &settings.get<Emulator::SettingDynarec>().value)) {
-            changed = true;
-            showDynarecWarning = true;
-            if (debugSettings.get<PCSX::Emulator::DebugSettings::Debug>() && settings.get<Emulator::SettingDynarec>()) {
-                showDynarecDebugWarning = true;
-            }
-        }
-
-        ImGuiHelpers::ShowHelpMarker(_(R"(Activates the dynamic recompiler CPU core.
-It is significantly faster than the interpreted CPU,
-however it doesn't play nicely with the debugger.
-Changing this setting requires a reboot to take effect.
-The dynarec core isn't available for all CPUs, so
-this setting may not have any effect for you.)"));
-        bool memChanged = ImGui::Checkbox(_("8MB"), &settings.get<Emulator::Setting8MB>().value);
-        ImGuiHelpers::ShowHelpMarker(_(R"(Emulates an installed 8MB system,
-instead of the normal 2MB. Useful for working
-with development binaries and games.)"));
-        changed |= ImGui::InputScalar(_("Memory Fill Value"), ImGuiDataType_U8,
-                                      (void*)&settings.get<Emulator::SettingMemoryFillValue>().value, nullptr, nullptr,
-                                      "%02x", 0);
-        ImGuiHelpers::ShowHelpMarker(_(R"(The SDRAM of the console will be
-filled with this value at startup.
-On real hardware, the SDRAM decays over time,
-and its contents may not be 0 on cold boot.
-This setting is useful for debugging purposes,
-to detect uninitialized memory reads that may
-cause issues in some cases.
-)"));
-        if (ImGui::Checkbox(_("OpenGL GPU *ALPHA STATE*"), &settings.get<Emulator::SettingHardwareRenderer>().value)) {
-            changed = true;
-            if (settings.get<Emulator::SettingHardwareRenderer>() && settings.get<Emulator::Setting2MBVRAM>()) {
-                show2MBVRAMHardwareWarning = true;
-            }
-        }
-        ImGuiHelpers::ShowHelpMarker(_(R"(Enables the OpenGL GPU renderer.
-This is not recommended for normal use at the moment,
-as it is not fully implemented yet. It is recommended
-to use the software renderer instead. Requires a restart
-when changing this setting.)"));
-        if (ImGui::Checkbox(_("2MB VRAM"), &settings.get<Emulator::Setting2MBVRAM>().value)) {
-            changed = true;
-            if (settings.get<Emulator::SettingHardwareRenderer>() && settings.get<Emulator::Setting2MBVRAM>()) {
-                show2MBVRAMHardwareWarning = true;
-            }
-        }
-        ImGuiHelpers::ShowHelpMarker(_(R"(Emulates a console fitted with 2MB of VRAM
-instead of the stock 1MB, exposing the upper bank through
-GP1(09h). Found on a handful of modded consoles and on
-some arcade boards. Only the software renderer supports
-it; the OpenGL GPU does not. Requires a restart when
-changing this setting.)"));
-
-        ImGui::Separator();
-        {
-            int interval = settings.get<Emulator::SettingRewindInterval>().value;
-            if (ImGui::SliderInt(_("Rewind capture interval (frames; 0 = disabled)"), &interval, 0, 60)) {
-                settings.get<Emulator::SettingRewindInterval>().value = interval < 0 ? 0 : interval;
-                changed = true;
-            }
-            int count = settings.get<Emulator::SettingRewindCount>().value;
-            if (ImGui::SliderInt(_("Rewind history depth (snapshots)"), &count, 1, 600)) {
-                settings.get<Emulator::SettingRewindCount>().value = count < 1 ? 1 : count;
-                changed = true;
-            }
-            ImGuiHelpers::ShowHelpMarker(_(R"(Captures an in-memory save state every N frames
-and keeps the last M of them; press Backspace (or
-Emulation -> Rewind) to step backwards through them.
-Each snapshot is currently a full state (~18MB), so
-depth x 18MB is roughly the memory cost. Set the
-interval to 0 to disable.)"));
-        }
-
-        if (memChanged) {
-            changed = true;
-            g_emulator->m_mem->setLuts();
-        }
-
-        {
-            static const std::function<const char*()> types[] = {l_("Auto"), l_("NTSC"), l_("PAL")};
-            auto& autodetect = settings.get<Emulator::SettingAutoVideo>().value;
-            auto& type = settings.get<Emulator::SettingVideo>().value;
-            if (ImGui::BeginCombo(_("System Type"), types[autodetect ? 0 : (type + 1)]())) {
-                if (ImGui::Selectable(types[0](), autodetect)) {
-                    changed = true;
-                    autodetect = true;
-                }
-                if (ImGui::Selectable(types[1](), !autodetect && (type == PCSX::Emulator::PSX_TYPE_NTSC))) {
-                    changed = true;
-                    type = PCSX::Emulator::PSX_TYPE_NTSC;
-                    autodetect = false;
-                }
-                if (ImGui::Selectable(types[2](), !autodetect && (type == PCSX::Emulator::PSX_TYPE_PAL))) {
-                    changed = true;
-                    type = PCSX::Emulator::PSX_TYPE_PAL;
-                    autodetect = false;
-                }
-                ImGui::EndCombo();
-            }
-        }
-
-        changed |= ImGui::Checkbox(_("Fast boot"), &settings.get<Emulator::SettingFastBoot>().value);
-        ImGuiHelpers::ShowHelpMarker(_(R"(This will cause the BIOS to skip the shell,
-which may include additional checks.
-Also will make the boot time substantially
-faster by not displaying the logo.)"));
-        changed |=
-            ImGui::Checkbox(_("Randomize CD-ROM timings"), &settings.get<Emulator::SettingCDRomEntropySeed>().value);
-        ImGuiHelpers::ShowHelpMarker(_(R"(The CD-ROM drive timings carry a small
-amount of jitter, like a real drive. By default
-it is the same on every run, so a session can be
-replayed exactly. Enabling this picks a different
-sequence at each power-on.)"));
-        auto bios = settings.get<Emulator::SettingBios>().string();
-        ImGui::InputText(_("BIOS file"), const_cast<char*>(reinterpret_cast<const char*>(bios.c_str())),
-                         bios.length() + 1, ImGuiInputTextFlags_ReadOnly);
-        ImGui::SameLine();
-        selectBiosDialog = ImGui::Button("...");
-        if (ImGui::Checkbox(_("Enable Debugger"), &debugSettings.get<Emulator::DebugSettings::Debug>().value)) {
-            changed = true;
-            if (debugSettings.get<PCSX::Emulator::DebugSettings::Debug>() && settings.get<Emulator::SettingDynarec>()) {
-                showDynarecDebugWarning = true;
-            }
-        }
-
-        ImGuiHelpers::ShowHelpMarker(_(R"(This will enable the usage of various breakpoints
-throughout the execution of mips code. Enabling this
-can slow down emulation to a noticeable extent.)"));
-    }
-    ImGui::End();
-
-    {  // Select BIOS Dialog
-        auto& biospath = settings.get<Emulator::SettingBiosBrowsePath>();
-        if (selectBiosDialog) {
-            if (!biospath.empty()) {
-                m_selectBiosDialog.m_currentPath = biospath.value;
-            }
-
-            m_selectBiosDialog.openDialog();
-        }
-        if (m_selectBiosDialog.draw()) {
-            biospath = m_selectBiosDialog.m_currentPath;
-            std::vector<PCSX::u8string> fileToOpen = m_selectBiosDialog.selected();
-            if (!fileToOpen.empty()) {
-                settings.get<Emulator::SettingBios>().value = fileToOpen[0];
-                changed = true;
-            }
-        }
-    }
-    if (showDynarecDebugWarning && showDynarecWarning) {
-        addNotification(R"(Debugger and dynarec enabled at the same time.
-Consider turning either one off, otherwise
-debugging features may not work. Additionally,
-changing the dynarec option requires a restart
-of the emulator to take effect.)");
-    } else if (showDynarecDebugWarning) {
-        addNotification(R"(Debugger and dynarec enabled at the same time.
-Consider turning either one off, otherwise
-debugging features may not work.)");
-    } else if (showDynarecWarning) {
-        addNotification(R"(Toggling the Dynarec option requires a restart
-of the emulator to take effect.)");
-    }
-    if (show2MBVRAMHardwareWarning) {
-        addNotice(R"(2MB VRAM is enabled together with the OpenGL GPU.
-The OpenGL renderer does not support the upper VRAM
-bank yet - only the software renderer does. Switch to
-the software renderer to make use of 2MB VRAM.)",
-                  NoticeKind::Warning);
-    }
-    return changed;
-}
-
 void PCSX::GUI::interruptsScaler() {
     static const char* names[] = {
         "SIO",          "SIO1",    "CDR FIFO",    "CDR Command", "CDR Reads", "GPU DMA",
@@ -2731,6 +2559,25 @@ std::string PCSX::GUI::getSaveStatePrefix(bool includeSeparator) {
 
 std::string PCSX::GUI::getSaveStatePostfix() { return ".sstate"; }
 
+static std::filesystem::path resolveOutputDir(const std::filesystem::path& setting) {
+    std::filesystem::path dir = setting.empty() ? PCSX::g_system->getPersistentDir() : setting;
+    // Callers prepend this to relative names, so a relative result would get prefixed twice.
+    if (dir.is_relative()) {
+        std::error_code ec;
+        auto abs = std::filesystem::absolute(dir, ec);
+        if (!ec) dir = abs;
+    }
+    return dir;
+}
+
+std::filesystem::path PCSX::GUI::getSaveStateDir() {
+    return resolveOutputDir(g_emulator->settings.get<Emulator::SettingSaveStateDir>().value);
+}
+
+std::filesystem::path PCSX::GUI::getScreenshotDir() {
+    return resolveOutputDir(g_emulator->settings.get<Emulator::SettingScreenshotDir>().value);
+}
+
 std::string PCSX::GUI::buildSaveStateFilename(int i) {
     return fmt::format("{}{}{}", getSaveStatePrefix(false), getSaveStatePostfix(), i);
 }
@@ -2741,7 +2588,7 @@ std::string PCSX::GUI::buildSaveStateFilename(std::string saveStateName) {
 
 bool PCSX::GUI::saveSaveState(std::filesystem::path filename) {
     if (filename.is_relative()) {
-        filename = g_system->getPersistentDir() / filename;
+        filename = getSaveStateDir() / filename;
     }
     // TODO: yeet this to libuv's threadpool.
     IO<UvFile> file(new UvFile(filename, FileOps::TRUNCATE));
@@ -2763,7 +2610,7 @@ bool PCSX::GUI::saveSaveState(std::filesystem::path filename) {
 
 bool PCSX::GUI::loadSaveState(std::filesystem::path filename) {
     if (filename.is_relative()) {
-        filename = g_system->getPersistentDir() / filename;
+        filename = getSaveStateDir() / filename;
     }
     ZReader save(new PosixFile(filename));
     if (save.failed()) {
@@ -2857,9 +2704,10 @@ void PCSX::GUI::PassiveNotifier::draw() {
 
 bool PCSX::GUI::deleteSaveState(std::filesystem::path filename) {
     if (filename.is_relative()) {
-        filename = g_system->getPersistentDir() / filename;
+        filename = getSaveStateDir() / filename;
     }
-    return std::remove(filename.string().c_str()) == 0;
+    std::error_code ec;
+    return std::filesystem::remove(filename, ec);
 }
 
 bool PCSX::GUI::saveSaveStateSlot(uint32_t slot) { return saveSaveState(buildSaveStateFilename(slot)); }
@@ -2870,7 +2718,7 @@ bool PCSX::GUI::deleteSaveStateSlot(uint32_t slot) { return deleteSaveState(buil
 
 bool PCSX::GUI::saveStateExists(std::filesystem::path filename) {
     if (filename.is_relative()) {
-        filename = g_system->getPersistentDir() / filename;
+        filename = getSaveStateDir() / filename;
     }
     ZReader save(new PosixFile(filename));
     return !save.failed();
@@ -3057,13 +2905,16 @@ void PCSX::GUI::changeScale(float scale) {
 
 void PCSX::GUI::saveScreenShot() {
     std::filesystem::path path =
-        g_system->getPersistentDir() / (getSaveStatePrefix(true) + PCSX::ScreenShot::getDateString() + ".png");
+        getScreenshotDir() / (getSaveStatePrefix(true) + PCSX::ScreenShot::getDateString() + ".png");
     auto screenshot = g_emulator->m_gpu->takeScreenShot();
     clip::image img = PCSX::ScreenShot::convertScreenshotToImage(std::move(screenshot));
-    bool success = PCSX::ScreenShot::writeImagePNG(path.string(), std::move(img));
+    auto pathStr = path.u8string();
+    // The PNG writer takes UTF-8 on every platform.
+    std::string utf8Path(reinterpret_cast<const char*>(pathStr.c_str()), pathStr.size());
+    bool success = PCSX::ScreenShot::writeImagePNG(utf8Path, std::move(img));
 
     if (success) {
-        auto successMsg = fmt::format(f_("Screenshot saved to {}\n"), path.string());
+        auto successMsg = fmt::format(f_("Screenshot saved to {}\n"), utf8Path);
         g_system->log(LogClass::UI, std::move(successMsg));
         addNotice(fmt::format(f_("Screenshot saved to {}"), path.filename().string()), NoticeKind::Info);
     } else {

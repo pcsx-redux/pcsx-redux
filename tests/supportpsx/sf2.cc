@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -48,6 +49,36 @@ void writeSample(std::vector<uint8_t>& ram, uint32_t at) {
     }
     ram[at + 1 * c_blockSize + 1] = c_flagLoopStart;
     ram[at + 2 * c_blockSize + 1] = c_flagLoopEnd | c_flagRepeat;
+}
+
+void put16(std::vector<uint8_t>& v, uint16_t x) {
+    v.push_back(x & 0xff);
+    v.push_back(x >> 8);
+}
+
+void put32(std::vector<uint8_t>& v, uint32_t x) {
+    put16(v, x & 0xffff);
+    put16(v, x >> 16);
+}
+
+void putName(std::vector<uint8_t>& v, const char* name) {
+    char buf[20] = {};
+    strncpy(buf, name, 19);
+    v.insert(v.end(), buf, buf + 20);
+}
+
+std::vector<uint8_t> chunk(const char* id, const std::vector<uint8_t>& body) {
+    std::vector<uint8_t> ret(id, id + 4);
+    put32(ret, uint32_t(body.size()));
+    ret.insert(ret.end(), body.begin(), body.end());
+    if (body.size() & 1) ret.push_back(0);
+    return ret;
+}
+
+std::vector<uint8_t> list(const char* type, std::initializer_list<std::vector<uint8_t>> chunks) {
+    std::vector<uint8_t> body(type, type + 4);
+    for (auto& c : chunks) body.insert(body.end(), c.begin(), c.end());
+    return chunk("LIST", body);
 }
 
 }  // namespace
@@ -194,4 +225,70 @@ TEST(SF2, ReadsBackWhatItWrites) {
     EXPECT_TRUE(PCSX::SF2::read(data.data(), 11).empty());
     data[8] = 'x';
     EXPECT_TRUE(PCSX::SF2::read(data.data(), data.size()).empty());
+}
+
+// Instrument zones inherit sampleModes from their instrument's global zone, the first zone
+// when it names no sample, unless they set it themselves.
+TEST(SF2, ReadsSampleModesFromTheGlobalZone) {
+    constexpr uint16_t sampleID = 53, sampleModes = 54;
+    // Three 100-point samples, each with a loop from 10 to 90.
+    std::vector<uint8_t> smpl(3 * 100 * 2);
+    std::vector<uint8_t> shdr;
+    for (unsigned i = 0; i <= 3; i++) {
+        putName(shdr, i < 3 ? ("s" + std::to_string(i)).c_str() : "EOS");
+        const uint32_t base = i < 3 ? i * 100 : 0;
+        for (uint32_t v : {base, base + (i < 3 ? 100u : 0u), base + (i < 3 ? 10u : 0u), base + (i < 3 ? 90u : 0u)})
+            put32(shdr, v);
+        put32(shdr, 22050);
+        shdr.push_back(60);
+        shdr.push_back(0);
+        put16(shdr, 0);
+        put16(shdr, i < 3 ? 1 : 0);
+    }
+    // Instrument 0: global zone loops, its zone for s0 sets nothing.
+    // Instrument 1: global zone loops, its zone for s1 sets mode 0.
+    // Instrument 2: no global zone; a later zone with no sample does not count as one.
+    struct Gen {
+        uint16_t oper, amount;
+    };
+    const std::vector<std::vector<Gen>> zones = {
+        {{sampleModes, 1}}, {{sampleID, 0}},                    // instrument 0
+        {{sampleModes, 3}}, {{sampleModes, 0}, {sampleID, 1}},  // instrument 1
+        {{sampleID, 2}},    {{sampleModes, 1}},                 // instrument 2
+    };
+    const uint16_t instrumentBags[] = {0, 2, 4, 6};
+    std::vector<uint8_t> inst, ibag, igen;
+    for (unsigned i = 0; i < 4; i++) {
+        putName(inst, i < 3 ? "inst" : "EOI");
+        put16(inst, instrumentBags[i]);
+    }
+    uint16_t genIndex = 0;
+    for (auto& zone : zones) {
+        put16(ibag, genIndex);
+        put16(ibag, 0);
+        for (auto& g : zone) {
+            put16(igen, g.oper);
+            put16(igen, g.amount);
+            genIndex++;
+        }
+    }
+    put16(ibag, genIndex);
+    put16(ibag, 0);
+    put32(igen, 0);
+
+    auto body = list("sdta", {chunk("smpl", smpl)});
+    auto pdta = list("pdta", {chunk("inst", inst), chunk("ibag", ibag), chunk("igen", igen), chunk("shdr", shdr)});
+    body.insert(body.end(), pdta.begin(), pdta.end());
+    std::vector<uint8_t> data = {'R', 'I', 'F', 'F'};
+    put32(data, uint32_t(body.size() + 4));
+    data.insert(data.end(), {'s', 'f', 'b', 'k'});
+    data.insert(data.end(), body.begin(), body.end());
+
+    auto back = PCSX::SF2::read(data.data(), data.size());
+    ASSERT_EQ(back.size(), 3u);
+    EXPECT_TRUE(back[0].loops);
+    EXPECT_EQ(back[0].loopStart, 10u);
+    EXPECT_EQ(back[0].loopEnd, 90u);
+    EXPECT_FALSE(back[1].loops);
+    EXPECT_FALSE(back[2].loops);
 }

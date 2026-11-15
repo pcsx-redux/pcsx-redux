@@ -138,6 +138,9 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
     unsigned m_romInstructionCount;  // How many of those were fetched from ROM
 
     bool m_stopCompiling;  // Should we stop compiling code?
+    // Has this block checked SR.CU2 yet? SR cannot change inside a block (an MTC0 to it ends the block), so one
+    // check before the first COP2 opcode covers the rest.
+    bool m_cu2Checked;
     bool m_pcWrittenBack;  // Has the PC been written back already by a jump?
     bool m_firstInstruction;
     bool m_fullLoadDelayEmulation;
@@ -511,6 +514,13 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
     void recCOP0(uint32_t code);
     void recCOP2(uint32_t code);
     void recCOP1or3(uint32_t code);
+    void recLSCz(uint32_t code);
+    void emitCopUnusableCheck(unsigned z, bool userModeOnly = false);
+    void emitCu2Check() {
+        if (m_cu2Checked) return;
+        emitCopUnusableCheck(2);
+        m_cu2Checked = true;
+    }
     void recBCz(uint32_t code);
     void recCTC2(uint32_t code);
     void recDIV(uint32_t code);
@@ -626,6 +636,8 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
     void recompileLoad(uint32_t code);
     template <int size, bool signExtend>
     void recompileLoadWithDelay(uint32_t code, LoadDelayDependencyType dependencyType);
+    template <bool left>
+    void recompileUnalignedLoad(uint32_t code);
 
     const recompilationFunc m_recBSC[64] = {
         &DynaRecCPU::recSpecial, &DynaRecCPU::recREGIMM,  &DynaRecCPU::recJ,       &DynaRecCPU::recJAL,      // 00
@@ -640,9 +652,9 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
         &DynaRecCPU::recLBU,     &DynaRecCPU::recLHU,     &DynaRecCPU::recLWR,     &DynaRecCPU::recUnknown,  // 24
         &DynaRecCPU::recSB,      &DynaRecCPU::recSH,      &DynaRecCPU::recSWL,     &DynaRecCPU::recSW,       // 28
         &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown, &DynaRecCPU::recSWR,     &DynaRecCPU::recUnknown,  // 2c
-        &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown, &DynaRecCPU::recLWC2,    &DynaRecCPU::recUnknown,  // 30
+        &DynaRecCPU::recLSCz,    &DynaRecCPU::recLSCz,    &DynaRecCPU::recLWC2,    &DynaRecCPU::recLSCz,     // 30
         &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown,  // 34
-        &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown, &DynaRecCPU::recSWC2,    &DynaRecCPU::recUnknown,  // 38
+        &DynaRecCPU::recLSCz,    &DynaRecCPU::recLSCz,    &DynaRecCPU::recSWC2,    &DynaRecCPU::recLSCz,     // 38
         &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown, &DynaRecCPU::recUnknown,  // 3c
     };
 

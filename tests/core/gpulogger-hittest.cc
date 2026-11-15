@@ -356,6 +356,28 @@ TEST_F(GPULoggerHitTest, FastFillWrapsAtRow512) {
     }
 }
 
+// GP0(02h) decodes its size as Xsiz=((w AND 3FFh)+0Fh) AND NOT 0Fh and Ysiz=h AND 1FFh, and a
+// zero Xsiz or Ysiz fills nothing. So a 1024x512 "clear everything" fill leaves VRAM untouched.
+// The height arm matches a System 573 reading (h=512 filled no row); the width arm is psx-spx.
+TEST_F(GPULoggerHitTest, FastFillZeroSizeFillsNothing) {
+    struct Arm {
+        unsigned w, h;
+    };
+    for (auto arm : {Arm{1024, 512}, Arm{1024, 100}, Arm{640, 512}, Arm{2048, 1024}}) {
+        clearVram();
+        gp0({0x02000000 | c_white, xy(0, 0), xy(arm.w, arm.h)});
+        auto v = vram();
+        auto filled = std::count_if(v.begin(), v.end(), [](uint16_t p) { return p != 0; });
+        EXPECT_EQ(filled, 0) << "fill w=" << arm.w << " h=" << arm.h;
+    }
+    // Positive control: one under each mask fills 1024 columns and 511 rows.
+    clearVram();
+    gp0({0x02000000 | c_white, xy(0, 0), xy(0x3f1, 0x1ff)});
+    auto v = vram();
+    auto filled = std::count_if(v.begin(), v.end(), [](uint16_t p) { return p != 0; });
+    EXPECT_EQ(filled, 1024 * 511);
+}
+
 // A fill logged with the bank gate closed replays with the wrap it had when logged, even if
 // the gate has opened since.
 TEST_F(GPULoggerHitTest, FastFillReplayKeepsLoggedWrap) {

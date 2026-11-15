@@ -25,6 +25,9 @@
     <ClCompile Include="..\..\src\gui\widgets\dynarec_disassembly.cc">
       <Filter>Source Files\widgets</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\gui\widgets\emulation-config.cc">
+      <Filter>Source Files\widgets</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\gui\widgets\filedialog.cc">
       <Filter>Source Files\widgets</Filter>
     </ClCompile>
@@ -183,6 +186,9 @@
     <ClInclude Include="..\..\src\gui\widgets\dynarec_disassembly.h">
       <Filter>Header Files\widgets</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\gui\widgets\emulation-config.h">
+      <Filter>Header Files\widgets</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\gui\widgets\filedialog.h">
       <Filter>Header Files\widgets</Filter>
     </ClInclude>
@@ -286,6 +292,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\gui\luaimplot.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\gui\memeditor-route.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\gui\widgets\patches.h">

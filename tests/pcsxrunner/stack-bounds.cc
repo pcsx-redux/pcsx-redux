@@ -25,21 +25,21 @@
 
 TEST(StackBounds, InBounds) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-loadexe", "src/mips/tests/stack-bounds/stack-bounds.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/tooling/stack-bounds/stack-bounds.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(StackBounds, Churn) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-loadexe", "src/mips/tests/stack-bounds-churn/stack-bounds-churn.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/tooling/stack-bounds-churn/stack-bounds-churn.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(StackBounds, Overflow) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-loadexe", "src/mips/tests/stack-bounds-trip/stack-bounds-trip.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/tooling/stack-bounds-trip/stack-bounds-trip.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, PCSX::R3000Acpu::c_stackBoundsExitCode);
 }
@@ -48,14 +48,14 @@ TEST(StackBounds, Overflow) {
 
 TEST(StackBounds, HeapQuiet) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-loadexe", "src/mips/tests/stack-bounds-heap-quiet/stack-bounds-heap-quiet.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/tooling/stack-bounds-heap-quiet/stack-bounds-heap-quiet.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(StackBounds, HeapOverStack) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-loadexe", "src/mips/tests/stack-bounds-heap/stack-bounds-heap.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/tooling/stack-bounds-heap/stack-bounds-heap.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, PCSX::R3000Acpu::c_stackBoundsExitCode);
 }

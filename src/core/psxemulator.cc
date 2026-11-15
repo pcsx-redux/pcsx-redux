@@ -31,6 +31,7 @@
 #include "core/gpudump.h"
 #include "core/gpulogger.h"
 #include "core/gte.h"
+#include "core/hwevents.h"
 #include "core/luaiso.h"
 #include "core/mdec.h"
 #include "core/pad.h"
@@ -52,6 +53,7 @@
 #include "lua/luafile.h"
 #include "lua/luawrapper.h"
 #include "lua/luv-glue.h"
+#include "lua/sqliteffi.h"
 #include "lua/zlibffi.h"
 #include "luafilesystem/src/lfs.h"
 #include "spu/interface.h"
@@ -102,6 +104,7 @@ PCSX::Emulator::Emulator()
       m_ramLogger(new PCSX::RAMLogger()),
       m_spuLogger(new PCSX::SPULogger()),
       m_hw(new PCSX::HW()),
+      m_hwEvents(new PCSX::HWEvents()),
       m_lua(new PCSX::Lua()),
       m_mdec(new PCSX::MDEC()),
       m_mem(new PCSX::Memory()),
@@ -173,6 +176,14 @@ void PCSX::Emulator::setLua() {
     LuaFFI::open_extra(L);
     LuaBindings::open_events(L);
     LuaFFI::open_compression(L);
+    LuaFFI::open_sqlite(L);
+    {
+        static int lualoader = 1;
+        static const char* textTable = (
+#include "lua/texttable.lua"
+        );
+        L.load(textTable, "src:lua/texttable.lua");
+    }
     {
         static int lualoader = 1;
         static const char* html = (

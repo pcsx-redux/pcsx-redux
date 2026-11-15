@@ -103,9 +103,25 @@ class GPU {
     // GPUSTAT as the CPU reads it from 1F801814h: readStatus() plus the bits that follow the
     // beam position.
     uint32_t readStatusFromBus();
+    struct BeamPosition {
+        uint32_t line;  // scanline in the frame, 0 at the top of the frame
+        bool field;     // the interlace field flag, GPUSTAT.13 on a v2 GPU
+        bool active;    // between the GP1(07h) Y1 and Y2 lines
+    };
+    // Where the beam is, in the display mode `mode` (a GP1(08h) word).
+    BeamPosition beamPosition(uint32_t mode);
     // When 0 or 1, readStatusFromBus() reports this as GPUSTAT.31 in NTSC 480i instead of following the
     // emulated beam, and leaves GPUSTAT.13 clear. Set by the GPU dump player.
     int8_t m_fieldOverride = -1;
+    // The interlace field flag a v2 GPU reports as GPUSTAT.13. While GP1(08h).5 is set it toggles on
+    // the last scanline of every frame, and the frame it is set in is the long one; it is derived
+    // from the counters' field parity, flipped when m_fieldPhase is set. While GP1(08h).5 is clear
+    // it holds m_heldField. Both are save-stated.
+    bool m_heldField = true;
+    bool m_fieldPhase = false;
+    // Set while restoreState() replays the GP1 bank: the counters may not be restored yet, and
+    // reading them would advance them, so the replay leaves the field flag alone.
+    bool m_replayingGP1 = false;
     // True when the Deinterlace setting draws both fields of a 480i frame. GPU dumps record the
     // accurate path: the dump player's GPU sets m_neverDeinterlace, and the emulated GPU draws one
     // field at a time while a dump is armed, so the dump's initial VRAM upload holds accurate fields.
@@ -233,6 +249,8 @@ class GPU {
         m_readFifo->reset();
         m_processor->reset();
         m_defaultProcessor.setActive();
+        m_heldField = true;
+        m_fieldPhase = false;
     }
     virtual void clearVRAM() = 0;
     virtual GLuint getVRAMTexture() = 0;

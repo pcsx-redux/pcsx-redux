@@ -75,8 +75,15 @@ jobs:
         env:
           FILTER_BRANCH_SQUELCH_WARNING: 1
         run: |
-          cp -rv .github/filter-support /tmp
+          cp -rv .github/filter-support .github/scripts/update-submodules.sh /tmp
           /tmp/filter-support/filter.sh
+      # Pushed only if it builds, the way its users build it. The runner has
+      # what Makefile-filtered asks for, so this installs nothing;
+      # support-mirror.yml checks it in a plain image.
+      - name: Fetch the mirror's submodules
+        run: /tmp/update-submodules.sh
+      - name: Build the mirror
+        run: make -j 2
       - name: Pushing result
         env:
           PAT: ${{ secrets.EXPORT_PAT }}
