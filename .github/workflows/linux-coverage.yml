@@ -37,11 +37,11 @@ jobs:
       - run: |
           make -j 2 all pcsx-redux-tests
           make -C src/mips/openbios -j 2 BUILD=Release
-          cp src/mips/openbios/openbios.bin .
+          cp src/mips/openbios/openbios.bin src/mips/openbios/openbios.elf .
       - run: |
           make -C src/mips/openbios clean
           make -C src/mips/tests -j 2 PCSX_TESTS=true BUILD=Release
-          cp ./openbios.bin src/mips/openbios/
+          cp ./openbios.bin ./openbios.elf src/mips/openbios/
       - run: |
           make -C src/mips/monitor/hosts/retail -j 2 BUILD=LTO
           xvfb-run catchsegv ./pcsx-redux -stdout -lua_stdout -testmode -no-gui-log -exec "dofile 'src/mips/tests/cdrom/create-test-iso.lua'"
