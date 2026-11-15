@@ -171,6 +171,9 @@
             latency.value = ms;
             Module.ccall('pcsxSetLatencyMargin', null, ['number'], [ms]);
           });
+          // Files picked or dropped while the runtime was still loading are opened now.
+          window.pcsxReady = true;
+          (window.pcsxPending || []).splice(0).forEach((list) => loadFiles(list));
         }],
         totalDependencies: 0,
         monitorRunDependencies(left) {
@@ -203,6 +206,10 @@
       function loadFiles(files) {
         var list = Array.from(files || []);
         if (!list.length) return;
+        if (!window.pcsxReady) {
+          (window.pcsxPending = window.pcsxPending || []).push(list);
+          return;
+        }
         var dir = '/tmp/load/' + (loadCount++);
         try { FS.mkdir('/tmp/load'); } catch (e) {}
         FS.mkdir(dir);
