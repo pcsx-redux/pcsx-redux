@@ -136,6 +136,9 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
     Emitter gen;
 
     bool m_stopCompiling;  // Should we stop compiling code?
+    // Has this block checked SR.CU2 yet? SR cannot change inside a block (an MTC0 to it ends the block), so one
+    // check before the first COP2 opcode covers the rest.
+    bool m_cu2Checked;
     bool m_pcWrittenBack;  // Has the PC been written back already by a jump?
     uint32_t m_ramSize;    // RAM is 2MB on retail units, 8MB on some DTL units (Can be toggled in GUI)
     const int MAX_BLOCK_SIZE = 50;
@@ -499,6 +502,11 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
     void recCOP1or3(uint32_t code);
     void recLSCz(uint32_t code);
     void emitCopUnusableCheck(unsigned z, bool userModeOnly = false);
+    void emitCu2Check() {
+        if (m_cu2Checked) return;
+        emitCopUnusableCheck(2);
+        m_cu2Checked = true;
+    }
     void recBCz(uint32_t code);
     void recCTC2(uint32_t code);
     void recDIV(uint32_t code);
