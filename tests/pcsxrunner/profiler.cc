@@ -32,7 +32,7 @@
 #include "gtest/gtest.h"
 #include "main/main.h"
 
-// src/mips/tests/profiler is a call tree whose instruction counts are written down in its
+// src/mips/tests/tooling/profiler is a call tree whose instruction counts are written down in its
 // source. Profiling it from boot and keeping only what runs under main has to give those
 // counts exactly, on every call path. The profile files are read back with parsers written
 // here, independent of the serializers that produced them.
@@ -53,7 +53,7 @@ std::string runControl(const char* option, const char* fileName) {
     auto path = (std::filesystem::temp_directory_path() / fileName).string();
     std::filesystem::remove(path);
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        option, path.c_str(), "-loadexe", "src/mips/tests/profiler/profiler.elf");
+                        option, path.c_str(), "-loadexe", "src/mips/tests/tooling/profiler/profiler.elf");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
     std::ifstream in(path, std::ios::binary);
