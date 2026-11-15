@@ -249,6 +249,14 @@ void PCSX::GUI::setFullscreen(bool fullscreen) {
     }
 }
 
+void PCSX::GUI::centreWindow() {
+    // Centre once sized, as resizing keeps the top-left corner. Read the result back so that
+    // setFullscreen() restores this position instead of the unset 0, 0.
+    SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    SDL_SyncWindow(m_window);
+    SDL_GetWindowPosition(m_window, &m_windowPosX, &m_windowPosY);
+}
+
 void PCSX::GUI::setRawMouseMotion() {
     // SDL3 relative-mouse-mode covers cursor-hide + raw motion in one call,
     // collapsing GLFW's two-step (CURSOR_DISABLED + RAW_MOUSE_MOTION) flow.
@@ -705,8 +713,10 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
                 settings.get<WindowPosY>().reset();
             }
 
+            // 0, 0 is the unset default; negative coordinates are valid on monitors left of or above
+            // the primary one.
             const bool hasSavedPosition =
-                (settings.get<WindowPosX>().value > 0) && (settings.get<WindowPosY>().value > 0);
+                (settings.get<WindowPosX>().value != 0) || (settings.get<WindowPosY>().value != 0);
             if (hasSavedPosition) {
                 SDL_SetWindowPosition(m_window, settings.get<WindowPosX>(), settings.get<WindowPosY>());
             }
@@ -715,14 +725,9 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
             } else {
                 SDL_SetWindowSize(m_window, windowSizeX, windowSizeY);
             }
-            if (!hasSavedPosition && !settings.get<WindowMaximized>().value) {
-                // Centre once sized, as resizing keeps the top-left corner. Read the result back so
-                // that setFullscreen() below restores this position instead of the unset 0, 0.
-                SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-                SDL_SyncWindow(m_window);
-                SDL_GetWindowPosition(m_window, &m_windowPosX, &m_windowPosY);
-            }
+            if (!hasSavedPosition && !settings.get<WindowMaximized>().value) centreWindow();
         } else {
+            centreWindow();
             saveCfg();
         }
 

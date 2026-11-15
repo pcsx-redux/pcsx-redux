@@ -337,6 +337,7 @@ class GUI final : public UI {
 
   private:
     void saveCfg();
+    void centreWindow();
     void resetSettings();
     bool m_settingsNuked = false;
     bool m_showResetSettings = false;
