@@ -508,8 +508,8 @@ class impl final : public SPUInterface {
     // 0 while they are low. CPU thread only: the bits are put in at read time.
     uint64_t m_writeDMALandedCycle = 0;
     uint16_t spuIrq = 0;
-    // Address into SPU memory.
-    uint32_t spuAddr = 0xffffffff;
+    // Sound RAM transfer address, in bytes.
+    uint32_t spuAddr = 0;
     // Thread handling.
     std::atomic<int> endThread = 0;
     std::atomic<int> threadEnded = 0;

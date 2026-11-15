@@ -146,7 +146,10 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
         s_chan[i].data.get<Chan::IrqDone>().value = 0;
     }
 
-    spuAddr = spu.get<SaveStates::SPUAddr>().value;
+    // openWith() used to start the transfer address at 0xffffffff, so a state saved before the guest
+    // set it holds that, outside sound RAM. It loads as 0, where an SPU opened now starts.
+    const uint32_t savedAddr = spu.get<SaveStates::SPUAddr>().value;
+    spuAddr = savedAddr < c_spuRamSize ? savedAddr : 0;
     spuCtrl = spu.get<SaveStates::SPUCtrl>().value;
     // Only the IRQ9 flag and the capture-half bit are the SPU's own; older states can carry
     // whatever a guest wrote over the rest.
@@ -176,12 +179,13 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
     for (unsigned i = 0; i < MAXCHAN; i++) s_chan[i].interp.resetAfterLoad();
 
     // Repair LDChen's ADSR changes: replay each voice's two ADSR registers, and nothing else.
-    // Replaying key on or the data port here would retrigger voices and write sound RAM.
-    if (spuAddr < 0x7ffff) {
-        for (unsigned i = 0; i < MAXCHAN; i++) {
-            writeRegister(0x1f801c08 + (i << 4), regArea[(i << 3) + 4]);
-            writeRegister(0x1f801c0a + (i << 4), regArea[(i << 3) + 5]);
-        }
+    // Replaying key on or the data port here would retrigger voices and write sound RAM. A register
+    // holding 0 is left as the state saved it, so a load saves back the same bytes: a voice whose ADSR
+    // was never written saved the envelope it was opened with (all zero but its sustain level, the
+    // maximum), which is not what 0 decodes to, and one written 0 saved what 0 decodes to.
+    for (unsigned i = 0; i < MAXCHAN; i++) {
+        if (regArea[(i << 3) + 4]) writeRegister(0x1f801c08 + (i << 4), regArea[(i << 3) + 4]);
+        if (regArea[(i << 3) + 5]) writeRegister(0x1f801c0a + (i << 4), regArea[(i << 3) + 5]);
     }
 
     // The replays above were queued: apply them now, with the mixer stopped.
@@ -202,11 +206,11 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
 
 // Loads a blank state, so a hard reset clears everything a state load restores: registers, voices,
 // the reverb unit, the capture buffers and the queued writes. Sound RAM gets the value main RAM
-// is filled with. A fresh voice's envelope is all zero, but load() decodes the ADSR registers it
-// replays, and their 0 decodes to a rising sustain, so the envelopes are cleared after it. Two
-// values a fresh SPU starts with are not zero, the voices' sustain level and the noise generator's
-// seed, so they are set again as a new SPU has them. The mixer is stopped from the load on, since
-// load() would restart it before they are set.
+// is filled with. The blank state's envelopes are all zero, and load() leaves an ADSR register
+// holding 0 unreplayed, so the voices load them as they are. Two values a fresh SPU starts with
+// are not zero, the voices' sustain level and the noise generator's seed, so they are set again
+// as a new SPU has them. The mixer is stopped from the load on, since load() would restart it
+// before they are set.
 void PCSX::SPU::impl::reset() {
     auto blank = std::make_unique<SaveStates::SPU>();
     auto &ram = blank->get<SaveStates::SPURam>();
@@ -215,10 +219,6 @@ void PCSX::SPU::impl::reset() {
     const bool running = m_mixerRunning;
     if (running) RemoveThread();
     load(*blank);
-    for (unsigned i = 0; i < MAXCHAN; i++) {
-        s_chan[i].adsr.reset();
-        m_adsrShadow[i].reset();
-    }
     setVoiceDefaults();
     m_noise = NoiseGenerator();
     if (running) SetupThread();

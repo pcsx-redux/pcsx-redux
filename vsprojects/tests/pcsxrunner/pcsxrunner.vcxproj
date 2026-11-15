@@ -319,6 +319,7 @@
     <ClCompile Include="..\..\..\tests\modconv-stretch.cc" />
     <ClCompile Include="..\..\..\tests\spu\speed.cc" />
     <ClCompile Include="..\..\..\tests\spu\syncmix.cc" />
+    <ClCompile Include="..\..\..\tests\spu\transferaddr.cc" />
     <ClCompile Include="..\..\..\tests\core\pad-config.cc" />
     <ClCompile Include="..\..\..\tests\core\i18n.cc" />
     <ClCompile Include="..\..\..\tests\core\pocketstation-flash-sync.cc" />
