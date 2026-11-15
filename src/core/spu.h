@@ -90,6 +90,9 @@ class SPUInterface {
     // How many times real time the audio device consumes frames: the configured
     // speed times the turbo factor, the same rate the device's played count advances at.
     virtual int getEffectiveSpeed() = 0;
+    // The LatencyMargin setting alone, in milliseconds, without touching the other settings.
+    virtual int getLatencyMargin() = 0;
+    virtual void setLatencyMargin(int ms) = 0;
     // The CPU has reached `cycle`: the SPU may produce audio up to it.
     virtual void advanceTo(uint64_t cycle) = 0;
     virtual uint32_t getFrameCount() = 0;

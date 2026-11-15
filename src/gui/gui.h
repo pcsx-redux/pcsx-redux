@@ -45,6 +45,7 @@
 #include "gui/widgets/cputrace.h"
 #include "gui/widgets/dalos.h"
 #include "gui/widgets/dynarec_disassembly.h"
+#include "gui/widgets/emulation-config.h"
 #include "gui/widgets/events.h"
 #include "gui/widgets/filedialog.h"
 #include "gui/widgets/gpudump.h"
@@ -342,7 +343,6 @@ class GUI final : public UI {
     void startFrame();
     void endFrame();
 
-    bool configure();
     bool showThemes();  // Theme window : Allows for custom imgui themes
     bool about();
     void aboutFFmpegTab();
@@ -470,10 +470,7 @@ class GUI final : public UI {
     Widgets::FileDialog<> m_openIsoFileDialog;
     Widgets::FileDialog<> m_openBinaryDialog;
     Widgets::FileDialog<> m_openArchiveDialog;
-    Widgets::FileDialog<> m_selectBiosDialog;
     Widgets::FileDialog<> m_selectEXP1Dialog;
-    Widgets::FileDialog<Widgets::FileDialogMode::SelectDirectory> m_selectScreenshotDirDialog;
-    Widgets::FileDialog<Widgets::FileDialogMode::SelectDirectory> m_selectSaveStateDirDialog;
     Widgets::NamedSaveStates m_namedSaveStates = {settings.get<ShowNamedSaveStates>().value};
     Widgets::Breakpoints m_breakpoints = {settings.get<ShowBreakpoints>().value};
     Widgets::IsoBrowser m_isoBrowser;
@@ -481,6 +478,7 @@ class GUI final : public UI {
     Widgets::Dalos m_dalos = {settings.get<ShowDalos>().value};
 
     bool m_showCfg = false;
+    Widgets::EmulationConfig m_emulationConfig;
     bool m_showUiCfg = false;
     bool m_showSysCfg = false;
 
