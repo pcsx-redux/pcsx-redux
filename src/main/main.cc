@@ -684,6 +684,11 @@ runner.init({
                 constexpr double c_sampleRate = 44100.0;
                 constexpr double c_deviceStallMs = 250.0;
                 constexpr int c_maxFramesPerCallback = 8;
+                // Catching up runs several emulated frames in one callback, but only while the
+                // callback stays short: on a machine that cannot emulate a frame in a display
+                // frame, eight in a row held the page for hundreds of milliseconds.
+                constexpr double c_callbackBudgetMs = 12.0;
+                const double callbackStart = emscripten_get_now();
                 for (int frame = 0; frame < c_maxFramesPerCallback; frame++) {
                     if (!system->running() || system->hasPendingSaveStateLoad()) {
                         s_aligned = false;
@@ -691,6 +696,7 @@ runner.init({
                         return;
                     }
                     const double now = emscripten_get_now();
+                    if (frame > 0 && now - callbackStart > c_callbackBudgetMs) return;
                     const uint32_t played = emulator->m_spu->getCurrentFrames();
                     if (played != s_lastPlayed) {
                         s_lastPlayed = played;
