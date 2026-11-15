@@ -46,6 +46,7 @@
 #include "gui/widgets/dalos.h"
 #include "gui/widgets/dynarec_disassembly.h"
 #include "gui/widgets/emulation-config.h"
+#include "gui/widgets/interrupts-scaler.h"
 #include "gui/widgets/events.h"
 #include "gui/widgets/filedialog.h"
 #include "gui/widgets/gpudump.h"
@@ -351,7 +352,6 @@ class GUI final : public UI {
 
     bool about();
     void aboutFFmpegTab();
-    void interruptsScaler();
 
   public:
     const ImVec2 &getRenderSize() { return m_renderSize; }
@@ -401,6 +401,7 @@ class GUI final : public UI {
     bool m_showHandles = false;
     bool m_showAbout = false;
     bool m_showInterruptsScaler = false;
+    Widgets::InterruptsScaler m_interruptsScaler = {m_showInterruptsScaler};
     bool m_turboEnabled = false;
     bool m_outputWindowFocused = false;
     Widgets::Log m_log = {settings.get<ShowLog>().value};
