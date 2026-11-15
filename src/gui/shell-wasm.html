@@ -92,13 +92,26 @@
         var missing = [];
         try { if (!document.createElement('canvas').getContext('webgl2')) missing.push('WebGL 2'); }
         catch (e) { missing.push('WebGL 2'); }
-        if (typeof SharedArrayBuffer === 'undefined' && navigator.serviceWorker && navigator.serviceWorker.controller)
-          missing.push('SharedArrayBuffer');
-        if (missing.length) {
+        var report = () => {
+          if (!missing.length) return;
           var r = document.getElementById('requirements');
           r.className = 'note bad';
           r.textContent = 'This browser is missing ' + missing.join(' and ') + ', which pcsx-redux needs to run.';
+        };
+        if (typeof SharedArrayBuffer === 'undefined') {
+          if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            missing.push('SharedArrayBuffer');
+          } else {
+            // A first visit reloads itself once the isolation service worker is active. If it is
+            // still not isolated after that window, the worker failed to register.
+            setTimeout(() => {
+              if (typeof SharedArrayBuffer !== 'undefined' || missing.includes('SharedArrayBuffer')) return;
+              missing.push('SharedArrayBuffer');
+              report();
+            }, 10000);
+          }
         }
+        report();
       })();
     </script>
     <script type='text/javascript'>
@@ -166,8 +179,13 @@
           var latency = document.getElementById('latency');
           latency.value = Module.ccall('pcsxGetLatencyMargin', 'number', [], []);
           latency.disabled = false;
+          // The SPU configuration window has the same setting, so re-read it whenever the
+          // control is about to be used.
+          latency.addEventListener('focus', () => {
+            latency.value = Module.ccall('pcsxGetLatencyMargin', 'number', [], []);
+          });
           latency.addEventListener('change', () => {
-            var ms = Math.max(0, Math.min(100, parseInt(latency.value) || 0));
+            var ms = Math.max(0, Math.min(100, Math.round(Number(latency.value)) || 0));
             latency.value = ms;
             Module.ccall('pcsxSetLatencyMargin', null, ['number'], [ms]);
           });

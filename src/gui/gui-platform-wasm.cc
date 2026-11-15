@@ -88,15 +88,8 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pcsxOpenFile(const char* path) {
 
 // The page's audio latency control: the SPU's LatencyMargin setting, in milliseconds, the same
 // value as the slider in the SPU configuration window.
-extern "C" EMSCRIPTEN_KEEPALIVE int pcsxGetLatencyMargin() {
-    auto cfg = PCSX::g_emulator->m_spu->getCfg();
-    return cfg.contains("LatencyMargin") ? cfg["LatencyMargin"].get<int>() : -1;
-}
+extern "C" EMSCRIPTEN_KEEPALIVE int pcsxGetLatencyMargin() { return PCSX::g_emulator->m_spu->getLatencyMargin(); }
 
-extern "C" EMSCRIPTEN_KEEPALIVE void pcsxSetLatencyMargin(int ms) {
-    auto cfg = PCSX::g_emulator->m_spu->getCfg();
-    cfg["LatencyMargin"] = ms;
-    PCSX::g_emulator->m_spu->setCfg({{"SPU", cfg}});
-}
+extern "C" EMSCRIPTEN_KEEPALIVE void pcsxSetLatencyMargin(int ms) { PCSX::g_emulator->m_spu->setLatencyMargin(ms); }
 
 #endif  // __EMSCRIPTEN__
