@@ -19,6 +19,9 @@ For network access and interaction, PCSX-Redux uses [libuv](https://libuv.org/) 
 ## Zlib
 The Zlib C-API is exposed through [FFI bindings](https://github.com/luapower/zlib). There is another layer of Zlib API available through the File API, which is more convenient and faster for simple tasks.
 
+## SQLite
+[SQLite](https://sqlite.org/) is built in and exposed as `PCSX.SQLite`. Its API is described in the [SQLite](sqlite.md) page.
+
 ## FFI-Reflect
 The [FFI-Reflect](https://github.com/corsix/ffi-reflect) library is loaded globally as the `reflect` symbol. It's able to generate reflection objects for the LuaJIT FFI module.
 
