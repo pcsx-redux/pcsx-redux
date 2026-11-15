@@ -177,6 +177,8 @@ PCSX::GUI::GUI(std::vector<std::string>& favorites)
           settings.get<ShowIsoBrowser>().value, favorites, [this]() { useMonoFont(); },
           [this](const std::string& name, IO<File> file) { m_dalos.addSource(name, file); }),
       m_emulationConfig(m_showCfg, m_idleSwapInterval, favorites),
+      m_uiConfig(m_showUiCfg),
+      m_systemConfig(m_showSysCfg),
       m_pioCart(settings.get<ShowPIOCartConfig>().value, favorites),
       m_gpuDump(settings.get<ShowGPUDump>().value, favorites),
       m_spuLoggerWidget(settings.get<ShowSPULogger>().value, settings.get<SPULoggerEnabled>().value, favorites),
@@ -1996,63 +1998,9 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
         m_pocketStationLCD.draw(psCard, psSlot, _("PocketStation LCD"));
     }
 
-    if (m_showUiCfg) {
-        if (ImGui::Begin(_("UI Configuration"), &m_showUiCfg)) {
-            changed |= showThemes();
-            bool needFontReload = false;
-            {
-                std::string currentLocale = g_system->localeName();
-                if (currentLocale.length() == 0) currentLocale = "English";
-                if (ImGui::BeginCombo(_("Locale"), currentLocale.c_str())) {
-                    if (ImGui::Selectable("English", currentLocale == "English")) {
-                        g_system->activateLocale("English");
-                        g_emulator->settings.get<Emulator::SettingLocale>() = "English";
-                        needFontReload = true;
-                    }
-                    for (auto& l : g_system->localesNames()) {
-                        if (ImGui::Selectable(l.c_str(), currentLocale == l)) {
-                            g_system->activateLocale(l);
-                            g_emulator->settings.get<Emulator::SettingLocale>() = l;
-                            needFontReload = true;
-                        }
-                    }
-                    ImGui::EndCombo();
-                }
-                if (ImGui::Button(_("Reload locales"))) {
-                    g_system->loadAllLocales();
-                    g_system->activateLocale(currentLocale);
-                }
-            }
-            needFontReload |= ImGui::SliderInt(_("Main Font Size"), &settings.get<MainFontSize>().value, 8, 48);
-            needFontReload |= ImGui::SliderInt(_("Mono Font Size"), &settings.get<MonoFontSize>().value, 8, 48);
-            bool ratioChanged =
-                ImGui::Checkbox(_("Use Widescreen Aspect Ratio"), &settings.get<WidescreenRatio>().value);
-            ImGuiHelpers::ShowHelpMarker(_(R"(Sets the output screen ratio to 16:9 instead of 4:3.
+    if (m_showUiCfg) changed |= m_uiConfig.draw(this);
 
-Note that this setting is NOT the popular hack
-to force games into widescreen mode, but rather an
-emulation of the fact users could change their
-TV sets to be in 16:9 mode instead of 4:3.
-
-Some games have a "wide screen" rendering setting,
-which changes the rendering of the game accordingly,
-and requires the user to change the settings of
-their TV set to match the aspect ratio of the game.)"));
-            changed |= needFontReload | ratioChanged;
-            if (needFontReload) m_reloadFonts = true;
-            if (ratioChanged) m_setupScreenSize = true;
-        }
-        ImGui::End();
-    }
-
-    if (m_showSysCfg) {
-        if (ImGui::Begin(_("System Configuration"), &m_showSysCfg)) {
-            changed |=
-                ImGui::Checkbox(_("Preload Disk Image files"), &emuSettings.get<Emulator::SettingFullCaching>().value);
-            changed |= ImGui::Checkbox(_("Enable Auto Update"), &emuSettings.get<Emulator::SettingAutoUpdate>().value);
-        }
-        ImGui::End();
-    }
+    if (m_showSysCfg) changed |= m_systemConfig.draw();
 
     if (!g_system->getArgs().isUpdateDisabled() && !g_system->getVersion().failed() &&
         g_system->getVersion().hasUpdateInfo() && !emuSettings.get<Emulator::SettingShownAutoUpdateConfig>().value) {
@@ -2317,32 +2265,6 @@ void PCSX::GUI::interruptsScaler() {
         }
     }
     ImGui::End();
-}
-
-bool PCSX::GUI::showThemes() {
-    static const std::function<const char*()> imgui_themes[] = {
-        l_("Default theme##Theme name"), l_("Classic##Theme name"), l_("Light##Theme name"), l_("Cherry##Theme name"),
-        l_("Mono##Theme name"),          l_("Dracula##Theme name"), l_("Olive##Theme name"),
-    };
-    auto changed = false;
-    auto& currentTheme = g_emulator->settings.get<Emulator::SettingGUITheme>().value;
-
-    if (ImGui::BeginCombo(_("Themes"), imgui_themes[currentTheme](), ImGuiComboFlags_HeightLarge)) {
-        for (int n = 0; n < IM_ARRAYSIZE(imgui_themes); n++) {
-            bool selected = (currentTheme == n);
-            if (ImGui::Selectable(imgui_themes[n](), selected)) {
-                currentTheme = n;
-                changed = true;
-                applyTheme(n);
-            }
-            if (selected) {
-                ImGui::SetItemDefaultFocus();
-            }
-        }
-        ImGui::EndCombo();
-    }
-
-    return changed;
 }
 
 bool PCSX::GUI::about() {
