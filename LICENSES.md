@@ -56,6 +56,7 @@ find a link to the vendored version itself.
  - [PEGTL](https://github.com/taocpp/PEGTL)
  - [pprint.lua](https://github.com/jagt/pprint.lua) ([vendored](https://github.com/pcsx-redux/pcsx-redux/tree/main/third_party/pprint.lua))
  - [snitch](https://github.com/snitch-org/snitch) ([vendored](https://github.com/pcsx-redux/pcsx-redux/tree/main/third_party/snitch))
+ - [SQLite](https://sqlite.org/) ([vendored](https://github.com/pcsx-redux/pcsx-redux/tree/main/third_party/sqlite))
  - [stb](https://github.com/nothings/stb)
  - [thorvg](https://github.com/thorvg/thorvg) ([vendored](https://github.com/pcsx-redux/thorvg))
  - [tracy](https://github.com/wolfpld/tracy)
