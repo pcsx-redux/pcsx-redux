@@ -996,7 +996,9 @@ bool PCSX::SPU::impl::openWith(bool startThread) {
     if (spuIsOpen) return true;
 
     spuIrq = 0;
-    spuAddr = 0xffffffff;
+    // Inside sound RAM, so the data port and a DMA used before the guest sets the address start at
+    // its beginning.
+    spuAddr = 0;
     endThread = 0;
     threadEnded = 0;
     spuRamBase = (uint8_t *)spuMem;

@@ -160,12 +160,12 @@ class SPUHardReset : public ::testing::Test {
         return spu;
     }
 
-    // Every register from 1F801C00h to 1F801E7Eh, as the CPU reads it, except the transfer address
-    // and the data port (a read of the port moves the address).
+    // Every register from 1F801C00h to 1F801E7Eh, as the CPU reads it, except the data port (a read
+    // of it moves the transfer address).
     static std::vector<uint16_t> registers(PCSX::SPU::impl& spu) {
         std::vector<uint16_t> regs;
         for (uint32_t reg = 0x1f801c00; reg < 0x1f801e80; reg += 2) {
-            if (reg == 0x1f801da6 || reg == 0x1f801da8) continue;
+            if (reg == 0x1f801da8) continue;
             regs.push_back(spu.readRegister(reg));
         }
         return regs;
@@ -215,9 +215,6 @@ TEST_F(SPUHardReset, ReadsAsJustOpened) {
 
     auto spu = playedThenReset();
     EXPECT_EQ(registers(*spu), expected);
-    // A blank state's transfer address is 0. An SPU just opened holds 0xffffffff there, which the
-    // data port would index sound RAM with.
-    EXPECT_EQ(spu->readRegister(0x1f801da6), 0);
     spu->close();
 }
 

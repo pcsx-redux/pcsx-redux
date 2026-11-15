@@ -78,10 +78,9 @@ class SPUInterface {
     virtual void save(SaveStates::SPU &) = 0;
     virtual void load(const SaveStates::SPU &) = 0;
     // A hard reset: sound RAM takes MemoryFillValue, and the registers, voices, reverb unit, capture
-    // buffers and queued writes are as on an SPU just opened, except the transfer address, which is
-    // 0, and what a state load keeps too: the XA resampler ring and the CD feed cycle. A loaded
-    // replacement pack stays. The SPU's clock restarts at the CPU's current cycle, so set that
-    // first. Call it from the CPU thread.
+    // buffers and queued writes are as on an SPU just opened, except what a state load keeps too: the
+    // XA resampler ring and the CD feed cycle. A loaded replacement pack stays. The SPU's clock
+    // restarts at the CPU's current cycle, so set that first. Call it from the CPU thread.
     virtual void reset() = 0;
     virtual uint32_t getCurrentFrames() = 0;
     virtual void waitForGoal(uint32_t goal) = 0;
