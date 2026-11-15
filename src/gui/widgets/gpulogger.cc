@@ -45,6 +45,55 @@ void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title, 
         return;
     }
 
+    drawMenuBar();
+    drawLoggerOptions(logger);
+    NodeFlags flags;
+    flags.setHighlightRange = m_setHighlightRange;
+    m_setHighlightRange = false;
+    drawNodeButtons(flags);
+    drawHighlightOptions(flags);
+    drawVramBreakpoints(logger);
+
+    ImGui::Separator();
+    drawFrameStats(logger);
+    ImGui::Separator();
+    ImGui::BeginChild("DrawCalls");
+
+    GPU::Logged::Origin origin = GPU::Logged::Origin::REPLAY;
+    uint32_t value = 0;
+    uint32_t length = 0;
+    int n = 0;
+
+    for (auto& logged : logger->m_list) {
+        ImGui::PushID(n);
+        if (m_filterEnabled && !logged.isInside(m_filter.x, m_filter.y)) {
+            continue;
+        }
+        if (m_showOrigins) {
+            if ((logged.origin != GPU::Logged::Origin::REPLAY) &&
+                ((origin != logged.origin) || (value != logged.value) || (length != logged.length))) {
+                origin = logged.origin;
+                value = logged.value;
+                length = logged.length;
+                drawOrigin(logged);
+            }
+        }
+        drawNode(logger, logged, n, flags);
+        n++;
+        ImGui::PopID();
+    }
+
+    ImGui::EndChild();
+    ImGui::End();
+
+    if (m_replay && replayAllowed) {
+        logger->replay(logger->gpu());
+    }
+
+    logger->highlight(flags.tempHighlight, flags.tempHighlight && ImGui::GetIO().KeyCtrl);
+}
+
+void PCSX::Widgets::GPULogger::drawMenuBar() {
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu(_("Settings"))) {
             auto& colorFormat = m_settings.colorFormat;
@@ -66,7 +115,9 @@ void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title, 
         }
         ImGui::EndMenuBar();
     }
+}
 
+void PCSX::Widgets::GPULogger::drawLoggerOptions(PCSX::GPULogger* logger) {
     if (ImGui::Checkbox(_("GPU logging"), &logger->m_enabled)) {
         if (logger->m_enabled) {
             logger->enable();
@@ -96,34 +147,32 @@ void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title, 
     ImGuiHelpers::ShowHelpMarker(
         _("When enabled, the logger display will also show where did the command come from, which can be useful to "
           "debug or reverse engineer, but will also clutter the logger view."));
-    bool collapseAll = false;
-    bool expandAll = false;
-    bool disableFromHere = false;
-    bool removeHighlight = false;
-    bool setHighlightRange = m_setHighlightRange;
-    GPU::Logged* tempHighlight = nullptr;
-    bool hasHighlight = false;
-    m_setHighlightRange = false;
+}
+
+void PCSX::Widgets::GPULogger::drawNodeButtons(NodeFlags& flags) {
     if (ImGui::BeginTable("Buttons", 2, ImGuiTableFlags_SizingFixedFit)) {
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         if (ImGui::Button(_("Collapse all nodes"))) {
-            collapseAll = true;
+            flags.collapseAll = true;
         }
         ImGui::TableSetColumnIndex(1);
         ImGui::Checkbox(_("Keep collapsed"), &m_collapseAll);
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         if (ImGui::Button(_("Expand all nodes"))) {
-            expandAll = true;
+            flags.expandAll = true;
         }
         ImGui::TableSetColumnIndex(1);
         ImGui::Checkbox(_("Keep expanded"), &m_expandAll);
         ImGui::EndTable();
     }
+}
+
+void PCSX::Widgets::GPULogger::drawHighlightOptions(NodeFlags& flags) {
     ImGui::Separator();
     if (ImGui::Button(_("Remove all highlight selections"))) {
-        removeHighlight = true;
+        flags.removeHighlight = true;
     }
     ImGui::Checkbox(_("Highlight on hover"), &m_hoverHighlight);
     ImGuiHelpers::ShowHelpMarker(
@@ -141,9 +190,9 @@ void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title, 
     }
     ImGuiHelpers::ShowHelpMarker(_(
         "When enabled, hovering then clicking inside the VRAM viewer will set the pixel location for the filtering."));
+}
 
-    std::string label;
-
+void PCSX::Widgets::GPULogger::drawVramBreakpoints(PCSX::GPULogger* logger) {
     ImGui::Separator();
     // Breakpoints pause the emulator, so they only make sense on the emulator's own logger.
     if (logger->followsEmulator() && ImGui::TreeNode(_("VRAM breakpoints"))) {
@@ -179,9 +228,10 @@ void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title, 
         }
         ImGui::TreePop();
     }
+}
 
-    ImGui::Separator();
-    label = fmt::format(f_("Frame {}###FrameCounterNode"), logger->m_frameCounter - m_frameCounterOrigin);
+void PCSX::Widgets::GPULogger::drawFrameStats(PCSX::GPULogger* logger) {
+    std::string label = fmt::format(f_("Frame {}###FrameCounterNode"), logger->m_frameCounter - m_frameCounterOrigin);
     if (ImGui::TreeNode(label.c_str())) {
         if (ImGui::Button(_("Reset frame counter"))) {
             m_frameCounterOrigin = logger->m_frameCounter;
@@ -218,114 +268,114 @@ void PCSX::Widgets::GPULogger::draw(PCSX::GPULogger* logger, const char* title, 
 
         ImGui::TreePop();
     }
+}
+
+void PCSX::Widgets::GPULogger::drawOrigin(GPU::Logged& logged) {
     ImGui::Separator();
-    ImGui::BeginChild("DrawCalls");
-
-    GPU::Logged::Origin origin = GPU::Logged::Origin::REPLAY;
-    uint32_t value = 0;
-    uint32_t length = 0;
-    int n = 0;
-
-    for (auto& logged : logger->m_list) {
-        ImGui::PushID(n);
-        if (m_filterEnabled && !logged.isInside(m_filter.x, m_filter.y)) {
-            continue;
-        }
-        if (m_showOrigins) {
-            if ((logged.origin != GPU::Logged::Origin::REPLAY) &&
-                ((origin != logged.origin) || (value != logged.value) || (length != logged.length))) {
-                ImGui::Separator();
-                std::string label;
-                origin = logged.origin;
-                value = logged.value;
-                length = logged.length;
-                switch (origin) {
-                    case GPU::Logged::Origin::DATAWRITE:
-                        ImGui::Text(_("Data port write: %08x"), value);
-                        break;
-                    case GPU::Logged::Origin::CTRLWRITE:
-                        ImGui::Text(_("Control port write: %08x"), value);
-                        break;
-                    case GPU::Logged::Origin::DIRECT_DMA:
-                        ImGui::TextUnformatted(_("Direct DMA from"));
-                        ImGui::SameLine();
-                        label = fmt::format("{:08x}", value | 0x80000000);
-                        if (ImGui::Button(label.c_str())) {
-                            g_system->m_eventBus->signal(Events::GUI::JumpToMemory{value | 0x80000000, length * 4});
-                        }
-                        break;
-                    case GPU::Logged::Origin::CHAIN_DMA:
-                        ImGui::TextUnformatted(_("Chain DMA from"));
-                        ImGui::SameLine();
-                        label = fmt::format("{:08x}", value | 0x80000000);
-                        if (ImGui::Button(label.c_str())) {
-                            g_system->m_eventBus->signal(Events::GUI::JumpToMemory{value | 0x80000000, length * 4 + 4});
-                        }
-                        break;
-                }
-                ImGui::SameLine();
-                ImGui::TextUnformatted(_("at PC ="));
-                ImGui::SameLine();
-                label = fmt::format("{:08x}", logged.pc);
-                if (ImGui::Button(label.c_str())) {
-                    g_system->m_eventBus->signal(Events::GUI::JumpToPC{logged.pc});
-                }
+    std::string label;
+    const auto origin = logged.origin;
+    const auto value = logged.value;
+    const auto length = logged.length;
+    switch (origin) {
+        case GPU::Logged::Origin::DATAWRITE:
+            ImGui::Text(_("Data port write: %08x"), value);
+            break;
+        case GPU::Logged::Origin::CTRLWRITE:
+            ImGui::Text(_("Control port write: %08x"), value);
+            break;
+        case GPU::Logged::Origin::DIRECT_DMA:
+            ImGui::TextUnformatted(_("Direct DMA from"));
+            ImGui::SameLine();
+            label = fmt::format("{:08x}", value | 0x80000000);
+            if (ImGui::Button(label.c_str())) {
+                g_system->m_eventBus->signal(Events::GUI::JumpToMemory{value | 0x80000000, length * 4});
             }
-        }
-        if (disableFromHere) logged.enabled = false;
-        if (removeHighlight) logged.highlight = false;
-        ImGui::BeginGroup();
-        if (!m_replay) ImGui::BeginDisabled();
-        ImGui::Checkbox("##enable", &logged.enabled);
-        ImGui::SameLine();
-        if (ImGui::Button("T")) {
-            for (auto& before : logger->m_list) {
-                before.enabled = true;
-                if (&before == &logged) break;
+            break;
+        case GPU::Logged::Origin::CHAIN_DMA:
+            ImGui::TextUnformatted(_("Chain DMA from"));
+            ImGui::SameLine();
+            label = fmt::format("{:08x}", value | 0x80000000);
+            if (ImGui::Button(label.c_str())) {
+                g_system->m_eventBus->signal(Events::GUI::JumpToMemory{value | 0x80000000, length * 4 + 4});
             }
-            disableFromHere = true;
-        }
-        if (!m_replay) ImGui::EndDisabled();
-        ImGui::SameLine();
-        ImGui::Checkbox("##highlight", &logged.highlight);
-        ImGui::SameLine();
-        if (ImGui::Button("B")) {
-            m_setHighlightRange = true;
-            m_beginHighlight = n;
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("E")) {
-            m_setHighlightRange = true;
-            m_endHighlight = n;
-        }
-        ImGui::SameLine();
-        if (collapseAll || m_collapseAll) ImGui::SetNextItemOpen(false);
-        if (expandAll || m_expandAll) ImGui::SetNextItemOpen(true);
-        label = fmt::format("{}##node{}", logged.getName(), n);
-        if (ImGui::TreeNode(label.c_str())) {
-            logged.drawLogNode(n, m_settings);
-            ImGui::TreePop();
-        }
-        ImGui::EndGroup();
-        if (m_hoverHighlight && ImGui::IsItemHovered()) {
-            tempHighlight = &logged;
-        }
-        if (setHighlightRange) {
-            logged.highlight = (m_beginHighlight <= n) && (n <= m_endHighlight);
-        }
-        if (logged.highlight) {
-            hasHighlight = true;
-        }
-        n++;
-        ImGui::PopID();
+            break;
     }
-
-    ImGui::EndChild();
-    ImGui::End();
-
-    if (m_replay && replayAllowed) {
-        logger->replay(logger->gpu());
+    ImGui::SameLine();
+    ImGui::TextUnformatted(_("at PC ="));
+    ImGui::SameLine();
+    label = fmt::format("{:08x}", logged.pc);
+    if (ImGui::Button(label.c_str())) {
+        g_system->m_eventBus->signal(Events::GUI::JumpToPC{logged.pc});
     }
+}
 
-    logger->highlight(tempHighlight, tempHighlight && ImGui::GetIO().KeyCtrl);
+void PCSX::Widgets::GPULogger::drawNode(PCSX::GPULogger* logger, GPU::Logged& logged, int n, NodeFlags& flags) {
+    if (flags.disableFromHere) logged.enabled = false;
+    if (flags.removeHighlight) logged.highlight = false;
+    ImGui::BeginGroup();
+    if (!m_replay) ImGui::BeginDisabled();
+    ImGui::Checkbox("##enable", &logged.enabled);
+    ImGui::SameLine();
+    if (ImGui::Button("T")) {
+        for (auto& before : logger->m_list) {
+            before.enabled = true;
+            if (&before == &logged) break;
+        }
+        flags.disableFromHere = true;
+    }
+    if (!m_replay) ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::Checkbox("##highlight", &logged.highlight);
+    ImGui::SameLine();
+    if (ImGui::Button("B")) {
+        m_setHighlightRange = true;
+        m_beginHighlight = n;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("E")) {
+        m_setHighlightRange = true;
+        m_endHighlight = n;
+    }
+    ImGui::SameLine();
+    if (logged.editable()) {
+        if (ImGui::SmallButton(_("Edit"))) ImGui::OpenPopup("edit");
+        if (ImGui::BeginPopup("edit")) {
+            // The overlay is only created once a field is edited.
+            GPU::Logged::Overlay scratch;
+            logged.drawEditor(logged.overlay ? *logged.overlay : scratch);
+            if (!logged.overlay && !scratch.empty()) {
+                logged.overlay = std::make_unique<GPU::Logged::Overlay>(scratch);
+            }
+            ImGui::Separator();
+            if (ImGui::Button(_("Revert"))) {
+                logged.overlay.reset();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+        ImGui::SameLine();
+    } else {
+        // Keep the node names in one column whether the row has an Edit button or not.
+        const float width = ImGui::CalcTextSize(_("Edit")).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        ImGui::Dummy(ImVec2(width, ImGui::GetTextLineHeight()));
+        ImGui::SameLine();
+    }
+    if (flags.collapseAll || m_collapseAll) ImGui::SetNextItemOpen(false);
+    if (flags.expandAll || m_expandAll) ImGui::SetNextItemOpen(true);
+    const bool edited = logged.overlay && !logged.overlay->empty();
+    std::string label = fmt::format("{}{}##node{}", edited ? "* " : "", logged.getName(), n);
+    if (ImGui::TreeNode(label.c_str())) {
+        logged.drawLogNode(n, m_settings);
+        ImGui::TreePop();
+    }
+    ImGui::EndGroup();
+    if (m_hoverHighlight && ImGui::IsItemHovered()) {
+        flags.tempHighlight = &logged;
+    }
+    if (flags.setHighlightRange) {
+        logged.highlight = (m_beginHighlight <= n) && (n <= m_endHighlight);
+    }
+    if (logged.highlight) {
+        flags.hasHighlight = true;
+    }
 }

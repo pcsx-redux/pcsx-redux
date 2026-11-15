@@ -57,6 +57,7 @@
     <None Include="..\..\src\lua\compressionffi-cdef.lua" />
     <None Include="..\..\src\lua\sqliteffi.lua" />
     <None Include="..\..\src\lua\compressionffi.lua" />
+    <None Include="..\..\src\lua\texttable.lua" />
     <None Include="..\..\third_party\glffi\glffi-typedefs.lua" />
     <None Include="..\..\third_party\lua-protobuf\descriptor.pb.lua" />
     <None Include="..\..\third_party\lua-protobuf\lexer.lua" />

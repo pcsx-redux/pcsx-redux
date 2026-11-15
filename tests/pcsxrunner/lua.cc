@@ -81,6 +81,7 @@ TEST(LuaCallGuest, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.callguest"), 0)
 TEST(LuaCompression, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.compression"), 0); }
 TEST(LuaCompression, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.compression"), 0); }
 TEST(LuaSQLite, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sqlite"), 0); }
+TEST(LuaTextTable, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.texttable"), 0); }
 TEST(LuaRewind, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.rewind"), 0); }
 TEST(LuaRewind, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.rewind"), 0); }
 TEST(LuaGdbReverse, Interpreter) {
@@ -141,13 +142,15 @@ TEST(LuaPCdrv, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.pcdrv"), 0); }
 TEST(LuaPCWrite, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.pcwrite"), 0); }
 TEST(LuaSaveStateBranchSlot, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sstate-branchslot"), 0); }
 TEST(LuaSaveStateSPUCnt, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sstate-spucnt"), 0); }
+TEST(LuaSaveStateResult, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sstate-result"), 0); }
 TEST(LuaSPULogger, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.spulogger"), 0); }
 TEST(LuaGdbServer, Interpreter) {
-    EXPECT_EQ(runLuaInt("-gdb", "-gdb-port", "34567", "-exec", "require 'tests.lua.gdbserver'"), 0);
+    EXPECT_EQ(runLuaInt("-gdb", "-gdb-port", "3464", "-exec", "require 'tests.lua.gdbserver'"), 0);
 }
 TEST(LuaIsoBuilder, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.isobuilder"), 0); }
 TEST(LuaIsoBuilder, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.isobuilder"), 0); }
 TEST(LuaMds, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.mds"), 0); }
+TEST(LuaCuePregap, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.cuepregap"), 0); }
 TEST(LuaBinary, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.binary"), 0); }
 TEST(LuaCDRomApi, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.cdromapi"), 0); }
 

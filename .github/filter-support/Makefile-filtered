@@ -21,6 +21,7 @@ CPPFLAGS += -Isrc
 CPPFLAGS += -Ithird_party
 CPPFLAGS += -Ithird_party/ELFIO
 CPPFLAGS += -Ithird_party/fmt/include/
+CPPFLAGS += -Ithird_party/magic_enum/include
 CPPFLAGS += -Ithird_party/googletest/googletest/include
 CPPFLAGS += -Ithird_party/PEGTL/include
 CPPFLAGS += -Ithird_party/ucl -Ithird_party/ucl/include

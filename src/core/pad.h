@@ -51,6 +51,9 @@ class Pads {
     // Rewrites keyboard bindings saved by the GLFW builds as SDL scancodes.
     // Returns true if the pad's config was migrated.
     static bool migrateKeyboardBindings(json& pad);
+    // Rewrites controller bindings saved by the GLFW builds as SDL gamepad buttons.
+    // Returns true if the pad's config was migrated.
+    static bool migrateControllerBindings(json& pad);
     virtual void setDefaults() = 0;
     virtual bool configure(PCSX::GUI* gui) = 0;
 
@@ -71,6 +74,8 @@ class Pads {
     };
     virtual void getTransferState(Port port, TransferState& state) = 0;
     virtual void setTransferState(Port port, const TransferState& state) = 0;
+
+    virtual void rescanGamepads() = 0;
 
     virtual void setLua(PCSX::Lua L) = 0;
 

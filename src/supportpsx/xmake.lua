@@ -14,7 +14,8 @@ target('pcsx.supportpsx', function()
     add_defines('ACC_CONFIG_AUTO_NO_FUNCTIONS')
     add_includedirs(path.join(support_root, 'src'), path.join(support_root, 'third_party'),
                     path.join(support_root, 'third_party', 'ELFIO'), path.join(support_root, 'third_party', 'ucl'),
-                    path.join(support_root, 'third_party', 'ucl', 'include'))
+                    path.join(support_root, 'third_party', 'ucl', 'include'),
+                    path.join(support_root, 'third_party', 'magic_enum', 'include'))
 
     add_files('*.c', '*.cc')
 

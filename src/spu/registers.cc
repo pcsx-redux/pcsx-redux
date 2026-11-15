@@ -158,7 +158,7 @@ void PCSX::SPU::impl::resetAdpcmWalk(int ch) {
     cp.loop = cp.keyOnLoop;
     cp.ignoreLoop = false;
     cp.left = 0;
-    cp.pos = settings.get<Interpolation>() >= 2 ? 0x30000 : 0x10000;
+    cp.pos = settings.get<Interpolation>() >= 2 ? Interpolator::kGaussKeyOnPosition : 0x10000;
     cp.pitchStep = std::max(1, m_pitchShadow[ch] << 4);
     cp.ended = false;
     cp.untracked = m_fmodShadow[ch] == 1;
@@ -499,6 +499,17 @@ void PCSX::SPU::impl::applyRegister(uint32_t reg, uint16_t val) {
             // Writing IRQ9 Enable = 0 is the acknowledge: it is the only thing that clears
             // the SPUSTAT flag, and writing it back to 1 is what re-arms the interrupt.
             if (!(val & ControlFlags::IRQEnable)) spuStat &= ~StatusFlags::IRQFlag;
+            // The IRQ address compare holds while a voice reads the matching block, so re-arming
+            // during that block raises IRQ9 again rather than waiting for the next pass.
+            if ((val & ControlFlags::IRQEnable) && !(spuCtrl & ControlFlags::IRQEnable)) {
+                for (unsigned ch = 0; ch < MAXCHAN; ch++) {
+                    const uint8_t* block = s_chan[ch].adpcm.block();
+                    if (block && irqAddress >= block && irqAddress < block + 16) {
+                        s_chan[ch].data.get<Chan::IrqDone>().value = 1;
+                        triggerIrq();
+                    }
+                }
+            }
             spuCtrl = val;
             m_ctrlWritesPending--;
             m_noise.setClock((spuCtrl & (ControlFlags::NoiseShiftMask | ControlFlags::NoiseStepMask)) >> 8);
@@ -878,8 +889,9 @@ void PCSX::SPU::impl::SoundOn(int start, int end, uint16_t val, uint64_t cycle) 
             cp.cachedOn = true;
             resetAdpcmWalk(ch);
             // One entry per voice actually keyed, carrying the address it is about to decode
-            // from: the only sample entry point that is ground truth rather than inference.
-            g_emulator->m_spuLogger->log(SPULogger::Kind::KeyOn, cp.keyOnBlock, 0, 1, ch);
+            // from: the only sample entry point that is ground truth rather than inference. The
+            // value is the pitch the voice starts at.
+            g_emulator->m_spuLogger->log(SPULogger::Kind::KeyOn, cp.keyOnBlock, 0, m_pitchShadow[ch], ch);
         }
     }
 }

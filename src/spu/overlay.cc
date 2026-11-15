@@ -73,7 +73,7 @@ int32_t PCSX::SPU::OverlayVoice::next(int32_t step) {
     if (m_entry->loops && double(i + 1) >= m_entry->loopEnd) b = pcm[size_t(m_entry->loopStart)];
     const double value = a + (b - a) * frac;
 
-    m_pos += double(step) / 65536.0 * m_entry->ratio;
+    m_pos += double(step) / 65536.0 * m_ratio;
     if (m_entry->loops) {
         const double length = m_entry->loopEnd - m_entry->loopStart;
         while (m_pos >= m_entry->loopEnd) m_pos -= length;

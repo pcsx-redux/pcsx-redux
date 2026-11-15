@@ -184,6 +184,7 @@
     <ClInclude Include="..\..\src\gui\gui.h" />
     <ClInclude Include="..\..\src\gui\luaimguiextra.h" />
     <ClInclude Include="..\..\src\gui\luaimplot.h" />
+    <ClInclude Include="..\..\src\gui\memeditor-route.h" />
     <ClInclude Include="..\..\src\gui\luatvg.h" />
     <ClInclude Include="..\..\src\gui\resources.h" />
     <ClInclude Include="..\..\src\gui\shaders\crt-lottes.h" />

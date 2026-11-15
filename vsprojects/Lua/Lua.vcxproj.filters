@@ -91,6 +91,9 @@
     <None Include="..\..\src\lua\compressionffi.lua">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="..\..\src\lua\texttable.lua">
+      <Filter>Source Files</Filter>
+    </None>
     <None Include="..\..\third_party\zlibffi\zlibffi.lua">
       <Filter>Source Files</Filter>
     </None>

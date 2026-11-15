@@ -42,6 +42,9 @@ class GPUDump {
   private:
     void drawRecorder();
     void drawPlayer();
+    void drawLogger();
+    void handleSaveDialog();
+    void handleOpenDialog();
     void updateTexture();
 
     FileDialog<FileDialogMode::Save> m_saveDialog;

@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'tools/build/Dockerfile'
-      - 'tools/linux-mips/spawn-compiler.sh'
+      - 'src/mips'
       - '.dockerignore'
       - '.github/workflows/build-image.yml'
   workflow_dispatch:
@@ -46,6 +46,8 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - name: Fetch nugget
+        run: git submodule update --init --depth 1 src/mips
       - name: Set up buildx
         uses: docker/setup-buildx-action@v3
       - name: Log into ghcr.io

@@ -19,7 +19,7 @@
 local lu = require 'luaunit'
 
 -- Has to match the -gdb-port the runner passes.
-local PORT = 34567
+local PORT = 3464
 
 TestGdbServer = {}
 
@@ -69,12 +69,13 @@ local function connect()
     if client then return end
     local co = coroutine.running()
     client = luv.new_tcp()
+    -- An error raised inside a luv callback exits the process, so the result is checked once
+    -- back in the test.
     client:connect('127.0.0.1', PORT, function(err)
-        lu.assertNil(err)
-        client:read_start(onData)
-        coroutine.resume(co)
+        if not err then client:read_start(onData) end
+        coroutine.resume(co, err)
     end)
-    coroutine.yield()
+    lu.assertNil(coroutine.yield())
 end
 
 -- Sends one packet and returns the payload of the reply.

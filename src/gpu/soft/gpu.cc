@@ -1080,7 +1080,13 @@ void PCSX::SoftGPU::PrimOp<Prim>::run(PCSX::SoftGPU::impl &r) {
     r.exec(&prim);
 }
 
-void PCSX::SoftGPU::VramWriteOp::run(PCSX::SoftGPU::impl &r) { r.vramWrite(x, y, w, h, pixels.data()); }
+void PCSX::SoftGPU::VramWriteOp::run(PCSX::SoftGPU::impl &r) {
+    if (masked) {
+        r.vramUpload(x, y, w, h, pixels.data());
+    } else {
+        r.vramWrite(x, y, w, h, pixels.data());
+    }
+}
 
 void PCSX::SoftGPU::SkipParityOp::run(PCSX::SoftGPU::impl &r) { r.m_skipParity = parity; }
 

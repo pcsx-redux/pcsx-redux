@@ -288,6 +288,9 @@
     <ClInclude Include="..\..\src\gui\luaimplot.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\gui\memeditor-route.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\gui\widgets\patches.h">
       <Filter>Header Files\widgets</Filter>
     </ClInclude>

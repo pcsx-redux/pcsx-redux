@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "core/hwevents.h"
 #include "core/psxemulator.h"
 #include "support/eventbus.h"
 #include "support/polyfills.h"
@@ -162,6 +163,10 @@ class Memory {
     template <unsigned n>
     void dmaInterrupt() {
         uint32_t icr = readHardwareRegister<DMA_ICR>();
+        auto &events = *g_emulator->m_hwEvents;
+        if (events.armed(HWEvents::Source::DMA)) [[unlikely]] {
+            events.record(HWEvents::DMAComplete, n, icr);
+        }
         if ((icr & 0x00800000) == 0) return;
         bool triggeredIRQ = false;
         if (icr & (1 << (16 + n))) {
@@ -261,6 +266,10 @@ class Memory {
 
     void setIRQ(uint32_t irq) {
         uint32_t istat = readHardwareRegister<ISTAT>();
+        auto &events = *g_emulator->m_hwEvents;
+        if (events.armed(HWEvents::Source::IRQ)) [[unlikely]] {
+            events.record(HWEvents::IRQAssert, irq, istat, readHardwareRegister<IMASK>());
+        }
         istat |= irq;
         writeHardwareRegister<ISTAT>(istat);
     }
@@ -318,6 +327,7 @@ class Memory {
     IO<MemoryAsFile> getMemoryAsFile() { return m_memoryAsFile; }
 
     bool isiCacheEnabled() { return m_BIU == 0x1e988; }
+    bool isolatedToICache(uint32_t address) const;
     uint32_t getBIU() const { return m_BIU; }
     // For save states: the guest's own write to 0xfffe0130 also invalidates the code cache on
     // some values, which a restore does by itself.

@@ -275,6 +275,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\dma.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\dumpproto.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\cputrace.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\hwevents.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpudump.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpudump-deinterlace.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-raster.cc" />
@@ -289,6 +290,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\rumble.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\sio1-misc.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\srwrite.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\icache.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\timers.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-command.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-dma-dreq.cc" />
@@ -299,6 +301,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat10.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat26.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat-480i.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\gpustat-timeline.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-polyline.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-vram-move.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\msan.cc" />
@@ -324,6 +327,7 @@
     <ClCompile Include="..\..\..\tests\core\gpulogger-hittest.cc" />
     <ClCompile Include="..\..\..\tests\core\mdec-decoder.cc" />
     <ClCompile Include="..\..\..\tests\core\memorycard.cc" />
+    <ClCompile Include="..\..\..\tests\core\memeditor-route.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\multitap.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-cdrom-flags.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-pad.cc" />

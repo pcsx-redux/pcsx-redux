@@ -64,7 +64,7 @@ class SPULogger {
         uint32_t pc = 0;       // guest PC responsible for the write
         uint32_t address = 0;  // byte offset into sound RAM, where meaningful
         uint32_t length = 0;   // bytes, for transfers
-        uint32_t value = 0;    // raw register value, or the key mask
+        uint32_t value = 0;    // raw register value, or for KeyOn the voice's pitch register
         Kind kind = Kind::PIOWrite;
         uint8_t voice = c_noVoice;
     };

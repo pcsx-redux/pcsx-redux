@@ -144,15 +144,11 @@ class impl final : public SPUInterface {
         // exactly what a browser's main thread may not do - it is a futex wait,
         // and it is the reason this build used to need PROXY_TO_PTHREAD.
         //
-        // In a browser the pacing belongs to the frame callback instead: the
-        // main loop delivers ~60 calls a second and Execute() unwinds after one
-        // emulated frame, so the rate is set by requestAnimationFrame rather
-        // than by the audio clock. The caller advances m_audioFrames either way.
-        //
-        // Known imperfection rather than an oversight: that ties emulation speed
-        // to the display refresh, so a PAL title or a 144 Hz monitor will not
-        // pace correctly. Fixing that means driving from the audio callback,
-        // which is a bigger change than moving the loop.
+        // In a browser the pacing belongs to the frame callback instead:
+        // Execute() unwinds after one emulated frame, and main.cc only calls it
+        // while the CPU is less than the lead ahead of what the device has
+        // played, whatever the display refresh. The caller advances
+        // m_audioFrames either way.
         (void)goal;
 #else
         m_audioOut.waitForGoal(goal);
@@ -166,6 +162,7 @@ class impl final : public SPUInterface {
         const int marginMs = std::max(0, settings.get<LatencyMargin>().value);
         return devicePeriodFrames() + 2 * NSSIZE + marginMs * 441 / 10;
     }
+    int getEffectiveSpeed() override;
     uint32_t devicePeriodFrames() {
         const uint32_t period = m_audioOut.getPeriodFrames();
         return period ? period : 1024;
@@ -350,6 +347,9 @@ class impl final : public SPUInterface {
     // Set from the UI thread, read by the mixer at key-on.
     std::mutex m_overlayMutex;
     std::shared_ptr<const Overlay> m_overlay;
+    // The note each replaced original sounds at pitch 1000h, by signature. A signature names
+    // the sample's content, so an entry never goes stale. Mixer thread only.
+    std::unordered_map<uint64_t, double> m_overlayNotes;
     void startOverlay(SPUCHAN *voice);
     std::condition_variable m_mixerWake;
     std::condition_variable m_cpuWake;

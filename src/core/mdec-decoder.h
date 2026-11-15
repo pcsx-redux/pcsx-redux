@@ -28,7 +28,7 @@
 //
 // This is the emulator's decoder, and the emulator is what anchors it: every
 // clause that has been measured on a console was measured against this code
-// (src/mips/tests/mdec-roundtrip is the rig, genjob.py names the arms). Both
+// (src/mips/tests/mdec/roundtrip is the rig, genjob.py names the arms). Both
 // src/core/mdec.cc and tools/mdec decode through here, so a decode in the tool
 // is byte-for-byte what the emulator's MDEC hands a game for the same stream and
 // tables. Change it the way the emulator's MDEC was always changed: against a

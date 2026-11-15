@@ -29,6 +29,7 @@
 #include "core/gpu.h"
 #include "core/gpudump.h"
 #include "core/gpulogger.h"
+#include "core/hwevents.h"
 #include "core/psxemulator.h"
 #include "core/psxmem.h"
 #include "core/r3000a.h"
@@ -148,6 +149,23 @@ bool loadCpuTrace(const char* path) {
     return PCSX::g_emulator->m_cpuTrace->load(file);
 }
 
+uint64_t getHWEventsSize() { return PCSX::g_emulator->m_hwEvents->size(); }
+void clearHWEvents() { PCSX::g_emulator->m_hwEvents->clear(); }
+uint32_t getHWEventsMask() { return PCSX::g_emulator->m_hwEvents->mask(); }
+bool getHWEventsFull() { return PCSX::g_emulator->m_hwEvents->full(); }
+void setHWEventsMask(uint32_t mask) { PCSX::g_emulator->m_hwEvents->setMask(mask); }
+// Same contract as readCpuTrace: copies into a caller-provided PCSX_HWEvent[] and
+// returns how many were copied.
+uint64_t readHWEvents(void* dest, uint64_t start, uint64_t count) {
+    auto& events = *PCSX::g_emulator->m_hwEvents;
+    uint64_t total = events.size();
+    if (start >= total) return 0;
+    if (count > total - start) count = total - start;
+    auto* out = reinterpret_cast<PCSX::HWEvent*>(dest);
+    for (uint64_t i = 0; i < count; i++) out[i] = events[start + i];
+    return count;
+}
+
 struct LuaScreenShot {
     PCSX::Slice* data;
     uint16_t width, height;
@@ -211,6 +229,34 @@ uint64_t getGPUDumpPlayerFrameCount() { return PCSX::g_emulator->m_gpuDumpPlayer
 bool seekGPUDumpPlayer(uint64_t frame) { return PCSX::g_emulator->m_gpuDumpPlayer->seek(frame); }
 void setGPUDumpPlayerLogging(bool enabled) { PCSX::g_emulator->m_gpuDumpPlayer->logger()->setLogging(enabled); }
 uint32_t getGPUDumpPlayerLoggedCount() { return PCSX::g_emulator->m_gpuDumpPlayer->logger()->loggedCount(); }
+// Index is the node's position in the player logger's list.
+static PCSX::GPU::Logged* getGPUDumpPlayerNode(unsigned index) {
+    for (auto& node : PCSX::g_emulator->m_gpuDumpPlayer->logger()->frameLog()) {
+        if (index-- == 0) return &node;
+    }
+    return nullptr;
+}
+const char* getGPUDumpPlayerNodeName(unsigned index) {
+    static std::string name;
+    auto node = getGPUDumpPlayerNode(index);
+    name = node ? std::string(node->getName()) : std::string();
+    return name.c_str();
+}
+bool setGPUDumpPlayerNodeColor(unsigned index, unsigned vertex, uint32_t color) {
+    auto node = getGPUDumpPlayerNode(index);
+    if (!node || !node->editable() || (vertex >= 4) || !node->colorEditable(vertex)) return false;
+    if (!node->overlay) node->overlay = std::make_unique<PCSX::GPU::Logged::Overlay>();
+    node->overlay->colors[vertex] = color & 0xffffff;
+    return true;
+}
+void clearGPUDumpPlayerNodeOverlay(unsigned index) {
+    auto node = getGPUDumpPlayerNode(index);
+    if (node) node->overlay.reset();
+}
+void replayGPUDumpPlayer() {
+    auto player = PCSX::g_emulator->m_gpuDumpPlayer.get();
+    if (player->gpu()) player->logger()->replay(player->gpu());
+}
 PCSX::Slice* getGPUDumpPlayerVRAM() {
     auto gpu = PCSX::g_emulator->m_gpuDumpPlayer->gpu();
     if (!gpu) return new PCSX::Slice();
@@ -252,11 +298,11 @@ PCSX::Slice* createSaveState() {
     return new PCSX::Slice(std::move(ss));
 }
 
-void loadSaveStateFromSlice(PCSX::Slice* data) { PCSX::SaveStates::loadSafe(std::string(data->asStringView())); }
+bool loadSaveStateFromSlice(PCSX::Slice* data) { return PCSX::SaveStates::loadSafe(std::string(data->asStringView())); }
 
-void loadSaveStateFromFile(PCSX::LuaFFI::LuaFile* file) {
+bool loadSaveStateFromFile(PCSX::LuaFFI::LuaFile* file) {
     auto data = file->file->readAt(64 * 1024 * 1024, 0);
-    PCSX::SaveStates::loadSafe(std::string(data.asStringView()));
+    return PCSX::SaveStates::loadSafe(std::string(data.asStringView()));
 }
 
 void createRewindState() { PCSX::g_emulator->createRewindState(); }
@@ -337,6 +383,12 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, exportCpuTraceText);
     REGISTER(L, saveCpuTrace);
     REGISTER(L, loadCpuTrace);
+    REGISTER(L, getHWEventsSize);
+    REGISTER(L, clearHWEvents);
+    REGISTER(L, getHWEventsMask);
+    REGISTER(L, setHWEventsMask);
+    REGISTER(L, readHWEvents);
+    REGISTER(L, getHWEventsFull);
     REGISTER(L, takeScreenShot);
     REGISTER(L, getGuestFPS);
     REGISTER(L, setGPULogging);
@@ -363,6 +415,10 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, seekGPUDumpPlayer);
     REGISTER(L, setGPUDumpPlayerLogging);
     REGISTER(L, getGPUDumpPlayerLoggedCount);
+    REGISTER(L, getGPUDumpPlayerNodeName);
+    REGISTER(L, setGPUDumpPlayerNodeColor);
+    REGISTER(L, clearGPUDumpPlayerNodeOverlay);
+    REGISTER(L, replayGPUDumpPlayer);
     REGISTER(L, getGPUDumpPlayerVRAM);
     REGISTER(L, getVRAM);
     REGISTER(L, createSaveState);

@@ -24,7 +24,7 @@ jobs:
       - name: Install pre-reqs
         run: sudo apt-get install -y libgmp-dev libmpfr-dev libmpc-dev
       - name: Build toolchains
-        run: sudo bash tools/linux-mips/spawn-compiler.sh
+        run: sudo bash src/mips/tools/linux-mips/spawn-compiler.sh
       - name: Build OpenBIOS with it
         run: make -C src/mips/openbios -j 6 all
       - name: Build psyqo examples with it

@@ -39,6 +39,25 @@ class GPULogger {
     bool& m_show;
 
   private:
+    // State gathered while drawing the node list, shared by the per-node helpers.
+    struct NodeFlags {
+        bool collapseAll = false;
+        bool expandAll = false;
+        bool disableFromHere = false;
+        bool removeHighlight = false;
+        bool setHighlightRange = false;
+        GPU::Logged* tempHighlight = nullptr;
+        bool hasHighlight = false;
+    };
+    void drawMenuBar();
+    void drawLoggerOptions(PCSX::GPULogger* logger);
+    void drawNodeButtons(NodeFlags& flags);
+    void drawHighlightOptions(NodeFlags& flags);
+    void drawVramBreakpoints(PCSX::GPULogger* logger);
+    void drawFrameStats(PCSX::GPULogger* logger);
+    void drawOrigin(GPU::Logged& logged);
+    void drawNode(PCSX::GPULogger* logger, GPU::Logged& logged, int n, NodeFlags& flags);
+
     bool m_replay = false;
     bool m_showOrigins = false;
     bool m_expandAll = false;

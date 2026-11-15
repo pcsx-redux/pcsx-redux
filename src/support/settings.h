@@ -249,7 +249,7 @@ struct SettingPath<irqus::typestring<C...>, irqus::typestring<D...>> {
     json serialize() const { return reinterpret_cast<const char *>(value.u8string().c_str()); }
     void deserialize(const json &j) {
         std::string str = j.template get<std::string>();
-        value = str;
+        value = std::u8string(reinterpret_cast<const char8_t*>(str.data()), str.size());
     }
     void reset() { value = defaultValue::data(); }
     type value = defaultValue::data();

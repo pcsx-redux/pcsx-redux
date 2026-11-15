@@ -24,28 +24,28 @@
 
 TEST(Msan, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-loadexe", "src/mips/tests/msan/msan.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/tooling/msan/msan.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(Msan, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/msan/msan.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/tooling/msan/msan.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(MsanTrip, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-loadexe", "src/mips/tests/msan-trip/msan-trip.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/tooling/msan-trip/msan-trip.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 1);
 }
 
 TEST(MsanTrip, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/msan-trip/msan-trip.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/tooling/msan-trip/msan-trip.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 1);
 }

@@ -81,6 +81,9 @@ class SPUInterface {
     virtual void waitForGoal(uint32_t goal) = 0;
     // How many audio frames the CPU may run ahead of the audio device.
     virtual uint32_t getLeadFrames() = 0;
+    // How many times real time the audio device consumes frames: the configured
+    // speed times the turbo factor, the same rate the device's played count advances at.
+    virtual int getEffectiveSpeed() = 0;
     // The CPU has reached `cycle`: the SPU may produce audio up to it.
     virtual void advanceTo(uint64_t cycle) = 0;
     virtual uint32_t getFrameCount() = 0;

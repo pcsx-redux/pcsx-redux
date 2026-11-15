@@ -59,9 +59,11 @@ void PCSX::SPU::AdpcmDecoder::loadFrom(const Protobuf::Int32 &history1, const Pr
     m_loop = restore(loopOffset);
     for (int i = 0; i < kSamplesPerBlock; i++) m_samples[i] = sb[i].value;
     m_pos = sbPos.value;
+    m_block = nullptr;
 }
 
 PCSX::SPU::AdpcmDecoder::DecodeResult PCSX::SPU::AdpcmDecoder::decodeBlock(uint8_t *block) {
+    m_block = block;
     // Header byte 0: high nibble selects the IIR predictor, low nibble is the
     // per-sample right shift. Byte 1 holds the loop/repeat/end flags.
     // The high nibble is a full 0..15 but only five filters exist. What the hardware does with

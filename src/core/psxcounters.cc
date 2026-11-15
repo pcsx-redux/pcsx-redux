@@ -23,6 +23,8 @@
 
 #include "core/psxcounters.h"
 
+#include <numeric>
+
 #include "core/debug.h"
 #include "core/gpu.h"
 #include "core/sio1.h"
@@ -40,11 +42,27 @@ inline void PCSX::Counters::writeCounterInternal(uint32_t index, uint32_t value,
         value &= 0xffff;
     }
 
-    m_rcnts[index].cycleStart = PCSX::g_emulator->m_cpu->m_regs.cycle;
-    m_rcnts[index].cycleStart -= value * m_rcnts[index].rate;
+    // Anchor to the same gated time readCounterInternal samples, so a write reads back as written.
+    uint64_t now = PCSX::g_emulator->m_cpu->m_regs.cycle;
+    if (now < m_rcnts[index].pauseUntil) now = m_rcnts[index].pauseUntil;
+    if (m_rcnts[index].holdFrom && now > m_rcnts[index].holdFrom) now = m_rcnts[index].holdFrom;
+    m_rcnts[index].cycleStart = now;
+    m_rcnts[index].startFrac = 0;
+    m_rcnts[index].cycleStart -= ticksToCycles(index, value);
     // A positive adjust puts cycleStart in the future: the counter reads 0 until then.
     m_rcnts[index].cycleStart += startAdjust;
+    scheduleEvent(index, value);
+}
 
+void PCSX::Counters::anchorToHblank(uint32_t index) {
+    // On the hblank clock, counter 1 ticks on each hblank edge, so a write mid-line counts from
+    // the last edge: the first tick after it comes at the next hblank, not a whole line later.
+    if (index != 1 || !(m_rcnts[1].mode & Rc1HSyncClock) || (m_rcnts[1].rate == 0xffffffff)) return;
+    const uint64_t now = PCSX::g_emulator->m_cpu->m_regs.cycle;
+    if (now > m_rcnts[3].cycleStart) m_rcnts[1].cycleStart -= now - m_rcnts[3].cycleStart;
+}
+
+void PCSX::Counters::scheduleEvent(uint32_t index, uint32_t value) {
     // Hardware tested (SCPH-5501): counter reaches target value briefly before
     // resetting. Fast reads can observe the target value; slow reads (printf) cannot.
     // The comparison boundary needs more precise measurement to determine if
@@ -57,10 +75,10 @@ inline void PCSX::Counters::writeCounterInternal(uint32_t index, uint32_t value,
     // overflow events coincide - skip straight to overflow to avoid
     // redundant processing.
     if (value < m_rcnts[index].target && m_rcnts[index].target != 0xffff) {
-        m_rcnts[index].cycle = m_rcnts[index].target * m_rcnts[index].rate;
+        m_rcnts[index].cycle = ticksToCycles(index, m_rcnts[index].target);
         m_rcnts[index].counterState = CountToTarget;
     } else {
-        m_rcnts[index].cycle = 0xffff * m_rcnts[index].rate;
+        m_rcnts[index].cycle = ticksToCycles(index, 0xffff);
         m_rcnts[index].counterState = CountToOverflow;
     }
     verboseLog(5, "[RCNT %i] scount: %x\n", index, value);
@@ -70,6 +88,9 @@ inline uint32_t PCSX::Counters::readCounterInternal(uint32_t index) {
     uint64_t count;
 
     count = PCSX::g_emulator->m_cpu->m_regs.cycle;
+    // Gate mode 0 holds the count through the hblank window, gate mode 2 outside it.
+    if (count < m_rcnts[index].pauseUntil) count = m_rcnts[index].pauseUntil;
+    if (m_rcnts[index].holdFrom && count > m_rcnts[index].holdFrom) count = m_rcnts[index].holdFrom;
     if (count < m_rcnts[index].cycleStart) return 0;  // still in the post-reset dwell
     count -= m_rcnts[index].cycleStart;
 
@@ -77,15 +98,15 @@ inline uint32_t PCSX::Counters::readCounterInternal(uint32_t index) {
     // counter reached its target but before reset() ran. Report what the hardware shows
     // there: the target for that one cycle, then the dwell, then the new count.
     if (m_rcnts[index].counterState == CountToTarget && (m_rcnts[index].mode & RcCountToTarget)) {
-        const uint64_t span = uint64_t(m_rcnts[index].target) * m_rcnts[index].rate;
+        const uint64_t span = ticksToCycles(index, m_rcnts[index].target);
         if (count > span) {
             const uint64_t over = count - span;
             const uint64_t dwell = resetDwell(index);
             if (over < dwell) return 0;
-            return ((over - dwell) / m_rcnts[index].rate) & 0xffff;
+            return cyclesToTicks(index, over - dwell) & 0xffff;
         }
     }
-    count /= m_rcnts[index].rate;
+    count = cyclesToTicks(index, count);
 
     if (count > 0xffff) {
         verboseLog(1, "[RCNT %i] readCounter > 0xffff: %x\n", index, count);
@@ -100,6 +121,7 @@ void PCSX::Counters::set() {
     uint64_t next = 0x7fffffffffffffff;
 
     for (int i = 0; i < CounterQuantity; ++i) {
+        if (eventHeld(i)) continue;
         int64_t countToUpdate = m_rcnts[i].cycle - (m_psxNextCounter - m_rcnts[i].cycleStart);
 
         if (countToUpdate < 0) {
@@ -125,13 +147,13 @@ void PCSX::Counters::reset(uint32_t index) {
             // at 0 for 2 more cycles, making the period target + 2 (measured on SCPH-1000, 5501
             // and 7001 for Timer 2; the /8 source stays exactly 8 * target). Timers 0 and 1 are
             // unmeasured and get no dwell.
-            const uint64_t elapsed = PCSX::g_emulator->m_cpu->m_regs.cycle - m_rcnts[index].cycleStart;
-            const uint64_t over = elapsed - uint64_t(m_rcnts[index].target) * m_rcnts[index].rate;
-            const uint64_t dwell = resetDwell(index);
+            const uint64_t now = PCSX::g_emulator->m_cpu->m_regs.cycle;
+            advanceStart(index, m_rcnts[index].target);
+            m_rcnts[index].cycleStart += resetDwell(index);
             // The count the next event is chosen from is the one after the dwell: a reset
-            // that runs late but still inside the dwell leaves the counter at 0, not at `over`.
-            count = over > dwell ? (over - dwell) / m_rcnts[index].rate : 0;
-            writeCounterInternal(index, count, int64_t(dwell) - int64_t(over) + int64_t(count * m_rcnts[index].rate));
+            // that runs late but still inside the dwell leaves the counter at 0.
+            count = now > m_rcnts[index].cycleStart ? cyclesToTicks(index, now - m_rcnts[index].cycleStart) : 0;
+            scheduleEvent(index, count);
         } else {
             count = readCounterInternal(index);
             writeCounterInternal(index, count);
@@ -148,10 +170,9 @@ void PCSX::Counters::reset(uint32_t index) {
         m_rcnts[index].mode |= RcCountEqTarget;
     } else if (m_rcnts[index].counterState == CountToOverflow) {
         // Keep the sub-tick phase across the wrap, as for the target reset above.
-        const uint64_t elapsed = PCSX::g_emulator->m_cpu->m_regs.cycle - m_rcnts[index].cycleStart;
-        const uint64_t over = elapsed - uint64_t(0xffff) * m_rcnts[index].rate;
-        count = over / m_rcnts[index].rate;
-        writeCounterInternal(index, count, -int64_t(over % m_rcnts[index].rate));
+        advanceStart(index, 0xffff);
+        count = cyclesToTicks(index, PCSX::g_emulator->m_cpu->m_regs.cycle - m_rcnts[index].cycleStart);
+        scheduleEvent(index, count);
 
         if (m_rcnts[index].mode & RcIrqOnOverflow) {
             if ((m_rcnts[index].mode & RcIrqRegenerate) || (!m_rcnts[index].irqState)) {
@@ -216,7 +237,7 @@ void PCSX::Counters::update() {
     }
 
     // rcnt 0.
-    if (int64_t(cycle - m_rcnts[0].cycleStart) >= int64_t(m_rcnts[0].cycle)) {
+    if (!eventHeld(0) && int64_t(cycle - m_rcnts[0].cycleStart) >= int64_t(m_rcnts[0].cycle)) {
         reset(0);
     }
 
@@ -232,16 +253,51 @@ void PCSX::Counters::update() {
     // rcnt base.
     if (int64_t(cycle - m_rcnts[3].cycleStart) >= int64_t(m_rcnts[3].cycle)) {
         reset(3);
+        // reset() scheduled the next line with this line's length; give it its own. When the CPU
+        // ran past the whole next line too, reset() picked the overflow event: keep counting to
+        // the target, so the overdue line fires on the next update instead of 65535 cycles later.
+        m_rcnts[3].target = nextLineLength();
+        m_rcnts[3].counterState = CountToTarget;
+        m_rcnts[3].cycle = m_rcnts[3].target;
+
+        // Counter 1 on the hblank clock ticks every whole-cycle rate, while lines alternate
+        // between two lengths. Re-anchor it on this hblank so it counts one tick per line.
+        if ((m_rcnts[1].mode & Rc1HSyncClock) && (m_rcnts[1].rate != 0xffffffff)) {
+            const uint64_t hblank = m_rcnts[3].cycleStart;
+            if (hblank >= m_rcnts[1].cycleStart) {
+                const uint32_t count = cyclesToTicks(1, hblank - m_rcnts[1].cycleStart) & 0xffff;
+                writeCounterInternal(1, count, int64_t(hblank) - int64_t(cycle));
+            }
+        }
+        set();
 
         m_hSyncCount++;
 
         // Counter 0 gate: triggered by Hblank
         if (isGateEnabled(0, m_rcnts[0].mode)) {
             switch (gateSyncMode(m_rcnts[0].mode)) {
+                case 0:  // Pause during Hblank
+                    if (m_rcnts[0].rate != 0xffffffff) {
+                        // Push the count back by the part of the window the counter was running.
+                        const uint64_t end = m_rcnts[3].cycleStart + m_hblankCycles;
+                        const uint64_t from = std::max(m_rcnts[3].cycleStart, m_rcnts[0].cycleStart);
+                        if (end > from) m_rcnts[0].cycleStart += end - from;
+                        m_rcnts[0].pauseUntil = end;
+                        set();
+                    }
+                    break;
                 case 1:  // Reset at Hblank
-                case 2:  // Reset at Hblank + pause outside
                     writeCounterInternal(0, 0);
                     break;
+                case 2: {  // Reset at Hblank, count during it, hold outside
+                    const uint64_t hblank = m_rcnts[3].cycleStart;
+                    recalculateRate(0);
+                    m_rcnts[0].holdFrom = 0;
+                    writeCounterInternal(0, 0, int64_t(hblank) - int64_t(cycle));
+                    m_rcnts[0].holdFrom = hblank + m_hblankCycles;
+                    set();
+                    break;
+                }
                 case 3:  // Pause until first Hblank, then free run
                     if (!m_rcnts[0].gateStarted) {
                         m_rcnts[0].gateStarted = 1;
@@ -294,6 +350,7 @@ void PCSX::Counters::writeCounter(uint32_t index, uint32_t value) {
 
     update();
     writeCounterInternal(index, value);
+    anchorToHblank(index);
     set();
 }
 
@@ -302,43 +359,47 @@ void PCSX::Counters::recalculateRate(uint32_t index) {
     switch (index) {
         case 0:
             if (value & Rc0PixelClock) {
-                // Dotclock rate depends on GPU horizontal resolution and video standard.
+                // One dot is `divider` video cycles. The GPU mode sets the scanline's length in video
+                // cycles (3412.5 NTSC, 3405 PAL), so a line holds that many / divider dots, while the
+                // line's length in CPU cycles follows the emulated region. The rate is kept exact.
                 static constexpr uint32_t dotclockDividers[] = {10, 8, 5, 4, 7, 7};
+                static constexpr uint64_t kVideoCyclesPerLineX2[] = {6825, 6810};
                 auto hres = PCSX::g_emulator->m_gpu->m_display.info.hres;
                 auto videoMode = PCSX::g_emulator->m_gpu->m_display.info.mode;
-                uint32_t divider = dotclockDividers[static_cast<int>(hres)];
-                uint32_t videoCyclesPerScanline = (videoMode == GPU::CtrlDisplayMode::VM_PAL) ? 3406 : 3413;
-                uint32_t dotsPerScanline = videoCyclesPerScanline / divider;
-                uint32_t cpuCyclesPerScanline =
-                    (PCSX::g_emulator->m_psxClockSpeed /
-                     (FrameRate[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()] *
-                      m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()]));
-                m_rcnts[index].rate = std::max<uint32_t>(cpuCyclesPerScanline / dotsPerScanline, 1);
+                const uint64_t divider = dotclockDividers[static_cast<int>(hres)];
+                const uint64_t videoX2 = kVideoCyclesPerLineX2[videoMode == GPU::CtrlDisplayMode::VM_PAL ? 1 : 0];
+                uint64_t num = m_lineNum * 2 * divider;
+                uint64_t den = m_lineDen * videoX2;
+                const uint64_t g = std::gcd(num, den);
+                num /= g;
+                den /= g;
+                // A rate under one CPU cycle per tick would break the cycle -> tick round trip.
+                if (num < den) num = den;
+                setRate(index, uint32_t(num), uint32_t(den));
             } else {
-                m_rcnts[index].rate = 1;
+                setRate(index, 1);
             }
             break;
         case 1:
             if (value & Rc1HSyncClock) {
-                m_rcnts[index].rate = (PCSX::g_emulator->m_psxClockSpeed /
-                                       (FrameRate[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()] *
-                                        m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()]));
+                // Whole cycles; update() re-anchors the phase on every hblank.
+                setRate(index, wholeCyclesPerLine());
             } else {
-                m_rcnts[index].rate = 1;
+                setRate(index, 1);
             }
             break;
         case 2:
             if (value & Rc2OneEighthClock) {
-                m_rcnts[index].rate = 8;
+                setRate(index, 8);
             } else {
-                m_rcnts[index].rate = 1;
+                setRate(index, 1);
             }
             // Timer 2 sync modes: 0,3 = stop counter; 1,2 = free run
             // Hardware verified (SCPH-5501): modes 0,3 produce delta=0, modes 1,2 run normally.
             if (value & Rc2Disable) {
                 uint8_t syncMode = gateSyncMode(value);
                 if (syncMode == 0 || syncMode == 3) {
-                    m_rcnts[index].rate = 0xffffffff;
+                    setRate(index, 0xffffffff);
                 }
             }
             break;
@@ -351,6 +412,8 @@ void PCSX::Counters::writeMode(uint32_t index, uint32_t value) {
     update();
     m_rcnts[index].mode = value | RcIrqRequest;  // Hardware sets bit 10 on mode write
     m_rcnts[index].irqState = false;
+    m_rcnts[index].pauseUntil = 0;
+    m_rcnts[index].holdFrom = 0;
 
     recalculateRate(index);
 
@@ -362,11 +425,21 @@ void PCSX::Counters::writeMode(uint32_t index, uint32_t value) {
         if (syncMode == 2 || syncMode == 3) {
             // Mode 2: pause outside blank. Mode 3: pause until first blank.
             // Both start paused.
-            m_rcnts[index].rate = 0xffffffff;
+            setRate(index, 0xffffffff);
         }
     }
 
     writeCounterInternal(index, 0);
+    anchorToHblank(index);
+    // The hblank gate is a level: written inside the window, gate mode 0 starts paused until its end.
+    if (index == 0 && isGateEnabled(0, value) && gateSyncMode(value) == 0) {
+        const uint64_t now = PCSX::g_emulator->m_cpu->m_regs.cycle;
+        const uint64_t end = m_rcnts[3].cycleStart + m_hblankCycles;
+        if (now < end) {
+            m_rcnts[0].cycleStart += end - now;
+            m_rcnts[0].pauseUntil = end;
+        }
+    }
     set();
 }
 
@@ -377,6 +450,7 @@ void PCSX::Counters::writeTarget(uint32_t index, uint32_t value) {
     // The target is only 16 bits. To make sure of this, the 32-bit write handlers mask it with 0xFFFF
     m_rcnts[index].target = value;
     writeCounterInternal(index, readCounterInternal(index));
+    anchorToHblank(index);
     set();
 }
 
@@ -434,6 +508,10 @@ uint32_t PCSX::Counters::readTarget(uint32_t index) {
     return m_rcnts[index].target;
 }
 
+uint32_t PCSX::Counters::linesPerFrame() {
+    return m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()];
+}
+
 uint32_t PCSX::Counters::linesSinceVBlank() {
     update();
     auto video = PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>();
@@ -441,9 +519,17 @@ uint32_t PCSX::Counters::linesSinceVBlank() {
     return (m_hSyncCount + total - VBlankStart[video]) % total;
 }
 
+uint32_t PCSX::Counters::nextLineLength() {
+    m_lineRemainder += m_lineNum;
+    const uint32_t length = m_lineRemainder / m_lineDen;
+    m_lineRemainder %= m_lineDen;
+    return length;
+}
+
 void PCSX::Counters::calculateHsync() {
-    m_HSyncTotal[PCSX::Emulator::PSX_TYPE_NTSC] = 263;
-    m_HSyncTotal[PCSX::Emulator::PSX_TYPE_PAL] = 314;  // actually one more on odd lines for PAL
+    static constexpr uint32_t kLines[] = {263, 314};
+    m_HSyncTotal[PCSX::Emulator::PSX_TYPE_NTSC] = kLines[PCSX::Emulator::PSX_TYPE_NTSC];
+    m_HSyncTotal[PCSX::Emulator::PSX_TYPE_PAL] = kLines[PCSX::Emulator::PSX_TYPE_PAL];
     if (PCSX::g_emulator->config().VSyncWA) {
         m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()] =
             m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()] / PCSX::Emulator::BIAS;
@@ -453,29 +539,52 @@ void PCSX::Counters::calculateHsync() {
             m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()] + 1;
 #endif
     }
+
+    // A scanline is 3412.5 (NTSC) or 3405 (PAL) video cycles, on the console's own video clock,
+    // 53.693175 MHz or 53.203425 MHz: 2152.55 or 2167.59 CPU cycles. Silicon reads 2152.51-2152.55
+    // on SCPH-1000, 1001 and 5501 in NTSC mode, and 2167.53 on SCPH-9002 in PAL mode. A shortened
+    // frame (VSyncWA) keeps the frame length and stretches its lines.
+    static constexpr uint64_t kVideoCyclesPerLineX2[] = {6825, 6810};
+    static constexpr uint64_t kVideoClock[] = {53693175, 53203425};
+    const auto video = PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>();
+    m_lineNum = kVideoCyclesPerLineX2[video] * PCSX::g_emulator->m_psxClockSpeed * kLines[video];
+    m_lineDen = 2 * kVideoClock[video] * m_HSyncTotal[video];
+    const uint64_t g = std::gcd(m_lineNum, m_lineDen);
+    m_lineNum /= g;
+    m_lineDen /= g;
+    // The hblank window timer 0's gate modes 0 and 2 see is ~854.5 video cycles: 538.9 CPU cycles
+    // per line on SCPH-5501 and SCPH-1001 (NTSC), 544.1 on SCPH-9002 (PAL).
+    static constexpr uint64_t kHblankVideoCyclesX2 = 1709;
+    m_hblankCycles =
+        (kHblankVideoCyclesX2 * PCSX::g_emulator->m_psxClockSpeed + kVideoClock[video]) / (2 * kVideoClock[video]);
+    m_lineRemainder = 0;
 }
 
 void PCSX::Counters::init() {
     calculateHsync();
 
+    // A reset clears the CPU cycle, so gate timestamps from before it would freeze the counters.
+    for (auto& rcnt : m_rcnts) {
+        rcnt.pauseUntil = 0;
+        rcnt.holdFrom = 0;
+    }
+
     // rcnt 0.
-    m_rcnts[0].rate = 1;
+    setRate(0, 1);
     m_rcnts[0].irq = 0x10;
 
     // rcnt 1.
-    m_rcnts[1].rate = 1;
+    setRate(1, 1);
     m_rcnts[1].irq = 0x20;
 
     // rcnt 2.
-    m_rcnts[2].rate = 1;
+    setRate(2, 1);
     m_rcnts[2].irq = 0x40;
 
     // rcnt base.
-    m_rcnts[3].rate = 1;
+    setRate(3, 1);
     m_rcnts[3].mode = RcCountToTarget;
-    m_rcnts[3].target = (PCSX::g_emulator->m_psxClockSpeed /
-                         (FrameRate[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()] *
-                          m_HSyncTotal[PCSX::g_emulator->settings.get<PCSX::Emulator::SettingVideo>()]));
+    m_rcnts[3].target = nextLineLength();
 
     for (int i = 0; i < CounterQuantity; ++i) {
         writeCounterInternal(i, 0);
