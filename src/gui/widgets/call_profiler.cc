@@ -28,7 +28,6 @@
 #include "gui/gui.h"
 #include "imgui.h"
 #include "imgui_stdlib.h"
-#include "support/gnu-c++-demangler.h"
 
 void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
     if (!ImGui::Begin(title, &m_show)) {
@@ -86,7 +85,8 @@ void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
     }
 
     if (m_refresh) {
-        m_functions = profiler.functions();
+        auto& settings = g_emulator->settings.get<Emulator::SettingDebugSettings>();
+        m_functions = profiler.functions(settings.get<Emulator::DebugSettings::DemangledSymbols>());
         m_refresh = false;
     }
 
@@ -119,8 +119,6 @@ void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
                 return descending ? value(a) > value(b) : value(a) < value(b);
             });
         }
-        auto& debugSettings = g_emulator->settings.get<Emulator::SettingDebugSettings>();
-        bool demangle = debugSettings.get<Emulator::DebugSettings::DemangledSymbols>();
         ImGuiListClipper clipper;
         clipper.Begin(m_functions.size());
         while (clipper.Step()) {
@@ -128,9 +126,8 @@ void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
                 auto& f = m_functions[i];
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
-                std::string name = demangle ? GNUDemangler::demangle(f.name) : f.name;
                 ImGui::PushID(i);
-                if (ImGui::Selectable(name.c_str())) {
+                if (ImGui::Selectable(f.name.c_str())) {
                     g_system->m_eventBus->signal(::PCSX::Events::GUI::JumpToPC{f.address});
                 }
                 ImGui::PopID();

@@ -27,6 +27,7 @@
 #include "core/psxemulator.h"
 #include "core/r3000a.h"
 #include "fmt/format.h"
+#include "support/gnu-c++-demangler.h"
 #include "support/protobuf.h"
 
 const char* PCSX::Profiler::counterName(unsigned counter) {
@@ -89,11 +90,18 @@ std::vector<uint32_t> PCSX::Profiler::frames(uint32_t path, uint32_t pc) const {
     return ret;
 }
 
-PCSX::Profiler::SymbolNamer::SymbolNamer(const std::map<uint32_t, std::string>& symbols) : m_symbols(symbols) {
+PCSX::Profiler::SymbolNamer::SymbolNamer(const std::map<uint32_t, std::string>& symbols, bool demangle)
+    : m_symbols(symbols), m_demangle(demangle) {
     std::unordered_set<std::string> seen;
     for (auto& [address, name] : symbols) {
-        if (!seen.insert(name).second) m_shared.insert(name);
+        auto shown = display(name);
+        if (!seen.insert(shown).second) m_shared.insert(std::move(shown));
     }
+}
+
+std::string PCSX::Profiler::SymbolNamer::display(const std::string& name) const {
+    if (!m_demangle || !name.starts_with("_Z")) return name;
+    return GNUDemangler::demangle(name);
 }
 
 std::string PCSX::Profiler::SymbolNamer::operator()(uint32_t addr, uint32_t* start) const {
@@ -103,16 +111,19 @@ std::string PCSX::Profiler::SymbolNamer::operator()(uint32_t addr, uint32_t* sta
         return fmt::format("0x{:08x}", addr);
     }
     if (start) *start = symbol->first;
-    if (m_shared.contains(symbol->second)) return fmt::format("{}@0x{:08x}", symbol->second, symbol->first);
-    return symbol->second;
+    auto shown = display(symbol->second);
+    if (m_shared.contains(shown)) return fmt::format("{}@0x{:08x}", shown, symbol->first);
+    return shown;
 }
 
-PCSX::Profiler::SymbolNamer PCSX::Profiler::symbolNamer() { return SymbolNamer(g_emulator->m_cpu->m_symbols); }
+PCSX::Profiler::SymbolNamer PCSX::Profiler::symbolNamer(bool demangle) {
+    return SymbolNamer(g_emulator->m_cpu->m_symbols, demangle);
+}
 
-std::vector<PCSX::Profiler::Function> PCSX::Profiler::functions() const {
+std::vector<PCSX::Profiler::Function> PCSX::Profiler::functions(bool demangle) const {
     std::map<uint32_t, Function> byAddress;
     std::unordered_map<uint32_t, uint32_t> addressCache;
-    auto symbolize = symbolNamer();
+    auto symbolize = symbolNamer(demangle);
     auto functionOf = [&](uint32_t addr) -> Function& {
         auto cached = addressCache.find(addr);
         uint32_t start;
@@ -232,7 +243,9 @@ std::string PCSX::Profiler::serializePprof() const {
     std::unordered_map<uint32_t, uint64_t> functionIds;
     auto& locations = profile.get<ProfileLocation>().value;
     std::unordered_map<uint32_t, uint64_t> locationIds;
+    // pprof keeps both: the demangled name to show, the symbol as linked for system_name.
     auto symbolize = symbolNamer();
+    auto display = symbolNamer(true);
     auto locationId = [&](uint32_t addr) -> uint64_t {
         auto found = locationIds.find(addr);
         if (found != locationIds.end()) return found->second;
@@ -242,7 +255,7 @@ std::string PCSX::Profiler::serializePprof() const {
         if (newFunction) {
             Pprof::Function function;
             function.get<FunctionId>().value = fit->second;
-            function.get<FunctionName>().value = stringId(name);
+            function.get<FunctionName>().value = stringId(display(addr));
             function.get<FunctionSystemName>().value = stringId(name);
             functions.push_back(std::move(function));
         }
