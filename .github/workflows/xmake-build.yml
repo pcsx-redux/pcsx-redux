@@ -153,15 +153,41 @@ jobs:
       - name: Push to ps1dev/redux
         env:
           DEPLOY_KEY: ${{ secrets.TOOLS_REDUX_DEPLOY_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > ~/.ssh/known_hosts
+          # A run can wait in the queue for hours, so only publish a build that is ahead of
+          # the live one. Deploys name their source commit in the commit message, CI's and
+          # hand-made ones alike. A live build from a branch main does not contain fails this
+          # job until main catches up or someone deploys over it by hand.
+          git init -q live
+          git -C live fetch -q --depth=1 git@github.com:ps1dev/redux.git main
+          live_tip=$(git -C live rev-parse FETCH_HEAD)
+          live=$(git -C live log -1 --format=%B FETCH_HEAD | sed -n 's/^Deploy pcsx-redux\/pcsx-redux@\([0-9a-f]\{40\}\).*/\1/p')
+          rm -rf live
+          if [ -z "$live" ]; then
+            echo "::error::Live deploy does not name a pcsx-redux/pcsx-redux commit; not overwriting it."
+            exit 1
+          fi
+          status=$(gh api "repos/$GITHUB_REPOSITORY/compare/$live...$GITHUB_SHA" --jq .status)
+          echo "live: $live, this build: $GITHUB_SHA, $status"
+          case "$status" in
+            ahead) ;;
+            behind|identical)
+              echo "::notice::Not deploying: this build is $status relative to the live one."
+              exit 0 ;;
+            *)
+              echo "::error::Not deploying: this build is $status relative to the live one ($live)."
+              exit 1 ;;
+          esac
           cd dist
           git init -q -b main
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -q -m "Deploy pcsx-redux/pcsx-redux@${GITHUB_SHA}"
-          git push -f git@github.com:ps1dev/redux.git main
+          # Fail rather than overwrite if anything was deployed since the check above.
+          git push --force-with-lease=refs/heads/main:"$live_tip" git@github.com:ps1dev/redux.git main

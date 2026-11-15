@@ -22,14 +22,14 @@
 
 TEST(Basic, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-loadexe", "src/mips/tests/basic/basic.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/bios/kernel-printf-strcmp/kernel-printf-strcmp.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(Basic, Dynarec) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/basic/basic.ps-exe");
+                        "-luacov", "-loadexe", "src/mips/tests/bios/kernel-printf-strcmp/kernel-printf-strcmp.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

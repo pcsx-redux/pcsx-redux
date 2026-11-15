@@ -54,6 +54,7 @@
 #include "lua/luafile.h"
 #include "lua/luawrapper.h"
 #include "lua/luv-glue.h"
+#include "lua/sqliteffi.h"
 #include "lua/zlibffi.h"
 #include "luafilesystem/src/lfs.h"
 #include "spu/interface.h"
@@ -177,6 +178,14 @@ void PCSX::Emulator::setLua() {
     LuaFFI::open_extra(L);
     LuaBindings::open_events(L);
     LuaFFI::open_compression(L);
+    LuaFFI::open_sqlite(L);
+    {
+        static int lualoader = 1;
+        static const char* textTable = (
+#include "lua/texttable.lua"
+        );
+        L.load(textTable, "src:lua/texttable.lua");
+    }
     LuaSupportPSX::open_adpcm(L);
     LuaSupportPSX::open_assembler(L);
     LuaSupportPSX::open_binaries(L);

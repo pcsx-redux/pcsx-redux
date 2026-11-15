@@ -39,6 +39,7 @@ class HW {
     void write32(uint32_t add, uint32_t value);
 
   private:
+    void clearDelaySizeBit30(uint32_t hwadd);
     void dma0(uint32_t madr, uint32_t bcr, uint32_t chcr);
     void dma1(uint32_t madr, uint32_t bcr, uint32_t chcr);
     bool dma2(uint32_t madr, uint32_t bcr, uint32_t chcr);

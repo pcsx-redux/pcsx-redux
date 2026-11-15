@@ -312,6 +312,10 @@ target("pcsx-redux", function()
                     -- the generated pcsx-redux.html instead would work until
                     -- the next build overwrote it.
                     "--shell-file", "src/gui/shell-wasm.html",
+                    -- The shell copies picked and dropped files into the virtual
+                    -- filesystem and calls pcsxOpenFile on them, and its Fullscreen
+                    -- button calls Module.requestFullscreen.
+                    "-sEXPORTED_RUNTIME_METHODS=FS,ccall,requestFullscreen",
                     "-Wl,--error-limit=0", {force = true})
     -- The virtual filesystem. findResource() walks seven candidate paths off
     -- m_binDir, and on wasm getExecutablePath() returns an empty string, so
@@ -369,6 +373,7 @@ target("pcsx-redux", function()
         "third_party/luafilesystem/src/lfs.c",
         "third_party/md4c/src/md4c.c",
         "third_party/multipart-parser-c/multipart_parser.c",
+        "third_party/sqlite/sqlite3.c",
         "third_party/ucl/src/n2e_99.c",
         "third_party/ucl/src/n2e_ds.c",
         "third_party/ucl/src/alloc.c",

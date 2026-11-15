@@ -170,6 +170,7 @@ void DynaRecCPU::recCOP2(uint32_t code) {
         recBCz(code);
         return;
     }
+    emitCu2Check();
     const auto func = m_recGTE[code & 0x3f];  // Look up the opcode in our decoding LUT
     auto& q = m_gteQueue;
     if ((code & 0x02000000) == 0 || q.count == 0 || func == &DynaRecCPU::recUnknown) {
@@ -363,6 +364,7 @@ void DynaRecCPU::recCFC2(uint32_t code) {
 }
 
 void DynaRecCPU::recLWC2(uint32_t code) {
+    emitCu2Check();
     makeRoomForGTEWrite();
     if (m_gprs[_Rs_].isConst()) {  // Store address in arg1
         gen.Mov(arg1, m_gprs[_Rs_].val + _Imm_);
@@ -376,6 +378,7 @@ void DynaRecCPU::recLWC2(uint32_t code) {
 }
 
 void DynaRecCPU::recSWC2(uint32_t code) {
+    emitCu2Check();
     gen.Mov(arg1, _Rt_);
     call(MFC2Wrapper);  // Fetch the COP2 data reg in w0
     gen.Mov(arg2, w0);  // Value to write in arg2
