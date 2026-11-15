@@ -84,9 +84,9 @@ with development binaries and games.)"));
         changed |= ImGui::InputScalar(_("Memory Fill Value"), ImGuiDataType_U8,
                                       (void*)&settings.get<Emulator::SettingMemoryFillValue>().value, nullptr, nullptr,
                                       "%02x", 0);
-        ImGuiHelpers::ShowHelpMarker(_(R"(The SDRAM of the console will be
-filled with this value at startup.
-On real hardware, the SDRAM decays over time,
+        ImGuiHelpers::ShowHelpMarker(_(R"(Main RAM and sound RAM will be filled with
+this value at startup and on a hard reset.
+On real hardware, RAM decays over time,
 and its contents may not be 0 on cold boot.
 This setting is useful for debugging purposes,
 to detect uninitialized memory reads that may
