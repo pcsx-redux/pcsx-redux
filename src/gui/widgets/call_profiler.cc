@@ -20,6 +20,7 @@
 #include "gui/widgets/call_profiler.h"
 
 #include <algorithm>
+#include <chrono>
 
 #include "core/psxemulator.h"
 #include "core/r3000a.h"
@@ -34,6 +35,9 @@ void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
         ImGui::End();
         return;
     }
+    int frame = ImGui::GetFrameCount();
+    bool appeared = frame != m_lastFrame + 1;
+    m_lastFrame = frame;
 
     auto& profiler = *g_emulator->m_profiler;
     if (g_emulator->m_cpu->isDynarec()) {
@@ -46,12 +50,11 @@ void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
         if (ImGui::Button(_("Start"))) profiler.start();
     }
     ImGui::SameLine();
+    bool cleared = false;
     if (ImGui::Button(_("Clear"))) {
         profiler.clear();
-        m_functions.clear();
+        cleared = true;
     }
-    ImGui::SameLine();
-    if (ImGui::Button(_("Refresh"))) m_refresh = true;
     auto totals = profiler.totals();
     ImGui::SameLine();
     ImGui::Text(_("%llu instructions, %llu calls"), (unsigned long long)totals[::PCSX::Profiler::Instructions],
@@ -84,13 +87,16 @@ void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
         ImGui::TextUnformatted(m_status.c_str());
     }
 
-    if (m_refresh) {
+    if (m_refresh.due(ImGui::GetTime(), appeared || cleared, profiler.running())) {
         auto& settings = g_emulator->settings.get<Emulator::SettingDebugSettings>();
+        auto start = std::chrono::steady_clock::now();
         m_functions = profiler.functions(settings.get<Emulator::DebugSettings::DemangledSymbols>());
-        m_refresh = false;
+        m_snapshotTotals = profiler.totals();
+        std::chrono::duration<double> cost = std::chrono::steady_clock::now() - start;
+        m_refresh.done(ImGui::GetTime(), cost.count());
     }
 
-    const uint64_t total = std::max<uint64_t>(totals[::PCSX::Profiler::Instructions], 1);
+    const uint64_t total = std::max<uint64_t>(m_snapshotTotals[::PCSX::Profiler::Instructions], 1);
     static constexpr ImGuiTableFlags flags = ImGuiTableFlags_Sortable | ImGuiTableFlags_Resizable |
                                              ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
                                              ImGuiTableFlags_BordersOuter;

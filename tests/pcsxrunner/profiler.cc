@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "core/callprofiler.h"
+#include "gui/widgets/call_profiler.h"
 #include "gtest/gtest.h"
 #include "main/main.h"
 
@@ -433,4 +434,26 @@ TEST(Profiler, SharedNamesAreComparedDemangled) {
     PCSX::Profiler::SymbolNamer linked(symbols);
     EXPECT_EQ(linked(0x80010104), "_ZN3foo3barEv");
     EXPECT_EQ(linked(0x80010004), "_ZL6helperv@0x80010000");
+}
+
+// The profiler window rebuilds its table on its own: when it appears, when profiling
+// stops, and while it runs no more than once a second, slower when the rebuild is slow.
+TEST(Profiler, WindowRefreshPolicy) {
+    PCSX::Widgets::CallProfiler::RefreshPolicy policy;
+    EXPECT_TRUE(policy.due(0.0, true, false));
+    policy.done(0.0, 0.0);
+    EXPECT_FALSE(policy.due(5.0, false, false));
+    EXPECT_TRUE(policy.due(5.0, false, true));
+    policy.done(5.0, 0.01);
+    EXPECT_FALSE(policy.due(5.5, false, true));
+    EXPECT_TRUE(policy.due(6.0, false, true));
+    // A rebuild taking 0.1s stretches the interval to 2s.
+    policy.done(6.0, 0.1);
+    EXPECT_FALSE(policy.due(7.5, false, true));
+    EXPECT_TRUE(policy.due(8.0, false, true));
+    policy.done(8.0, 0.1);
+    // Stopping rebuilds once, then the table holds still.
+    EXPECT_TRUE(policy.due(8.1, false, false));
+    policy.done(8.1, 0.1);
+    EXPECT_FALSE(policy.due(20.0, false, false));
 }
