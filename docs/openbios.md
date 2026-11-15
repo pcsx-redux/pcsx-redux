@@ -18,6 +18,7 @@ See the corresponding sections in [Compiling](./compiling.md) for instructions.
 
 The result of the compilation should be a file called `openbios.elf` that contains all useful debugging symbols,  
 and a file called `openbios.bin` which can be used in emulators or even burned to a chip and placed on a retail console.  
+When the configured BIOS cannot be opened, PCSX-Redux falls back to OpenBIOS, and looks for `openbios.elf` before `openbios.bin`. Both load the same ROM, but the elf also brings in the BIOS symbols, so its functions are named in the debugger and the profiler. Setting the BIOS to `openbios.elf` directly works the same way.  
 
 ## Status
 

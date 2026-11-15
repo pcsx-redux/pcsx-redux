@@ -259,7 +259,9 @@ typedef struct {
 - `.functions()` returns one entry per function, named from the loaded symbols: `{ name, address, self = { instructions, calls }, inclusive = { instructions, calls } }`. `calls` is the number of times the function was called. A recursive function counts each instruction once in its inclusive count.
 - `.savePprof(path)` writes a [pprof](https://github.com/google/pprof) profile for `go tool pprof`. `.saveCallgrind(path)` writes it for KCachegrind. Both return a boolean.
 
-The command line flags `-profile <file>` and `-callgrind <file>` profile from boot and write the file on exit. Debug > CPU > Show Profiler opens a window with the same controls.
+Functions are named after the symbol containing them. A name the symbol table holds at more than one address gets the address appended, `name@0x80010000`, so the two stay apart; an address no symbol covers is named by its hex value. The callgrind file is written with C++ names demangled. In the pprof file the function name is demangled and the system name is the symbol as linked. `.functions()` returns the names as linked.
+
+The command line flags `-profile <file>` and `-callgrind <file>` profile from boot and write the file on exit. Debug > CPU > Show Profiler opens a window with the same controls. Its table refreshes by itself while profiling runs, and follows the Demangle C++ setting of the assembly window.
 
 ## Hardware events
 
