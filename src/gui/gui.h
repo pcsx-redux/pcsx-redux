@@ -154,6 +154,8 @@ class GUI final : public UI {
     typedef Setting<int, TYPESTRING("WindowSizeX"), 1280> WindowSizeX;
     typedef Setting<int, TYPESTRING("WindowSizeY"), 800> WindowSizeY;
     typedef Setting<bool, TYPESTRING("WindowMaximized"), false> WindowMaximized;
+    typedef SettingString<TYPESTRING("WindowTitle"), TYPESTRING("PCSX-Redux")> WindowTitle;
+    typedef SettingPath<TYPESTRING("WindowIcon")> WindowIcon;
     typedef Setting<int, TYPESTRING("IdleSwapInterval"), 1> IdleSwapInterval;
     typedef Setting<int, TYPESTRING("MainFontSize"), 16> MainFontSize;
     typedef Setting<int, TYPESTRING("MonoFontSize"), 16> MonoFontSize;
@@ -203,7 +205,7 @@ class GUI final : public UI {
              ShowBiosEditor, ShowVRAMEditor, MemoryEditor1Addr, MemoryEditor2Addr, MemoryEditor3Addr, MemoryEditor4Addr,
              MemoryEditor5Addr, MemoryEditor6Addr, MemoryEditor7Addr, MemoryEditor8Addr, ParallelPortEditorAddr,
              ScratchpadEditorAddr, HWRegsEditorAddr, BiosEditorAddr, VRAMEditorAddr, ShowSPURAMEditor, SPURAMEditorAddr,
-             ShowSPULogger, SPULoggerEnabled, ShowSPUSamples, ShowDalos, ShowMsanViewer>
+             ShowSPULogger, SPULoggerEnabled, ShowSPUSamples, ShowDalos, ShowMsanViewer, WindowTitle, WindowIcon>
         settings;
 
     // imgui can't handle more than one "instance", so...
@@ -336,6 +338,7 @@ class GUI final : public UI {
 
   private:
     void saveCfg();
+    void centreWindow();
     void resetSettings();
     bool m_settingsNuked = false;
     bool m_showResetSettings = false;
