@@ -676,6 +676,7 @@ runner.init({
             s_frame = [oneIteration, system, emulator]() {
                 static bool s_aligned = false;
                 static bool s_deviceClock = false;
+                static int s_speed = 0;
                 static uint64_t s_cycleBase = 0;
                 static double s_clockBase = 0.0;
                 static uint32_t s_lastPlayed = 0;
@@ -696,15 +697,19 @@ runner.init({
                         s_lastPlayedMs = now;
                     }
                     const bool deviceClock = now - s_lastPlayedMs < c_deviceStallMs;
-                    // Samples on the master clock: the device's played count, or the wall clock.
-                    const double clock = deviceClock ? double(played)
-                                                     : now * c_sampleRate / 1000.0 * emulator->getTurboFactor();
+                    // Samples on the master clock: the device's played count, or the wall clock
+                    // at the speed the device would be consuming them.
+                    const int speed = emulator->m_spu->getEffectiveSpeed();
+                    const double clock = deviceClock ? double(played) : now * c_sampleRate / 1000.0 * speed;
                     const uint64_t cycle = emulator->m_cpu->m_regs.cycle;
                     const double lead = emulator->m_spu->getLeadFrames();
                     const double realign = lead + c_sampleRate / 4.0;
-                    if (!s_aligned || deviceClock != s_deviceClock || cycle < s_cycleBase) {
+                    // The wall clock is time times speed, so a new speed rescales all the time before
+                    // it as well: realign rather than run or skip that difference.
+                    if (!s_aligned || deviceClock != s_deviceClock || speed != s_speed || cycle < s_cycleBase) {
                         s_aligned = true;
                         s_deviceClock = deviceClock;
+                        s_speed = speed;
                         s_cycleBase = cycle;
                         s_clockBase = clock;
                     }

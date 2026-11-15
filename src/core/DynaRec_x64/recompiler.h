@@ -138,6 +138,9 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
     unsigned m_romInstructionCount;  // How many of those were fetched from ROM
 
     bool m_stopCompiling;  // Should we stop compiling code?
+    // Has this block checked SR.CU2 yet? SR cannot change inside a block (an MTC0 to it ends the block), so one
+    // check before the first COP2 opcode covers the rest.
+    bool m_cu2Checked;
     bool m_pcWrittenBack;  // Has the PC been written back already by a jump?
     bool m_firstInstruction;
     bool m_fullLoadDelayEmulation;
@@ -513,6 +516,11 @@ class DynaRecCPU final : public PCSX::R3000Acpu {
     void recCOP1or3(uint32_t code);
     void recLSCz(uint32_t code);
     void emitCopUnusableCheck(unsigned z, bool userModeOnly = false);
+    void emitCu2Check() {
+        if (m_cu2Checked) return;
+        emitCopUnusableCheck(2);
+        m_cu2Checked = true;
+    }
     void recBCz(uint32_t code);
     void recCTC2(uint32_t code);
     void recDIV(uint32_t code);

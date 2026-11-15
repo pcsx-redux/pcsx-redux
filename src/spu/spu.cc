@@ -1152,3 +1152,7 @@ void PCSX::SPU::impl::setLua(Lua L) {
     L.pop();
     m_audioOut.setLua(L);
 }
+
+int PCSX::SPU::impl::getEffectiveSpeed() {
+    return SDLAudio::effectiveSpeed(settings.get<Speed>().value, g_emulator->getTurboFactor());
+}
