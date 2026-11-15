@@ -235,12 +235,17 @@ void PCSX::Memory::reset() {
         if (f->failed()) {
             g_system->printf(_("Could not open BIOS:\"%s\". Retrying with the OpenBIOS\n"), biosPath.string());
 
-            g_system->findResource(
-                [&f](const std::filesystem::path &filename) {
-                    f.setFile(new PosixFile(filename));
-                    return !f->failed();
-                },
-                "openbios.bin", "resources", std::filesystem::path("src") / "mips" / "openbios");
+            // Prefer the elf: it loads the same ROM bytes, and also brings in the BIOS symbols.
+            auto openFallback = [&f](const std::filesystem::path &filename) {
+                f.setFile(new PosixFile(filename));
+                return !f->failed();
+            };
+            for (auto name : {"openbios.elf", "openbios.bin"}) {
+                if (g_system->findResource(openFallback, name, "resources",
+                                           std::filesystem::path("src") / "mips" / "openbios")) {
+                    break;
+                }
+            }
             if (f->failed()) {
                 g_system->printf(
                     _("Could not open OpenBIOS fallback. Things won't work properly.\nAdd a valid BIOS in the "

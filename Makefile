@@ -339,6 +339,7 @@ install: all strip
 install-openbios: openbios
 	$(MKDIRP) $(DESTDIR)/share/pcsx-redux/resources
 	$(CP) src/mips/openbios/openbios.bin $(DESTDIR)/share/pcsx-redux/resources
+	$(CP) src/mips/openbios/openbios.elf $(DESTDIR)/share/pcsx-redux/resources
 	zip -j src/mips/openbios/openbios.zip src/mips/openbios/openbios.elf
 
 appimage:
