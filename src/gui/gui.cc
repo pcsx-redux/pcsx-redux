@@ -1933,7 +1933,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
     }
 
     if (m_showAbout) changed |= about();
-    if (m_showInterruptsScaler) interruptsScaler();
+    if (m_showInterruptsScaler) m_interruptsScaler.draw();
 
     if (m_outputShaderEditor.m_show && m_outputShaderEditor.draw(this, _("Output Video"))) {
         // maybe throttle this?
@@ -2244,27 +2244,6 @@ the update and manually apply it.)")));
     }
 
     FrameMark;
-}
-
-void PCSX::GUI::interruptsScaler() {
-    static const char* names[] = {
-        "SIO",          "SIO1",    "CDR FIFO",    "CDR Command", "CDR Reads", "GPU DMA",
-        "MDEC Out DMA", "SPU DMA", "MDEC In DMA", "GPU OTC DMA", "CDR DMA",
-    };
-    static_assert(std::size(names) == std::extent_v<decltype(R3000Acpu::m_scheduleScales)>);
-    if (ImGui::Begin(_("Scheduler Scaler"), &m_showInterruptsScaler)) {
-        if (ImGui::Button(_("Reset all"))) {
-            for (auto& scale : g_emulator->m_cpu->m_scheduleScales) {
-                scale = 1.0f;
-            }
-        }
-        unsigned counter = 0;
-        for (auto& scale : g_emulator->m_cpu->m_scheduleScales) {
-            ImGui::SliderFloat(names[counter], &scale, 0.0f, 100.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-            counter++;
-        }
-    }
-    ImGui::End();
 }
 
 bool PCSX::GUI::about() {
