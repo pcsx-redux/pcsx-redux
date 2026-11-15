@@ -577,7 +577,7 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
     // SDL_WINDOW_HIGH_PIXEL_DENSITY makes window-coords vs pixel-coords meaningful
     // on macOS Retina + Windows per-monitor DPI; required for the changeScale path.
     const SDL_WindowFlags windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-    m_window = SDL_CreateWindow("PCSX-Redux", 1280, 800, windowFlags);
+    m_window = SDL_CreateWindow(settings.get<WindowTitle>().c_str(), 1280, 800, windowFlags);
     if (m_window) {
         m_glContext = SDL_GL_CreateContext(m_window);
     }
@@ -605,7 +605,7 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
         m_hasCoreProfile = false;
 
-        m_window = SDL_CreateWindow("PCSX-Redux", 1280, 800, windowFlags);
+        m_window = SDL_CreateWindow(settings.get<WindowTitle>().c_str(), 1280, 800, windowFlags);
         if (m_window) {
             m_glContext = SDL_GL_CreateContext(m_window);
         }
@@ -624,19 +624,20 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
     // ImGui_ImplSDL3_ProcessEvent gets first crack at every event for
     // mouse/keyboard/text dispatch.
 
-    Resources::loadIcon([this](const uint8_t* data, uint32_t size) {
+    auto setIconFromPng = [this](const uint8_t* data, uint32_t size) -> bool {
         clip::image img;
-        if (!img.import_from_png(data, size)) return;
+        if (!img.import_from_png(data, size)) return false;
         int x = img.spec().width;
         int y = img.spec().height;
         // SDL_CreateSurfaceFrom needs a non-const pixel pointer; clip::image::data()
         // is non-const, so the cast below is benign.
         SDL_Surface* iconSurface = SDL_CreateSurfaceFrom(x, y, SDL_PIXELFORMAT_RGBA32, img.data(), x * 4);
-        if (iconSurface) {
-            SDL_SetWindowIcon(m_window, iconSurface);
-            SDL_DestroySurface(iconSurface);
-        }
-    });
+        if (!iconSurface) return false;
+        bool success = SDL_SetWindowIcon(m_window, iconSurface);
+        SDL_DestroySurface(iconSurface);
+        return success;
+    };
+    Resources::loadIcon([&setIconFromPng](const uint8_t* data, uint32_t size) { setIconFromPng(data, size); });
 
     result = gl3wInit();
     if (result) {
@@ -678,6 +679,19 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
             if ((m_settingsJson.count("loggers") == 1 && m_settingsJson["loggers"].is_object())) {
                 m_log.deserialize(m_settingsJson["loggers"]);
             }
+            SDL_SetWindowTitle(m_window, settings.get<WindowTitle>().c_str());
+            if (!settings.get<WindowIcon>().empty()) {
+                // A relative path is anchored in the persistent directory, like the memory cards.
+                std::filesystem::path iconPath = settings.get<WindowIcon>().value;
+                if (iconPath.is_relative()) iconPath = g_system->getPersistentDir() / iconPath;
+                std::ifstream iconFile(iconPath, std::ios::binary);
+                std::vector<uint8_t> iconData((std::istreambuf_iterator<char>(iconFile)),
+                                              std::istreambuf_iterator<char>());
+                if (iconData.empty() || !setIconFromPng(iconData.data(), iconData.size())) {
+                    g_system->log(LogClass::UI, "Unable to load the window icon %s, using the default one\n",
+                                  iconPath.string());
+                }
+            }
             auto& windowSizeX = settings.get<WindowSizeX>();
             auto& windowSizeY = settings.get<WindowSizeY>();
             if (windowSizeX <= 0 || g_system->getArgs().isUIResetRequested()) {
@@ -691,13 +705,22 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
                 settings.get<WindowPosY>().reset();
             }
 
-            if ((settings.get<WindowPosX>().value > 0) && (settings.get<WindowPosY>().value > 0)) {
+            const bool hasSavedPosition =
+                (settings.get<WindowPosX>().value > 0) && (settings.get<WindowPosY>().value > 0);
+            if (hasSavedPosition) {
                 SDL_SetWindowPosition(m_window, settings.get<WindowPosX>(), settings.get<WindowPosY>());
             }
             if (settings.get<WindowMaximized>().value) {
                 SDL_MaximizeWindow(m_window);
             } else {
                 SDL_SetWindowSize(m_window, windowSizeX, windowSizeY);
+            }
+            if (!hasSavedPosition && !settings.get<WindowMaximized>().value) {
+                // Centre once sized, as resizing keeps the top-left corner. Read the result back so
+                // that setFullscreen() below restores this position instead of the unset 0, 0.
+                SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+                SDL_SyncWindow(m_window);
+                SDL_GetWindowPosition(m_window, &m_windowPosX, &m_windowPosY);
             }
         } else {
             saveCfg();
