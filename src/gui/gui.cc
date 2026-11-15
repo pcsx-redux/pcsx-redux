@@ -2008,46 +2008,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
 
     changed |= m_updater.draw(this);
 
-    if (m_showHandles) {
-        if (ImGui::Begin(_("UvFiles"), &m_showHandles)) {
-            std::string rate;
-            byteRateToString(UvFile::getReadRate(), rate);
-            ImGui::Text(_("Read rate: %s"), rate.c_str());
-            byteRateToString(UvFile::getWriteRate(), rate);
-            ImGui::Text(_("Write rate: %s"), rate.c_str());
-            byteRateToString(UvFile::getDownloadRate(), rate);
-            ImGui::Text(_("Download rate: %s"), rate.c_str());
-            if (ImGui::BeginTable("UvFiles", 2, ImGuiTableFlags_Resizable)) {
-                ImGui::TableSetupColumn(_("Caching"));
-                ImGui::TableSetupColumn(_("Filename"));
-                ImGui::TableHeadersRow();
-                UvThreadOp::iterateOverAllOps([](UvThreadOp* f) {
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    if (f->caching()) {
-                        ImGui::ProgressBar(f->cacheProgress());
-                    } else {
-                        std::string label = fmt::format("Cache##{}", reinterpret_cast<void*>(f));
-                        auto canCache = f->canCache();
-                        if (!canCache) {
-                            ImGui::BeginDisabled();
-                        }
-                        if (ImGui::Button(label.c_str()) && canCache) {
-                            f->startCaching();
-                        }
-                        if (!canCache) {
-                            ImGui::EndDisabled();
-                        }
-                    }
-                    ImGui::TableSetColumnIndex(1);
-                    File* actual = dynamic_cast<File*>(f);
-                    ImGui::TextUnformatted(actual->filename().string().c_str());
-                });
-                ImGui::EndTable();
-            }
-        }
-        ImGui::End();
-    }
+    if (m_showHandles) m_uvFiles.draw();
 
     auto L = *g_emulator->m_lua;
     L.getfield("DrawImguiFrame", LUA_GLOBALSINDEX);
@@ -2594,18 +2555,6 @@ bool PCSX::GUI::saveStateExists(std::filesystem::path filename) {
 
 std::vector<std::pair<std::filesystem::path, std::string>> PCSX::GUI::getNamedSaveStates() {
     return m_namedSaveStates.getNamedSaveStates(this);
-}
-
-void PCSX::GUI::byteRateToString(float rate, std::string& str) {
-    if (rate >= 1000000000) {
-        str = fmt::format("{:.2f} GB/s", rate / 1000000000);
-    } else if (rate >= 1000000) {
-        str = fmt::format("{:.2f} MB/s", rate / 1000000);
-    } else if (rate >= 1000) {
-        str = fmt::format("{:.2f} KB/s", rate / 1000);
-    } else {
-        str = fmt::format("{:.2f} B/s", rate);
-    }
 }
 
 PCSX::GUI::TvgViewport* PCSX::GUI::getTvgViewport(unsigned viewportId) {
