@@ -84,6 +84,8 @@ class Counters {
         uint16_t mode, target;
         uint32_t rate, irq, counterState, irqState;
         uint32_t rateDen = 1, startFrac = 0;
+        // Gate modes: the count is frozen before pauseUntil, and from holdFrom on when it is set.
+        uint64_t pauseUntil = 0, holdFrom = 0;
         uint64_t cycle, cycleStart;
         uint32_t gateStarted;  // Gate mode 3: first blank has occurred, counter is free running
     };
@@ -137,6 +139,13 @@ class Counters {
     // A scanline lasts m_lineNum / m_lineDen CPU cycles, which is not a whole number. Each line
     // gets the floor or the ceiling, and m_lineRemainder carries the fraction to the next one.
     uint64_t m_lineNum = 1, m_lineDen = 1, m_lineRemainder = 0;
+    uint64_t m_hblankCycles = 539;
+    // A counter held by gate mode 2 cannot reach an event past the hold.
+    bool eventHeld(uint32_t index) const {
+        const auto& r = m_rcnts[index];
+        return r.holdFrom && (r.cycleStart + r.cycle > r.holdFrom);
+    }
+
   public:
     uint64_t m_psxNextCounter;
     bool m_pollSIO1 = false;

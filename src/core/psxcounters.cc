@@ -42,7 +42,11 @@ inline void PCSX::Counters::writeCounterInternal(uint32_t index, uint32_t value,
         value &= 0xffff;
     }
 
-    m_rcnts[index].cycleStart = PCSX::g_emulator->m_cpu->m_regs.cycle;
+    // Anchor to the same gated time readCounterInternal samples, so a write reads back as written.
+    uint64_t now = PCSX::g_emulator->m_cpu->m_regs.cycle;
+    if (now < m_rcnts[index].pauseUntil) now = m_rcnts[index].pauseUntil;
+    if (m_rcnts[index].holdFrom && now > m_rcnts[index].holdFrom) now = m_rcnts[index].holdFrom;
+    m_rcnts[index].cycleStart = now;
     m_rcnts[index].startFrac = 0;
     m_rcnts[index].cycleStart -= ticksToCycles(index, value);
     // A positive adjust puts cycleStart in the future: the counter reads 0 until then.
@@ -84,6 +88,9 @@ inline uint32_t PCSX::Counters::readCounterInternal(uint32_t index) {
     uint64_t count;
 
     count = PCSX::g_emulator->m_cpu->m_regs.cycle;
+    // Gate mode 0 holds the count through the hblank window, gate mode 2 outside it.
+    if (count < m_rcnts[index].pauseUntil) count = m_rcnts[index].pauseUntil;
+    if (m_rcnts[index].holdFrom && count > m_rcnts[index].holdFrom) count = m_rcnts[index].holdFrom;
     if (count < m_rcnts[index].cycleStart) return 0;  // still in the post-reset dwell
     count -= m_rcnts[index].cycleStart;
 
@@ -114,6 +121,7 @@ void PCSX::Counters::set() {
     uint64_t next = 0x7fffffffffffffff;
 
     for (int i = 0; i < CounterQuantity; ++i) {
+        if (eventHeld(i)) continue;
         int64_t countToUpdate = m_rcnts[i].cycle - (m_psxNextCounter - m_rcnts[i].cycleStart);
 
         if (countToUpdate < 0) {
@@ -229,7 +237,7 @@ void PCSX::Counters::update() {
     }
 
     // rcnt 0.
-    if (int64_t(cycle - m_rcnts[0].cycleStart) >= int64_t(m_rcnts[0].cycle)) {
+    if (!eventHeld(0) && int64_t(cycle - m_rcnts[0].cycleStart) >= int64_t(m_rcnts[0].cycle)) {
         reset(0);
     }
 
@@ -268,10 +276,28 @@ void PCSX::Counters::update() {
         // Counter 0 gate: triggered by Hblank
         if (isGateEnabled(0, m_rcnts[0].mode)) {
             switch (gateSyncMode(m_rcnts[0].mode)) {
+                case 0:  // Pause during Hblank
+                    if (m_rcnts[0].rate != 0xffffffff) {
+                        // Push the count back by the part of the window the counter was running.
+                        const uint64_t end = m_rcnts[3].cycleStart + m_hblankCycles;
+                        const uint64_t from = std::max(m_rcnts[3].cycleStart, m_rcnts[0].cycleStart);
+                        if (end > from) m_rcnts[0].cycleStart += end - from;
+                        m_rcnts[0].pauseUntil = end;
+                        set();
+                    }
+                    break;
                 case 1:  // Reset at Hblank
-                case 2:  // Reset at Hblank + pause outside
                     writeCounterInternal(0, 0);
                     break;
+                case 2: {  // Reset at Hblank, count during it, hold outside
+                    const uint64_t hblank = m_rcnts[3].cycleStart;
+                    recalculateRate(0);
+                    m_rcnts[0].holdFrom = 0;
+                    writeCounterInternal(0, 0, int64_t(hblank) - int64_t(cycle));
+                    m_rcnts[0].holdFrom = hblank + m_hblankCycles;
+                    set();
+                    break;
+                }
                 case 3:  // Pause until first Hblank, then free run
                     if (!m_rcnts[0].gateStarted) {
                         m_rcnts[0].gateStarted = 1;
@@ -386,6 +412,8 @@ void PCSX::Counters::writeMode(uint32_t index, uint32_t value) {
     update();
     m_rcnts[index].mode = value | RcIrqRequest;  // Hardware sets bit 10 on mode write
     m_rcnts[index].irqState = false;
+    m_rcnts[index].pauseUntil = 0;
+    m_rcnts[index].holdFrom = 0;
 
     recalculateRate(index);
 
@@ -403,6 +431,15 @@ void PCSX::Counters::writeMode(uint32_t index, uint32_t value) {
 
     writeCounterInternal(index, 0);
     anchorToHblank(index);
+    // The hblank gate is a level: written inside the window, gate mode 0 starts paused until its end.
+    if (index == 0 && isGateEnabled(0, value) && gateSyncMode(value) == 0) {
+        const uint64_t now = PCSX::g_emulator->m_cpu->m_regs.cycle;
+        const uint64_t end = m_rcnts[3].cycleStart + m_hblankCycles;
+        if (now < end) {
+            m_rcnts[0].cycleStart += end - now;
+            m_rcnts[0].pauseUntil = end;
+        }
+    }
     set();
 }
 
@@ -515,11 +552,22 @@ void PCSX::Counters::calculateHsync() {
     const uint64_t g = std::gcd(m_lineNum, m_lineDen);
     m_lineNum /= g;
     m_lineDen /= g;
+    // The hblank window timer 0's gate modes 0 and 2 see is ~854.5 video cycles: 538.9 CPU cycles
+    // per line on SCPH-5501 and SCPH-1001 (NTSC), 544.1 on SCPH-9002 (PAL).
+    static constexpr uint64_t kHblankVideoCyclesX2 = 1709;
+    m_hblankCycles =
+        (kHblankVideoCyclesX2 * PCSX::g_emulator->m_psxClockSpeed + kVideoClock[video]) / (2 * kVideoClock[video]);
     m_lineRemainder = 0;
 }
 
 void PCSX::Counters::init() {
     calculateHsync();
+
+    // A reset clears the CPU cycle, so gate timestamps from before it would freeze the counters.
+    for (auto& rcnt : m_rcnts) {
+        rcnt.pauseUntil = 0;
+        rcnt.holdFrom = 0;
+    }
 
     // rcnt 0.
     setRate(0, 1);
