@@ -81,6 +81,7 @@
 #include "support/version.h"
 #include "widgets/memory_observer.h"
 #include "widgets/typed_debugger.h"
+#include "widgets/ui-config.h"
 
 #if defined(__APPLE__)
 #define GL_SHADER_VERSION "#version 410\n"
@@ -105,6 +106,8 @@ extern GUI *g_gui;
 enum class LogClass : unsigned;
 
 class GUI final : public UI {
+    friend class Widgets::UIConfig;
+
     typedef Setting<bool, TYPESTRING("Fullscreen"), false> Fullscreen;
     typedef Setting<bool, TYPESTRING("FullWindowRender"), true> FullWindowRender;
     typedef Setting<bool, TYPESTRING("ShowMenu")> ShowMenu;
@@ -343,7 +346,6 @@ class GUI final : public UI {
     void startFrame();
     void endFrame();
 
-    bool showThemes();  // Theme window : Allows for custom imgui themes
     bool about();
     void aboutFFmpegTab();
     void interruptsScaler();
@@ -481,6 +483,8 @@ class GUI final : public UI {
     Widgets::EmulationConfig m_emulationConfig;
     bool m_showUiCfg = false;
     bool m_showSysCfg = false;
+    Widgets::UIConfig m_uiConfig;
+    Widgets::SystemConfig m_systemConfig;
 
     Widgets::VRAMViewer m_mainVRAMviewer = {settings.get<ShowMainVRAMViewer>().value};
     Widgets::VRAMViewer m_clutVRAMviewer = {settings.get<ShowCLUTVRAMViewer>().value};

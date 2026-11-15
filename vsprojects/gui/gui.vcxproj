@@ -172,6 +172,7 @@
     <ClCompile Include="..\..\src\gui\widgets\pocketstation.cc" />
     <ClCompile Include="..\..\src\gui\widgets\ram-viewer.cc" />
     <ClCompile Include="..\..\src\gui\widgets\typed_debugger.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\ui-config.cc" />
     <ClCompile Include="..\..\src\gui\widgets\registers.cc" />
     <ClCompile Include="..\..\src\gui\widgets\shader-editor.cc" />
     <ClCompile Include="..\..\src\gui\widgets\sio1.cc" />
@@ -225,6 +226,7 @@
     <ClInclude Include="..\..\src\gui\widgets\pocketstation.h" />
     <ClInclude Include="..\..\src\gui\widgets\ram-viewer.h" />
     <ClInclude Include="..\..\src\gui\widgets\typed_debugger.h" />
+    <ClInclude Include="..\..\src\gui\widgets\ui-config.h" />
     <ClInclude Include="..\..\src\gui\widgets\registers.h" />
     <ClInclude Include="..\..\src\gui\widgets\shader-editor.h" />
     <ClInclude Include="..\..\src\gui\widgets\sio1.h" />
