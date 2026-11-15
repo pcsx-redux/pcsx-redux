@@ -1535,6 +1535,10 @@ void PCSX::GUI::endFrame() {
             ImGui::Separator();
             if (ImGui::BeginMenu(_("Debug"))) {
                 ImGui::MenuItem(_("Show Logs"), nullptr, &m_log.m_show);
+                if (ImGui::BeginMenu(_("Dalos"))) {
+                    ImGui::MenuItem(_("Show Canvas"), nullptr, &m_dalos.m_show);
+                    ImGui::EndMenu();
+                }
                 if (ImGui::BeginMenu("Lua")) {
                     ImGui::MenuItem(_("Show Lua Console"), nullptr, &m_luaConsole.m_show);
                     ImGui::MenuItem(_("Show Lua Inspector"), nullptr, &m_luaInspector.m_show);
@@ -1650,10 +1654,6 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
                 ImGui::EndMenu();
             }
             ImGui::Separator();
-            if (ImGui::BeginMenu(_("Dalos"))) {
-                ImGui::MenuItem(_("Show Canvas"), nullptr, &m_dalos.m_show);
-                ImGui::EndMenu();
-            }
             if (ImGui::BeginMenu(_("Help"))) {
                 ImGui::MenuItem(_("Show ImGui Demo"), nullptr, &m_showDemo);
                 ImGui::MenuItem(_("Show ImPlot Demo"), nullptr, &m_showImPlotDemo);
