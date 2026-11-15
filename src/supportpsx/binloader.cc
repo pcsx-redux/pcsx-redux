@@ -260,12 +260,26 @@ bool loadELF(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<ui
         eraseSymbolsInSpan(vaddr, vaddr + size, symbols);
     }
 
+    // Only symbols that name an address are imported: file and section symbols, undefined
+    // ones and absolute ones (sizes and other constants, like the _size half of an objcopy
+    // blob) are not. Where several symbols share an address, a function beats a data object,
+    // which beats an untyped label, so the zero-sized linker markers placed at the start of
+    // a function (__build_id, __init_array_start, ...) do not hide its name.
+    auto rank = [](unsigned char type) {
+        switch (type) {
+            case STT_FUNC:
+                return 3;
+            case STT_OBJECT:
+                return 2;
+            default:
+                return 1;
+        }
+    };
+    std::map<uint32_t, int> ranks;
     for (unsigned i = 0; i < sec_num; i++) {
         section* psec = reader.sections[i];
-        auto name = psec->get_name();
 
-        auto type = psec->get_type();
-        if (type != SHT_SYMTAB) continue;
+        if (psec->get_type() != SHT_SYMTAB) continue;
         const ELFIO::symbol_section_accessor symbolstab(reader, psec);
         for (unsigned s = 0; s < symbolstab.get_symbols_num(); s++) {
             std::string name;
@@ -276,7 +290,15 @@ bool loadELF(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<ui
             Elf_Half section_index;
             unsigned char other;
             symbolstab.get_symbol(s, name, value, size, bind, type, section_index, other);
-            symbols[value] = name;
+            if (name.empty()) continue;
+            if (type == STT_FILE || type == STT_SECTION) continue;
+            if (section_index == SHN_UNDEF || section_index == SHN_ABS) continue;
+            uint32_t address = value;
+            int r = rank(type);
+            auto [it, inserted] = ranks.try_emplace(address, r);
+            if (!inserted && it->second >= r) continue;
+            it->second = r;
+            symbols[address] = name;
         }
     }
 
