@@ -126,6 +126,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\gui\gui.cc" />
+    <ClCompile Include="..\..\src\gui\gui-menubar.cc" />
     <ClCompile Include="..\..\src\gui\gui-about-ffmpeg.cc" />
     <ClCompile Include="..\..\src\gui\gui-platform-desktop.cc" />
     <ClCompile Include="..\..\src\gui\luaimguiextra.cc" />
