@@ -82,7 +82,7 @@ local function makeTag(name, arg)
         end
     end
     addChildren(node.nodes, arg)
-    if voids[name] and #node.nodes > 0 then error('PCSX.Html: <' .. name .. '> cannot have children', 3) end
+    if voids[name:lower()] and #node.nodes > 0 then error('PCSX.Html: <' .. name .. '> cannot have children', 3) end
     return node
 end
 
@@ -104,7 +104,7 @@ local function renderNode(node, out)
         out[#out + 1] = v == true and (' ' .. k) or (' ' .. k .. '="' .. v .. '"')
     end
     out[#out + 1] = '>'
-    if voids[node.tag] then return end
+    if voids[node.tag:lower()] then return end
     for _, child in ipairs(node.nodes) do
         if type(child) == 'string' then
             out[#out + 1] = child

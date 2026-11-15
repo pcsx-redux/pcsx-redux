@@ -67,6 +67,8 @@ end
 function TestHtml:test_voids()
     lu.assertEquals(H.render(H.br()), '<br>')
     lu.assertError(H.br, { 'child' })
+    lu.assertEquals(H.render(H.BR()), '<BR>')
+    lu.assertError(H.INPUT, { 'child' })
 end
 
 function TestHtml:test_rejects_bad_names()
