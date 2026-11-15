@@ -2484,10 +2484,15 @@ bool PCSX::GUI::about() {
 
 void PCSX::GUI::notifyControllerHotplug(bool connected, const char* name, int port) {
     if (!name || !*name) name = _("Unknown controller");
-    addNotice(fmt::format(connected ? f_("Controller connected: {} (port {})")
-                                    : f_("Controller disconnected: {} (port {})"),
-                          name, port),
-              NoticeKind::Info);
+    if (port > 0) {
+        addNotice(fmt::format(connected ? f_("Controller connected: {} (port {})")
+                                        : f_("Controller disconnected: {} (port {})"),
+                              name, port),
+                  NoticeKind::Info);
+    } else {
+        addNotice(fmt::format(connected ? f_("Controller connected: {}") : f_("Controller disconnected: {}"), name),
+                  NoticeKind::Info);
+    }
 }
 
 void PCSX::GUI::announceConnectedControllers() {
