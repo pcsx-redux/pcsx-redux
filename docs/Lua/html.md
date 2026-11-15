@@ -62,7 +62,7 @@ H.render(H.div { ['data-row'] = 3, id = 'r' })  -- <div data-row="3" id="r"></di
 
 ## Void elements
 
-`area`, `base`, `br`, `col`, `embed`, `hr`, `img`, `input`, `link`, `meta`, `source`, `track` and `wbr` are void elements. They render without a closing tag, and giving one of them children is an error when the node is built. The check is on the exact lowercase name.
+`area`, `base`, `br`, `col`, `embed`, `hr`, `img`, `input`, `link`, `meta`, `source`, `track` and `wbr` are void elements. They render without a closing tag, and giving one of them children is an error when the node is built. The check ignores case, so `H.BR()` renders as `<BR>`.
 
 ```lua
 H.render(H.br())  -- <br>
