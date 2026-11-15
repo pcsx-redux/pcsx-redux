@@ -103,6 +103,7 @@ class impl final : public SPUInterface {
 
     void save(SaveStates::SPU &) final;
     void load(const SaveStates::SPU &) final;
+    void reset() final;
 
     virtual void setLua(Lua L) override;
     bool setWavDump(const std::filesystem::path &path) final;
@@ -261,6 +262,7 @@ class impl final : public SPUInterface {
     // false if the thread was asked to end while blocked.
     bool flushOutput();
     void SetupStreams();
+    void setVoiceDefaults();
     void RemoveStreams();
     void SetupMixBuffers();
     void SetupThread();

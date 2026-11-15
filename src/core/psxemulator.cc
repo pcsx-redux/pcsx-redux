@@ -231,7 +231,10 @@ int PCSX::Emulator::init() {
 
 void PCSX::Emulator::reset() {
     m_mem->reset();
-    m_spu->resetCaptureBuffer();
+    // psxReset() zeroes the cycle; the SPU's reset restarts its clock, and stamps the writes it
+    // replays, at that cycle too.
+    m_cpu->m_regs.cycle = 0;
+    m_spu->reset();
     m_cpu->psxReset();
     m_gpu->reset();
     m_pads->shutdown();

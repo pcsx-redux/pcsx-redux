@@ -17,6 +17,9 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include <cstring>
+#include <memory>
+
 #include "core/psxemulator.h"
 #include "core/r3000a.h"
 #include "spu/externals.h"
@@ -194,6 +197,30 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
     loadEnvelopeCheckpoints(spu.get<SaveStates::EnvelopeCheckpoints>());
 
     // Start sound processing again.
+    if (running) SetupThread();
+}
+
+// Loads a blank state, so a hard reset clears everything a state load restores: registers, voices,
+// the reverb unit, the capture buffers and the queued writes. Sound RAM gets the value main RAM
+// is filled with. A fresh voice's envelope is all zero, but load() decodes the ADSR registers it
+// replays, and their 0 decodes to a rising sustain, so the envelopes are cleared after it. Two
+// values a fresh SPU starts with are not zero, the voices' sustain level and the noise generator's
+// seed, so they are set again as a new SPU has them. The mixer is stopped from the load on, since
+// load() would restart it before they are set.
+void PCSX::SPU::impl::reset() {
+    auto blank = std::make_unique<SaveStates::SPU>();
+    auto &ram = blank->get<SaveStates::SPURam>();
+    ram.allocate();
+    memset(ram.value, g_emulator->settings.get<Emulator::SettingMemoryFillValue>().value, c_spuRamSize);
+    const bool running = m_mixerRunning;
+    if (running) RemoveThread();
+    load(*blank);
+    for (unsigned i = 0; i < MAXCHAN; i++) {
+        s_chan[i].adsr.reset();
+        m_adsrShadow[i].reset();
+    }
+    setVoiceDefaults();
+    m_noise = NoiseGenerator();
     if (running) SetupThread();
 }
 

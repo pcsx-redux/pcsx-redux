@@ -332,6 +332,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\tapcard.cc" />
     <ClCompile Include="..\..\..\tests\spu\adsr.cc" />
     <ClCompile Include="..\..\..\tests\spu\reverbstate.cc" />
+    <ClCompile Include="..\..\..\tests\spu\hardreset.cc" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

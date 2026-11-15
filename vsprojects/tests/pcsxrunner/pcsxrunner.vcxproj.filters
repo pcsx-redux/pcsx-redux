@@ -219,6 +219,9 @@
     <ClCompile Include="..\..\..\tests\spu\reverbstate.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\spu\hardreset.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-threaded.cc">
       <Filter>Source Files</Filter>
     </ClCompile>

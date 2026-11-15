@@ -953,8 +953,14 @@ void PCSX::SPU::impl::SetupStreams() {
     m_reverb.mixStart = (int *)malloc(i * 4);
     memset(m_reverb.mixStart, 0, i * 4);
 
+    setVoiceDefaults();
+}
+
+// The voice state a fresh SPU starts from, before any register write. A hard reset sets it again after loading its
+// blank state.
+void PCSX::SPU::impl::setVoiceDefaults() {
     // Loop over the sound channels.
-    for (i = 0; i < MAXCHAN; i++) {
+    for (unsigned i = 0; i < MAXCHAN; i++) {
         // No per-channel mutex synchronization is used here: it is not needed, and would only slow
         // things down.
         // Initialize the sustain level.
