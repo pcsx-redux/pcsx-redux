@@ -1061,10 +1061,21 @@ void PCSX::GUI::startFrame() {
                 break;
             }
             case SDL_EVENT_GAMEPAD_ADDED:
-            case SDL_EVENT_GAMEPAD_REMOVED:
+            case SDL_EVENT_GAMEPAD_REMOVED: {
                 // gui drains the SDL queue; pad.cc cannot see these via PeepEvents.
-                if (g_emulator && g_emulator->m_pads) g_emulator->m_pads->rescanGamepads();
+                const bool added = event.type == SDL_EVENT_GAMEPAD_ADDED;
+                const SDL_JoystickID jid = event.gdevice.which;
+                const char* name = SDL_GetGamepadNameForID(jid);
+                int port = 0;
+                if (g_emulator && g_emulator->m_pads) {
+                    // Port is known before close on remove, after map on add.
+                    if (!added) port = g_emulator->m_pads->portForController(jid);
+                    g_emulator->m_pads->rescanGamepads();
+                    if (added) port = g_emulator->m_pads->portForController(jid);
+                }
+                notifyControllerHotplug(added, name, port);
                 break;
+            }
             default:
                 break;
         }
@@ -2372,9 +2383,41 @@ bool PCSX::GUI::about() {
     return changed;
 }
 
+void PCSX::GUI::notifyControllerHotplug(bool connected, const char* name, int port) {
+    if (!name || !*name) name = _("Unknown controller");
+    if (port > 0) {
+        addNotice(fmt::format(connected ? f_("Controller connected: {} (port {})")
+                                        : f_("Controller disconnected: {} (port {})"),
+                              name, port),
+                  NoticeKind::Info);
+    } else {
+        addNotice(fmt::format(connected ? f_("Controller connected: {}") : f_("Controller disconnected: {}"), name),
+                  NoticeKind::Info);
+    }
+}
+
+void PCSX::GUI::announceConnectedControllers() {
+    if (!g_emulator || !g_emulator->m_pads) return;
+    int count = 0;
+    SDL_JoystickID* ids = SDL_GetGamepads(&count);
+    if (!ids) return;
+    for (int i = 0; i < count; i++) {
+        notifyControllerHotplug(true, SDL_GetGamepadNameForID(ids[i]), g_emulator->m_pads->portForController(ids[i]));
+    }
+    SDL_free(ids);
+}
+
 void PCSX::GUI::update(bool vsync) {
     glDisable(GL_SCISSOR_TEST);
     endFrame();
+    // Pads init after GUI::init, so the first update() is when already-connected
+    // controllers can be announced. Flush the ADDED events SDL queued at subsystem
+    // init so startFrame doesn't notice them again.
+    if (!m_announcedStartupControllers) {
+        m_announcedStartupControllers = true;
+        SDL_FlushEvents(SDL_EVENT_GAMEPAD_ADDED, SDL_EVENT_GAMEPAD_REMOVED);
+        announceConnectedControllers();
+    }
     startFrame();
     if (m_presentAfterHardReset) {
         m_presentAfterHardReset = false;
