@@ -94,6 +94,22 @@ void PCSX::SPU::impl::save(SaveStates::SPU &spu) {
                     spu.get<SaveStates::SPUReverbAltLeftTick>(), spu.get<SaveStates::SPUReverbCallCount>());
     spu.get<SaveStates::SPUReverbCurrAddr>().value = m_reverb.rvb.CurrAddr;
 
+    // The state holds the 32 entries of each ring.
+    static_assert(sizeof(xaRingL) / sizeof(xaRingL[0]) == 32 && sizeof(xaRingR) / sizeof(xaRingR[0]) == 32);
+    auto &ringL = spu.get<SaveStates::SPUXARingL>();
+    auto &ringR = spu.get<SaveStates::SPUXARingR>();
+    for (unsigned i = 0; i < 32; i++) {
+        ringL.value[i].value = xaRingL[i];
+        ringR.value[i].value = xaRingR[i];
+    }
+    ringL.count = ringR.count = 32;
+    spu.get<SaveStates::SPUXARingPos>().value = xaRingPos;
+    // xaSixStep counts down to the next output; the state counts up from the last, 0 to 5.
+    spu.get<SaveStates::SPUXAInputsTaken>().value = 6 - xaSixStep;
+    spu.get<SaveStates::SPUXALastL>().value = xaLastL;
+    spu.get<SaveStates::SPUXALastR>().value = xaLastR;
+    spu.get<SaveStates::SPUCDFeedCycle>().value = cdFeedCycle;
+
     if (running) SetupThread();
 }
 
@@ -170,6 +186,18 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
     spuEndx = spu.get<SaveStates::SPUEndx>().value & 0xffffff;
     // Older states lack it and load as 0, bits 7 and 9 low.
     m_writeDMALandedCycle = spu.get<SaveStates::SPUWriteDMALandedCycle>().value;
+
+    // Older states lack the XA resampler and the CD feed cycle, and load them as an SPU just opened
+    // has them.
+    for (unsigned i = 0; i < 32; i++) {
+        xaRingL[i] = spu.get<SaveStates::SPUXARingL>().value[i].value;
+        xaRingR[i] = spu.get<SaveStates::SPUXARingR>().value[i].value;
+    }
+    xaRingPos = spu.get<SaveStates::SPUXARingPos>().value;
+    xaSixStep = 6 - int(std::min(spu.get<SaveStates::SPUXAInputsTaken>().value, 5u));
+    xaLastL = spu.get<SaveStates::SPUXALastL>().value;
+    xaLastR = spu.get<SaveStates::SPUXALastR>().value;
+    cdFeedCycle = spu.get<SaveStates::SPUCDFeedCycle>().value;
 
     m_noise.loadFrom(spu.get<SaveStates::SPUNoiseClock>(), spu.get<SaveStates::SPUNoiseCount>(),
                      spu.get<SaveStates::SPUNoiseVal>(), spu.get<SaveStates::SPUNoisePosition>());
