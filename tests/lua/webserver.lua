@@ -105,3 +105,18 @@ function TestWebServer:test_pipelined_request_not_dispatched()
     lu.assertNil(second and second.body)
     lu.assertNil(second)
 end
+
+-- A multipart/form-data handler gets the raw request body, boundaries and part headers included.
+function TestWebServer:test_multipart_body_is_raw()
+    local seen
+    PCSX.WebServer.Handlers.multipart = function(request)
+        seen = request
+        return 'END'
+    end
+    local body = '--XyZ\r\nContent-Disposition: form-data; name="a"\r\n\r\n1\r\n--XyZ--\r\n'
+    exchange('POST /api/v1/lua/multipart HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
+             'Content-Type: multipart/form-data; boundary=XyZ\r\nContent-Length: ' .. #body .. '\r\n\r\n' .. body)
+    PCSX.WebServer.Handlers.multipart = nil
+    lu.assertNotNil(seen)
+    lu.assertEquals(seen.body, body)
+end

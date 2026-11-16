@@ -393,7 +393,7 @@ class LuaExecutor : public PCSX::WebExecutor {
             }
             L.settable();
             L.push("body");
-            L.push(request.body.asString());
+            L.push(request.rawBody.asString());
             L.settable();
             try {
                 L.pcall(1);
@@ -1050,6 +1050,7 @@ struct PCSX::WebClient::WebClientImpl {
     }
 
     int onBody(const Slice& slice) {
+        m_requestData.rawBody.concatenate(slice);
         if (m_multipart) {
             multipart_parser_execute(m_multipartParser, slice.data<char>(), slice.size());
         } else {
