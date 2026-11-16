@@ -736,14 +736,7 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
 
         if (!g_system->getArgs().isUpdateDisabled() && emuSettings.get<PCSX::Emulator::SettingAutoUpdate>() &&
             !g_system->getVersion().failed() && g_system->getVersion().hasUpdateInfo()) {
-            m_update.downloadUpdateInfo(
-                g_system->getVersion(),
-                [this](bool success) {
-                    if (success) {
-                        m_updateAvailable = true;
-                    }
-                },
-                g_system->getLoop());
+            m_updater.checkForUpdate();
         }
 
         setFullscreen(m_fullscreen);
@@ -2013,104 +2006,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
 
     if (m_showSysCfg) changed |= m_systemConfig.draw();
 
-    if (!g_system->getArgs().isUpdateDisabled() && !g_system->getVersion().failed() &&
-        g_system->getVersion().hasUpdateInfo() && !emuSettings.get<Emulator::SettingShownAutoUpdateConfig>().value) {
-        if (ImGui::Begin(_("Update configuration"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::TextUnformatted((_(R"(PCSX-Redux can automatically update itself.
-
-If you enable the auto update option, it will check for new updates
-on startup. No personal data nor identifiable token is sent for this
-process. The update server is run by the PCSX-Redux project behind
-Cloudflare, which can see your IP address like any CDN.
-
-If an update is available, you will get prompted to download and
-install it. You can still download versions of PCSX-Redux as usual
-from its website.
-
-If you want to change this setting later, you can go to the
-Configuration -> System menu.)")));
-            if (ImGui::Button(_("Enable auto update"))) {
-                emuSettings.get<Emulator::SettingShownAutoUpdateConfig>().value = true;
-                emuSettings.get<Emulator::SettingAutoUpdate>().value = true;
-                changed = true;
-            }
-            ImGui::SameLine();
-            if (ImGui::Button(_("No thanks"))) {
-                emuSettings.get<Emulator::SettingShownAutoUpdateConfig>().value = true;
-                changed = true;
-            }
-        }
-        ImGui::End();
-    }
-
-    if (m_updateAvailable) {
-        if (ImGui::Begin(_("Update available"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-            if (m_update.canFullyApply()) {
-                ImGui::TextUnformatted((_(R"(An update is available.
-Click 'Update' to download and apply the update.
-PCSX-Redux will automatically restart to apply it.
-
-Click 'Download' to use your browser to download
-the update and manually apply it.)")));
-            } else {
-                ImGui::TextUnformatted((_(R"(An update is available.
-Click 'Update' to download it. While the update can be
-downloaded, it won't be applied automatically. You will
-have to install it manually, the way you previously did.
-PCSX-Redux will quit once the update is downloaded.
-
-Click 'Download' to use your browser to download
-the update and manually apply it.)")));
-            }
-            ImGui::ProgressBar(m_update.progress());
-            if (!m_updateDownloading) {
-                if (ImGui::Button(C_("Update dialog button", "Update"))) {
-                    m_updateDownloading = true;
-                    bool started = m_update.downloadAndApplyUpdate(
-                        g_system->getVersion(),
-                        [this](bool success) {
-                            m_updateAvailable = false;
-                            m_updateDownloading = false;
-                            if (success) {
-                                m_update.applyUpdate(g_system->getBinDir());
-                                g_system->quit();
-                            } else {
-                                addNotice(_("An error has occured while downloading\nand/or applying the update."),
-                                          NoticeKind::Error);
-                            }
-                        },
-                        g_system->getLoop());
-                    if (!started) {
-                        addNotice(_("An error has occured while downloading\nand/or applying the update."),
-                                  NoticeKind::Error);
-                        m_updateAvailable = false;
-                        m_updateDownloading = false;
-                    }
-                }
-                ImGui::SameLine();
-                if (ImGui::Button(C_("Update dialog button", "Download"))) {
-                    m_updateDownloading = true;
-                    bool started = m_update.getDownloadUrl(
-                        g_system->getVersion(),
-                        [this](std::string url) {
-                            openUrl(url);
-                            m_updateDownloading = false;
-                        },
-                        g_system->getLoop());
-                    if (!started) {
-                        addNotice(_("An error has occured while downloading the update."), NoticeKind::Error);
-                        m_updateAvailable = false;
-                        m_updateDownloading = false;
-                    }
-                }
-                ImGui::SameLine();
-                if (ImGui::Button(_("Cancel"))) {
-                    m_updateAvailable = false;
-                }
-            }
-        }
-        ImGui::End();
-    }
+    changed |= m_updater.draw(this);
 
     if (m_showHandles) {
         if (ImGui::Begin(_("UvFiles"), &m_showHandles)) {

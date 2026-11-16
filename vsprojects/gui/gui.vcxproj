@@ -144,6 +144,7 @@
     <ClCompile Include="..\..\src\gui\widgets\console.cc" />
     <ClCompile Include="..\..\src\gui\widgets\dynarec_disassembly.cc" />
     <ClCompile Include="..\..\src\gui\widgets\emulation-config.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\updater.cc" />
     <ClCompile Include="..\..\src\gui\widgets\interrupts-scaler.cc" />
     <ClCompile Include="..\..\src\gui\widgets\events.cc" />
     <ClCompile Include="..\..\src\gui\widgets\filedialog.cc" />
@@ -199,6 +200,7 @@
     <ClInclude Include="..\..\src\gui\widgets\console.h" />
     <ClInclude Include="..\..\src\gui\widgets\dynarec_disassembly.h" />
     <ClInclude Include="..\..\src\gui\widgets\emulation-config.h" />
+    <ClInclude Include="..\..\src\gui\widgets\updater.h" />
     <ClInclude Include="..\..\src\gui\widgets\interrupts-scaler.h" />
     <ClInclude Include="..\..\src\gui\widgets\events.h" />
     <ClInclude Include="..\..\src\gui\widgets\filedialog.h" />
