@@ -177,6 +177,9 @@
     <ClCompile Include="..\..\..\tests\spu\envelopeload.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\spu\xastate.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\core\pad-config.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
