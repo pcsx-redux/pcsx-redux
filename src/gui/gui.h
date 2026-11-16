@@ -358,6 +358,8 @@ class GUI final : public UI {
                          bool &showOpenBinaryDialog, bool &showOpenArchiveDialog);
     void drawOutputWindow(ImGuiContext *context, ImGuiID dockspaceId, ImGuiDockNode *dockspaceNode, int w, int h,
                           float renderRatio);
+    void initMemoryEditors();
+    void drawMemoryEditors();
 
     bool about();
     void aboutFFmpegTab();
