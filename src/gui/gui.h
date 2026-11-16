@@ -84,6 +84,7 @@
 #include "widgets/typed_debugger.h"
 #include "widgets/ui-config.h"
 #include "widgets/updater.h"
+#include "widgets/uvfiles.h"
 
 #if defined(__APPLE__)
 #define GL_SHADER_VERSION "#version 410\n"
@@ -402,6 +403,7 @@ class GUI final : public UI {
     bool m_showDemo = false;
     bool m_showImPlotDemo = false;
     bool m_showHandles = false;
+    Widgets::UvFiles m_uvFiles = {m_showHandles};
     bool m_showAbout = false;
     bool m_showInterruptsScaler = false;
     Widgets::InterruptsScaler m_interruptsScaler = {m_showInterruptsScaler};
@@ -571,8 +573,6 @@ class GUI final : public UI {
 
     bool m_reloadFonts = true;
     Widgets::ShaderEditor m_outputShaderEditor = {"output"};
-
-    static void byteRateToString(float rate, std::string &out);
 
     Widgets::Updater m_updater;
     bool m_aboutSelectAuthors = false;
