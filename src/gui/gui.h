@@ -353,6 +353,8 @@ class GUI final : public UI {
     void endFrame();
     void notifyControllerHotplug(bool connected, const char *name, int port);
     void announceConnectedControllers();
+    bool drawMainMenuBar(ImGuiContext *context, ImGuiID dockspaceId, bool &showOpenIsoFileDialog,
+                         bool &showOpenBinaryDialog, bool &showOpenArchiveDialog);
 
     bool about();
     void aboutFFmpegTab();
