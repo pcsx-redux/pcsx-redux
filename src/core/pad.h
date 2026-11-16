@@ -76,6 +76,8 @@ class Pads {
     virtual void setTransferState(Port port, const TransferState& state) = 0;
 
     virtual void rescanGamepads() = 0;
+    // 1-based emulated port currently mapped to this SDL controller instance, or 0 if none.
+    virtual int portForController(int controllerId) = 0;
 
     virtual void setLua(PCSX::Lua L) = 0;
 

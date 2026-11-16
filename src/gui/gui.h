@@ -47,6 +47,7 @@
 #include "gui/widgets/dalos.h"
 #include "gui/widgets/dynarec_disassembly.h"
 #include "gui/widgets/emulation-config.h"
+#include "gui/widgets/interrupts-scaler.h"
 #include "gui/widgets/events.h"
 #include "gui/widgets/filedialog.h"
 #include "gui/widgets/gpudump.h"
@@ -82,6 +83,9 @@
 #include "support/version.h"
 #include "widgets/memory_observer.h"
 #include "widgets/typed_debugger.h"
+#include "widgets/ui-config.h"
+#include "widgets/updater.h"
+#include "widgets/uvfiles.h"
 
 #if defined(__APPLE__)
 #define GL_SHADER_VERSION "#version 410\n"
@@ -106,6 +110,8 @@ extern GUI *g_gui;
 enum class LogClass : unsigned;
 
 class GUI final : public UI {
+    friend class Widgets::UIConfig;
+
     typedef Setting<bool, TYPESTRING("Fullscreen"), false> Fullscreen;
     typedef Setting<bool, TYPESTRING("FullWindowRender"), true> FullWindowRender;
     typedef Setting<bool, TYPESTRING("ShowMenu")> ShowMenu;
@@ -348,11 +354,13 @@ class GUI final : public UI {
 
     void startFrame();
     void endFrame();
+    void notifyControllerHotplug(bool connected, const char *name, int port);
+    void announceConnectedControllers();
+    bool drawMainMenuBar(ImGuiContext *context, ImGuiID dockspaceId, bool &showOpenIsoFileDialog,
+                         bool &showOpenBinaryDialog, bool &showOpenArchiveDialog);
 
-    bool showThemes();  // Theme window : Allows for custom imgui themes
     bool about();
     void aboutFFmpegTab();
-    void interruptsScaler();
 
   public:
     const ImVec2 &getRenderSize() { return m_renderSize; }
@@ -400,8 +408,10 @@ class GUI final : public UI {
     bool m_showDemo = false;
     bool m_showImPlotDemo = false;
     bool m_showHandles = false;
+    Widgets::UvFiles m_uvFiles = {m_showHandles};
     bool m_showAbout = false;
     bool m_showInterruptsScaler = false;
+    Widgets::InterruptsScaler m_interruptsScaler = {m_showInterruptsScaler};
     bool m_turboEnabled = false;
     bool m_outputWindowFocused = false;
     Widgets::Log m_log = {settings.get<ShowLog>().value};
@@ -487,6 +497,8 @@ class GUI final : public UI {
     Widgets::EmulationConfig m_emulationConfig;
     bool m_showUiCfg = false;
     bool m_showSysCfg = false;
+    Widgets::UIConfig m_uiConfig;
+    Widgets::SystemConfig m_systemConfig;
 
     Widgets::VRAMViewer m_mainVRAMviewer = {settings.get<ShowMainVRAMViewer>().value};
     Widgets::VRAMViewer m_clutVRAMviewer = {settings.get<ShowCLUTVRAMViewer>().value};
@@ -568,11 +580,7 @@ class GUI final : public UI {
     bool m_reloadFonts = true;
     Widgets::ShaderEditor m_outputShaderEditor = {"output"};
 
-    static void byteRateToString(float rate, std::string &out);
-
-    Update m_update;
-    bool m_updateAvailable = false;
-    bool m_updateDownloading = false;
+    Widgets::Updater m_updater;
     bool m_aboutSelectAuthors = false;
     bool m_enableSplashScreen = true;
 
@@ -582,6 +590,7 @@ class GUI final : public UI {
   public:
     bool hasJapanese() { return m_hasJapanese; }
     bool m_setupScreenSize = true;
+    bool m_announcedStartupControllers = false;
     bool m_clearTextures = true;
     bool m_presentAfterHardReset = false;
     Widgets::ShaderEditor m_offscreenShaderEditor = {"offscreen"};

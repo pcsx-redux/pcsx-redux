@@ -17,6 +17,10 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include <algorithm>
+#include <cstring>
+#include <memory>
+
 #include "core/psxemulator.h"
 #include "core/r3000a.h"
 #include "spu/externals.h"
@@ -131,7 +135,19 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
         const auto &data = channel.get<SaveStates::Data>();
         s_chan[i].data = data;
         s_chan[i].adsr.legacy() = channel.get<SaveStates::ADSRInfo>();
-        s_chan[i].adsr.ex() = channel.get<SaveStates::ADSRInfoEx>();
+        // A voice's envelope loads as saved, as the rest of the voice does, so a voice whose ADSR was
+        // never written keeps the envelope it was opened with. Each rate is held to the range the
+        // ADSR registers' decode gives it, since adsr.cc indexes its tables with them.
+        auto &ex = s_chan[i].adsr.ex();
+        ex = channel.get<SaveStates::ADSRInfoEx>();
+        ex.get<exAttackRate>().value &= (ADSRFlags::AttackShiftMask | ADSRFlags::AttackStepMask) >> 8;
+        ex.get<exDecayRate>().value &= ADSRFlags::DecayShiftMask >> 4;
+        ex.get<exSustainRate>().value &= (ADSRFlags::SustainShiftMask | ADSRFlags::SustainStepMask) >> 6;
+        ex.get<exReleaseRate>().value &= ADSRFlags::ReleaseShiftMask;
+        // A state saved before f4d80dcb holds a never-written voice's sustain level on the old
+        // envelope scale, 0xf << 27. Decay() treats it as 15, and it loads as 15.
+        auto &sustainLevel = ex.get<exSustainLevel>().value;
+        sustainLevel = std::clamp<int32_t>(sustainLevel, 0, ADSRFlags::SustainLevelMask);
         s_chan[i].adpcm.loadFrom(data.get<Chan::s_1>(), data.get<Chan::s_2>(), data.get<Chan::StartPtr>(),
                                  data.get<Chan::CurrPtr>(), data.get<Chan::LoopPtr>(), spuRamBase,
                                  data.get<Chan::SB>().value.data(), data.get<Chan::SBPos>());
@@ -143,7 +159,10 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
         s_chan[i].data.get<Chan::IrqDone>().value = 0;
     }
 
-    spuAddr = spu.get<SaveStates::SPUAddr>().value;
+    // openWith() used to start the transfer address at 0xffffffff, so a state saved before the guest
+    // set it holds that, outside sound RAM. It loads as 0, where an SPU opened now starts.
+    const uint32_t savedAddr = spu.get<SaveStates::SPUAddr>().value;
+    spuAddr = savedAddr < c_spuRamSize ? savedAddr : 0;
     spuCtrl = spu.get<SaveStates::SPUCtrl>().value;
     // Only the IRQ9 flag and the capture-half bit are the SPU's own; older states can carry
     // whatever a guest wrote over the rest.
@@ -172,15 +191,6 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
     // Fix to prevent new interpolations from crashing.
     for (unsigned i = 0; i < MAXCHAN; i++) s_chan[i].interp.resetAfterLoad();
 
-    // Repair LDChen's ADSR changes: replay each voice's two ADSR registers, and nothing else.
-    // Replaying key on or the data port here would retrigger voices and write sound RAM.
-    if (spuAddr < 0x7ffff) {
-        for (unsigned i = 0; i < MAXCHAN; i++) {
-            writeRegister(0x1f801c08 + (i << 4), regArea[(i << 3) + 4]);
-            writeRegister(0x1f801c0a + (i << 4), regArea[(i << 3) + 5]);
-        }
-    }
-
     // The replays above were queued: apply them now, with the mixer stopped.
     drainEventsNow();
     // The reverb address replay moved the work-area address back to the start of the area. A
@@ -194,6 +204,26 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
     loadEnvelopeCheckpoints(spu.get<SaveStates::EnvelopeCheckpoints>());
 
     // Start sound processing again.
+    if (running) SetupThread();
+}
+
+// Loads a blank state, so a hard reset clears everything a state load restores: registers, voices,
+// the reverb unit, the capture buffers and the queued writes. Sound RAM gets the value main RAM
+// is filled with. The blank state's envelopes are all zero, and load() takes them as they are.
+// Two values a fresh SPU starts with
+// are not zero, the voices' sustain level and the noise generator's seed, so they are set again
+// as a new SPU has them. The mixer is stopped from the load on, since load() would restart it
+// before they are set.
+void PCSX::SPU::impl::reset() {
+    auto blank = std::make_unique<SaveStates::SPU>();
+    auto &ram = blank->get<SaveStates::SPURam>();
+    ram.allocate();
+    memset(ram.value, g_emulator->settings.get<Emulator::SettingMemoryFillValue>().value, c_spuRamSize);
+    const bool running = m_mixerRunning;
+    if (running) RemoveThread();
+    load(*blank);
+    setVoiceDefaults();
+    m_noise = NoiseGenerator();
     if (running) SetupThread();
 }
 

@@ -68,6 +68,7 @@ class PadsImpl : public PCSX::Pads {
     void getTransferState(Port port, TransferState& state) override;
     void setTransferState(Port port, const TransferState& state) override;
     void rescanGamepads() override;
+    int portForController(int controllerId) override;
     void map();
 
     void setLua(PCSX::Lua L) override;
@@ -896,6 +897,14 @@ void PadsImpl::rescanGamepads() {
     map();
     m_pads[0].m_activeType = active0;
     m_pads[1].m_activeType = active1;
+}
+
+int PadsImpl::portForController(int controllerId) {
+    for (int i = 0; i < 2; i++) {
+        SDL_Gamepad* g = m_pads[i].m_gamepad;
+        if (g && SDL_GetGamepadID(g) == static_cast<SDL_JoystickID>(controllerId)) return i + 1;
+    }
+    return 0;
 }
 
 void PadsImpl::map() {

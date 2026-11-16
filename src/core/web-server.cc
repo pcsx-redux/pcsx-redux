@@ -392,6 +392,9 @@ class LuaExecutor : public PCSX::WebExecutor {
                 L.pop();
             }
             L.settable();
+            L.push("body");
+            L.push(request.rawBody.asString());
+            L.settable();
             try {
                 L.pcall(1);
                 if (L.isstring()) {
@@ -1047,6 +1050,7 @@ struct PCSX::WebClient::WebClientImpl {
     }
 
     int onBody(const Slice& slice) {
+        m_requestData.rawBody.concatenate(slice);
         if (m_multipart) {
             multipart_parser_execute(m_multipartParser, slice.data<char>(), slice.size());
         } else {
@@ -1059,7 +1063,9 @@ struct PCSX::WebClient::WebClientImpl {
             multipart_parser_free(m_multipartParser);
         }
         executeRequest();
-        return 0;
+        // The connection is closed after one request; pause so llhttp_execute
+        // does not go on to dispatch anything pipelined behind it.
+        return HPE_PAUSED;
     }
     int onChunkHeader() { return 0; }
     int onChunkComplete() { return 0; }

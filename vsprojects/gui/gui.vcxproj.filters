@@ -4,6 +4,9 @@
     <ClCompile Include="..\..\src\gui\gui.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\gui\gui-menubar.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\gui\gui-about-ffmpeg.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -26,6 +29,18 @@
       <Filter>Source Files\widgets</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\gui\widgets\emulation-config.cc">
+      <Filter>Source Files\widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\gui\widgets\uvfiles.cc">
+      <Filter>Source Files\widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\gui\widgets\updater.cc">
+      <Filter>Source Files\widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\gui\widgets\interrupts-scaler.cc">
+      <Filter>Source Files\widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\gui\widgets\ui-config.cc">
       <Filter>Source Files\widgets</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\gui\widgets\filedialog.cc">
@@ -190,6 +205,18 @@
       <Filter>Header Files\widgets</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\gui\widgets\emulation-config.h">
+      <Filter>Header Files\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\gui\widgets\uvfiles.h">
+      <Filter>Header Files\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\gui\widgets\updater.h">
+      <Filter>Header Files\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\gui\widgets\interrupts-scaler.h">
+      <Filter>Header Files\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\gui\widgets\ui-config.h">
       <Filter>Header Files\widgets</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\gui\widgets\filedialog.h">
