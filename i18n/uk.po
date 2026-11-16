@@ -4235,7 +4235,7 @@ msgstr "Далі"
 
 #: src/gui/widgets/memory_observer.cc:353
 msgid "Freeze all"
-msgstr "Зупинити все"
+msgstr "Затримати все"
 
 #: src/gui/widgets/memory_observer.cc:361
 msgid "Unfreeze all"
@@ -4243,7 +4243,7 @@ msgstr "Запустити все"
 
 #: src/gui/widgets/memory_observer.cc:367
 msgid "Remove frozen addresses"
-msgstr "Вилучити зупинені адреси"
+msgstr "Вилучити затримані адреси"
 
 #: src/gui/widgets/memory_observer.cc:373
 msgid "Current"
@@ -4255,7 +4255,7 @@ msgstr "Попередня"
 
 #: src/gui/widgets/memory_observer.cc:375
 msgid "Freeze"
-msgstr "Зупинити"
+msgstr "Затримати"
 
 #: src/gui/widgets/memory_observer.cc:414
 msgid "##{}"
