@@ -253,8 +253,19 @@ void PCSX::CallStacks::setPathTracking(bool enabled) {
 }
 
 void PCSX::CallStacks::clearPaths() {
+    // A call waiting on its delay slot holds the caller's path id, which is about to be
+    // reused, so it is re-interned from its return addresses with the live paths.
+    std::vector<uint32_t> beforeCall;
+    if (m_delaySlotPC) {
+        for (uint32_t path = m_pathBeforeCall; path; path = m_pathNodes[path].parent) {
+            beforeCall.push_back(m_pathNodes[path].ra);
+        }
+    }
     m_pathNodes.clear();
     m_pathIndex.clear();
     m_pathNodes.push_back({0, 0});
     if (m_pathTracking) rechainAll();
+    uint32_t path = 0;
+    for (auto ra = beforeCall.rbegin(); ra != beforeCall.rend(); ra++) path = internPath(path, *ra);
+    m_pathBeforeCall = path;
 }
