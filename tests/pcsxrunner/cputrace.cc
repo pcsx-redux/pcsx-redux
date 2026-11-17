@@ -238,11 +238,11 @@ TEST(CpuTrace, PlaybackMatchesLive) {
         bool debugger;
         uint64_t maxChecks;
     } runs[] = {
-        {"src/mips/tests/cpu/cpu.ps-exe", false, 8'000'000},
-        {"src/mips/tests/cop0/cop0.ps-exe", true, 8'000'000},
-        {"src/mips/tests/gte/gte.ps-exe", false, 8'000'000},
-        {"src/mips/tests/psyqo/psyqo-tests.ps-exe", false, 24'000'000},
-        {"src/mips/tests/memcpy/memcpy.ps-exe", false, 4'000'000},
+        {"src/mips/tests/cpu/cpu/cpu.ps-exe", false, 8'000'000},
+        {"src/mips/tests/cpu/cop0/cop0.ps-exe", true, 8'000'000},
+        {"src/mips/tests/gte/gte/gte.ps-exe", false, 8'000'000},
+        {"src/mips/tests/psyqo/psyqo/psyqo-tests.ps-exe", false, 24'000'000},
+        {"src/mips/tests/libc/memcpy/memcpy.ps-exe", false, 4'000'000},
     };
     uint64_t total = 0, totalMismatches = 0;
     uint64_t coverage[C_COUNT] = {};
@@ -374,7 +374,7 @@ TEST(CpuTrace, SaveLoadAndTextExport) {
     s_roundTrip = &r;
     PCSX::CpuTrace::s_captureObserver = roundTripObserver;
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-trace", "-loadexe", "src/mips/tests/cpu/cpu.ps-exe");
+                        "-trace", "-loadexe", "src/mips/tests/cpu/cpu/cpu.ps-exe");
     int ret = invoker.invoke();
     PCSX::CpuTrace::s_captureObserver = nullptr;
     s_roundTrip = nullptr;
@@ -402,7 +402,7 @@ TEST(CpuTrace, CaptureStopsAtLimit) {
     s_limitCalls = 0;
     PCSX::CpuTrace::s_captureObserver = limitObserver;
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-trace", "-loadexe", "src/mips/tests/cpu/cpu.ps-exe");
+                        "-trace", "-loadexe", "src/mips/tests/cpu/cpu/cpu.ps-exe");
     int ret = invoker.invoke();
     PCSX::CpuTrace::s_captureObserver = nullptr;
     EXPECT_EQ(ret, 0);
@@ -414,7 +414,7 @@ TEST(CpuTrace, RecordsCarryTheCycleCounter) {
     s_cycles = &c;
     PCSX::CpuTrace::s_captureObserver = cycleObserver;
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-trace", "-loadexe", "src/mips/tests/cpu/cpu.ps-exe");
+                        "-trace", "-loadexe", "src/mips/tests/cpu/cpu/cpu.ps-exe");
     int ret = invoker.invoke();
     PCSX::CpuTrace::s_captureObserver = nullptr;
     s_cycles = nullptr;

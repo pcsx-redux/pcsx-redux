@@ -118,7 +118,7 @@ TEST(HWEvents, IRQAndDMAEventsAreStampedInOrder) {
         "tostring(disarmed))) "
         "f:close() end)";
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-exec", lua.c_str(), "-loadexe", "src/mips/tests/dma/dma.ps-exe");
+                        "-exec", lua.c_str(), "-loadexe", "src/mips/tests/dma/dma/dma.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
     printf(
@@ -159,7 +159,7 @@ TEST(HWEvents, IRQAndDMAEventsAreStampedInOrder) {
 TEST(HWEvents, NothingRecordedWhenDisarmed) {
     ObserverScope scope;
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/dma/dma.ps-exe");
+                        "-loadexe", "src/mips/tests/dma/dma/dma.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
     EXPECT_EQ(s_seen.total, 0u);

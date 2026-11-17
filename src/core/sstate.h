@@ -207,12 +207,26 @@ typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("reverbCurrAddr"), 28> SPURe
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("noisePosition"), 29> SPUNoisePosition;
 // CPU cycle at which SPUSTAT bits 7 and 9 rise after a sound RAM write DMA; 0 while they are low
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("writeDMALandedCycle"), 30> SPUWriteDMALandedCycle;
+// The XA decoder's 44.1 kHz resampler (SPU::impl::FeedXA): its last 32 inputs, where the next one
+// goes, how many it has taken since its last output, and the last sample of the stream, which an
+// 18.9 kHz stream averages with the next. A state saved without them loads all zeroes, a resampler
+// that has taken nothing, as an SPU just opened has it.
+typedef Protobuf::RepeatedField<Protobuf::Int16, 32, TYPESTRING("xaRingL"), 31> SPUXARingL;
+typedef Protobuf::RepeatedField<Protobuf::Int16, 32, TYPESTRING("xaRingR"), 32> SPUXARingR;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("xaRingPos"), 33> SPUXARingPos;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("xaInputsTaken"), 34> SPUXAInputsTaken;
+typedef Protobuf::Field<Protobuf::Int16, TYPESTRING("xaLastL"), 35> SPUXALastL;
+typedef Protobuf::Field<Protobuf::Int16, TYPESTRING("xaLastR"), 36> SPUXALastR;
+// CPU cycle of the last CD audio fed (SPU::impl::cdFeedCycle). 0, as in a state saved without it,
+// means the CD has fed nothing.
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cdFeedCycle"), 37> SPUCDFeedCycle;
 
 typedef Protobuf::Message<TYPESTRING("SPU"), SPURam, SPUPorts, XAField, SPUIrq, SPUIrqPtr, Channels, SPUAddr, SPUCtrl,
                           SPUStat, CBStartIndex, CBCurrIndex, CBEndIndex, CBVoiceIndex, CBCDLeft, CBCDRight,
                           SPUNoiseClock, SPUNoiseCount, SPUNoiseVal, SPUEndx, SPUMainVolWritten, EnvelopeCheckpoints,
                           SPUReverbFirInL, SPUReverbFirInR, SPUReverbFirOutL, SPUReverbFirOutR, SPUReverbAltLeftTick,
-                          SPUReverbCallCount, SPUReverbCurrAddr, SPUNoisePosition, SPUWriteDMALandedCycle>
+                          SPUReverbCallCount, SPUReverbCurrAddr, SPUNoisePosition, SPUWriteDMALandedCycle, SPUXARingL,
+                          SPUXARingR, SPUXARingPos, SPUXAInputsTaken, SPUXALastL, SPUXALastR, SPUCDFeedCycle>
     SPU;
 typedef Protobuf::MessageField<SPU, TYPESTRING("spu"), 6> SPUField;
 
@@ -347,8 +361,13 @@ typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("irq_state"), 6> RcntIRQSta
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cycle"), 7> RcntCycle;
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cycle_start"), 8> RcntCycleStart;
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("gate_started"), 9> RcntGateStarted;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("rate_den"), 10> RcntRateDen;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("start_frac"), 11> RcntStartFrac;
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("pause_until"), 12> RcntPauseUntil;
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("hold_from"), 13> RcntHoldFrom;
 typedef Protobuf::Message<TYPESTRING("Rcnt"), RcntMode, RcntTarget, RcntRate, RcntIRQ, RcntCounterState, RcntIRQState,
-                          RcntCycle, RcntCycleStart, RcntGateStarted>
+                          RcntCycle, RcntCycleStart, RcntGateStarted, RcntRateDen, RcntStartFrac, RcntPauseUntil,
+                          RcntHoldFrom>
     Rcnt;
 typedef Protobuf::RepeatedField<Rcnt, 4, TYPESTRING("rcnts"), 1> Rcnts;
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("hsync_count"), 2> HSyncCount;

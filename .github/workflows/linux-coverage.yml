@@ -44,7 +44,7 @@ jobs:
           cp ./openbios.bin src/mips/openbios/
       - run: |
           make -C src/mips/monitor/hosts/retail -j 2 BUILD=LTO
-          xvfb-run catchsegv ./pcsx-redux -stdout -lua_stdout -testmode -no-gui-log -exec "dofile 'src/mips/tests/cdrom/create-test-iso.lua'"
+          xvfb-run catchsegv ./pcsx-redux -stdout -lua_stdout -testmode -no-gui-log -exec "dofile 'src/mips/tests/cdrom/common/create-test-iso.lua'"
       - name: Test
         run: |
           xvfb-run catchsegv ./pcsx-redux-tests

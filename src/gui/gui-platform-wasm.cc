@@ -28,8 +28,14 @@ SOFTWARE.
 
 #include <GL/gl3w.h>
 #include <SDL3/SDL.h>
+#include <emscripten/emscripten.h>
 #include <emscripten/html5_webgl.h>
 
+#include <deque>
+#include <string>
+
+#include "core/psxemulator.h"
+#include "core/spu.h"
 #include "gui/gui-platform.h"
 
 namespace PCSX {
@@ -65,5 +71,25 @@ void presentFrame(SDL_Window* window) {
 
 }  // namespace GUIPlatform
 }  // namespace PCSX
+
+// Called by the page shell once it has copied a picked or dropped file into the virtual
+// filesystem. Posting it as a drop event hands it to the same place a desktop drop goes,
+// GUI::magicOpen, on the next frame rather than from inside a browser callback.
+extern "C" EMSCRIPTEN_KEEPALIVE void pcsxOpenFile(const char* path) {
+    // A pushed event does not own the string it points to, and two loads can be queued before
+    // the next frame polls them, so every path stays alive for the life of the page. That is
+    // one short string per load.
+    static std::deque<std::string> s_paths;
+    SDL_Event event = {};
+    event.type = SDL_EVENT_DROP_FILE;
+    event.drop.data = s_paths.emplace_back(path).c_str();
+    SDL_PushEvent(&event);
+}
+
+// The page's audio latency control: the SPU's LatencyMargin setting, in milliseconds, the same
+// value as the slider in the SPU configuration window.
+extern "C" EMSCRIPTEN_KEEPALIVE int pcsxGetLatencyMargin() { return PCSX::g_emulator->m_spu->getLatencyMargin(); }
+
+extern "C" EMSCRIPTEN_KEEPALIVE void pcsxSetLatencyMargin(int ms) { PCSX::g_emulator->m_spu->setLatencyMargin(ms); }
 
 #endif  // __EMSCRIPTEN__

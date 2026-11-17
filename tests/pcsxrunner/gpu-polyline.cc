@@ -26,7 +26,7 @@
 // assertion matched the soft GPU.
 TEST(GPUPolyline, Terminator) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpu-polyline/gpu-polyline.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/polyline/gpu-polyline.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

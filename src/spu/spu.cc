@@ -214,7 +214,10 @@ bool PCSX::SPU::impl::decodeNextBlock(int ch, SPUCHAN *voice) {
         // kStopped after an end block is a mute still owed to an audible voice. Once the voice
         // is silent the cursor goes to the repeat address, as it does on hardware for every end
         // block: the readout never stops, and a silent voice still raises IRQ9.
-        if (voice->data.get<Chan::On>().value || voice->adpcm.loop() == nullptr) return false;
+        if (voice->data.get<Chan::On>().value || voice->adpcm.loop() == nullptr) {
+            voice->adpcm.clearBlock();  // Nothing is read until the readout resumes.
+            return false;
+        }
         cursor = voice->adpcm.loop();
     }
 
@@ -227,12 +230,9 @@ bool PCSX::SPU::impl::decodeNextBlock(int ch, SPUCHAN *voice) {
     cursor = decoded.blockEnd;
     const int blockFlags = decoded.flags;
 
+    // The IRQ address matches the block being read, the one that starts 16 bytes before the cursor.
     if (spuCtrl & ControlFlags::IRQEnable) {
-        const bool addrReached = irqAddress > cursor - 16 && irqAddress <= cursor;
-        // Special case: IRQ on the looping address, when the stop/loop flag is set.
-        const bool loopAddrReached = (blockFlags & 1) && voice->adpcm.loop() != nullptr &&
-                                     irqAddress > voice->adpcm.loop() - 16 && irqAddress <= voice->adpcm.loop();
-        if (addrReached || loopAddrReached) {
+        if (irqAddress >= cursor - 16 && irqAddress < cursor) {
             // Debug flag.
             irqDone = 1;
             triggerIrq();
@@ -671,6 +671,15 @@ bool PCSX::SPU::impl::flushOutput() {
     if (buffered + frames > lead + devicePeriodFrames()) {
         m_audioOut.dropVoiceFrames(buffered + frames - lead);
     }
+#ifdef __EMSCRIPTEN__
+    // In a browser the device callback that drains this ring runs on the main thread, and so
+    // does the CPU, which may be in catchUp() waiting for this thread. Waiting here for room
+    // would hang the page whenever the device stops draining (an AudioContext that is still
+    // suspended) or drains slower than the CPU runs. Make room by dropping the oldest frames.
+    const size_t capacity = m_audioOut.getVoiceCapacity();
+    const size_t queued = m_audioOut.getFramesBuffered(0);
+    if (queued + frames >= capacity) m_audioOut.dropVoiceFrames(queued + frames - capacity + 1);
+#endif
     // Blocks while the device ring is full, which is what paces this thread when the CPU is
     // further ahead than the ring holds.
     while (!m_audioOut.feedStreamData(reinterpret_cast<SDLAudio::Frame *>(spuBuffer), frames)) {
@@ -944,8 +953,14 @@ void PCSX::SPU::impl::SetupStreams() {
     m_reverb.mixStart = (int *)malloc(i * 4);
     memset(m_reverb.mixStart, 0, i * 4);
 
+    setVoiceDefaults();
+}
+
+// The voice state a fresh SPU starts from, before any register write. A hard reset sets it again after loading its
+// blank state.
+void PCSX::SPU::impl::setVoiceDefaults() {
     // Loop over the sound channels.
-    for (i = 0; i < MAXCHAN; i++) {
+    for (unsigned i = 0; i < MAXCHAN; i++) {
         // No per-channel mutex synchronization is used here: it is not needed, and would only slow
         // things down.
         // Initialize the sustain level.
@@ -981,7 +996,9 @@ bool PCSX::SPU::impl::openWith(bool startThread) {
     if (spuIsOpen) return true;
 
     spuIrq = 0;
-    spuAddr = 0xffffffff;
+    // Inside sound RAM, so the data port and a DMA used before the guest sets the address start at
+    // its beginning.
+    spuAddr = 0;
     endThread = 0;
     threadEnded = 0;
     spuRamBase = (uint8_t *)spuMem;
@@ -1142,4 +1159,8 @@ void PCSX::SPU::impl::setLua(Lua L) {
     L.pop();
     L.pop();
     m_audioOut.setLua(L);
+}
+
+int PCSX::SPU::impl::getEffectiveSpeed() {
+    return SDLAudio::effectiveSpeed(settings.get<Speed>().value, g_emulator->getTurboFactor());
 }

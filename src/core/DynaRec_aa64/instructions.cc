@@ -263,15 +263,18 @@ void DynaRecCPU::recBNE(uint32_t code) {
 void DynaRecCPU::recCOP0(uint32_t code) {
     switch (_Rs_) {  // figure out the type of COP0 opcode
         case 0:
+            emitCopUnusableCheck(0, true);
             recMFC0(code);
             break;
         case 4:
+            emitCopUnusableCheck(0, true);
             recMTC0(code);
             break;
         case 8:
             recBCz(code);
             break;
         case 16:
+            emitCopUnusableCheck(0, true);
             recRFE(code);
             break;
         default:
@@ -292,17 +295,19 @@ void DynaRecCPU::recCOP1or3(uint32_t code) {
     }
 }
 
-// LWC1, LWC3, SWC1, SWC3. Like the other COP1/COP3 opcodes, these trap with SR.CUz clear and do nothing here
-// otherwise. On silicon SWCz stores an unspecified value.
+// LWCz and SWCz for z = 0, 1, 3. Like the COP1/COP3 opcodes, these trap with SR.CUz clear, in kernel mode too, and
+// do nothing here otherwise. On silicon SWCz stores an unspecified value.
 void DynaRecCPU::recLSCz(uint32_t code) { emitCopUnusableCheck((code >> 26) & 3); }
 
-// Raises a coprocessor unusable exception, and leaves the block, if SR.CUz is clear. Code emitted after
-// this only runs with the coprocessor usable.
-void DynaRecCPU::emitCopUnusableCheck(unsigned z) {
+// Raises a coprocessor unusable exception, and leaves the block, if SR.CUz is clear, or with userModeOnly, if
+// SR.CUz is clear and the CPU is in user mode (KUc set). Code emitted after this only runs with the
+// coprocessor usable.
+void DynaRecCPU::emitCopUnusableCheck(unsigned z, bool userModeOnly) {
     Label usable;
 
     flushRegs();
     gen.Ldr(w4, MemOperand(contextPointer, COP0_OFFSET(12)));
+    if (userModeOnly) gen.Tbz(w4, 1, &usable);
     gen.Tbnz(w4, 28 + z, &usable);
 
     // The load started by the previous instruction still lands
@@ -661,6 +666,17 @@ void DynaRecCPU::recMFC0(uint32_t code) {
     allocateRegWithoutLoad(_Rt_);
     m_gprs[_Rt_].setWriteback(true);
     gen.Ldr(m_gprs[_Rt_].allocatedReg, MemOperand(contextPointer, COP0_OFFSET(_Rd_)));
+    if (_Rd_ == 13) {
+        // Cause bit 10 follows I_STAT & I_MASK, both ways, with no latch.
+        gen.Mov(x0, (uint64_t)&PCSX::g_emulator->m_mem->m_hard[0x1070]);
+        gen.Ldr(w1, MemOperand(x0));
+        gen.Ldr(w2, MemOperand(x0, 4));
+        gen.And(w1, w1, w2);
+        gen.Tst(w1, 0x7ff);
+        gen.Cset(w1, ne);
+        gen.And(m_gprs[_Rt_].allocatedReg, m_gprs[_Rt_].allocatedReg, ~0x400);
+        gen.Orr(m_gprs[_Rt_].allocatedReg, m_gprs[_Rt_].allocatedReg, Operand(w1, LSL, 10));
+    }
 }
 
 // TODO: Constant propagation for MFLO/HI, read the result from register if possible instead of reading memory again

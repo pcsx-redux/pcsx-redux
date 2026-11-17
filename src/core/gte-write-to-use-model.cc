@@ -130,11 +130,11 @@ void PCSX::R3000Acpu::gteCommit(const GTEPendingWrite &w) {
 }
 
 // A queued write reaches a command if enough instructions separate the two, which depends on the
-// command and the register (nugget tests/gte-write-to-use, see gte-write-to-use.h). One that does
+// command and the register (nugget tests/gte/write-to-use, see gte-write-to-use.h). One that does
 // not is read by the command as its old value and lands while the command runs: a write by the
 // instruction before the command lands after the command's results, so it overwrites a register
 // the command also writes; an older one lands before them, so the command's result stays (nugget
-// tests/gte-store-delay, SQR on IR1). Registers the command does not write take the written value.
+// tests/gte/store-delay, SQR on IR1). Registers the command does not write take the written value.
 void PCSX::R3000Acpu::gteRunCommand(uint32_t code, void (*execute)(R3000Acpu *cpu, uint32_t code)) {
     GTEPendingWrite late[3];
     unsigned nLate = 0;

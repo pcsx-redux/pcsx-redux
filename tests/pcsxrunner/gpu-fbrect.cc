@@ -26,7 +26,7 @@
 // assertion matched the soft GPU.
 TEST(GPUFBRect, FillVram) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpu-fbrect/gpu-fbrect.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/fbrect/gpu-fbrect.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

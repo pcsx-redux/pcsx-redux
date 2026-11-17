@@ -24,7 +24,7 @@
 // every GP0 env command's GPUSTAT reflection matched the soft GPU.
 TEST(GPUCommand, StatusAfterWrite) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpu-command/gpu-command.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/command/gpu-command.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
