@@ -67,10 +67,11 @@ void PCSX::Widgets::HWEvents::draw(GUI* gui, const char* title) {
     if (m_saveDialog.draw()) {
         auto& selected = m_saveDialog.selected();
         if (!selected.empty()) {
-            IO<File> file = new PosixFile(selected[0], FileOps::TRUNCATE);
+            auto posix = new PosixFile(selected[0], FileOps::TRUNCATE);
+            IO<File> file = posix;
             if (file->failed()) {
                 m_error = _("Unable to open the file for writing.");
-            } else if (g_emulator->m_hwEvents->save(file)) {
+            } else if (bool saved = g_emulator->m_hwEvents->save(file); posix->closeChecked() == 0 && saved) {
                 m_error.clear();
             } else {
                 m_error = _("Writing the file failed.");

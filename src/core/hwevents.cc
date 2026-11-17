@@ -176,9 +176,15 @@ bool PCSX::HWEvents::load(IO<File> file) {
     char magic[sizeof(kMagic)];
     if (file->read(magic, sizeof(magic)) != sizeof(magic)) return false;
     if (memcmp(magic, kMagic, sizeof(kMagic)) != 0) return false;
-    if (file->read<uint32_t>() != kVersion) return false;
-    if (file->read<uint32_t>() != sizeof(HWEvent)) return false;
-    uint64_t count = file->read<uint64_t>();
+    // File::read<T>() zero-fills a short read, so each field checks its own length.
+    auto get = [&file](auto& value) {
+        return file->read(&value, sizeof(value)) == static_cast<ssize_t>(sizeof(value));
+    };
+    uint32_t version, recordSize;
+    uint64_t count;
+    if (!get(version) || version != kVersion) return false;
+    if (!get(recordSize) || recordSize != sizeof(HWEvent)) return false;
+    if (!get(count)) return false;
     while (m_count < count) {
         size_t n = std::min<uint64_t>(count - m_count, kRecordsPerChunk);
         m_chunks.emplace_back(std::make_unique<HWEvent[]>(kRecordsPerChunk));
