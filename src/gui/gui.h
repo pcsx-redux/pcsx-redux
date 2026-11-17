@@ -356,6 +356,7 @@ class GUI final : public UI {
     void announceConnectedControllers();
     bool drawMainMenuBar(ImGuiContext *context, ImGuiID dockspaceId, bool &showOpenIsoFileDialog,
                          bool &showOpenBinaryDialog, bool &showOpenArchiveDialog);
+    void drawResetSettingsModal();
     void drawOutputWindow(ImGuiContext *context, ImGuiID dockspaceId, ImGuiDockNode *dockspaceNode, int w, int h,
                           float renderRatio);
     void initMemoryEditors();
