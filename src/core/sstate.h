@@ -535,16 +535,37 @@ typedef Protobuf::Message<TYPESTRING("PocketStationSlot"), PocketStationDevice, 
 typedef Protobuf::MessageField<PocketStationSlot, TYPESTRING("pocketstation1"), 16> PocketStation1Field;
 typedef Protobuf::MessageField<PocketStationSlot, TYPESTRING("pocketstation2"), 17> PocketStation2Field;
 
+// The serial port at 1F801050h. Only a version 1 message is honoured: a state without one, or with
+// any other version, loads SIO1 at its reset values. The network connection is not part of it.
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("version"), 1> SIO1StateVersion;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("data"), 2> SIO1StateData;
+// As the guest reads it, RXRDY included
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("status"), 3> SIO1StateStatus;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("mode"), 4> SIO1StateMode;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("control"), 5> SIO1StateControl;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("baud"), 6> SIO1StateBaud;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("misc"), 7> SIO1StateMisc;
+// The delay used to schedule interrupts, in CPU cycles, and the baud rate it was derived from
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cycle_count"), 8> SIO1StateCycleCount;
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("baud_rate"), 9> SIO1StateBaudRate;
+// The bytes waiting in the receive buffer, oldest first
+typedef Protobuf::Field<Protobuf::Bytes, TYPESTRING("rx_fifo"), 10> SIO1StateRxFifo;
+typedef Protobuf::Message<TYPESTRING("SIO1State"), SIO1StateVersion, SIO1StateData, SIO1StateStatus, SIO1StateMode,
+                          SIO1StateControl, SIO1StateBaud, SIO1StateMisc, SIO1StateCycleCount, SIO1StateBaudRate,
+                          SIO1StateRxFifo>
+    SIO1State;
+typedef Protobuf::MessageField<SIO1State, TYPESTRING("sio1"), 18> SIO1StateField;
+
 typedef Protobuf::Message<TYPESTRING("SaveState"), SaveStateInfoField, ThumbnailField, MemoryField, RegistersField,
                           GPUField, SPUField, SIOField, HardwareField, CountersField, MDECField, PCdrvFilesField,
-                          CallStacksField, CDRomField, PocketStation1Field, PocketStation2Field>
+                          CallStacksField, CDRomField, PocketStation1Field, PocketStation2Field, SIO1StateField>
     SaveState;
 
 typedef Protobuf::ProtoFile<SaveStateInfo, Thumbnail, Memory, DelaySlotInfo, GtePendingWriteInfo, Registers, GPU,
                             ADPCMDecode, XA, ::PCSX::SPU::Chan::Data, ::PCSX::SPU::ADSRInfo, ::PCSX::SPU::ADSRInfoEx,
                             Channel, EnvelopeCheckpoint, SPU, PadTransfer, SIO, CDQueueElement, CDMSF, CDADPCM, CDRom,
                             Hardware, Rcnt, Counters, MDEC, PCdrvFile, Call, CallStack, CallStacks, PocketStationSlot,
-                            SaveState>
+                            SIO1State, SaveState>
     ProtoFile;
 
 SaveState constructSaveState();
