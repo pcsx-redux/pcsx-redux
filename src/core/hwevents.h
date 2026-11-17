@@ -22,6 +22,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "support/file.h"
@@ -105,6 +106,11 @@ class HWEvents {
         for (unsigned i = 0; i < count; i++) out[i / 4] |= uint32_t(bytes[i]) << ((i % 4) * 8);
     }
 
+    // Source names, indexed by Source value; null for unused values.
+    static const char* sourceName(unsigned source);
+    // One line describing the event's type and payload, without its cycle or pc.
+    static std::string describe(const HWEvent& event);
+
     static constexpr uint32_t sourceBit(Source source) { return 1u << static_cast<unsigned>(source); }
 
     // Emit sites test this before doing anything else, so a source that is not
@@ -123,6 +129,9 @@ class HWEvents {
     bool empty() const { return m_count == 0; }
     const HWEvent& operator[](size_t idx) const { return m_chunks[idx / kRecordsPerChunk][idx % kRecordsPerChunk]; }
     void clear();
+    // Bumped by every clear(), load() included, so a reader caching indices can
+    // tell a refilled store from one that only grew.
+    uint64_t generation() const { return m_generation; }
 
     // The records behind a small header, the same layout as CpuTrace::save. load()
     // replaces the contents; on a bad or truncated file it returns false and leaves
@@ -147,6 +156,7 @@ class HWEvents {
   private:
     std::vector<std::unique_ptr<HWEvent[]>> m_chunks;
     size_t m_count = 0;
+    uint64_t m_generation = 0;
     size_t m_limit = kDefaultLimit;
     uint32_t m_mask = 0;
 };

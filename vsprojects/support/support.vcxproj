@@ -160,6 +160,7 @@
     <ClInclude Include="..\..\src\support\djbhash.h" />
     <ClInclude Include="..\..\src\support\eventbus.h" />
     <ClInclude Include="..\..\src\support\ffmpeg-audio-file.h" />
+    <ClInclude Include="..\..\src\support\ffmpeg-movie-file.h" />
     <ClInclude Include="..\..\src\support\file.h" />
     <ClInclude Include="..\..\src\support\gnu-c++-demangler.h" />
     <ClInclude Include="..\..\src\support\hashtable.h" />
@@ -215,6 +216,7 @@
     <ClCompile Include="..\..\src\support\container-file.cc" />
     <ClCompile Include="..\..\src\support\cpu-features.cc" />
     <ClCompile Include="..\..\src\support\ffmpeg-audio-file.cc" />
+    <ClCompile Include="..\..\src\support\ffmpeg-movie-file.cc" />
     <ClCompile Include="..\..\src\support\file.cc" />
     <ClCompile Include="..\..\src\support\gnu-c++-demangler.cc" />
     <ClCompile Include="..\..\src\support\md5.cc" />

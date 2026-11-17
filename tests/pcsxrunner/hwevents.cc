@@ -509,7 +509,7 @@ TEST(HWEvents, SPUWritesAndKeys) {
     SPUObserverScope scope;
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
                         // MainInvoker probes each argument as a path, so a slash comes early.
-                        "-exec", "-- /\nPCSX.HWEvents.arm('SPU')", "-loadexe", "src/mips/tests/spu/spu.ps-exe");
+                        "-exec", "-- /\nPCSX.HWEvents.arm('SPU')", "-loadexe", "src/mips/tests/spu/spu/spu.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
     printf("hwevents spu: %llu events, %llu register writes, %llu key ons (voices %06x), %llu key offs (voices %06x)\n",
@@ -562,6 +562,12 @@ HWEventsSaveQuit = PCSX.Events.createEventListener('Quitting', function()
     local badRefused = not PCSX.HWEvents.load(bad) and PCSX.HWEvents.size() == 0
     PCSX.HWEvents.load(saved)
     local cutRefused = not PCSX.HWEvents.load(cut) and PCSX.HWEvents.size() == 0
+    -- A header that stops before the count field.
+    f = io.open(cut, 'wb')
+    f:write(file:sub(1, 16))
+    f:close()
+    PCSX.HWEvents.load(saved)
+    cutRefused = cutRefused and not PCSX.HWEvents.load(cut) and PCSX.HWEvents.size() == 0
     f = io.open(out, 'w')
     f:write(string.format('%d %d %s %s %s %s %s', n, #file, tostring(wrote), tostring(loaded), tostring(same),
         tostring(badRefused), tostring(cutRefused)))
@@ -569,7 +575,7 @@ HWEventsSaveQuit = PCSX.Events.createEventListener('Quitting', function()
 end)
 )";
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-exec", lua.c_str(), "-loadexe", "src/mips/tests/dma/dma.ps-exe");
+                        "-exec", lua.c_str(), "-loadexe", "src/mips/tests/dma/dma/dma.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
     std::ifstream in(luaOut);
@@ -588,4 +594,36 @@ end)
     EXPECT_EQ(cutRefused, "true");
     in.close();
     for (auto& p : {saved, bad, cut, luaOut}) std::filesystem::remove(p);
+}
+
+TEST(HWEvents, Describe) {
+    auto make = [](uint16_t type, uint32_t p0, uint32_t p1 = 0, uint32_t p2 = 0, uint32_t p3 = 0) {
+        PCSX::HWEvent e{};
+        e.type = type;
+        e.payload[0] = p0;
+        e.payload[1] = p1;
+        e.payload[2] = p2;
+        e.payload[3] = p3;
+        return PCSX::HWEvents::describe(e);
+    };
+    EXPECT_EQ(make(PCSX::HWEvents::IRQAssert, 4, 1, 0xd), "IRQ assert 004, I_STAT 001, I_MASK 00d");
+    EXPECT_EQ(make(PCSX::HWEvents::DMAStart, 2, 0x80010000, 0x10, 0x01000401),
+              "DMA2 start, MADR 80010000, BCR 00000010, CHCR 01000401");
+    EXPECT_EQ(make(PCSX::HWEvents::DMAComplete, 6, 0x84000000), "DMA6 complete, DICR 84000000");
+    // Setloc 00:02:16
+    EXPECT_EQ(make(PCSX::HWEvents::CDCommand, 0x0302, 0x160200), "CD command 02, params 00 02 16");
+    EXPECT_EQ(make(PCSX::HWEvents::CDResponse, 0x30103, 0x02), "CD response INT3, 02, IRQ");
+    EXPECT_EQ(make(PCSX::HWEvents::CDResponse, 0x00101, 0x22), "CD response INT1, 22, queued");
+    EXPECT_EQ(make(PCSX::HWEvents::CDResponse, 0x40101, 0x22), "CD response INT1, 22, dropped");
+    EXPECT_EQ(make(PCSX::HWEvents::CDSector, 166, 2048, 0x8002, 0x00080101),
+              "CD sector 00:02:16, 2048 bytes to host, mode 2, Setmode 80, subheader 00080101");
+    EXPECT_EQ(make(PCSX::HWEvents::GPUCommand, 0x20ff0000, 0, 0x20ff0000, 1), "GP0 20ff0000, port");
+    EXPECT_EQ(make(PCSX::HWEvents::GPUCommand, 0x28000000, 3, 0x000f1000, 5),
+              "GP0 28000000, list DMA node 000f1000, 5 words");
+    EXPECT_EQ(make(PCSX::HWEvents::GPUControl, 0x03000000), "GP1 03000000");
+    EXPECT_EQ(make(PCSX::HWEvents::SPURegWrite, 0x1f801d88, 0x00ff, 16), "SPU write 1f801d88 = 00ff, 16-bit");
+    EXPECT_EQ(make(PCSX::HWEvents::SPUKeyOn, 0xff0000), "SPU key on, voices ff0000");
+    EXPECT_EQ(make(0x7f01, 1, 2, 3, 4), "type 7f01, 00000001 00000002 00000003 00000004");
+    EXPECT_STREQ(PCSX::HWEvents::sourceName(3), "CDROM");
+    EXPECT_EQ(PCSX::HWEvents::sourceName(0), nullptr);
 }

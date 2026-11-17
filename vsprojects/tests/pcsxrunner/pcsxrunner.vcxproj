@@ -331,6 +331,8 @@
     <ClCompile Include="..\..\..\tests\core\spdwriter.cc" />
     <ClCompile Include="..\..\..\tests\core\commandline.cc" />
     <ClCompile Include="..\..\..\tests\core\gpulogger-hittest.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-sio1.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-sio1-edges.cc" />
     <ClCompile Include="..\..\..\tests\core\mdec-decoder.cc" />
     <ClCompile Include="..\..\..\tests\core\memorycard.cc" />
     <ClCompile Include="..\..\..\tests\core\memeditor-route.cc" />

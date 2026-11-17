@@ -33,6 +33,7 @@
 #include "core/psxmem.h"
 #include "core/r3000a.h"
 #include "core/sio.h"
+#include "core/sio1.h"
 #include "spu/interface.h"
 
 namespace {
@@ -338,6 +339,7 @@ PCSX::SaveStates::SaveState PCSX::SaveStates::Access::constructSaveState() {
         },
         PocketStationSlot{},
         PocketStationSlot{},
+        SIO1State{},
     };
 }
 
@@ -375,6 +377,7 @@ std::string PCSX::SaveStates::save() {
 
     g_emulator->m_sio->getMemoryCard(0)->savePocketstationState(state.get<PocketStation1Field>());
     g_emulator->m_sio->getMemoryCard(1)->savePocketstationState(state.get<PocketStation2Field>());
+    g_emulator->m_sio1->serialize(&wrapper);
 
     Protobuf::OutSlice slice;
     state.serialize(&slice);
@@ -414,6 +417,7 @@ void PCSX::SaveStates::capture(SaveState& state) {
     state.get<PocketStation2Field>().get<PocketStationDevice>().value.clear();
     g_emulator->m_sio->getMemoryCard(0)->savePocketstationState(state.get<PocketStation1Field>());
     g_emulator->m_sio->getMemoryCard(1)->savePocketstationState(state.get<PocketStation2Field>());
+    g_emulator->m_sio1->serialize(&wrapper);
 
     /* And this is the half that never existed: the flat live -> copy for the ref/ptr fields. */
     state.capture();
@@ -482,6 +486,8 @@ void PCSX::SaveStates::restore(SaveState& state) {
     // Stack bounds are not saved: a guest that uses them sets them again on
     // its next context switch, and until then nothing is checked.
     g_emulator->m_cpu->clearStackBounds();
+
+    g_emulator->m_sio1->deserialize(&wrapper);
 
     g_system->m_eventBus->signal(Events::ExecutionFlow::SaveStateLoaded{});
 }
@@ -588,6 +594,52 @@ void PCSX::Counters::serialize(SaveStateWrapper* w) {
     counters.get<LineRemainder>().value = m_lineRemainder;
 }
 
+void PCSX::SIO1::serialize(SaveStateWrapper* w) {
+    using namespace SaveStates;
+    auto& sio1 = w->state.get<SIO1StateField>();
+    sio1.get<SIO1StateVersion>().value = 1;
+    sio1.get<SIO1StateData>().value = m_regs.data;
+    sio1.get<SIO1StateStatus>().value = currentStatus();
+    sio1.get<SIO1StateMode>().value = m_regs.mode;
+    sio1.get<SIO1StateControl>().value = m_regs.control;
+    sio1.get<SIO1StateBaud>().value = m_regs.baud;
+    sio1.get<SIO1StateMisc>().value = m_regs.guizmo;
+    sio1.get<SIO1StateCycleCount>().value = m_cycleCount;
+    sio1.get<SIO1StateBaudRate>().value = m_baudRate;
+    // Only the protobuf mode owns a receive buffer; in raw mode the bytes are still on the socket.
+    sio1.get<SIO1StateRxFifo>().value =
+        m_sio1fifo.isA<Fifo>() ? m_sio1fifo.asA<Fifo>()->contents() : std::string();
+}
+
+void PCSX::SIO1::deserialize(const SaveStateWrapper* w) {
+    using namespace SaveStates;
+    const auto& sio1 = w->state.get<SIO1StateField>();
+    if (sio1.get<SIO1StateVersion>().value != 1) {
+        loadResetValues();
+        return;
+    }
+    m_regs.data = sio1.get<SIO1StateData>().value;
+    m_regs.status = sio1.get<SIO1StateStatus>().value;
+    m_regs.mode = sio1.get<SIO1StateMode>().value;
+    m_regs.control = sio1.get<SIO1StateControl>().value;
+    m_regs.baud = sio1.get<SIO1StateBaud>().value;
+    m_regs.guizmo = sio1.get<SIO1StateMisc>().value;
+    m_cycleCount = sio1.get<SIO1StateCycleCount>().value;
+    m_baudRate = sio1.get<SIO1StateBaudRate>().value;
+
+    // Replaced, not merged: whatever arrived since the save is gone.
+    if (m_sio1fifo.isA<Fifo>()) {
+        auto fifo = m_sio1fifo.asA<Fifo>();
+        fifo->reset();
+        const auto& rx = sio1.get<SIO1StateRxFifo>().value;
+        if (!rx.empty()) {
+            Slice slice;
+            slice.copy(rx);
+            fifo->pushSlice(std::move(slice));
+        }
+    }
+}
+
 static bool parseSaveState(std::string_view data, PCSX::SaveStates::SaveState& state) {
     using namespace PCSX::SaveStates;
     PCSX::Protobuf::InSlice slice(reinterpret_cast<const uint8_t*>(data.data()), data.size());
@@ -669,6 +721,8 @@ bool PCSX::SaveStates::load(std::string_view data) {
     // Stack bounds are not saved: a guest that uses them sets them again on
     // its next context switch, and until then nothing is checked.
     g_emulator->m_cpu->clearStackBounds();
+
+    g_emulator->m_sio1->deserialize(&wrapper);
 
     g_system->m_eventBus->signal(Events::ExecutionFlow::SaveStateLoaded{});
 
