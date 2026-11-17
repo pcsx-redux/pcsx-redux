@@ -341,7 +341,6 @@ class R3000Acpu {
 
     void schedule(Schedule s_, uint32_t eCycle) {
         unsigned s = static_cast<unsigned>(s_);
-        PSXIRQ_LOG("Scheduling callback %08x at %08x\n", s, eCycle);
         const uint64_t cycle = m_regs.cycle;
         uint64_t target = cycle + uint64_t(double(eCycle) * m_scheduleScales[s]);
         m_regs.scheduleMask |= (1 << s);
@@ -353,7 +352,6 @@ class R3000Acpu {
 
     void unschedule(Schedule s_) {
         unsigned s = static_cast<unsigned>(s_);
-        PSXIRQ_LOG("Unscheduling callback %08x\n", s);
         m_regs.scheduleMask &= ~(1 << s);
     }
 
