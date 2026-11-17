@@ -119,8 +119,7 @@ uint64_t getProfilerTotal(unsigned counter) {
 static bool writeProfilerFile(const char* path, const std::string& data) {
     PCSX::IO<PCSX::File> file = new PCSX::PosixFile(path, PCSX::FileOps::TRUNCATE);
     if (file->failed()) return false;
-    file->write(data.data(), data.size());
-    return true;
+    return file->write(data.data(), data.size()) == ssize_t(data.size());
 }
 bool saveProfilerPprof(const char* path) {
     return writeProfilerFile(path, PCSX::g_emulator->m_profiler->serializePprof());

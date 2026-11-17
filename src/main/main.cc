@@ -565,7 +565,9 @@ runner.init({
                     fmt::print(stderr, "-{}: unable to create '{}'\n", option, path);
                     return;
                 }
-                out->write(data.data(), data.size());
+                if (out->write(data.data(), data.size()) != ssize_t(data.size())) {
+                    fmt::print(stderr, "-{}: unable to write '{}'\n", option, path);
+                }
             };
             if (emulator->m_profiler->running()) {
                 writeProfile(profileOut, emulator->m_profiler->serializePprof(), "profile");

@@ -67,8 +67,11 @@ void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
             m_status = fmt::format(f_("Unable to create {}"), m_path);
         } else {
             auto data = profiler.serializePprof();
-            out->write(data.data(), data.size());
-            m_status = fmt::format(f_("Wrote {}"), m_path);
+            if (out->write(data.data(), data.size()) != ssize_t(data.size())) {
+                m_status = fmt::format(f_("Unable to write {}"), m_path);
+            } else {
+                m_status = fmt::format(f_("Wrote {}"), m_path);
+            }
         }
     }
     ImGui::SameLine();
@@ -78,8 +81,11 @@ void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
             m_status = fmt::format(f_("Unable to create {}"), m_path);
         } else {
             auto data = profiler.serializeCallgrind();
-            out->write(data.data(), data.size());
-            m_status = fmt::format(f_("Wrote {}"), m_path);
+            if (out->write(data.data(), data.size()) != ssize_t(data.size())) {
+                m_status = fmt::format(f_("Unable to write {}"), m_path);
+            } else {
+                m_status = fmt::format(f_("Wrote {}"), m_path);
+            }
         }
     }
     if (!m_status.empty()) {
