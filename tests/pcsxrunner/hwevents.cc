@@ -509,7 +509,7 @@ TEST(HWEvents, SPUWritesAndKeys) {
     SPUObserverScope scope;
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
                         // MainInvoker probes each argument as a path, so a slash comes early.
-                        "-exec", "-- /\nPCSX.HWEvents.arm('SPU')", "-loadexe", "src/mips/tests/spu/spu.ps-exe");
+                        "-exec", "-- /\nPCSX.HWEvents.arm('SPU')", "-loadexe", "src/mips/tests/spu/spu/spu.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
     printf("hwevents spu: %llu events, %llu register writes, %llu key ons (voices %06x), %llu key offs (voices %06x)\n",
@@ -569,7 +569,7 @@ HWEventsSaveQuit = PCSX.Events.createEventListener('Quitting', function()
 end)
 )";
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-exec", lua.c_str(), "-loadexe", "src/mips/tests/dma/dma.ps-exe");
+                        "-exec", lua.c_str(), "-loadexe", "src/mips/tests/dma/dma/dma.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
     std::ifstream in(luaOut);
