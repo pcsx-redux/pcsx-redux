@@ -244,6 +244,7 @@ class GPU {
         drainRenderer();
         m_vram2MBGateOpen = false;
         m_dmaDirection = 0;
+        m_dma2Waiting = false;
         vramConfigChanged();
         m_dataRet = 0;
         m_readFifo->reset();
@@ -1175,6 +1176,11 @@ class GPU {
     uint32_t m_drawingOffsetRaw = 0;
     bool m_vram2MBGateOpen = false;  // GP1(09h).0: 1 opens the upper 1MB bank
     uint32_t m_dmaDirection = 0;     // GP1(04h).0-1
+    // DMA2 sync-1 holding its remaining blocks in MADR/BCR until GP1(04h) gives it a DREQ.
+    bool m_dma2Waiting = false;
+
+    // Sync-1 DMA2 from the MADR/BCR and CHCR the registers hold now. True while the channel waits.
+    bool dmaSync1(uint32_t chcr);
 
     // Writes GPUSTAT.31 to the dump ahead of GP0 traffic, in NTSC 480i.
     void dumpField();

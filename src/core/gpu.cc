@@ -468,6 +468,15 @@ bool PCSX::GPU::dma(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // GPU
     uint32_t *ptr;
     uint32_t size, bs;
 
+    // A CHCR write that keeps bit 24 while the channel waits between blocks does not start a new
+    // transfer: the remaining blocks take its direction and step when DREQ resumes them.
+    if (m_dma2Waiting) return true;
+    // Sync-1 RAM to VRAM that is forced (bit 28), steps backwards (bit 1), or starts with
+    // GP1(04h)=0 and so has no DREQ.
+    if ((chcr & 0x00000601) == 0x00000201 && ((chcr & 0x10000002) || (m_dmaDirection == 0))) {
+        return dmaSync1(chcr);
+    }
+
     switch (chcr) {
         case 0x01000200:  // vram2mem
             ptr = g_emulator->m_mem->getPointer<uint32_t>(madr);
@@ -556,6 +565,63 @@ bool PCSX::GPU::dmaBlockRequestLow() const {
         if (m_processor == c) return true;
     }
     return false;
+}
+
+// Moves the blocks left in BCR from MADR one at a time, re-reading direction and step from CHCR,
+// so registers rewritten while the channel waited between blocks take effect. With GP1(04h)=0
+// there is no DREQ: a forced block (CHCR bit 28) still goes, and of its words only 0, 2, 4...
+// reach the GPU while MADR moves past the whole block (SCPH-1000, 1001, 5501, 7001).
+bool PCSX::GPU::dmaSync1(uint32_t chcr) {
+    auto &mem = g_emulator->m_mem;
+    uint32_t madr = mem->getMADR<2>() & 0x7ffffc;
+    const uint32_t bcr = mem->getBCR<2>();
+    const uint32_t bs = bcr & 0xffff;
+    uint32_t blocks = bcr >> 16;
+    const uint32_t step = (chcr & 2) ? uint32_t(-4) : 4u;
+    const bool toVram = chcr & 1;
+    uint32_t moved = 0;
+    m_dma2Waiting = false;
+
+    auto word = [&](uint32_t addr) -> uint32_t * { return mem->getPointer<uint32_t>(addr & 0x7ffffc); };
+    auto block = [&](bool everyOther) {
+        for (uint32_t i = 0; i < bs; i += everyOther ? 2 : 1) {
+            const uint32_t addr = madr + i * step;
+            uint32_t *p = word(addr);
+            if (!p) continue;
+            if (toVram) {
+                directDMAWrite(p, 1, addr);
+            } else {
+                directDMARead(p, 1, addr);
+                g_emulator->m_cpu->Clear(addr & 0x7ffffc, 1);
+            }
+        }
+        madr += bs * step;
+        blocks--;
+        moved++;
+    };
+
+    if (chcr & 0x10000000) {
+        mem->setCHCR<2>(chcr & ~0x10000000);
+        if ((m_dmaDirection == 0) && blocks && bs) block(true);
+    }
+    while (blocks && bs) {
+        if (m_dmaDirection == 0) {
+            mem->setMADR<2>(madr);
+            mem->setBCR<2>((blocks << 16) | bs);
+            m_dma2Waiting = true;
+            return true;
+        }
+        if (dmaBlockRequestLow()) {
+            mem->setMADR<2>(madr);
+            mem->setBCR<2>((blocks << 16) | bs);
+            return true;
+        }
+        block(false);
+    }
+    mem->setMADR<2>(madr);
+    mem->setBCR<2>(bs);
+    scheduleGPUDMAIRQ(7 * (moved ? moved : 1));
+    return true;
 }
 
 void PCSX::GPU::gpuInterrupt() {
@@ -647,6 +713,12 @@ void PCSX::GPU::writeStatus(uint32_t value) {
             CtrlDmaSetting ctrl(value);
             m_logger->addNode(ctrl, Logged::Origin::CTRLWRITE, value, 1);
             write1(&ctrl);
+            if (m_dma2Waiting && (m_dmaDirection != 0)) {
+                auto &mem = g_emulator->m_mem;
+                const uint32_t chcr = mem->getCHCR<2>();
+                m_dma2Waiting = false;
+                if ((chcr & 0x01000000) && mem->isDMAEnabled<2>()) dmaSync1(chcr);
+            }
         } break;
         case 5: {
             CtrlDisplayStart ctrl(value);
