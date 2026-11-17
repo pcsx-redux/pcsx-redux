@@ -54,6 +54,7 @@ void PCSX::Profiler::stop() {
 
 void PCSX::Profiler::clear() {
     m_samples.clear();
+    m_revision++;
     g_emulator->m_callStacks->clearPaths();
 }
 

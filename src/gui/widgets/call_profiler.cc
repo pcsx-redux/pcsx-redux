@@ -50,15 +50,24 @@ void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
         if (ImGui::Button(_("Start"))) profiler.start();
     }
     ImGui::SameLine();
-    bool cleared = false;
-    if (ImGui::Button(_("Clear"))) {
-        profiler.clear();
-        cleared = true;
+    if (ImGui::Button(_("Clear"))) profiler.clear();
+
+    bool cleared = profiler.revision() != m_revision;
+    if (m_refresh.due(ImGui::GetTime(), appeared || cleared, profiler.running())) {
+        auto& settings = g_emulator->settings.get<Emulator::SettingDebugSettings>();
+        auto start = std::chrono::steady_clock::now();
+        m_functions = profiler.functions(settings.get<Emulator::DebugSettings::DemangledSymbols>());
+        m_snapshotTotals = profiler.totals();
+        m_revision = profiler.revision();
+        m_unsorted = true;
+        std::chrono::duration<double> cost = std::chrono::steady_clock::now() - start;
+        m_refresh.done(ImGui::GetTime(), cost.count());
     }
-    auto totals = profiler.totals();
+
     ImGui::SameLine();
-    ImGui::Text(_("%llu instructions, %llu calls"), (unsigned long long)totals[::PCSX::Profiler::Instructions],
-                (unsigned long long)totals[::PCSX::Profiler::Calls]);
+    ImGui::Text(_("%llu instructions, %llu calls"),
+                (unsigned long long)m_snapshotTotals[::PCSX::Profiler::Instructions],
+                (unsigned long long)m_snapshotTotals[::PCSX::Profiler::Calls]);
 
     ImGui::InputText(_("File"), &m_path);
     if (ImGui::Button(_("Save pprof"))) {
@@ -93,15 +102,6 @@ void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
         ImGui::TextUnformatted(m_status.c_str());
     }
 
-    if (m_refresh.due(ImGui::GetTime(), appeared || cleared, profiler.running())) {
-        auto& settings = g_emulator->settings.get<Emulator::SettingDebugSettings>();
-        auto start = std::chrono::steady_clock::now();
-        m_functions = profiler.functions(settings.get<Emulator::DebugSettings::DemangledSymbols>());
-        m_snapshotTotals = profiler.totals();
-        std::chrono::duration<double> cost = std::chrono::steady_clock::now() - start;
-        m_refresh.done(ImGui::GetTime(), cost.count());
-    }
-
     const uint64_t total = std::max<uint64_t>(m_snapshotTotals[::PCSX::Profiler::Instructions], 1);
     static constexpr ImGuiTableFlags flags = ImGuiTableFlags_Sortable | ImGuiTableFlags_Resizable |
                                              ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
@@ -115,7 +115,8 @@ void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
         ImGui::TableSetupColumn(_("Inclusive"), ImGuiTableColumnFlags_PreferSortDescending);
         ImGui::TableSetupColumn(_("Calls"), ImGuiTableColumnFlags_PreferSortDescending);
         ImGui::TableHeadersRow();
-        if (auto sort = ImGui::TableGetSortSpecs(); sort && sort->SpecsCount > 0) {
+        auto sort = ImGui::TableGetSortSpecs();
+        if (sort && sort->SpecsCount > 0 && (m_unsorted || sort->SpecsDirty)) {
             auto& spec = sort->Specs[0];
             auto value = [&](const ::PCSX::Profiler::Function& f) -> uint64_t {
                 switch (spec.ColumnIndex) {
@@ -130,6 +131,8 @@ void PCSX::Widgets::CallProfiler::draw(const char* title, PCSX::GUI* gui) {
             std::stable_sort(m_functions.begin(), m_functions.end(), [&](const auto& a, const auto& b) {
                 return descending ? value(a) > value(b) : value(a) < value(b);
             });
+            m_unsorted = false;
+            sort->SpecsDirty = false;
         }
         ImGuiListClipper clipper;
         clipper.Begin(m_functions.size());

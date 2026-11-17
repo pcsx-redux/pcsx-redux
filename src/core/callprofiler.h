@@ -66,6 +66,8 @@ class Profiler {
     void stop();
     void clear();
     bool running() const { return m_running; }
+    // Bumped by clear(), so a view built from the samples can tell they were dropped.
+    uint64_t revision() const { return m_revision; }
 
     void countInstruction(uint32_t pc);
     void countCall(uint32_t path, uint32_t target) {
@@ -111,6 +113,7 @@ class Profiler {
   private:
     static uint64_t key(uint32_t path, uint32_t pc) { return (uint64_t(path) << 32) | pc; }
     std::unordered_map<uint64_t, Counters> m_samples;
+    uint64_t m_revision = 0;
 };
 
 }  // namespace PCSX

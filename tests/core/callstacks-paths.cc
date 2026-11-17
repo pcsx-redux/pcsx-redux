@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 
+#include "core/callprofiler.h"
 #include "core/callstacks.h"
 #include "core/psxemulator.h"
 #include "core/system.h"
@@ -66,6 +67,7 @@ class CallStackPaths : public ::testing::Test {
         PCSX::g_system = m_oldSystem;
     }
     PCSX::CallStacks& callStacks() { return *m_emulator->m_callStacks; }
+    PCSX::Profiler& profiler() { return *m_emulator->m_profiler; }
     // The return addresses of a path, outermost first.
     std::vector<uint32_t> chain(uint32_t path) {
         auto& nodes = callStacks().getPathNodes();
@@ -83,6 +85,10 @@ class CallStackPaths : public ::testing::Test {
     PCSX::System* m_oldSystem = nullptr;
     PCSX::Emulator* m_oldEmulator = nullptr;
 };
+
+// The profiler window keeps a table built from the samples, and a clear from Lua has to
+// reach it while the profiler is stopped, so every clear moves the revision on.
+using ProfilerRevision = CallStackPaths;
 
 }  // namespace
 
@@ -105,4 +111,14 @@ TEST_F(CallStackPaths, ClearKeepsTheDelaySlotOnTheCaller) {
     EXPECT_EQ(chain(slot), std::vector<uint32_t>({c_callerReturn}));
     EXPECT_NE(slot, cs.currentPath());
     EXPECT_EQ(chain(cs.currentPath()), std::vector<uint32_t>({c_callerReturn, c_calleeReturn}));
+}
+
+TEST_F(ProfilerRevision, EveryClearBumpsIt) {
+    auto& p = profiler();
+    uint64_t before = p.revision();
+    p.clear();
+    EXPECT_NE(p.revision(), before);
+    uint64_t once = p.revision();
+    p.clear();
+    EXPECT_NE(p.revision(), once);
 }

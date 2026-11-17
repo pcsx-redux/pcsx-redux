@@ -66,6 +66,10 @@ class CallProfiler {
     // The totals the table was built against, so its percentages stay consistent.
     ::PCSX::Profiler::Counters m_snapshotTotals = {};
     RefreshPolicy m_refresh;
+    // The profiler revision the table was built from; a clear from anywhere changes it.
+    uint64_t m_revision = 0;
+    // Set when the table is rebuilt, so it is sorted once rather than every frame.
+    bool m_unsorted = true;
     int m_lastFrame = -2;
     std::string m_path = "profile.pb";
     std::string m_status;
