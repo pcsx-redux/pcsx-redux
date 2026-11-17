@@ -596,6 +596,7 @@ bool PCSX::GPU::dmaSync1(uint32_t chcr) {
                 directDMAWrite(p, 1, addr);
             } else {
                 directDMARead(p, 1, addr);
+                mem->msanDmaWrite(physical(addr), 4);
                 g_emulator->m_cpu->Clear(physical(addr), 1);
             }
         }
