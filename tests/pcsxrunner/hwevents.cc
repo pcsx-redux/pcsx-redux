@@ -418,7 +418,7 @@ TEST(HWEvents, GPUCommandsCarryTheirWordAndOrigin) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
                         // MainInvoker probes each argument as a path, so a slash comes early.
                         "-exec", "-- /\nPCSX.HWEvents.arm('GPU', 'DMA')", "-loadexe",
-                        "src/mips/tests/gpu-dma-dreq/gpu-dma-dreq.ps-exe");
+                        "src/mips/tests/gpu/dma-dreq/gpu-dma-dreq.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
     printf(
