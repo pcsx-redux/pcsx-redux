@@ -538,11 +538,15 @@ runner.init({
     emulator->m_gpu->setLinearFiltering();
     emulator->reset();
 
-    const auto profileOut = args.value("profile", "");
-    const auto callgrindOut = args.value("callgrind", "");
+    // Left set only when the capture started, so the exit export goes by these rather
+    // than by whether the profiler is still running, as Lua may have stopped it.
+    auto profileOut = args.value("profile", "");
+    auto callgrindOut = args.value("callgrind", "");
     if (!profileOut.empty() || !callgrindOut.empty()) {
         if (!emulator->m_profiler->start()) {
             fmt::print(stderr, "-profile and -callgrind need the interpreter; nothing will be profiled.\n");
+            profileOut.clear();
+            callgrindOut.clear();
         }
     }
 
@@ -569,7 +573,7 @@ runner.init({
                     fmt::print(stderr, "-{}: unable to write '{}'\n", option, path);
                 }
             };
-            if (emulator->m_profiler->running()) {
+            if (!profileOut.empty() || !callgrindOut.empty()) {
                 writeProfile(profileOut, emulator->m_profiler->serializePprof(), "profile");
                 writeProfile(callgrindOut, emulator->m_profiler->serializeCallgrind(), "callgrind");
             }
