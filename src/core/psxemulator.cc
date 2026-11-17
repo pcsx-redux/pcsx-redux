@@ -184,6 +184,13 @@ void PCSX::Emulator::setLua() {
         );
         L.load(textTable, "src:lua/texttable.lua");
     }
+    {
+        static int lualoader = 1;
+        static const char* html = (
+#include "lua/html.lua"
+        );
+        L.load(html, "src:lua/html.lua");
+    }
     LuaSupportPSX::open_adpcm(L);
     LuaSupportPSX::open_assembler(L);
     LuaSupportPSX::open_binaries(L);

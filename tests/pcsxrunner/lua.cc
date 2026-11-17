@@ -82,6 +82,7 @@ TEST(LuaCompression, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.compressi
 TEST(LuaCompression, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.compression"), 0); }
 TEST(LuaSQLite, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sqlite"), 0); }
 TEST(LuaTextTable, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.texttable"), 0); }
+TEST(LuaHtml, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.html"), 0); }
 TEST(LuaRewind, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.rewind"), 0); }
 TEST(LuaRewind, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.rewind"), 0); }
 TEST(LuaGdbReverse, Interpreter) {
