@@ -103,6 +103,7 @@ class impl final : public SPUInterface {
 
     void save(SaveStates::SPU &) final;
     void load(const SaveStates::SPU &) final;
+    void reset() final;
 
     virtual void setLua(Lua L) override;
     bool setWavDump(const std::filesystem::path &path) final;
@@ -163,6 +164,8 @@ class impl final : public SPUInterface {
         return devicePeriodFrames() + 2 * NSSIZE + marginMs * 441 / 10;
     }
     int getEffectiveSpeed() override;
+    int getLatencyMargin() override { return settings.get<LatencyMargin>().value; }
+    void setLatencyMargin(int ms) override { settings.get<LatencyMargin>().value = ms; }
     uint32_t devicePeriodFrames() {
         const uint32_t period = m_audioOut.getPeriodFrames();
         return period ? period : 1024;
@@ -261,6 +264,7 @@ class impl final : public SPUInterface {
     // false if the thread was asked to end while blocked.
     bool flushOutput();
     void SetupStreams();
+    void setVoiceDefaults();
     void RemoveStreams();
     void SetupMixBuffers();
     void SetupThread();
@@ -504,8 +508,8 @@ class impl final : public SPUInterface {
     // 0 while they are low. CPU thread only: the bits are put in at read time.
     uint64_t m_writeDMALandedCycle = 0;
     uint16_t spuIrq = 0;
-    // Address into SPU memory.
-    uint32_t spuAddr = 0xffffffff;
+    // Sound RAM transfer address, in bytes.
+    uint32_t spuAddr = 0;
     // Thread handling.
     std::atomic<int> endThread = 0;
     std::atomic<int> threadEnded = 0;

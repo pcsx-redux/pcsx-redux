@@ -50,6 +50,8 @@ class HWEvents {
     enum class Source : uint8_t {
         IRQ = 1,
         DMA = 2,
+        CDROM = 3,
+        GPU = 4,
     };
 
     enum Type : uint16_t {
@@ -59,7 +61,39 @@ class HWEvents {
         DMAStart = 0x0201,
         // payload: channel, DICR before the completion updates it
         DMAComplete = 0x0202,
+        // A command the controller starts executing, rejected ones included.
+        // payload: command | parameter count << 8, then the first 12 parameter
+        // bytes, packed little-endian
+        CDCommand = 0x0301,
+        // A response the controller produces, at the moment it produces it.
+        // payload: cause | byte count << 8 | posted << 16 | IRQ raised << 17 |
+        // dropped << 18, then the first 12 response bytes, packed little-endian.
+        // posted means it went straight into the slot the host reads, and IRQ
+        // raised that its cause got through the interrupt mask there; otherwise
+        // it waits behind an older one and reaches the host later, or, with both
+        // slots full, is dropped.
+        CDResponse = 0x0302,
+        // A data sector read off the disc.
+        // payload: position as (m * 60 + s) * 75 + f, so 00:02:00 is 150; bytes
+        // handed to the host, 0 when the sector was withheld, like real-time XA
+        // audio; sector mode | Setmode value << 8; Mode 2 subheader (file,
+        // channel, submode, coding) or 0
+        CDSector = 0x0303,
+        // A word the GPU reads as the start of a GP0 command, NOPs included.
+        // payload: the command word, how it arrived (0 port write, 2 block DMA,
+        // 3 linked-list DMA), the port value or the DMA address of the block or
+        // list node, and the word count of that write or block
+        GPUCommand = 0x0401,
+        // A GP1 write. payload: the value written
+        GPUControl = 0x0402,
     };
+
+    // Packs up to 12 bytes little-endian into three payload words.
+    static void packBytes(const uint8_t* bytes, unsigned count, uint32_t out[3]) {
+        out[0] = out[1] = out[2] = 0;
+        if (count > 12) count = 12;
+        for (unsigned i = 0; i < count; i++) out[i / 4] |= uint32_t(bytes[i]) << ((i % 4) * 8);
+    }
 
     static constexpr uint32_t sourceBit(Source source) { return 1u << static_cast<unsigned>(source); }
 

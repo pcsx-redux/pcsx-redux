@@ -53,6 +53,7 @@
 #include "lua/luafile.h"
 #include "lua/luawrapper.h"
 #include "lua/luv-glue.h"
+#include "lua/sqliteffi.h"
 #include "lua/zlibffi.h"
 #include "luafilesystem/src/lfs.h"
 #include "spu/interface.h"
@@ -175,12 +176,20 @@ void PCSX::Emulator::setLua() {
     LuaFFI::open_extra(L);
     LuaBindings::open_events(L);
     LuaFFI::open_compression(L);
+    LuaFFI::open_sqlite(L);
     {
         static int lualoader = 1;
         static const char* textTable = (
 #include "lua/texttable.lua"
         );
         L.load(textTable, "src:lua/texttable.lua");
+    }
+    {
+        static int lualoader = 1;
+        static const char* html = (
+#include "lua/html.lua"
+        );
+        L.load(html, "src:lua/html.lua");
     }
     LuaSupportPSX::open_adpcm(L);
     LuaSupportPSX::open_assembler(L);
@@ -231,7 +240,10 @@ int PCSX::Emulator::init() {
 
 void PCSX::Emulator::reset() {
     m_mem->reset();
-    m_spu->resetCaptureBuffer();
+    // psxReset() zeroes the cycle; the SPU's reset restarts its clock, and stamps the writes it
+    // replays, at that cycle too.
+    m_cpu->m_regs.cycle = 0;
+    m_spu->reset();
     m_cpu->psxReset();
     m_gpu->reset();
     m_pads->shutdown();

@@ -34,6 +34,8 @@ SOFTWARE.
 #include <deque>
 #include <string>
 
+#include "core/psxemulator.h"
+#include "core/spu.h"
 #include "gui/gui-platform.h"
 
 namespace PCSX {
@@ -83,5 +85,11 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pcsxOpenFile(const char* path) {
     event.drop.data = s_paths.emplace_back(path).c_str();
     SDL_PushEvent(&event);
 }
+
+// The page's audio latency control: the SPU's LatencyMargin setting, in milliseconds, the same
+// value as the slider in the SPU configuration window.
+extern "C" EMSCRIPTEN_KEEPALIVE int pcsxGetLatencyMargin() { return PCSX::g_emulator->m_spu->getLatencyMargin(); }
+
+extern "C" EMSCRIPTEN_KEEPALIVE void pcsxSetLatencyMargin(int ms) { PCSX::g_emulator->m_spu->setLatencyMargin(ms); }
 
 #endif  // __EMSCRIPTEN__
