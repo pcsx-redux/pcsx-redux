@@ -815,47 +815,7 @@ void PCSX::GUI::init(std::function<void()> applyArguments) {
 
     m_clutVRAMviewer.setClutDestination(&m_mainVRAMviewer);
 
-    counter = 1;
-    for (auto& editor : m_mainMemEditors) {
-        editor.title = [counter, this]() {
-            m_stringHolder = (_("Memory Editor #") + std::to_string(counter));
-            return m_stringHolder.c_str();
-        };
-        counter++;
-    }
-    m_parallelPortEditor.title = l_("Parallel Port");
-    m_scratchPadEditor.title = l_("Scratch Pad");
-    m_hwrEditor.title = l_("Hardware Registers");
-    m_biosEditor.title = []() { return "BIOS"; };
-    m_vramEditor.title = l_("VRAM");
-    m_spuRamEditor.title = l_("SPU RAM");
-    auto makeExportFn = [this](MemoryEditorWrapper& wrapper, std::string postfixName) {
-        return [this, &wrapper, postfixName](size_t len, size_t base_addr) {
-            std::filesystem::path writeFilepath =
-                g_system->getPersistentDir() / (getSaveStatePrefix(true) + "mem_" + postfixName + ".bin");
-            IO<File> out(new PosixFile(writeFilepath.string(), FileOps::TRUNCATE));
-            if (!out->failed()) {
-                std::vector<uint8_t> buf(len);
-                if (wrapper.editor.Cache.BulkReadFn) {
-                    wrapper.editor.Cache.BulkReadFn(buf.data(), 0, len);
-                }
-                out->write(buf.data(), len);
-                out->close();
-                g_system->log(LogClass::UI, "Memory exported to: %s\n", writeFilepath.string().c_str());
-            } else {
-                g_system->log(LogClass::UI, "Failed to export memory to: %s\n", writeFilepath.string().c_str());
-            }
-        };
-    };
-    for (auto& editor : m_mainMemEditors) {
-        editor.editor.ExportFn = makeExportFn(editor, "wram");
-    }
-    m_parallelPortEditor.editor.ExportFn = makeExportFn(m_parallelPortEditor, "parallel");
-    m_scratchPadEditor.editor.ExportFn = makeExportFn(m_scratchPadEditor, "scratch");
-    m_hwrEditor.editor.ExportFn = makeExportFn(m_hwrEditor, "hwr");
-    m_biosEditor.editor.ExportFn = makeExportFn(m_biosEditor, "bios");
-    m_vramEditor.editor.ExportFn = makeExportFn(m_vramEditor, "vram");
-    m_spuRamEditor.editor.ExportFn = makeExportFn(m_spuRamEditor, "spuram");
+    initMemoryEditors();
 
     m_offscreenShaderEditor.init();
     m_outputShaderEditor.init();
@@ -1280,69 +1240,7 @@ void PCSX::GUI::endFrame() {
     ImGuiID dockspaceId = ImGui::DockSpaceOverViewport(0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode);
     ImGuiContext* context = ImGui::GetCurrentContext();
     ImGuiDockNode* dockspaceNode = ImGui::DockContextFindNodeByID(context, dockspaceId);
-    if (m_fullWindowRender && !dockspaceNode->IsEmpty()) {
-        m_fullWindowRender = false;
-        ImGui::SetNextWindowDockID(dockspaceId);
-    }
-    m_outputWindowFocused = false;
-    if (m_fullWindowRender) {
-        ImTextureID texture = m_offscreenTextures[m_currentTexture];
-        const auto basePos = ImGui::GetMainViewport()->Pos;
-        const auto displayFramebufferScale = ImGui::GetIO().DisplayFramebufferScale;
-        const auto logicalRenderSize =
-            ImVec2(m_renderSize[0] / displayFramebufferScale[0], m_renderSize[1] / displayFramebufferScale[1]);
-        ImGui::SetNextWindowPos(ImVec2((w - m_renderSize.x) / 2.0f / displayFramebufferScale[0] + basePos.x,
-                                       (h - m_renderSize.y) / 2.0f / displayFramebufferScale[0] + basePos.y));
-        ImGui::SetNextWindowSize(logicalRenderSize);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        ImGui::Begin("FullWindowRender", nullptr,
-                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav |
-                         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-                         ImGuiWindowFlags_NoBringToFrontOnFocus);
-        if (g_system->getArgs().isShadersDisabled()) {
-            ImGui::Image(texture, logicalRenderSize, ImVec2(0, 0), ImVec2(1, 1));
-        } else {
-            m_outputShaderEditor.renderWithImgui(this, texture, m_renderSize, logicalRenderSize);
-        }
-        ImGui::End();
-        ImGui::PopStyleVar(2);
-    } else {
-        ImGui::SetNextWindowPos(ImVec2(50, 50), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(640, 480), ImGuiCond_FirstUseEver);
-        bool outputWindowShown = true;
-        if (ImGui::Begin(
-                _("Output"), &outputWindowShown,
-                ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse)) {
-            m_outputWindowFocused = ImGui::IsWindowFocused();
-            ImGuiDockNode* outputNode = ImGui::GetWindowDockNode();
-            if (outputNode && dockspaceNode->OnlyNodeWithWindows == outputNode &&
-                (!outputNode->TabBar || outputNode->TabBar->Tabs.size() == 1)) {
-                // if output is the only visible window in dockspace, switch to full window render mode automatically
-                outputWindowShown = false;
-            }
-            ImVec2 contentRegion = ImGui::GetContentRegionAvail();
-            ImVec2 textureSize = contentRegion;
-            if ((m_outputWindowSize.x != textureSize.x) || (m_outputWindowSize.y != textureSize.y)) {
-                m_outputWindowSize = textureSize;
-                m_setupScreenSize = true;
-            }
-            ImGuiHelpers::normalizeDimensions(textureSize, renderRatio);
-            ImGui::SetCursorPos(ImGui::GetCursorPos() + (contentRegion - textureSize) * 0.5f);
-            ImTextureID texture = m_offscreenTextures[m_currentTexture];
-            if (g_system->getArgs().isShadersDisabled()) {
-                ImGui::Image(texture, textureSize, ImVec2(0, 0), ImVec2(1, 1));
-            } else {
-                m_outputShaderEditor.renderWithImgui(this, texture, m_renderSize, textureSize);
-            }
-        }
-        ImGui::End();
-        if (!outputWindowShown) {
-            m_fullWindowRender = true;
-            // full window render mode can't have anything docked in the dockspace
-            ImGui::DockContextClearNodes(context, dockspaceId, true);
-        }
-    }
+    drawOutputWindow(context, dockspaceId, dockspaceNode, w, h, renderRatio);
 
     bool showOpenIsoFileDialog = false;
     bool showOpenBinaryDialog = false;
@@ -1482,81 +1380,7 @@ void PCSX::GUI::endFrame() {
         m_callProfiler.draw(_("Profiler"), this);
     }
 
-    {
-        IO<File> memFile = g_emulator->m_mem->getMemoryAsFile();
-        unsigned counter = 0;
-        for (auto& editor : m_mainMemEditors) {
-            if (editor.m_show) {
-                ImGui::SetNextWindowPos(ImVec2(520, 30 + 10 * counter), ImGuiCond_FirstUseEver);
-                ImGui::SetNextWindowSize(ImVec2(484, 480), ImGuiCond_FirstUseEver);
-                editor.draw(memFile, 8 * 1024 * 1024);
-            }
-            counter++;
-        }
-        if (m_parallelPortEditor.m_show) {
-            ImGui::SetNextWindowPos(ImVec2(520, 30 + 10 * counter), ImGuiCond_FirstUseEver);
-            ImGui::SetNextWindowSize(ImVec2(484, 480), ImGuiCond_FirstUseEver);
-            m_parallelPortEditor.draw(memFile, 512 * 1024);
-        }
-        counter++;
-        if (m_scratchPadEditor.m_show) {
-            ImGui::SetNextWindowPos(ImVec2(520, 30 + 10 * counter), ImGuiCond_FirstUseEver);
-            ImGui::SetNextWindowSize(ImVec2(484, 480), ImGuiCond_FirstUseEver);
-            m_scratchPadEditor.draw(memFile, 1024);
-        }
-        counter++;
-        if (m_hwrEditor.m_show) {
-            ImGui::SetNextWindowPos(ImVec2(520, 30 + 10 * counter), ImGuiCond_FirstUseEver);
-            ImGui::SetNextWindowSize(ImVec2(484, 480), ImGuiCond_FirstUseEver);
-            m_hwrEditor.draw(memFile, 8 * 1024);
-        }
-        counter++;
-        if (m_biosEditor.m_show) {
-            ImGui::SetNextWindowPos(ImVec2(520, 30 + 10 * counter), ImGuiCond_FirstUseEver);
-            ImGui::SetNextWindowSize(ImVec2(484, 480), ImGuiCond_FirstUseEver);
-            m_biosEditor.draw(memFile, 512 * 1024);
-        }
-        counter++;
-        if (m_spuRamEditor.m_show) {
-            ImGui::SetNextWindowPos(ImVec2(520, 30 + 10 * counter), ImGuiCond_FirstUseEver);
-            ImGui::SetNextWindowSize(ImVec2(484, 480), ImGuiCond_FirstUseEver);
-            // Null until the SPU has been init'd; the editor would otherwise read off a wild pointer.
-            auto* spuRam = g_emulator->m_spu->getSpuRam();
-            if (spuRam) m_spuRamEditor.draw(spuRam, SPUInterface::c_spuRamSize);
-        }
-        counter++;
-        if (m_vramEditor.m_show) {
-            ImGui::SetNextWindowPos(ImVec2(520, 30 + 10 * counter), ImGuiCond_FirstUseEver);
-            ImGui::SetNextWindowSize(ImVec2(484, 480), ImGuiCond_FirstUseEver);
-
-            const Slice vram = g_emulator->m_gpu->getVRAM();
-            auto* vramData = (const ImU8*)vram.data();
-            size_t vramSize = vram.size();
-            m_vramEditor.editor.ReadFn = [vramData](size_t off) -> ImU8 { return vramData[off]; };
-            m_vramEditor.editor.WriteFn = [vramData](size_t off, ImU8 writtenByte) {
-                constexpr size_t vramWidth = 1024;
-                constexpr size_t stride = vramWidth * sizeof(uint16_t);
-
-                const auto x = (off % stride) / sizeof(uint16_t);
-                const auto y = off / stride;
-                const bool offsetIsOdd = (off & 1) == 1;
-                const auto maskedOffset = off & ~(size_t)1;
-                uint16_t newPixel;
-
-                if (offsetIsOdd) {
-                    newPixel = (writtenByte << 8) | vramData[maskedOffset];
-                } else {
-                    newPixel = writtenByte | (vramData[maskedOffset + 1] << 8);
-                }
-
-                g_emulator->m_gpu->partialUpdateVRAM(x, y, 1, 1, &newPixel);
-            };
-            m_vramEditor.editor.Cache.BulkReadFn = [vramData](void* dest, size_t off, size_t len) {
-                memcpy(dest, vramData + off, len);
-            };
-            m_vramEditor.editor.DrawWindow(m_vramEditor.title(), vramSize);
-        }
-    }
+    drawMemoryEditors();
 
     if (m_memcardManager.m_show) {
         changed |= m_memcardManager.draw(this, _("Memory Card Manager"));
@@ -1713,27 +1537,7 @@ void PCSX::GUI::endFrame() {
     m_notifier.draw();
     m_passiveNotifier.draw();
 
-    if (m_showResetSettings) {
-        ImGui::OpenPopup(_("Reset settings"));
-        m_showResetSettings = false;
-    }
-    if (ImGui::BeginPopupModal(_("Reset settings"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted(
-            _("This will restore every setting to its default value, including the window layout, the input "
-              "bindings, the paths to the BIOS and the memory cards, and the contents of the shader "
-              "editors.\n\nSave states and memory card contents are left alone.\n\nThe emulator will reboot to "
-              "complete the operation."));
-        ImGui::Separator();
-        if (ImGui::Button(_("Reset and reboot"), ImVec2(160, 0))) {
-            ImGui::CloseCurrentPopup();
-            resetSettings();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button(_("Cancel"), ImVec2(120, 0))) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
+    drawResetSettingsModal();
 
     ImGui::Render();
     glViewport(0, 0, w, h);

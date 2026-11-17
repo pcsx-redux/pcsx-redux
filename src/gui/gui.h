@@ -96,6 +96,7 @@
 struct SDL_Window;
 struct SDL_GLContextState;
 typedef SDL_GLContextState *SDL_GLContext;
+struct ImGuiDockNode;
 struct ImGuiViewport;
 namespace tvg {
 struct GlCanvas;
@@ -358,6 +359,11 @@ class GUI final : public UI {
     void announceConnectedControllers();
     bool drawMainMenuBar(ImGuiContext *context, ImGuiID dockspaceId, bool &showOpenIsoFileDialog,
                          bool &showOpenBinaryDialog, bool &showOpenArchiveDialog);
+    void drawResetSettingsModal();
+    void drawOutputWindow(ImGuiContext *context, ImGuiID dockspaceId, ImGuiDockNode *dockspaceNode, int w, int h,
+                          float renderRatio);
+    void initMemoryEditors();
+    void drawMemoryEditors();
 
     bool about();
     void aboutFFmpegTab();

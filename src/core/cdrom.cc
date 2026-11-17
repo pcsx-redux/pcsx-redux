@@ -31,6 +31,7 @@
 #include "cdrom/iso9660-reader.h"
 #include "core/cdromlogger.h"
 #include "core/debug.h"
+#include "core/hwevents.h"
 #include "core/psxdma.h"
 #include "core/psxemulator.h"
 #include "spu/interface.h"
@@ -278,6 +279,15 @@ class CDRomImpl final : public PCSX::CDRom {
                                 break;
                         }
                     }
+                    auto &events = *PCSX::g_emulator->m_hwEvents;
+                    if (events.armed(PCSX::HWEvents::Source::CDROM)) [[unlikely]] {
+                        uint32_t subHeader = 0;
+                        if (buffer[3] == 2) {
+                            subHeader = buffer[4] | (buffer[5] << 8) | (buffer[6] << 16) | (uint32_t(buffer[7]) << 24);
+                        }
+                        events.record(PCSX::HWEvents::CDSector, m_currentPosition.toLBA(), size,
+                                      buffer[3] | (m_mode << 8), subHeader);
+                    }
                     auto readDelay = computeReadDelay();
                     // A sector withheld from the host leaves the previous data sector in the buffer.
                     if (passToData) {
@@ -332,24 +342,32 @@ class CDRomImpl final : public PCSX::CDRom {
 
     // An acknowledged response no longer holds its slot: its unread bytes stay readable
     // until the next response replaces them.
-    bool maybeEnqueueResponse(QueueElement &response) {
+    // Returns whether slot 0 changed. `landed` says where the response itself went.
+    enum class Landed { Host, Queued, Dropped };
+    bool maybeEnqueueResponse(QueueElement &response, Landed &landed) {
         if (m_responseFifo[0].valueEmpty() && !m_responseFifo[1].empty()) {
             // A newer data ready replaces a stale one rather than queueing behind it.
             const uint8_t dataReady = static_cast<uint8_t>(Cause::DataReady);
             if ((m_responseFifo[1].value == dataReady) && (response.value == dataReady)) {
                 m_responseFifo[0] = response;
                 m_responseFifo[1].clear();
+                landed = Landed::Host;
                 return true;
             }
             m_responseFifo[0] = m_responseFifo[1];
             m_responseFifo[1] = response;
+            landed = Landed::Queued;
             return true;
         }
         if (m_responseFifo[0].valueEmpty()) {
             m_responseFifo[0] = response;
+            landed = Landed::Host;
             return true;
         } else if (m_responseFifo[1].empty()) {
             m_responseFifo[1] = response;
+            landed = Landed::Queued;
+        } else {
+            landed = Landed::Dropped;
         }
         return false;
     }
@@ -368,9 +386,23 @@ class CDRomImpl final : public PCSX::CDRom {
         {
             element.setValue(cause);
             bool actuallyTriggering = false;
-            if (maybeEnqueueResponse(element)) {
+            Landed landed;
+            if (maybeEnqueueResponse(element, landed)) {
                 raiseIRQIfUnmasked();
                 actuallyTriggering = (causeValue & m_interruptCauseMask) != 0;
+            }
+            auto &events = *PCSX::g_emulator->m_hwEvents;
+            if (events.armed(PCSX::HWEvents::Source::CDROM)) [[unlikely]] {
+                uint32_t bytes[3];
+                PCSX::HWEvents::packBytes(element.payload, element.payloadSize, bytes);
+                // The IRQ raised above can belong to an older response promoted to slot 0, so
+                // this response only claims it when it is the one the host now sees.
+                const bool posted = landed == Landed::Host;
+                const bool irq = posted && (causeValue & m_interruptCauseMask);
+                events.record(PCSX::HWEvents::CDResponse,
+                              causeValue | (element.payloadSize << 8) | (posted ? 1u << 16 : 0) |
+                                  (irq ? 1u << 17 : 0) | (landed == Landed::Dropped ? 1u << 18 : 0),
+                              bytes[0], bytes[1], bytes[2]);
             }
             const bool debug = PCSX::g_emulator->settings.get<PCSX::Emulator::SettingDebugSettings>()
                                    .get<PCSX::Emulator::DebugSettings::LoggingCDROM>();
@@ -844,6 +876,13 @@ class CDRomImpl final : public PCSX::CDRom {
         if (debug) {
             PCSX::g_system->log(PCSX::LogClass::CDROM, "CD-Rom: Starting command %s (%i)\n", commandName(command),
                                 command);
+        }
+        auto &events = *PCSX::g_emulator->m_hwEvents;
+        if (events.armed(PCSX::HWEvents::Source::CDROM)) [[unlikely]] {
+            uint32_t params[3];
+            PCSX::HWEvents::packBytes(m_commandFifo.payload, m_commandFifo.payloadSize, params);
+            events.record(PCSX::HWEvents::CDCommand, command | (m_commandFifo.payloadSize << 8), params[0], params[1],
+                          params[2]);
         }
         if (auto code = commandRejection(command)) {
             maybeEnqueueError(1, code);

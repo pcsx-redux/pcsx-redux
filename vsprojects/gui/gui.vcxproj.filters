@@ -7,6 +7,12 @@
     <ClCompile Include="..\..\src\gui\gui-menubar.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\gui\gui-output.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\gui\gui-memeditors.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\gui\gui-about-ffmpeg.cc">
       <Filter>Source Files</Filter>
     </ClCompile>

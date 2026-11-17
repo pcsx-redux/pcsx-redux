@@ -349,6 +349,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
             ImGui::MenuItem(_("Show Canvas"), nullptr, &m_dalos.m_show);
             ImGui::EndMenu();
         }
+        ImGui::Separator();
         if (ImGui::BeginMenu(_("Help"))) {
             ImGui::MenuItem(_("Show ImGui Demo"), nullptr, &m_showDemo);
             ImGui::MenuItem(_("Show ImPlot Demo"), nullptr, &m_showImPlotDemo);
@@ -382,4 +383,28 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
         ImGui::EndMainMenuBar();
     }
     return changed;
+}
+
+void PCSX::GUI::drawResetSettingsModal() {
+    if (m_showResetSettings) {
+        ImGui::OpenPopup(_("Reset settings"));
+        m_showResetSettings = false;
+    }
+    if (ImGui::BeginPopupModal(_("Reset settings"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextUnformatted(
+            _("This will restore every setting to its default value, including the window layout, the input "
+              "bindings, the paths to the BIOS and the memory cards, and the contents of the shader "
+              "editors.\n\nSave states and memory card contents are left alone.\n\nThe emulator will reboot to "
+              "complete the operation."));
+        ImGui::Separator();
+        if (ImGui::Button(_("Reset and reboot"), ImVec2(160, 0))) {
+            ImGui::CloseCurrentPopup();
+            resetSettings();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(_("Cancel"), ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 }
