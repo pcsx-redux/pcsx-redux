@@ -34,6 +34,8 @@
 
 namespace PCSX {
 
+struct SaveStateWrapper;
+
 struct SIO1Registers {
     uint32_t data;
     uint32_t status;
@@ -172,12 +174,20 @@ class SIO1 {
     void receiveCallback();
     void sio1StateMachine();
 
+    // The registers, the interrupt delay and the receive buffer. Not the connection, nor the
+    // decoder reading from it.
+    void serialize(SaveStateWrapper *);
+    void deserialize(const SaveStateWrapper *);
+
     SIO1Registers m_regs;
 
   private:
+    static constexpr uint64_t c_defaultCycleCount = 2352;  // Cycles for 115200 baud
+    static constexpr uint64_t c_defaultBaudRate = 115200;
+
     uint8_t messageSize = 0;
-    uint64_t m_cycleCount = 2352;  // Default to cycles for 115200 baud
-    uint64_t m_baudRate = 115200;  // Default to 115200 baud
+    uint64_t m_cycleCount = c_defaultCycleCount;
+    uint64_t m_baudRate = c_defaultBaudRate;
     bool initialMessage = true;
     SIOPayload makeDataMessage(std::string &&data);
     SIOPayload makeFlowControlMessage();
@@ -260,6 +270,9 @@ class SIO1 {
     inline void scheduleInterrupt(uint32_t eCycle) { g_emulator->m_cpu->schedule(Schedule::SIO1, eCycle); }
 
     void updateStat();
+    // What STAT reads right now: the stored value, with RXRDY following the receive buffer.
+    uint32_t currentStatus();
+    void loadResetValues();
     void transmitData();
     bool isTransmitReady();
 

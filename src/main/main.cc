@@ -439,6 +439,17 @@ int pcsxMain(int argc, char **argv) {
             debugSettings.get<PCSX::Emulator::DebugSettings::WebServerPort>() = args.number("webserver-port").value();
         }
 
+        if (args.has("sio1-server")) {
+            debugSettings.get<PCSX::Emulator::DebugSettings::SIO1Server>() = true;
+        }
+        if (args.has("no-sio1-server")) {
+            debugSettings.get<PCSX::Emulator::DebugSettings::SIO1Server>() = false;
+        }
+
+        if (args.number("sio1-port")) {
+            debugSettings.get<PCSX::Emulator::DebugSettings::SIO1ServerPort>() = args.number("sio1-port").value();
+        }
+
         auto argPCdrvBase = args.value("pcdrvbase");
         if (args.has("pcdrv")) {
             debugSettings.get<PCSX::Emulator::DebugSettings::PCdrv>() = true;

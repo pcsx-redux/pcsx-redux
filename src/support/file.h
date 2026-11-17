@@ -34,6 +34,7 @@ SOFTWARE.
 #include <bit>
 #include <compare>
 #include <concepts>
+#include <deque>
 #include <filesystem>
 #include <queue>
 #include <string>
@@ -497,7 +498,7 @@ class Fifo : public File {
     void reset() {
         m_size = 0;
         m_ptrR = 0;
-        while (!m_slices.empty()) m_slices.pop();
+        m_slices.clear();
     }
     virtual size_t size() final override { return m_size; }
     virtual ssize_t read(void* dest, size_t size) final override;
@@ -505,11 +506,23 @@ class Fifo : public File {
 
     void pushSlice(Slice&& slice) {
         m_size += slice.size();
-        m_slices.emplace(std::move(slice));
+        m_slices.emplace_back(std::move(slice));
+    }
+
+    // Everything waiting to be read, in order, without consuming it.
+    std::string contents() const {
+        std::string ret;
+        ret.reserve(m_size);
+        size_t skip = m_ptrR;
+        for (const Slice& slice : m_slices) {
+            ret.append(slice.data<char>() + skip, slice.size() - skip);
+            skip = 0;
+        }
+        return ret;
     }
 
   private:
-    std::queue<Slice> m_slices;
+    std::deque<Slice> m_slices;
     size_t m_ptrR = 0;
     size_t m_size = 0;
 };
