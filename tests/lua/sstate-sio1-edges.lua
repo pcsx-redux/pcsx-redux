@@ -19,68 +19,60 @@ local PORT = 6790
 local RESULTS = 0x110000
 local MARKER = 0x120000 / 4
 
-local function u32(v) return bit.tobit(v) % 4294967296 end
-
-local function itype(op, rs, rt, imm) return u32(bit.bor(bit.lshift(op, 26), bit.lshift(rs, 21), bit.lshift(rt, 16), bit.band(imm, 0xffff))) end
-local T0, T1, T2, T3, T4 = 8, 9, 10, 11, 12
-
+-- Guest code is built as assembler text and compiled with PCSX.Assembler on run().
 local function assembler()
-    local a = { pc = 0x100000 / 4, slots = 0 }
-    function a.emit(w) ram[a.pc] = w a.pc = a.pc + 1 end
-    function a.li(r, v)
-        a.emit(itype(0x0f, 0, r, bit.rshift(v, 16)))
-        a.emit(itype(0x0d, r, r, v))
-    end
+    local a = { lines = {}, slots = 0 }
+    function a.asm(fmt, ...) a.lines[#a.lines + 1] = string.format(fmt, ...) end
     function a.sh(reg, v)
-        a.li(T1, v)
-        a.emit(itype(0x29, T0, T1, reg))
+        a.asm('li $t1, 0x%x', v)
+        a.asm('sh $t1, 0x%x($t0)', reg)
     end
     function a.sb(reg, v)
-        a.li(T1, v)
-        a.emit(itype(0x28, T0, T1, reg))
+        a.asm('li $t1, 0x%x', v)
+        a.asm('sb $t1, 0x%x($t0)', reg)
     end
     local function store(op, reg)
-        a.emit(itype(op, T0, T1, reg))
-        a.emit(0)
-        a.emit(itype(0x2b, T3, T1, a.slots * 4))
+        a.asm('%s $t1, 0x%x($t0)', op, reg)
+        a.asm('nop')
+        a.asm('sw $t1, %d($t3)', a.slots * 4)
         a.slots = a.slots + 1
         return a.slots
     end
-    function a.lhu(reg) return store(0x25, reg) end
-    function a.lbu(reg) return store(0x24, reg) end
+    function a.lhu(reg) return store('lhu', reg) end
+    function a.lbu(reg) return store('lbu', reg) end
     -- Ack the IRQ flags, write one TX byte and count loop turns until I_STAT bit 8 rises.
     function a.timeTx(ctrlAck, data)
-        a.emit(itype(0x23, T0, T1, 0x1074)) -- lw t1, I_MASK
-        a.emit(0)
-        a.emit(itype(0x0c, T1, T1, 0xfeff)) -- andi t1, ~0x100
-        a.emit(itype(0x2b, T0, T1, 0x1074))
+        a.asm('lw $t1, 0x1074($t0)') -- I_MASK
+        a.asm('nop')
+        a.asm('andi $t1, $t1, 0xfeff')
+        a.asm('sw $t1, 0x1074($t0)')
         a.sh(0x105a, ctrlAck)
-        a.li(T1, 0xfffffeff)
-        a.emit(itype(0x2b, T0, T1, 0x1070)) -- ack I_STAT bit 8
-        a.li(T2, 0)
-        a.li(T4, 0x200000)
+        a.asm('li $t1, 0xfffffeff')
+        a.asm('sw $t1, 0x1070($t0)') -- ack I_STAT bit 8
+        a.asm('li $t2, 0')
+        a.asm('li $t4, 0x200000')
         a.sb(0x1050, data)
-        local loop = a.pc
-        a.emit(itype(0x23, T0, T1, 0x1070)) -- lw t1, I_STAT
-        a.emit(0)
-        a.emit(itype(0x0c, T1, T1, 0x100))
-        a.emit(itype(0x05, T1, 0, 4)) -- bne t1, zero, done
-        a.emit(0)
-        a.emit(itype(0x09, T2, T2, 1)) -- addiu t2, 1
-        a.emit(itype(0x05, T2, T4, loop - (a.pc + 1))) -- bne t2, t4, loop
-        a.emit(0)
-        a.emit(itype(0x2b, T3, T2, a.slots * 4)) -- done: sw t2
+        a.asm('lw $t1, 0x1070($t0)') -- loop: I_STAT
+        a.asm('nop')
+        a.asm('andi $t1, $t1, 0x100')
+        a.asm('bne $t1, $zero, 4') -- to done
+        a.asm('nop')
+        a.asm('addiu $t2, $t2, 1')
+        a.asm('bne $t2, $t4, -7') -- to loop
+        a.asm('nop')
+        a.asm('sw $t2, %d($t3)', a.slots * 4) -- done
         a.slots = a.slots + 1
         return a.slots
     end
-    a.li(T0, 0x1f800000)
-    a.li(T3, 0x80000000 + RESULTS)
+    a.asm('lui $t0, 0x1f80')
+    a.asm('li $t3, 0x%x', 0x80000000 + RESULTS)
     return a
 end
 
 local function run(a)
-    a.emit(itype(0x04, 0, 0, -1)) -- b .
-    a.emit(0)
+    a.asm('b -1')
+    a.asm('nop')
+    PCSX.Assembler.New():parse(table.concat(a.lines, '\n')):compileToMemory(PCSX.getMemPtr(), 0x80100000, 0x80000000)
     PCSX.invalidateCache()
     PCSX.pauseEmulator()
     local timer = luv.new_timer()
@@ -98,86 +90,24 @@ local function fail(code, msg)
     PCSX.quit(code)
 end
 
--- protobuf helpers, as tests/lua/sstate-pad.lua
-local function varint(s, pos)
-    local v, mul = 0, 1
-    while true do
-        local b = s:byte(pos)
-        pos = pos + 1
-        v = v + bit.band(b, 0x7f) * mul
-        if b < 0x80 then return v, pos end
-        mul = mul * 128
-    end
-end
-local function encodeVarint(v)
-    local out = {}
-    while v >= 0x80 do
-        out[#out + 1] = string.char(bit.bor(v % 128, 0x80))
-        v = math.floor(v / 128)
-    end
-    out[#out + 1] = string.char(v)
-    return table.concat(out)
-end
-local function records(s)
-    local out = {}
-    local pos = 1
-    while pos <= #s do
-        local start = pos
-        local key
-        key, pos = varint(s, pos)
-        local num, wt = math.floor(key / 8), key % 8
-        local payload
-        if wt == 0 then
-            payload, pos = varint(s, pos)
-        elseif wt == 2 then
-            local len
-            len, pos = varint(s, pos)
-            payload = s:sub(pos, pos + len - 1)
-            pos = pos + len
-        elseif wt == 1 then
-            payload = s:sub(pos, pos + 7)
-            pos = pos + 8
-        elseif wt == 5 then
-            payload = s:sub(pos, pos + 3)
-            pos = pos + 4
-        else
-            error('wire type ' .. wt)
-        end
-        out[#out + 1] = { num = num, wt = wt, raw = s:sub(start, pos - 1), payload = payload, key = key }
-    end
-    return out
-end
-local function field(s, wanted)
-    if not s then return nil end
-    for _, r in ipairs(records(s)) do
-        if r.num == wanted then return r.payload end
-    end
-end
-local SIO1FIELD = 18
+-- The state's own schema, so the state can be read and edited as a table.
+local pb = require 'pb'
+local protoc = require 'protoc'
+local schema = protoc.new()
+assert(schema:load(PCSX.getSaveStateProtoSchema(), 'savestate.proto'))
+pb.option('int64_as_number')
+local function decode(s) return pb.decode('SaveState', s) end
+-- The same state as a build from before SIO1 was saved would have written it.
 local function stripSIO1(s)
-    local out = {}
-    for _, r in ipairs(records(s)) do
-        if r.num ~= SIO1FIELD then out[#out + 1] = r.raw end
-    end
-    return table.concat(out)
+    local state = decode(s)
+    state.sio1 = nil
+    return pb.encode('SaveState', state)
 end
 local function setSIO1Version(s, version)
-    local out = {}
-    local found = false
-    for _, r in ipairs(records(s)) do
-        if r.num == SIO1FIELD then
-            found = true
-            local inner = { encodeVarint(8) .. encodeVarint(version) }
-            for _, ir in ipairs(records(r.payload)) do
-                if ir.num ~= 1 then inner[#inner + 1] = ir.raw end
-            end
-            local body = table.concat(inner)
-            out[#out + 1] = encodeVarint(r.key) .. encodeVarint(#body) .. body
-        else
-            out[#out + 1] = r.raw
-        end
-    end
-    return table.concat(out), found
+    local state = decode(s)
+    if not state.sio1 then return s, false end
+    state.sio1.version = version
+    return pb.encode('SaveState', state), true
 end
 local function toSlice(s)
     local slice = Support.File.createEmptySlice()
@@ -373,19 +303,22 @@ step(4, function()
         fail(23, string.format('rewind: TX interrupt came after %d loop turns, %d at save time', t, preTime))
         return
     end
-    local msg = field(state, SIO1FIELD)
+    local msg = decode(state).sio1
     if not msg then
         fail(30, 'the save state has no field 18')
         return
     end
-    local v = field(msg, 1)
+    local v = msg.version
     if v ~= 1 then
         fail(31, 'field 18 version field 1 is ' .. tostring(v) .. ', expected 1')
         return
     end
     sendBytes('F')
 end)
-step(4, function() PCSX.loadSaveState(toSlice(stripSIO1(state))) end)
+step(4, function()
+    ram[MARKER] = 0x22222222 -- so the marker check can see the rest of the state load
+    PCSX.loadSaveState(toSlice(stripSIO1(state)))
+end)
 step(4, function() layout = readback(1) end)
 step(2, function()
     if not checkReset(40, 'older state', collect(layout)) then return end
@@ -399,6 +332,7 @@ step(4, function()
         fail(50, 'the save state has no field 18')
         return
     end
+    ram[MARKER] = 0x22222222
     PCSX.loadSaveState(toSlice(s))
 end)
 step(4, function() layout = readback(1) end)
