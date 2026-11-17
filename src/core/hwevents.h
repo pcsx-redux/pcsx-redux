@@ -51,6 +51,7 @@ class HWEvents {
         IRQ = 1,
         DMA = 2,
         CDROM = 3,
+        GPU = 4,
     };
 
     enum Type : uint16_t {
@@ -78,6 +79,13 @@ class HWEvents {
         // audio; sector mode | Setmode value << 8; Mode 2 subheader (file,
         // channel, submode, coding) or 0
         CDSector = 0x0303,
+        // A word the GPU reads as the start of a GP0 command, NOPs included.
+        // payload: the command word, how it arrived (0 port write, 2 block DMA,
+        // 3 linked-list DMA), the port value or the DMA address of the block or
+        // list node, and the word count of that write or block
+        GPUCommand = 0x0401,
+        // A GP1 write. payload: the value written
+        GPUControl = 0x0402,
     };
 
     // Packs up to 12 bytes little-endian into three payload words.
