@@ -573,7 +573,11 @@ bool PCSX::GPU::dmaBlockRequestLow() const {
 // reach the GPU while MADR moves past the whole block (SCPH-1000, 1001, 5501, 7001).
 bool PCSX::GPU::dmaSync1(uint32_t chcr) {
     auto &mem = g_emulator->m_mem;
-    uint32_t madr = mem->getMADR<2>() & 0x7ffffc;
+    // As in HW::dmaExec: MSAN addresses stay as they are, anything else wraps into RAM.
+    auto physical = [&](uint32_t addr) -> uint32_t {
+        return (mem->msanInitialized() && PCSX::Memory::inMsanRange(addr)) ? (addr & 0xfffffffc) : (addr & 0x7ffffc);
+    };
+    uint32_t madr = physical(mem->getMADR<2>());
     const uint32_t bcr = mem->getBCR<2>();
     const uint32_t bs = bcr & 0xffff;
     uint32_t blocks = bcr >> 16;
@@ -582,7 +586,7 @@ bool PCSX::GPU::dmaSync1(uint32_t chcr) {
     uint32_t moved = 0;
     m_dma2Waiting = false;
 
-    auto word = [&](uint32_t addr) -> uint32_t * { return mem->getPointer<uint32_t>(addr & 0x7ffffc); };
+    auto word = [&](uint32_t addr) -> uint32_t * { return mem->getPointer<uint32_t>(physical(addr)); };
     auto block = [&](bool everyOther) {
         for (uint32_t i = 0; i < bs; i += everyOther ? 2 : 1) {
             const uint32_t addr = madr + i * step;
@@ -592,7 +596,7 @@ bool PCSX::GPU::dmaSync1(uint32_t chcr) {
                 directDMAWrite(p, 1, addr);
             } else {
                 directDMARead(p, 1, addr);
-                g_emulator->m_cpu->Clear(addr & 0x7ffffc, 1);
+                g_emulator->m_cpu->Clear(physical(addr), 1);
             }
         }
         madr += bs * step;
@@ -816,10 +820,10 @@ void PCSX::GPU::directDMAWrite(const uint32_t *feed, int transferSize, uint32_t 
 
 void PCSX::GPU::directDMARead(uint32_t *dest, int transferSize, uint32_t hwAddr) {
     if (m_dumper) m_dumper->read(transferSize);
-    auto size = m_readFifo->size();
-    m_readFifo->read(dest, transferSize * 4);
-    transferSize -= size / 4;
-    dest += size / 4;
+    auto got = m_readFifo->read(dest, transferSize * 4);
+    if (got < 0) got = 0;
+    transferSize -= got / 4;
+    dest += got / 4;
     while (transferSize != 0) {
         *dest++ = m_dataRet;
         transferSize--;
