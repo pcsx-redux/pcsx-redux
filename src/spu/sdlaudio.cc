@@ -29,6 +29,7 @@
 #include "core/psxemulator.h"
 #include "core/system.h"
 #include "spu/interface.h"
+#include "supportpsx/iec-60908b.h"
 
 int PCSX::SPU::SDLAudio::effectiveSpeed(int configured, int turboFactor) {
     if (configured <= 0 || configured > kMaxSpeed) return kMaxSpeed;
@@ -514,10 +515,10 @@ bool decodeXA(const uint8_t* data, size_t size, PCSX::SPU::SDLAudio::SoundDescri
     // it starts with the CD sync pattern; otherwise, it is made of 2336-byte sectors, starting at the
     // subheader, if its size is a multiple of 2336. Each sector is then a subheader, a copy of it, and
     // 18 sound groups, followed by padding and EDC, which are ignored.
-    static constexpr uint8_t c_sync[12] = {0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00};
     size_t sectorSize = 0;
     size_t subheaderOffset = 0;
-    if (((size % 2352) == 0) && (size >= 12) && (memcmp(data, c_sync, 12) == 0)) {
+    if (((size % 2352) == 0) && (size >= sizeof(PCSX::IEC60908b::SYNC)) &&
+        (memcmp(data, PCSX::IEC60908b::SYNC, sizeof(PCSX::IEC60908b::SYNC)) == 0)) {
         sectorSize = 2352;
         subheaderOffset = 16;
     } else if ((size % 2336) == 0) {
@@ -534,7 +535,7 @@ bool decodeXA(const uint8_t* data, size_t size, PCSX::SPU::SDLAudio::SoundDescri
     uint8_t codingInfo = 0;
     for (size_t sector = 0; sector < sectorCount; sector++) {
         const uint8_t* s = data + sector * sectorSize;
-        if ((sectorSize == 2352) && (memcmp(s, c_sync, 12) != 0)) {
+        if ((sectorSize == 2352) && (memcmp(s, PCSX::IEC60908b::SYNC, sizeof(PCSX::IEC60908b::SYNC)) != 0)) {
             error = "xa sector " + std::to_string(sector) + " does not start with a sync pattern";
             return false;
         }

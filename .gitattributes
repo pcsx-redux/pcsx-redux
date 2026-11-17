@@ -5,3 +5,4 @@
 *.po text
 *.pot text
 .github/scripts/*.sh text eol=lf
+.github/embed-probe/data.bin binary

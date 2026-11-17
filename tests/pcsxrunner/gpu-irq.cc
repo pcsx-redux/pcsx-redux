@@ -24,7 +24,7 @@
 // GP0(1Fh)/GP1(02h) IRQ flag behaviour in GPUSTAT.24 matched the soft GPU.
 TEST(GPUIRQ, RequestAcknowledge) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpu-irq/gpu-irq.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/irq/gpu-irq.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

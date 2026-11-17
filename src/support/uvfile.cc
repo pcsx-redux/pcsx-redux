@@ -222,7 +222,8 @@ void PCSX::UvFile::closeInternal() {
     m_download = false;
     m_cacheProgress.store(0.0f);
     if (m_handle < 0) return;
-    request([handle = m_handle, pendingCloseInfo = m_pendingCloseInfo](auto loop) {
+    request([handle = m_handle, pendingCloseInfo = m_pendingCloseInfo, closeDone = m_closeWaiter](auto loop) {
+        pendingCloseInfo->closeDone = closeDone;
         if (pendingCloseInfo->pendingWrites != 0) {
             pendingCloseInfo->closePending = true;
             return;
@@ -232,15 +233,66 @@ void PCSX::UvFile::closeInternal() {
     m_handle = -1;
 }
 
+int PCSX::UvFile::closeAndWait() {
+    if (m_handle < 0) {
+        close();
+        return UV_EBADF;
+    }
+    std::promise<int> done;
+    auto result = done.get_future();
+    m_closeWaiter = &done;
+    close();
+    m_closeWaiter = nullptr;
+    return result.get();
+}
+
 void PCSX::UvFile::closeUVHandle(uv_file handle, uv_loop_s *loop, PendingCloseInfo *pendingCloseInfo) {
     auto req = new uv_fs_t();
     req->data = pendingCloseInfo;
-    uv_fs_close(loop, req, handle, [](uv_fs_t *req) {
-        uv_fs_req_cleanup(req);
-        PendingCloseInfo *info = reinterpret_cast<PendingCloseInfo *>(req->data);
+    static constexpr auto finish = [](PendingCloseInfo *info, int result) {
+        if (info->closeDone) info->closeDone->set_value(info->error != 0 ? info->error : result);
         delete info;
+    };
+    int ret = uv_fs_close(loop, req, handle, [](uv_fs_t *req) {
+        int result = req->result < 0 ? int(req->result) : 0;
+        uv_fs_req_cleanup(req);
+        finish(reinterpret_cast<PendingCloseInfo *>(req->data), result);
         delete req;
     });
+    if (ret != 0) {
+        finish(pendingCloseInfo, ret);
+        delete req;
+    }
+}
+
+void PCSX::UvFile::writeDone(WriteInfo *info, uv_loop_s *loop, ssize_t result) {
+    auto pendingCloseInfo = info->pendingCloseInfo;
+    if (result >= 0) s_dataWrittenTotal += result;
+    if (pendingCloseInfo->error == 0) {
+        if (result < 0) {
+            pendingCloseInfo->error = int(result);
+        } else if (size_t(result) != info->buf.len) {
+            pendingCloseInfo->error = UV_EIO;
+        }
+    }
+    if ((--pendingCloseInfo->pendingWrites == 0) && pendingCloseInfo->closePending) {
+        closeUVHandle(info->handle, loop, pendingCloseInfo);
+    }
+    delete info;
+}
+
+void PCSX::UvFile::queueWrite(uv_loop_s *loop, WriteInfo *info, size_t offset) {
+    info->req.data = info;
+    info->buf.base = reinterpret_cast<decltype(info->buf.base)>(const_cast<void *>(info->slice.data()));
+    info->pendingCloseInfo->pendingWrites++;
+    int ret = uv_fs_write(loop, &info->req, info->handle, &info->buf, 1, offset, [](uv_fs_t *req) {
+        ssize_t result = req->result;
+        auto info = reinterpret_cast<WriteInfo *>(req->data);
+        auto loop = req->loop;
+        uv_fs_req_cleanup(req);
+        writeDone(info, loop, result);
+    });
+    if (ret != 0) writeDone(info, loop, ret);
 }
 
 void PCSX::UvFile::openwrapper(const char *filename, int flags) {
@@ -496,33 +548,12 @@ ssize_t PCSX::UvFile::write(const void *src, size_t size) {
 
         memcpy(m_cache + m_ptrW, src, size);
     }
-    struct Info {
-        uv_buf_t buf;
-        uv_fs_t req;
-        Slice slice;
-        uv_file handle;
-        PendingCloseInfo *pendingCloseInfo;
-    };
-    auto info = new Info();
-    info->req.data = info;
+    auto info = new WriteInfo();
     info->slice.copy(src, size);
-    info->buf.base = reinterpret_cast<decltype(info->buf.base)>(const_cast<void *>(info->slice.data()));
     info->buf.len = size;
     info->handle = m_handle;
     info->pendingCloseInfo = m_pendingCloseInfo;
-    request([info, offset = m_ptrW](auto loop) {
-        info->pendingCloseInfo->pendingWrites++;
-        uv_fs_write(loop, &info->req, info->handle, &info->buf, 1, offset, [](uv_fs_t *req) {
-            ssize_t ret = req->result;
-            if (ret >= 0) s_dataWrittenTotal += ret;
-            auto info = reinterpret_cast<Info *>(req->data);
-            uv_fs_req_cleanup(req);
-            if ((--info->pendingCloseInfo->pendingWrites == 0) && info->pendingCloseInfo->closePending) {
-                closeUVHandle(info->handle, req->loop, info->pendingCloseInfo);
-            }
-            delete info;
-        });
-    });
+    request([info, offset = m_ptrW](auto loop) { queueWrite(loop, info, offset); });
     m_ptrW += size;
     if (m_ptrW >= m_size) {
         m_size = m_ptrW;
@@ -543,34 +574,13 @@ void PCSX::UvFile::write(Slice &&slice) {
 
         memcpy(m_cache + m_ptrW, slice.data(), slice.size());
     }
-    struct Info {
-        uv_buf_t buf;
-        uv_fs_t req;
-        Slice slice;
-        uv_file handle;
-        PendingCloseInfo *pendingCloseInfo;
-    };
+    auto info = new WriteInfo();
     auto size = slice.size();
-    auto info = new Info();
-    info->req.data = info;
-    info->buf.len = size;
     info->slice = std::move(slice);
+    info->buf.len = size;
     info->handle = m_handle;
     info->pendingCloseInfo = m_pendingCloseInfo;
-    request([info, offset = m_ptrW](auto loop) {
-        info->buf.base = reinterpret_cast<decltype(info->buf.base)>(const_cast<void *>(info->slice.data()));
-        info->pendingCloseInfo->pendingWrites++;
-        uv_fs_write(loop, &info->req, info->handle, &info->buf, 1, offset, [](uv_fs_t *req) {
-            ssize_t ret = req->result;
-            if (ret >= 0) s_dataWrittenTotal += ret;
-            auto info = reinterpret_cast<Info *>(req->data);
-            uv_fs_req_cleanup(req);
-            if ((--info->pendingCloseInfo->pendingWrites == 0) && info->pendingCloseInfo->closePending) {
-                closeUVHandle(info->handle, req->loop, info->pendingCloseInfo);
-            }
-            delete info;
-        });
-    });
+    request([info, offset = m_ptrW](auto loop) { queueWrite(loop, info, offset); });
     m_ptrW += size;
     if (m_ptrW >= m_size) {
         m_size = m_ptrW;
@@ -642,33 +652,12 @@ ssize_t PCSX::UvFile::writeAt(const void *src, size_t size, size_t ptr) {
 
         memcpy(m_cache + ptr, src, size);
     }
-    struct Info {
-        uv_buf_t buf;
-        uv_fs_t req;
-        Slice slice;
-        uv_file handle;
-        PendingCloseInfo *pendingCloseInfo;
-    };
-    auto info = new Info();
-    info->req.data = info;
+    auto info = new WriteInfo();
     info->slice.copy(src, size);
-    info->buf.base = reinterpret_cast<decltype(info->buf.base)>(const_cast<void *>(info->slice.data()));
     info->buf.len = size;
     info->handle = m_handle;
     info->pendingCloseInfo = m_pendingCloseInfo;
-    request([info, offset = ptr](auto loop) {
-        info->pendingCloseInfo->pendingWrites++;
-        uv_fs_write(loop, &info->req, info->handle, &info->buf, 1, offset, [](uv_fs_t *req) {
-            ssize_t ret = req->result;
-            if (ret >= 0) s_dataWrittenTotal += ret;
-            auto info = reinterpret_cast<Info *>(req->data);
-            uv_fs_req_cleanup(req);
-            if ((--info->pendingCloseInfo->pendingWrites == 0) && info->pendingCloseInfo->closePending) {
-                closeUVHandle(info->handle, req->loop, info->pendingCloseInfo);
-            }
-            delete info;
-        });
-    });
+    request([info, offset = ptr](auto loop) { queueWrite(loop, info, offset); });
     return size;
 }
 
@@ -685,34 +674,13 @@ void PCSX::UvFile::writeAt(Slice &&slice, size_t ptr) {
 
         memcpy(m_cache + ptr, slice.data(), slice.size());
     }
-    struct Info {
-        uv_buf_t buf;
-        uv_fs_t req;
-        Slice slice;
-        uv_file handle;
-        PendingCloseInfo *pendingCloseInfo;
-    };
+    auto info = new WriteInfo();
     auto size = slice.size();
-    auto info = new Info();
-    info->req.data = info;
-    info->buf.len = size;
     info->slice = std::move(slice);
+    info->buf.len = size;
     info->handle = m_handle;
     info->pendingCloseInfo = m_pendingCloseInfo;
-    request([info, offset = ptr](auto loop) {
-        info->buf.base = reinterpret_cast<decltype(info->buf.base)>(const_cast<void *>(info->slice.data()));
-        info->pendingCloseInfo->pendingWrites++;
-        uv_fs_write(loop, &info->req, info->handle, &info->buf, 1, offset, [](uv_fs_t *req) {
-            ssize_t ret = req->result;
-            if (ret >= 0) s_dataWrittenTotal += ret;
-            auto info = reinterpret_cast<Info *>(req->data);
-            uv_fs_req_cleanup(req);
-            if ((--info->pendingCloseInfo->pendingWrites == 0) && info->pendingCloseInfo->closePending) {
-                closeUVHandle(info->handle, req->loop, info->pendingCloseInfo);
-            }
-            delete info;
-        });
-    });
+    request([info, offset = ptr](auto loop) { queueWrite(loop, info, offset); });
 }
 
 bool PCSX::UvFile::eof() { return m_size == m_ptrR; }

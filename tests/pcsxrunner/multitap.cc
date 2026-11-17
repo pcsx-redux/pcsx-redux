@@ -20,6 +20,13 @@
 #include "gtest/gtest.h"
 #include "main/main.h"
 
+// shm.lua reaches the shared display block through POSIX shm_open and mmap, which Windows does not have.
+#ifdef _WIN32
+#define SKIP_WITHOUT_POSIX_SHM() GTEST_SKIP() << "shm.lua needs POSIX shm_open/mmap"
+#else
+#define SKIP_WITHOUT_POSIX_SHM() (void)0
+#endif
+
 // The guest test drives SIO0 directly. setup-host.lua writes the host input fields of the shared display
 // block that -shmdisplay creates: a multitap on port 1 with three of its four slots filled, and a mouse
 // with pending motion on port 2. setup-nohost.lua writes the same fields with hostInput left at 0, which
@@ -27,25 +34,28 @@
 // scratchpad.
 
 TEST(Multitap, HostInterpreter) {
+    SKIP_WITHOUT_POSIX_SHM();
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-shmdisplay", "-dofile", "src/mips/tests/multitap/setup-host.lua", "-loadexe",
-                        "src/mips/tests/multitap/multitap.ps-exe");
+                        "-luacov", "-shmdisplay", "-dofile", "src/mips/tests/sio/multitap/setup-host.lua", "-loadexe",
+                        "src/mips/tests/sio/multitap/multitap.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(Multitap, HostDynarec) {
+    SKIP_WITHOUT_POSIX_SHM();
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-shmdisplay", "-dofile", "src/mips/tests/multitap/setup-host.lua", "-loadexe",
-                        "src/mips/tests/multitap/multitap.ps-exe");
+                        "-luacov", "-shmdisplay", "-dofile", "src/mips/tests/sio/multitap/setup-host.lua", "-loadexe",
+                        "src/mips/tests/sio/multitap/multitap.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(Multitap, NoHostInterpreter) {
+    SKIP_WITHOUT_POSIX_SHM();
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-shmdisplay", "-dofile", "src/mips/tests/multitap/setup-nohost.lua", "-loadexe",
-                        "src/mips/tests/multitap/multitap.ps-exe");
+                        "-luacov", "-shmdisplay", "-dofile", "src/mips/tests/sio/multitap/setup-nohost.lua", "-loadexe",
+                        "src/mips/tests/sio/multitap/multitap.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -54,17 +64,19 @@ TEST(Multitap, NoHostInterpreter) {
 // was measured with: long reads after a long read that did not send 42h at the start of slot A's block are
 // the four-byte garbage response.
 TEST(Multitap, Req1Interpreter) {
+    SKIP_WITHOUT_POSIX_SHM();
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-shmdisplay", "-dofile", "src/mips/tests/multitap/setup-req1.lua", "-loadexe",
-                        "src/mips/tests/multitap/multitap.ps-exe");
+                        "-luacov", "-shmdisplay", "-dofile", "src/mips/tests/sio/multitap/setup-req1.lua", "-loadexe",
+                        "src/mips/tests/sio/multitap/multitap.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(Multitap, Req1Dynarec) {
+    SKIP_WITHOUT_POSIX_SHM();
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-shmdisplay", "-dofile", "src/mips/tests/multitap/setup-req1.lua", "-loadexe",
-                        "src/mips/tests/multitap/multitap.ps-exe");
+                        "-luacov", "-shmdisplay", "-dofile", "src/mips/tests/sio/multitap/setup-req1.lua", "-loadexe",
+                        "src/mips/tests/sio/multitap/multitap.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

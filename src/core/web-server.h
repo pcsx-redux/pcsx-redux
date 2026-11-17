@@ -86,6 +86,8 @@ struct RequestData {
     std::multimap<std::string, std::string> headers;
     std::multimap<std::string, std::string> form;
     Slice body;
+    // The request body exactly as received, multipart framing included.
+    Slice rawBody;
 };
 
 class WebClient;

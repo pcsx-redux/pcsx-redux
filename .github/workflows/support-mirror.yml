@@ -1,0 +1,59 @@
+name: Support mirror CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # chores.yml's export-support builds filter.sh's rewrite of main before it
+  # pushes it to pcsx-redux/support; this does the same for a pull request, in
+  # a plain image. Each filter pass works on one tree at a time, so filtering
+  # the tested commit alone gives the tree the mirror would get, and this builds
+  # it with its own Makefile, as its users do.
+  build:
+    runs-on: ubuntu-latest
+    # Not the build image, which has libuv, curl and ffmpeg installed: an
+    # include of theirs left in the mirror would build in it, and fail for a
+    # user without them. The base and compiler are the latest tag's, with only
+    # what Makefile-filtered asks for.
+    container:
+      image: ubuntu:26.04
+    steps:
+      # Before the checkout, which without git fetches the files through the
+      # REST API, with no repository for filter-branch to rewrite.
+      - name: Install the mirror's build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git g++ make pkg-config zlib1g-dev
+      - uses: actions/checkout@v4
+        with:
+          set-safe-directory: true
+          persist-credentials: false
+      - name: Filter the tree
+        env:
+          FILTER_BRANCH_SQUELCH_WARNING: 1
+        run: |
+          # The workspace is the runner user's and the container runs as root,
+          # and checkout's safe.directory is in a global config of its own step.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # The filter deletes .github, so it runs from a copy, as in
+          # export-support, and so does the submodule script.
+          cp -r .github/filter-support .github/scripts/update-submodules.sh /tmp
+          /tmp/filter-support/filter.sh
+      # After the filter, so a submodule it deleted is not there to build from.
+      - name: Fetch the mirror's submodules
+        run: /tmp/update-submodules.sh
+      - name: Build
+        run: make -j 2

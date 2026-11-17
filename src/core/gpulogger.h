@@ -158,6 +158,10 @@ class GPULogger {
     void dropFramesBefore(uint64_t frame);
     void addNodeInternal(GPU::Logged* node, GPU::Logged::Origin, uint32_t value, uint32_t length, bool clipped);
     void checkVramBreakpoints(GPU::Logged* node);
+    unsigned scanVramBreakpoints(GPU::Logged* node, GPU::Logged::PixelOp op);
+    void triggerVramBreakpoint(GPU::Logged* node, unsigned hit, const char* what);
+    void publishHeatmaps();
+    void accumulateOverdraw(GPU::Logged* node, bool clipped);
     void readOverdraw(OpenGL::Framebuffer& fb, OverdrawStats& stats, std::vector<float>& pixels);
 
     EventBus::Listener m_listener;

@@ -541,6 +541,7 @@ void PCSX::HW::write8(uint32_t add, uint32_t rawvalue) {
             if (addressInRegisterSpace(hwadd)) {
                 const uint32_t v = SWAP_LEu32(rawvalue);
                 memcpy(&g_emulator->m_mem->m_hard[hwadd & 0xffff], &v, sizeof(v));
+                clearDelaySizeBit30(hwadd);
                 PSXHW_LOG("*Unknown 8bit(actually 32bit) write at address %x value %x\n", add, rawvalue);
             } else {
                 g_emulator->m_mem->m_hard[hwadd & 0xffff] = value;
@@ -669,6 +670,7 @@ void PCSX::HW::write16(uint32_t add, uint32_t rawvalue) {
             if (addressInRegisterSpace(hwadd)) {
                 const uint32_t v = SWAP_LEu32(rawvalue);
                 memcpy(&g_emulator->m_mem->m_hard[hwadd & 0xffff], &v, sizeof(v));
+                clearDelaySizeBit30(hwadd);
                 PSXHW_LOG("*Unknown 16bit(actually 32bit) write at address %x value %x\n", add, rawvalue);
             } else {
                 uint16_t *ptr = (uint16_t *)&g_emulator->m_mem->m_hard[hwadd & 0xffff];
@@ -707,8 +709,23 @@ inline void PCSX::HW::dma3(uint32_t madr, uint32_t bcr, uint32_t chcr) {
     g_emulator->m_cdrom->dma(madr, bcr, chcr);
 }
 
+// 8- and 16-bit stores land as 32 bits and can straddle two words. Delay/size registers drop bit 30.
+void PCSX::HW::clearDelaySizeBit30(uint32_t hwadd) {
+    for (uint32_t w = hwadd & ~3; w <= ((hwadd + 3) & ~3); w += 4) {
+        if ((w < 0x1f801008) || (w > 0x1f80101c)) continue;
+        uint32_t word;
+        memcpy(&word, &g_emulator->m_mem->m_hard[w & 0xffff], sizeof(word));
+        word = SWAP_LEu32(SWAP_LEu32(word) & ~0x40000000);
+        memcpy(&g_emulator->m_mem->m_hard[w & 0xffff], &word, sizeof(word));
+    }
+}
+
 void PCSX::HW::write32(uint32_t add, uint32_t value) {
     uint32_t hwadd = add & 0x1fffffff;
+
+    // Bit 30 of the six delay/size registers is not stored: it reads back as 0 on SCPH-1000, 1001,
+    // 5501, 7001 and 9002.
+    if ((hwadd >= 0x1f801008) && (hwadd <= 0x1f80101c)) value &= ~0x40000000;
 
     switch (hwadd) {
         case 0x1f801008:
@@ -802,11 +819,16 @@ void PCSX::HW::write32(uint32_t add, uint32_t value) {
             PSXHW_LOG("DMA6 CHCR 32bit write %x\n", value);
             dmaExec<6>(value);  // DMA6 chcr (OT clear)
             return;
-        case 0x1f8010f0:
-            // TODO: check if toggling PCR triggers pending DMAs.
+        case 0x1f8010f0: {
             PSXHW_LOG("DMA PCR 32bit write %x\n", value);
-            g_emulator->m_mem->writeHardwareRegister<0x10f0>(value);
+            auto& mem = g_emulator->m_mem;
+            const bool otcWasEnabled = mem->isDMAEnabled<6>();
+            mem->writeHardwareRegister<0x10f0>(value);
+            // Enabling DMA6 starts a transfer already latched in its CHCR. Whether the other channels do the
+            // same has not been measured.
+            if (!otcWasEnabled && mem->isDMAEnabled<6>() && mem->isDMABusy<6>()) dmaExec<6>(mem->getCHCR<6>());
             break;
+        }
         case 0x1f8010f4:
             PSXHW_LOG("DMA ICR 32bit write %x\n", value);
             {

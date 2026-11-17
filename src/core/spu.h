@@ -55,6 +55,9 @@ class SPUInterface {
     virtual void setXAVolume(const uint8_t atv[4]) = 0;
     virtual void writeDMAMem(uint16_t *, int) = 0;
     virtual void readDMAMem(uint16_t *, int) = 0;
+    // A sound RAM write DMA started now leaves CHCR busy until endCycle. SPUSTAT bits 7 and 9
+    // drop for it and rise again once its data has landed, shortly after endCycle.
+    virtual void writeDMAEndsAt(uint64_t endCycle) = 0;
     virtual void lockSPURAM() = 0;
     virtual void unlockSPURAM() = 0;
     // Byte-addressable view of the sound RAM. Mixing happens on the SPU's own
@@ -74,10 +77,21 @@ class SPUInterface {
     virtual bool configure() = 0;
     virtual void save(SaveStates::SPU &) = 0;
     virtual void load(const SaveStates::SPU &) = 0;
+    // A hard reset: sound RAM takes MemoryFillValue, and the registers, voices, reverb unit, capture
+    // buffers and queued writes are as on an SPU just opened, except what a state load keeps too: the
+    // XA resampler ring and the CD feed cycle. A loaded replacement pack stays. The SPU's clock
+    // restarts at the CPU's current cycle, so set that first. Call it from the CPU thread.
+    virtual void reset() = 0;
     virtual uint32_t getCurrentFrames() = 0;
     virtual void waitForGoal(uint32_t goal) = 0;
     // How many audio frames the CPU may run ahead of the audio device.
     virtual uint32_t getLeadFrames() = 0;
+    // How many times real time the audio device consumes frames: the configured
+    // speed times the turbo factor, the same rate the device's played count advances at.
+    virtual int getEffectiveSpeed() = 0;
+    // The LatencyMargin setting alone, in milliseconds, without touching the other settings.
+    virtual int getLatencyMargin() = 0;
+    virtual void setLatencyMargin(int ms) = 0;
     // The CPU has reached `cycle`: the SPU may produce audio up to it.
     virtual void advanceTo(uint64_t cycle) = 0;
     virtual uint32_t getFrameCount() = 0;

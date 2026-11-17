@@ -51,6 +51,7 @@ class GPUDumper {
         Readback = 0x04,
         TraceBegin = 0x05,
         GPUVersion = 0x06,
+        InterlaceField = 0x07,
         GameID = 0x10,
         VideoFormat = 0x11,
         Comment = 0x12,
@@ -73,6 +74,10 @@ class GPUDumper {
         if (m_state == State::Recording) push(GP1, &word, 1);
     }
     void read(unsigned count);
+    // GPUSTAT.31 in NTSC 480i, written ahead of the GP0 traffic it applies to whenever it changes.
+    void field(uint32_t bit31) {
+        if ((m_state == State::Recording) && (int32_t(bit31) != m_lastField)) writeField(bit31);
+    }
     void vsync(GPU* gpu, uint64_t cycle);
 
   private:
@@ -83,6 +88,7 @@ class GPUDumper {
     void string(uint8_t type, std::string_view str);
     void flushPending();
     void flushFile();
+    void writeField(uint32_t bit31);
 
     State m_state = State::Idle;
     IO<File> m_file;
@@ -91,6 +97,8 @@ class GPUDumper {
     uint32_t m_pendingReads = 0;
     std::vector<uint32_t> m_out;
     uint64_t m_frames = 0;
+    int32_t m_lastField = -1;
+    unsigned m_armedVsyncs = 0;
 };
 
 // Sequential reader for GPU dump files. It only splits the stream into packets; interpreting them is
@@ -149,6 +157,7 @@ class GPUDumpPlayer {
     uint64_t m_snapshotInterval = c_snapshotInterval;
     struct Snapshot {
         size_t position;
+        int8_t fieldOverride;
         GPU::Snapshot gpu;
     };
     std::map<uint64_t, Snapshot> m_snapshots;

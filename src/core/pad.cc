@@ -43,6 +43,14 @@ class PadsImpl : public PCSX::Pads {
     enum class InputType { Auto, Controller, Keyboard };
     enum class PadType { Digital = 0, Analog, Mouse, Negcon, Gun, Guncon };
 
+    // Triggers are reported as axes by SDL but pad bindings treat them as
+    // virtual buttons. INVALID is encoded as SDL_GAMEPAD_BUTTON_INVALID (-1) so
+    // raw SDL queries naturally short-circuit. The trigger sentinels live above
+    // SDL_GAMEPAD_BUTTON_COUNT to avoid collisions with future enum entries.
+    static constexpr int PCSX_GAMEPAD_BUTTON_LEFT_TRIGGER = 100;
+    static constexpr int PCSX_GAMEPAD_BUTTON_RIGHT_TRIGGER = 101;
+    static constexpr int PCSX_GAMEPAD_BUTTON_INVALID = SDL_GAMEPAD_BUTTON_INVALID;
+
     PadsImpl();
     void init() override;
     void shutdown() override;
@@ -59,6 +67,8 @@ class PadsImpl : public PCSX::Pads {
     void reset() override;
     void getTransferState(Port port, TransferState& state) override;
     void setTransferState(Port port, const TransferState& state) override;
+    void rescanGamepads() override;
+    int portForController(int controllerId) override;
     void map();
 
     void setLua(PCSX::Lua L) override;
@@ -77,14 +87,6 @@ class PadsImpl : public PCSX::Pads {
     // slot is unused. The slot index doubles as the user-visible "controller ID"
     // saved in SettingControllerID.
     SDL_Gamepad* m_gamepads[16] = {nullptr};
-
-    // Triggers are reported as axes by SDL but pad bindings treat them as
-    // virtual buttons. INVALID is encoded as SDL_GAMEPAD_BUTTON_INVALID (-1) so
-    // raw SDL queries naturally short-circuit. The trigger sentinels live above
-    // SDL_GAMEPAD_BUTTON_COUNT to avoid collisions with future enum entries.
-    static constexpr int PCSX_GAMEPAD_BUTTON_LEFT_TRIGGER = 100;
-    static constexpr int PCSX_GAMEPAD_BUTTON_RIGHT_TRIGGER = 101;
-    static constexpr int PCSX_GAMEPAD_BUTTON_INVALID = SDL_GAMEPAD_BUTTON_INVALID;
 
     // settings block
     // Pad keyboard bindings
@@ -142,6 +144,8 @@ class PadsImpl : public PCSX::Pads {
     typedef PCSX::SettingFloat<TYPESTRING("MouseSensitivityY"), 5, 10> SettingMouseSensitivityY;
     // Absent in configs from before keyboard bindings were stored as SDL scancodes.
     typedef PCSX::Setting<int, TYPESTRING("KeyboardBindingsVersion"), 1> SettingKeyboardBindingsVersion;
+    // Absent in configs from before controller bindings were stored as SDL gamepad buttons.
+    typedef PCSX::Setting<int, TYPESTRING("ControllerBindingsVersion"), 1> SettingControllerBindingsVersion;
 
     typedef PCSX::Settings<
         Keyboard_PadUp, Keyboard_PadRight, Keyboard_PadDown, Keyboard_PadLeft, Keyboard_PadCross, Keyboard_PadTriangle,
@@ -151,7 +155,7 @@ class PadsImpl : public PCSX::Pads {
         Controller_PadSquare, Controller_PadCircle, Controller_PadSelect, Controller_PadStart, Controller_PadL1,
         Controller_PadL2, Controller_PadL3, Controller_PadR1, Controller_PadR2, Controller_PadR3, SettingInputType,
         SettingDeviceType, SettingControllerID, SettingConnected, SettingRumble, SettingMouseSensitivityX,
-        SettingMouseSensitivityY, SettingKeyboardBindingsVersion, SettingMultitap>
+        SettingMouseSensitivityY, SettingKeyboardBindingsVersion, SettingControllerBindingsVersion, SettingMultitap>
         PadSettings;
 
     struct PadData {
@@ -675,6 +679,59 @@ bool PCSX::Pads::migrateKeyboardBindings(json& pad) {
     return true;
 }
 
+bool PCSX::Pads::migrateControllerBindings(json& pad) {
+    static constexpr const char* c_keys[] = {
+        "Controller_PadUp",     "Controller_PadRight",    "Controller_PadDown",   "Controller_PadLeft",
+        "Controller_PadCross",  "Controller_PadTriangle", "Controller_PadSquare", "Controller_PadCircle",
+        "Controller_PadSelect", "Controller_PadSstart",   "Controller_PadL1",     "Controller_PadL2",
+        "Controller_PadL3",     "Controller_PadR1",       "Controller_PadR2",     "Controller_PadR3",
+    };
+    // GLFW_GAMEPAD_BUTTON_* in order, then the GLFW builds' LEFT_TRIGGER, RIGHT_TRIGGER and INVALID
+    // sentinels, which were GLFW_GAMEPAD_BUTTON_LAST + 1 to + 3.
+    static constexpr int c_glfwToSdl[] = {
+        SDL_GAMEPAD_BUTTON_SOUTH,
+        SDL_GAMEPAD_BUTTON_EAST,
+        SDL_GAMEPAD_BUTTON_WEST,
+        SDL_GAMEPAD_BUTTON_NORTH,
+        SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,
+        SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,
+        SDL_GAMEPAD_BUTTON_BACK,
+        SDL_GAMEPAD_BUTTON_START,
+        SDL_GAMEPAD_BUTTON_GUIDE,
+        SDL_GAMEPAD_BUTTON_LEFT_STICK,
+        SDL_GAMEPAD_BUTTON_RIGHT_STICK,
+        SDL_GAMEPAD_BUTTON_DPAD_UP,
+        SDL_GAMEPAD_BUTTON_DPAD_RIGHT,
+        SDL_GAMEPAD_BUTTON_DPAD_DOWN,
+        SDL_GAMEPAD_BUTTON_DPAD_LEFT,
+        PadsImpl::PCSX_GAMEPAD_BUTTON_LEFT_TRIGGER,
+        PadsImpl::PCSX_GAMEPAD_BUTTON_RIGHT_TRIGGER,
+        PadsImpl::PCSX_GAMEPAD_BUTTON_INVALID,
+    };
+    static constexpr int c_glfwCount = sizeof(c_glfwToSdl) / sizeof(c_glfwToSdl[0]);
+    if (!pad.is_object() || pad.contains("ControllerBindingsVersion")) return false;
+    pad["ControllerBindingsVersion"] = 1;
+
+    // Unstamped configs come from GLFW builds, or from SDL builds that predate the
+    // stamp. SDL builds write 100 and 101 for the triggers and -1 for unbound, none
+    // of which is a GLFW value, so any of those leaves the config alone. GLFW builds
+    // wrote 15 and 16 for the triggers, which SDL builds only produce if hand-edited.
+    bool glfw = false;
+    for (auto key : c_keys) {
+        if (!pad.contains(key) || !pad[key].is_number_integer()) continue;
+        int value = pad[key].get<int>();
+        if (value < 0 || value >= c_glfwCount) return false;
+        if (value >= 15) glfw = true;
+    }
+    if (!glfw) return false;
+
+    for (auto key : c_keys) {
+        if (!pad.contains(key) || !pad[key].is_number_integer()) continue;
+        pad[key] = c_glfwToSdl[pad[key].get<int>()];
+    }
+    return true;
+}
+
 void PadsImpl::init() {
     s_pads = this;
     if (!SDL_InitSubSystem(SDL_INIT_GAMEPAD)) {
@@ -830,6 +887,26 @@ void PadsImpl::Pad::applyRumble(bool force) {
     m_rumbleRefreshedAt = now;
 }
 
+void PadsImpl::rescanGamepads() {
+    // map() resets each pad's m_activeType to the configured m_type; keep the
+    // in-use type (game/user analog switch, host override) across the rescan so
+    // GUI and non-GUI hotplug callers don't need their own save/restore.
+    const PadType active0 = m_pads[0].m_activeType;
+    const PadType active1 = m_pads[1].m_activeType;
+    scanGamepads();
+    map();
+    m_pads[0].m_activeType = active0;
+    m_pads[1].m_activeType = active1;
+}
+
+int PadsImpl::portForController(int controllerId) {
+    for (int i = 0; i < 2; i++) {
+        SDL_Gamepad* g = m_pads[i].m_gamepad;
+        if (g && SDL_GetGamepadID(g) == static_cast<SDL_JoystickID>(controllerId)) return i + 1;
+    }
+    return 0;
+}
+
 void PadsImpl::map() {
     m_pads[0].map();
     m_pads[1].map();
@@ -944,17 +1021,25 @@ void PadsImpl::Pad::getButtons() {
         return;
     }
 
-    // Drive SDL's internal gamepad state and pluck out hotplug events. Other
-    // SDL events stay in the queue (gui.cc still owns the rest of the input
-    // surface today). Move this to the central event pump when Phase 3 lands.
-    SDL_PumpEvents();
-    {
+    // GUI: gui.cc's PollEvent loop drains ADDED/REMOVED and rescans.
+    // Non-GUI has no event loop (and no ImGui context), so pump and claim
+    // those events here - including when m_gamepad is null (first plug /
+    // reconnect). UpdateGamepads keeps open-pad button/axis state current.
+    if (!ImGui::GetCurrentContext()) {
+        SDL_PumpEvents();
         SDL_Event scratch[16];
-        int drained = SDL_PeepEvents(scratch, 16, SDL_GETEVENT, SDL_EVENT_GAMEPAD_ADDED, SDL_EVENT_GAMEPAD_REMOVED);
-        if (drained > 0) {
-            s_pads->scanGamepads();
-            s_pads->map();
+        if (SDL_PeepEvents(scratch, 16, SDL_GETEVENT, SDL_EVENT_GAMEPAD_ADDED, SDL_EVENT_GAMEPAD_REMOVED) > 0) {
+            s_pads->rescanGamepads();
         }
+    }
+    SDL_UpdateGamepads();
+
+    if (m_gamepad && !SDL_GamepadConnected(m_gamepad)) {
+        const SDL_JoystickID jid = SDL_GetGamepadID(m_gamepad);
+        PCSX::g_system->printf("Gamepad error: joystick id %u disconnected, rescanning\n",
+                               static_cast<unsigned>(jid));
+        // Defense if REMOVED was missed; rescan+map refreshes m_gamepad.
+        s_pads->rescanGamepads();
     }
 
     // Push the motor state the last read command asked for. This runs here, once per
@@ -963,25 +1048,18 @@ void PadsImpl::Pad::getButtons() {
     // hand SDL half-updated pairs.
     applyRumble(false);
 
-    if (m_gamepad) {
-        if (!SDL_GamepadConnected(m_gamepad)) {
-            const SDL_JoystickID jid = SDL_GetGamepadID(m_gamepad);
-            PCSX::g_system->printf("Gamepad error: joystick id %u disconnected, disabling pad\n",
-                                   static_cast<unsigned>(jid));
-            m_gamepad = nullptr;
-        } else {
-            for (int i = 0; i < SDL_GAMEPAD_BUTTON_COUNT; i++) {
-                state.buttons[i] = SDL_GetGamepadButton(m_gamepad, static_cast<SDL_GamepadButton>(i));
-            }
-            // SDL reports axes as int16_t [-32768, 32767]. Triggers are signed but
-            // only ever positive in practice. Normalize to [-1, 1] to match the
-            // shape the rest of this code was built around.
-            for (int i = 0; i < SDL_GAMEPAD_AXIS_COUNT; i++) {
-                int16_t raw = SDL_GetGamepadAxis(m_gamepad, static_cast<SDL_GamepadAxis>(i));
-                state.axes[i] = raw < 0 ? raw / 32768.0f : raw / 32767.0f;
-            }
-            hasPad = true;
+    if (m_gamepad && SDL_GamepadConnected(m_gamepad)) {
+        for (int i = 0; i < SDL_GAMEPAD_BUTTON_COUNT; i++) {
+            state.buttons[i] = SDL_GetGamepadButton(m_gamepad, static_cast<SDL_GamepadButton>(i));
         }
+        // SDL reports axes as int16_t [-32768, 32767]. Triggers are signed but
+        // only ever positive in practice. Normalize to [-1, 1] to match the
+        // shape the rest of this code was built around.
+        for (int i = 0; i < SDL_GAMEPAD_AXIS_COUNT; i++) {
+            int16_t raw = SDL_GetGamepadAxis(m_gamepad, static_cast<SDL_GamepadAxis>(i));
+            state.axes[i] = raw < 0 ? raw / 32768.0f : raw / 32767.0f;
+        }
+        hasPad = true;
     }
 
     if (!hasPad) {
@@ -1820,6 +1898,7 @@ void PadsImpl::setCfg(const json& j) {
 void PadsImpl::Pad::setCfg(const json& j) {
     json cfg = j;
     PCSX::Pads::migrateKeyboardBindings(cfg);
+    PCSX::Pads::migrateControllerBindings(cfg);
     m_settings.deserialize(cfg);
     map();
 }

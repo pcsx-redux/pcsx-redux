@@ -34,16 +34,58 @@ class Counters {
     void writeCounterInternal(uint32_t index, uint32_t value, int64_t startAdjust = 0);
     // Cycles a counter sits at 0 after a reset on target before counting again. Measured as 2 on
     // the system clock for Timer 2 (period target + 2); 0 on sysclock/8. Timers 0 and 1 unmeasured.
-    uint32_t resetDwell(uint32_t index) const { return (index == 2 && m_rcnts[index].rate == 1) ? 2 : 0; }
+    uint32_t resetDwell(uint32_t index) const {
+        return (index == 2 && m_rcnts[index].rate == 1 && m_rcnts[index].rateDen == 1) ? 2 : 0;
+    }
+    // A counter ticks every rate / rateDen CPU cycles. Only the dotclock has a fractional rate.
+    void setRate(uint32_t index, uint32_t rate, uint32_t rateDen = 1) {
+        m_rcnts[index].rate = rate;
+        m_rcnts[index].rateDen = rateDen;
+    }
+    // The counter's exact start is cycleStart - startFrac / rateDen CPU cycles.
+    // CPU cycles after cycleStart until the counter reaches `ticks`.
+    uint64_t ticksToCycles(uint32_t index, uint64_t ticks) const {
+        const auto& r = m_rcnts[index];
+        if (r.rateDen <= 1) return ticks * r.rate;
+        const uint64_t span = ticks * r.rate;
+        if (span <= r.startFrac) return 0;
+        return (span - r.startFrac + r.rateDen - 1) / r.rateDen;
+    }
+    // Ticks counted `cycles` CPU cycles after cycleStart.
+    uint64_t cyclesToTicks(uint32_t index, uint64_t cycles) const {
+        const auto& r = m_rcnts[index];
+        if (r.rateDen <= 1) return cycles / r.rate;
+        return (cycles * r.rateDen + r.startFrac) / r.rate;
+    }
+    // Move the exact start forward by `ticks`, keeping the fraction of a cycle.
+    void advanceStart(uint32_t index, uint64_t ticks) {
+        auto& r = m_rcnts[index];
+        if (r.rateDen <= 1) {
+            r.cycleStart += ticks * r.rate;
+            return;
+        }
+        const uint64_t span = ticks * r.rate - r.startFrac;
+        const uint64_t whole = (span + r.rateDen - 1) / r.rateDen;
+        r.cycleStart += whole;
+        r.startFrac = uint32_t(whole * r.rateDen - span);
+    }
+    void scheduleEvent(uint32_t index, uint32_t value);
+    // Guest writes to counter 1 on the hblank clock count from the last hblank edge.
+    void anchorToHblank(uint32_t index);
 
     void set();
     void reset(uint32_t index);
     void calculateHsync();
+    uint32_t nextLineLength();
+    uint32_t wholeCyclesPerLine() const { return m_lineNum / m_lineDen; }
     void recalculateRate(uint32_t index);
 
     struct Rcnt {
         uint16_t mode, target;
         uint32_t rate, irq, counterState, irqState;
+        uint32_t rateDen = 1, startFrac = 0;
+        // Gate modes: the count is frozen before pauseUntil, and from holdFrom on when it is set.
+        uint64_t pauseUntil = 0, holdFrom = 0;
         uint64_t cycle, cycleStart;
         uint32_t gateStarted;  // Gate mode 3: first blank has occurred, counter is free running
     };
@@ -80,7 +122,6 @@ class Counters {
     static const uint32_t CountToOverflow = 0;
     static const uint32_t CountToTarget = 1;
 
-    static inline const uint32_t FrameRate[] = {60, 50};
     static inline const uint32_t VBlankStart[] = {243, 256};
 
     static const uint16_t JITTER_FLAGS = (Rc2OneEighthClock | RcIrqRegenerate | RcCountToTarget);
@@ -95,6 +136,16 @@ class Counters {
     static constexpr int32_t kMaxAudioLagFrames = 44100 / 4;
 
     uint32_t m_HSyncTotal[PCSX::Emulator::PSX_TYPE_PAL + 1];  // 2
+    // A scanline lasts m_lineNum / m_lineDen CPU cycles, which is not a whole number. Each line
+    // gets the floor or the ceiling, and m_lineRemainder carries the fraction to the next one.
+    uint64_t m_lineNum = 1, m_lineDen = 1, m_lineRemainder = 0;
+    uint64_t m_hblankCycles = 539;
+    // A counter held by gate mode 2 cannot reach an event past the hold.
+    bool eventHeld(uint32_t index) const {
+        const auto& r = m_rcnts[index];
+        return r.holdFrom && (r.cycleStart + r.cycle > r.holdFrom);
+    }
+
   public:
     uint64_t m_psxNextCounter;
     bool m_pollSIO1 = false;
@@ -108,10 +159,15 @@ class Counters {
     uint32_t readCounter(uint32_t index);
     uint32_t readMode(uint32_t index);
     uint32_t readTarget(uint32_t index);
+    // The value a guest read of the counter would return right now, without
+    // updating any counter state, so debugger views can call it.
+    uint32_t peekCounter(uint32_t index);
 
     // Brings the scanline position up to date, then returns the hblanks elapsed since the
     // last vblank start. Only call from the CPU side: it can raise the vblank IRQ.
     uint32_t linesSinceVBlank();
+    // Lines from one vblank IRQ to the next at the current system type.
+    uint32_t linesPerFrame();
     // True for the field silicon runs at 263 lines in NTSC 480i, the one GPUSTAT.31 reads 1
     // in. Redux runs both fields at the same length.
     bool longField() const { return (m_fieldCount & 1) == 0; }

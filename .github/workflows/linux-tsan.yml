@@ -32,7 +32,7 @@ jobs:
           make -C src/mips/tests -j 2 PCSX_TESTS=true BUILD=Release
           cp ./openbios.bin src/mips/openbios/
           make -C src/mips/monitor/hosts/retail -j 2 BUILD=LTO
-          DBUS_SESSION_BUS_ADDRESS="disabled:" xvfb-run ./pcsx-redux -stdout -lua_stdout -testmode -no-gui-log -exec "dofile 'src/mips/tests/cdrom/create-test-iso.lua'"
+          DBUS_SESSION_BUS_ADDRESS="disabled:" xvfb-run ./pcsx-redux -stdout -lua_stdout -testmode -no-gui-log -exec "dofile 'src/mips/tests/cdrom/common/create-test-iso.lua'"
       - name: Test
         env:
           DBUS_SESSION_BUS_ADDRESS: "disabled:"

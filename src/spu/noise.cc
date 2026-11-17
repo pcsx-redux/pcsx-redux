@@ -20,11 +20,11 @@
 #include "spu/noise.h"
 
 namespace {
-// The LFSR runs on a 16.16 fixed-point phase accumulator: one output sample
-// advances it by one whole unit, plus the fractional step selected by the
-// SPUCTRL step bits.
-constexpr uint32_t kSampleTick = 0x10000;
-constexpr uint32_t kFractionMask = 0xffff;
+// The noise period P = 0x20000 >> shift samples is split in eighths, and the
+// LFSR clocks on the selected ones, one bit per eighth: the start of every
+// quarter, plus the half-way point of one, two (opposite) or three quarters
+// for step 1, 2 or 3. Measured on SCPH-1000 and SCPH-1001.
+constexpr uint8_t kSlots[4] = {0x55, 0x57, 0x77, 0x7f};
 }  // namespace
 
 int PCSX::SPU::NoiseGenerator::getVal() const {
@@ -33,26 +33,24 @@ int PCSX::SPU::NoiseGenerator::getVal() const {
 }
 
 void PCSX::SPU::NoiseGenerator::step() {
-    // Dr. Hell's (Xebra) noise model. kWaveform is the precomputed Galois LFSR
-    // parity bit fed back in; kFreqStep paces the accumulator from the SPUCTRL
-    // step bits (entry 4 is the wrap threshold for the fractional part).
+    // kWaveform is the precomputed LFSR feedback bit (bit 15 ^ 12 ^ 11 ^ 10 ^ 1),
+    // indexed by bits 15..10.
     static constexpr uint8_t kWaveform[64] = {1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1,
                                               1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0,
                                               1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1};
-    static constexpr uint16_t kFreqStep[5] = {0, 84, 140, 180, 210};
 
-    // The SPUCTRL noise-shift bits select the LFSR rate.
     const uint32_t shift = m_clock >> 2;
-    // The SPUCTRL noise-step bits select the fractional step.
     const uint32_t step = m_clock & 3;
-    const uint32_t threshold = (0x8000u >> shift) << 16;
+    const uint32_t period = 0x20000u >> shift;
 
-    m_count += kSampleTick + kFreqStep[step];
-    if ((m_count & kFractionMask) >= kFreqStep[4]) m_count += kSampleTick - kFreqStep[step];
+    const uint32_t sample = (m_count + 1) % period;
+    m_count = sample;
 
-    if (m_count >= threshold) {
-        while (m_count >= threshold) m_count -= threshold;
-        // Clock the LFSR.
-        m_val = (m_val << 1) | kWaveform[(m_val >> 10) & 63];
-    }
+    // Eighth j starts at sample j * P / 8, rounded down, so this sample holds
+    // eighths [first, last). At the fastest rate two share a sample, and the
+    // LFSR still clocks only once.
+    const uint32_t first = (sample * 8 + period - 1) / period;
+    const uint32_t last = ((sample + 1) * 8 + period - 1) / period;
+    const uint32_t covered = ((1u << last) - 1) & ~((1u << first) - 1);
+    if (kSlots[step] & covered) m_val = (m_val << 1) | kWaveform[(m_val >> 10) & 63];
 }

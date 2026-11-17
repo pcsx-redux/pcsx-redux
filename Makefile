@@ -114,6 +114,13 @@ else
     LDFLAGS += -lGL -lX11 -lxcb
 endif
 
+# Apple's linker has no fully static mode, so the tools link dynamically there.
+ifeq ($(UNAME_S),Darwin)
+    TOOLS_LDFLAGS := -lz
+else
+    TOOLS_LDFLAGS := -static -lz
+endif
+
 LDFLAGS += third_party/luajit/src/libluajit.a
 LDFLAGS += -ldl
 LDFLAGS += -g
@@ -164,6 +171,7 @@ SRCS += third_party/imgui_memory_editor/imgui_memory_editor.cpp
 SRCS_pkg_libllhttp += $(wildcard third_party/llhttp/*.c)
 SRCS += $(wildcard third_party/lpeg/*.c)
 SRCS += third_party/lua-protobuf/pb.c
+SRCS += third_party/sqlite/sqlite3.c
 SRCS += third_party/luafilesystem/src/lfs.c
 SRCS_pkg_libluv += third_party/luv/src/luv.c
 SRCS_pkg_md4c += third_party/md4c/src/md4c.c
@@ -216,7 +224,7 @@ ifeq ($(UNAME_M),arm64)
         CPPFLAGS += -Ithird_party/vixl/src -Ithird_party/vixl/src/aarch64
 endif
 SUPPORT_SRCS := src/support/container-file.cc src/support/cpu-features.cc src/support/file.cc src/support/md5.cc src/support/mem4g.cc src/support/zfile.cc
-SUPPORT_SRCS += src/supportpsx/adpcm.cc src/supportpsx/binloader.cc src/supportpsx/dct.cc src/supportpsx/iec-60908b.cc src/supportpsx/iso9660-builder.cc src/supportpsx/ps1-packer.cc src/supportpsx/psyq-obj.cc src/supportpsx/sf2.cc src/supportpsx/spu-sample-layout.cc src/supportpsx/spusample.cc src/supportpsx/ucl-utils.cc
+SUPPORT_SRCS += src/supportpsx/adpcm.cc src/supportpsx/binloader.cc src/supportpsx/dct.cc src/supportpsx/iec-60908b.cc src/supportpsx/iso9660-builder.cc src/supportpsx/ps1-packer.cc src/supportpsx/psyq-obj.cc src/supportpsx/sf2.cc src/supportpsx/spu-sample-layout.cc src/supportpsx/spusample.cc src/supportpsx/stb-vorbis.cc src/supportpsx/ucl-utils.cc
 SUPPORT_SRCS += third_party/fmt/src/os.cc third_party/fmt/src/format.cc
 SUPPORT_SRCS += third_party/ucl/src/n2e_99.c third_party/ucl/src/alloc.c third_party/ucl/src/n2e_ds.c
 SUPPORT_SRCS += $(wildcard third_party/iec-60908b/*.c)
@@ -426,7 +434,7 @@ runtests: pcsx-redux-tests
 define TOOLDEF
 bins/$(BUILD)/$(1): $(SUPPORT_OBJECTS) $(TOOL_EXTRA_OBJECTS_$(1)) objs/$(BUILD)/tools/$(1)/$(1).o
 	@$(MKDIRP) $(dir bins/$(BUILD)/$(1))
-	$(LD) -o bins/$(BUILD)/$(1) $(CPPFLAGS) $(CXXFLAGS) $(SUPPORT_OBJECTS) $(TOOL_EXTRA_OBJECTS_$(1)) objs/$(BUILD)/tools/$(1)/$(1).o -static -lz
+	$(LD) -o bins/$(BUILD)/$(1) $(CPPFLAGS) $(CXXFLAGS) $(SUPPORT_OBJECTS) $(TOOL_EXTRA_OBJECTS_$(1)) objs/$(BUILD)/tools/$(1)/$(1).o $(TOOLS_LDFLAGS)
 
 $(1): check_submodules bins/$(BUILD)/$(1)
 	$(CP) bins/$(BUILD)/$(1) $(1)

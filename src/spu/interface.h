@@ -95,6 +95,7 @@ class impl final : public SPUInterface {
     void resetCaptureBuffer() final;
     void writeDMAMem(uint16_t *, int) final;
     void readDMAMem(uint16_t *, int) final;
+    void writeDMAEndsAt(uint64_t endCycle) final;
     virtual void playADPCMchannel(xa_decode_t *) final;
     void setXAVolume(const uint8_t atv[4]) final {
         for (unsigned i = 0; i < 4; i++) xaAtv[i] = atv[i];
@@ -102,6 +103,7 @@ class impl final : public SPUInterface {
 
     void save(SaveStates::SPU &) final;
     void load(const SaveStates::SPU &) final;
+    void reset() final;
 
     virtual void setLua(Lua L) override;
     bool setWavDump(const std::filesystem::path &path) final;
@@ -143,15 +145,11 @@ class impl final : public SPUInterface {
         // exactly what a browser's main thread may not do - it is a futex wait,
         // and it is the reason this build used to need PROXY_TO_PTHREAD.
         //
-        // In a browser the pacing belongs to the frame callback instead: the
-        // main loop delivers ~60 calls a second and Execute() unwinds after one
-        // emulated frame, so the rate is set by requestAnimationFrame rather
-        // than by the audio clock. The caller advances m_audioFrames either way.
-        //
-        // Known imperfection rather than an oversight: that ties emulation speed
-        // to the display refresh, so a PAL title or a 144 Hz monitor will not
-        // pace correctly. Fixing that means driving from the audio callback,
-        // which is a bigger change than moving the loop.
+        // In a browser the pacing belongs to the frame callback instead:
+        // Execute() unwinds after one emulated frame, and main.cc only calls it
+        // while the CPU is less than the lead ahead of what the device has
+        // played, whatever the display refresh. The caller advances
+        // m_audioFrames either way.
         (void)goal;
 #else
         m_audioOut.waitForGoal(goal);
@@ -165,6 +163,9 @@ class impl final : public SPUInterface {
         const int marginMs = std::max(0, settings.get<LatencyMargin>().value);
         return devicePeriodFrames() + 2 * NSSIZE + marginMs * 441 / 10;
     }
+    int getEffectiveSpeed() override;
+    int getLatencyMargin() override { return settings.get<LatencyMargin>().value; }
+    void setLatencyMargin(int ms) override { settings.get<LatencyMargin>().value = ms; }
     uint32_t devicePeriodFrames() {
         const uint32_t period = m_audioOut.getPeriodFrames();
         return period ? period : 1024;
@@ -263,6 +264,7 @@ class impl final : public SPUInterface {
     // false if the thread was asked to end while blocked.
     bool flushOutput();
     void SetupStreams();
+    void setVoiceDefaults();
     void RemoveStreams();
     void SetupMixBuffers();
     void SetupThread();
@@ -349,6 +351,9 @@ class impl final : public SPUInterface {
     // Set from the UI thread, read by the mixer at key-on.
     std::mutex m_overlayMutex;
     std::shared_ptr<const Overlay> m_overlay;
+    // The note each replaced original sounds at pitch 1000h, by signature. A signature names
+    // the sample's content, so an entry never goes stale. Mixer thread only.
+    std::unordered_map<uint64_t, double> m_overlayNotes;
     void startOverlay(SPUCHAN *voice);
     std::condition_variable m_mixerWake;
     std::condition_variable m_cpuWake;
@@ -499,9 +504,12 @@ class impl final : public SPUInterface {
     // The mixer thread writes these; the CPU thread reads SPUSTAT, so they stay atomic.
     std::atomic<uint16_t> spuCtrl = 0;
     std::atomic<uint16_t> spuStat = 0;
+    // CPU cycle at which the last sound RAM write DMA's data lands and SPUSTAT bits 7 and 9 rise;
+    // 0 while they are low. CPU thread only: the bits are put in at read time.
+    uint64_t m_writeDMALandedCycle = 0;
     uint16_t spuIrq = 0;
-    // Address into SPU memory.
-    uint32_t spuAddr = 0xffffffff;
+    // Sound RAM transfer address, in bytes.
+    uint32_t spuAddr = 0;
     // Thread handling.
     std::atomic<int> endThread = 0;
     std::atomic<int> threadEnded = 0;

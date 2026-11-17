@@ -103,6 +103,9 @@ class UvFile : public PosixFile, public UvThreadOp {
         : PosixFile(std::filesystem::path()) {}
 
     virtual bool canCache() const override { return true; }
+
+    // Writes here are synchronous, so there is nothing queued to wait for.
+    int closeAndWait() { return closeChecked(); }
 };
 
 // SIO1 over TCP needs a socket. Without one the fifo is a file that failed to
