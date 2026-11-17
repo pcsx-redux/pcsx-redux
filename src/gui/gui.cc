@@ -169,6 +169,7 @@ PCSX::GUI::GUI(std::vector<std::string>& favorites)
       m_memcardManager(settings.get<ShowMemcardManager>().value, favorites),
       m_assembly(settings.get<ShowAssembly>().value, favorites),
       m_cpuTrace(settings.get<ShowCpuTrace>().value, favorites),
+      m_hwEvents(settings.get<ShowHWEvents>().value, favorites),
       m_openIsoFileDialog(l_("Open Disk Image"), favorites),
       m_openBinaryDialog(l_("Open Binary"), favorites),
       m_openArchiveDialog(l_("Open Archive"), favorites),
@@ -1396,6 +1397,7 @@ void PCSX::GUI::endFrame() {
     }
 
     m_cpuTrace.draw(this, _("CPU Trace"));
+    m_hwEvents.draw(this, _("Hardware Events"));
 
     if (m_breakpoints.m_show) {
         m_breakpoints.draw(_("Breakpoints"));

@@ -249,6 +249,7 @@ bool PCSX::GUI::drawMainMenuBar(ImGuiContext* context, ImGuiID dockspaceId, bool
 in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
                 }
                 ImGui::MenuItem(_("Show CPU Trace"), nullptr, &m_cpuTrace.m_show);
+                ImGui::MenuItem(_("Show Hardware Events"), nullptr, &m_hwEvents.m_show);
                 ImGui::MenuItem(_("Show Breakpoints"), nullptr, &m_breakpoints.m_show);
                 ImGui::MenuItem(_("Show Callstacks"), nullptr, &m_callstacks.m_show);
                 if (ImGui::BeginMenu(_("Memory Editors"))) {

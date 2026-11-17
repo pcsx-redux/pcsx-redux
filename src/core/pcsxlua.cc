@@ -151,9 +151,11 @@ bool loadCpuTrace(const char* path) {
 
 uint64_t getHWEventsSize() { return PCSX::g_emulator->m_hwEvents->size(); }
 bool saveHWEvents(const char* path) {
-    PCSX::IO<PCSX::File> file = new PCSX::PosixFile(path, PCSX::FileOps::TRUNCATE);
+    auto posix = new PCSX::PosixFile(path, PCSX::FileOps::TRUNCATE);
+    PCSX::IO<PCSX::File> file = posix;
     if (file->failed()) return false;
-    return PCSX::g_emulator->m_hwEvents->save(file);
+    bool saved = PCSX::g_emulator->m_hwEvents->save(file);
+    return posix->closeChecked() == 0 && saved;
 }
 bool loadHWEvents(const char* path) {
     PCSX::IO<PCSX::File> file = new PCSX::PosixFile(path);
