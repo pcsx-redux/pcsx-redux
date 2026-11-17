@@ -43,7 +43,6 @@ PCSX::Widgets::EmulationConfig::EmulationConfig(bool& show, int& idleSwapInterva
 bool PCSX::Widgets::EmulationConfig::draw(GUI* gui) {
     bool changed = false;
     bool selectBiosDialog = false;
-    bool selectEXP1Dialog = false;
     bool selectScreenshotDirDialog = false;
     bool selectSaveStateDirDialog = false;
     bool showDynarecDebugWarning = false;
