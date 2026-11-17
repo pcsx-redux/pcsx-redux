@@ -85,9 +85,23 @@ end
 
 local function slot(n) return ram[RESULTS / 4 + n - 1] end
 
+-- The peer socket, closed before quitting so the event loop can shut down cleanly.
+local client, done
+local function finish(code)
+    if done then return end
+    done = true
+    if client then
+        local c = client
+        client = nil
+        c:close(function() PCSX.quit(code) end)
+    else
+        PCSX.quit(code)
+    end
+end
+
 local function fail(code, msg)
     print(string.format('sstate-sio1 FAIL %d: %s', code, msg))
-    PCSX.quit(code)
+    finish(code)
 end
 
 -- The state's own schema, so the state can be read and edited as a table.
@@ -117,7 +131,6 @@ local function toSlice(s)
 end
 
 -- the peer: framed SIOPayload messages, data transfer only
-local client
 local function sendBytes(str)
     for i = 1, #str do
         local body = '\x0a\x03\x0a\x01' .. str:sub(i, i)
@@ -207,7 +220,7 @@ step(20, function()
     client:connect('127.0.0.1', PORT, function(err)
         if err then
             print('sstate-sio1: cannot connect to the SIO1 server: ' .. err)
-            PCSX.quit(2)
+            finish(2)
             return
         end
         client:read_start(function() end)
@@ -339,10 +352,11 @@ step(4, function() layout = readback(1) end)
 step(2, function()
     if not checkReset(52, 'unknown version', collect(layout)) then return end
     print('sstate-sio1 PASS')
-    PCSX.quit(0)
+    finish(0)
 end)
 
 SIO1SaveStateListener = PCSX.Events.createEventListener('GPU::Vsync', function()
+    if done then return end
     frames = frames + 1
     local f = seq[frames]
     if f then f() end
