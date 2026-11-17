@@ -97,6 +97,8 @@ typedef struct {
 } PCSX_HWEvent;
 
 uint64_t getHWEventsSize();
+bool saveHWEvents(const char* path);
+bool loadHWEvents(const char* path);
 void clearHWEvents();
 uint32_t getHWEventsMask();
 bool getHWEventsFull();
@@ -338,6 +340,8 @@ PCSX = {
             SPUKeyOff = 0x0503,
         },
         size = function() return tonumber(C.getHWEventsSize()) end,
+        save = function(path) return C.saveHWEvents(path) end,
+        load = function(path) return C.loadHWEvents(path) end,
         clear = function() C.clearHWEvents() end,
         mask = function() return C.getHWEventsMask() end,
         -- True once the store has hit its limit and stopped recording.

@@ -150,6 +150,16 @@ bool loadCpuTrace(const char* path) {
 }
 
 uint64_t getHWEventsSize() { return PCSX::g_emulator->m_hwEvents->size(); }
+bool saveHWEvents(const char* path) {
+    PCSX::IO<PCSX::File> file = new PCSX::PosixFile(path, PCSX::FileOps::TRUNCATE);
+    if (file->failed()) return false;
+    return PCSX::g_emulator->m_hwEvents->save(file);
+}
+bool loadHWEvents(const char* path) {
+    PCSX::IO<PCSX::File> file = new PCSX::PosixFile(path);
+    if (file->failed()) return false;
+    return PCSX::g_emulator->m_hwEvents->load(file);
+}
 void clearHWEvents() { PCSX::g_emulator->m_hwEvents->clear(); }
 uint32_t getHWEventsMask() { return PCSX::g_emulator->m_hwEvents->mask(); }
 bool getHWEventsFull() { return PCSX::g_emulator->m_hwEvents->full(); }
@@ -384,6 +394,8 @@ static void registerAllSymbols(PCSX::Lua L) {
     REGISTER(L, saveCpuTrace);
     REGISTER(L, loadCpuTrace);
     REGISTER(L, getHWEventsSize);
+    REGISTER(L, saveHWEvents);
+    REGISTER(L, loadHWEvents);
     REGISTER(L, clearHWEvents);
     REGISTER(L, getHWEventsMask);
     REGISTER(L, setHWEventsMask);
