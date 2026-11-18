@@ -536,7 +536,7 @@ void PCSX::GPU::serialize(SaveStateWrapper* w) {
     for (unsigned i = 0; i < 6; i++) {
         setU32(env + i * 4, m_envRaw[i + 1]);
     }
-    gpu.get<GPUFieldFlags>() = (m_heldField ? 0 : 1) | (m_fieldPhase ? 2 : 0);
+    gpu.get<GPUFieldFlags>() = (m_heldField ? 0 : 1) | (m_fieldPhase ? 2 : 0) | (m_dma2Waiting ? 4 : 0);
 }
 
 void PCSX::MDEC::serialize(SaveStateWrapper* w) {
@@ -816,6 +816,7 @@ void PCSX::GPU::deserialize(const SaveStateWrapper* w) {
     const uint32_t fieldFlags = gpu.get<GPUFieldFlags>().value;
     m_heldField = !(fieldFlags & 1);
     m_fieldPhase = fieldFlags & 2;
+    m_dma2Waiting = fieldFlags & 4;
 }
 
 void PCSX::GPU::snapshot(Snapshot& s) {
