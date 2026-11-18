@@ -29,7 +29,6 @@
 
 PCSX::System* PCSX::g_system = NULL;
 
-
 // locale names have to be written in basic latin or extended latin, in order
 // to be properly displayed in the UI with the default range
 PCSX::System::System() : m_loop(new uv_loop_t) { uv_loop_init(m_loop); }

@@ -14,11 +14,8 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
-
 -- Drives the gdb server over a real socket: steps forward, then reverse-steps and
 -- reverse-continues back over the same instructions, and expects the same registers.
-
 local lu = require 'luaunit'
 
 TestGdbReverse = {}
@@ -50,9 +47,7 @@ local function recv()
     return table.remove(packets, 1)
 end
 
-local function send(cmd)
-    client:write('$' .. cmd .. '#' .. checksum(cmd))
-end
+local function send(cmd) client:write('$' .. cmd .. '#' .. checksum(cmd)) end
 
 local function command(cmd)
     send(cmd)

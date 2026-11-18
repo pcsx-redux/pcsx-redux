@@ -28,8 +28,8 @@
 #include <vector>
 
 #include "core/callprofiler.h"
-#include "gui/widgets/call_profiler.h"
 #include "gtest/gtest.h"
+#include "gui/widgets/call_profiler.h"
 #include "main/main.h"
 
 // src/mips/tests/tooling/profiler is a call tree whose instruction counts are written down in its

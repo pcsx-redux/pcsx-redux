@@ -1,5 +1,4 @@
 -- lualoader, R"EOF(--
-
 --[[
 
 Text tables: the byte <-> text mapping a game uses for its strings, in the
@@ -26,9 +25,7 @@ shorter one. A byte no entry covers becomes <$XX>, and encode() turns <$XX>
 back into that byte, so an incomplete table still round-trips. Encoding also takes the longest match; when
 two entries share a text, the first one in the table wins.
 
-]]
-
-local function unescape(s)
+]] local function unescape(s)
     return (s:gsub('\\(.)', function(c)
         if c == 'n' then return '\n' end
         return c
@@ -122,9 +119,7 @@ local function matchAt(self, text, p)
                 q = q + #e.pieces[k + 1]
             end
         end
-        if ok and q > p and (not best or q > bestEnd) then
-            best, bestEnd, bestParams = e, q, table.concat(params)
-        end
+        if ok and q > p and (not best or q > bestEnd) then best, bestEnd, bestParams = e, q, table.concat(params) end
     end
     return best, bestEnd, bestParams
 end

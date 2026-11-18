@@ -172,8 +172,8 @@ class Counters {
     // in. Redux runs both fields at the same length.
     bool longField() const { return (m_fieldCount & 1) == 0; }
 
-    void serialize(SaveStateWrapper *);
-    void deserialize(const SaveStateWrapper *);
+    void serialize(SaveStateWrapper*);
+    void deserialize(const SaveStateWrapper*);
 };
 
 }  // namespace PCSX

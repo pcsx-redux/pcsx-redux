@@ -28,8 +28,8 @@ TEST(Memset, Interpreter) {
 }
 
 TEST(Memset, Dynarec) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/libc/memset/memset.ps-exe");
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-luacov",
+                        "-loadexe", "src/mips/tests/libc/memset/memset.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

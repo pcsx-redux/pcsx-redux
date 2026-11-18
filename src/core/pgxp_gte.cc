@@ -97,7 +97,6 @@ void PGXP_pushSXYZ2f(float _x, float _y, float _z, unsigned int _v) {
     } else {
         PCSX::g_emulator->m_gpu->pgxpCacheVertex(0, 0, NULL);
     }
-
 }
 
 void PGXP_pushSXYZ2s(int64_t _x, int64_t _y, int64_t _z, uint32_t v) {

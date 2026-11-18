@@ -102,7 +102,6 @@ uint32_t PGXP_ConvertAddress(uint32_t addr) {
             break;
     }
 
-
     return paddr;
 }
 

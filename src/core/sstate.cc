@@ -607,8 +607,7 @@ void PCSX::SIO1::serialize(SaveStateWrapper* w) {
     sio1.get<SIO1StateCycleCount>().value = m_cycleCount;
     sio1.get<SIO1StateBaudRate>().value = m_baudRate;
     // Only the protobuf mode owns a receive buffer; in raw mode the bytes are still on the socket.
-    sio1.get<SIO1StateRxFifo>().value =
-        m_sio1fifo.isA<Fifo>() ? m_sio1fifo.asA<Fifo>()->contents() : std::string();
+    sio1.get<SIO1StateRxFifo>().value = m_sio1fifo.isA<Fifo>() ? m_sio1fifo.asA<Fifo>()->contents() : std::string();
 }
 
 void PCSX::SIO1::deserialize(const SaveStateWrapper* w) {

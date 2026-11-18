@@ -154,9 +154,8 @@ void PCSX::Widgets::HWEvents::drawView(GUI* gui, const PCSX::HWEvents& events, V
             for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
                 uint32_t idx = view.rows[row];
                 const HWEvent& e = events[idx];
-                ImGui::TextUnformatted(fmt::format("{:8}: {:12} {:08x}  {}", idx, e.cycle, e.pc,
-                                                   PCSX::HWEvents::describe(e))
-                                           .c_str());
+                ImGui::TextUnformatted(
+                    fmt::format("{:8}: {:12} {:08x}  {}", idx, e.cycle, e.pc, PCSX::HWEvents::describe(e)).c_str());
             }
         }
         if (view.followTail) ImGui::SetScrollY(ImGui::GetScrollMaxY());

@@ -178,8 +178,8 @@ TEST(MDECDecoder, aFrameIsTheEmulatorsMacroblocksInPlace) {
         // way the stream order is the case order.
         const unsigned w = column ? 16 : 16 * n, h = column ? 16 * n : 16;
         std::vector<uint8_t> image(w * h * 3);
-        const auto frame = PCSX::MDECDecoder::decodeFrame(stream.data(), static_cast<unsigned>(stream.size()), t, w,
-                                                          h, column, image.data());
+        const auto frame = PCSX::MDECDecoder::decodeFrame(stream.data(), static_cast<unsigned>(stream.size()), t, w, h,
+                                                          column, image.data());
         EXPECT_EQ(frame.status.anomaly, PCSX::MDECDecoder::Anomaly::None);
         EXPECT_EQ(frame.consumed, stream.size());
         for (unsigned i = 0; i < n; i++) {

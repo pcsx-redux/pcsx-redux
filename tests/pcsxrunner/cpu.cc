@@ -28,8 +28,8 @@ TEST(CPU, Interpreter) {
 }
 
 TEST(CPU, Dynarec) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/cpu/cpu/cpu.ps-exe");
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-luacov",
+                        "-loadexe", "src/mips/tests/cpu/cpu/cpu.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

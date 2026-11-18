@@ -22,7 +22,8 @@
 
 TEST(PCdrv, Interpreter) {
     MainInvoker invoker("-no-ui", "-run", "-pcdrv", "-pcdrvbase", ".", "-bios", "src/mips/openbios/openbios.bin",
-                        "-testmode", "-interpreter", "-luacov", "-loadexe", "src/mips/tests/tooling/pcdrv/pcdrv.ps-exe");
+                        "-testmode", "-interpreter", "-luacov", "-loadexe",
+                        "src/mips/tests/tooling/pcdrv/pcdrv.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

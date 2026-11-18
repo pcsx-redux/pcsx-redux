@@ -14,7 +14,6 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 
 TestHtml = {}
@@ -23,8 +22,7 @@ local H = PCSX.Html
 
 function TestHtml:test_document()
     local page = H.html { H.head { H.title 'T' }, H.body { H.p 'hi' } }
-    lu.assertEquals(H.render(page),
-        '<!DOCTYPE html>\n<html><head><title>T</title></head><body><p>hi</p></body></html>')
+    lu.assertEquals(H.render(page), '<!DOCTYPE html>\n<html><head><title>T</title></head><body><p>hi</p></body></html>')
 end
 
 function TestHtml:test_fragment_and_empty()
@@ -34,14 +32,12 @@ end
 
 function TestHtml:test_text_is_escaped()
     lu.assertEquals(H.render(H.p 'a < b && c > "d"'), '<p>a &lt; b &amp;&amp; c &gt; "d"</p>')
-    lu.assertEquals(H.render(H.p { '<script>alert(1)</script>' }),
-        '<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>')
+    lu.assertEquals(H.render(H.p { '<script>alert(1)</script>' }), '<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>')
 end
 
 function TestHtml:test_attributes()
     local n = H.input { type = 'text', value = 'say "hi" & <go> \'x\'', disabled = true, hidden = false }
-    lu.assertEquals(H.render(n),
-        '<input disabled type="text" value="say &quot;hi&quot; &amp; &lt;go&gt; &#39;x&#39;">')
+    lu.assertEquals(H.render(n), '<input disabled type="text" value="say &quot;hi&quot; &amp; &lt;go&gt; &#39;x&#39;">')
     lu.assertEquals(H.render(H.div { ['data-row'] = 3, id = 'r' }), '<div data-row="3" id="r"></div>')
 end
 

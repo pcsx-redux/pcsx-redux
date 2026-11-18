@@ -19,9 +19,9 @@
 
 #pragma once
 
+#include "core/hwevents.h"
 #include "core/psxcounters.h"
 #include "core/psxdma.h"
-#include "core/hwevents.h"
 #include "core/psxemulator.h"
 #include "core/psxmem.h"
 #include "core/r3000a.h"

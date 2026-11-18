@@ -63,9 +63,9 @@ class MemoryCardLoad : public ::testing::Test {
     void SetUp() override {
         m_oldSystem = PCSX::g_system;
         PCSX::g_system = &m_system;
-        m_dir = std::filesystem::temp_directory_path() /
-                ("pcsx-redux-mcd-test-" + std::to_string(::getpid()) + "-" +
-                 ::testing::UnitTest::GetInstance()->current_test_info()->name());
+        m_dir =
+            std::filesystem::temp_directory_path() / ("pcsx-redux-mcd-test-" + std::to_string(::getpid()) + "-" +
+                                                      ::testing::UnitTest::GetInstance()->current_test_info()->name());
         std::filesystem::remove_all(m_dir);
         std::filesystem::create_directories(m_dir);
         // Something that is not a blank card, to see whether a failed load touched it.

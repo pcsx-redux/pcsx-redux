@@ -96,11 +96,11 @@ TEST(DctPack, aRetryActuallyRepacksAtTheNewQScale) {
     PCSX::DCT::pack(t.coeffs, t.shape, {}, 2, low);
     // Ask once for a much coarser q_scale, then accept. If the retry did not run,
     // or ran and ignored the value, this comes out the same size as `low`.
-    auto r = PCSX::DCT::pack(t.coeffs, t.shape, {}, 2, raised,
-                             [](const PCSX::DCT::PackAttempt &info) -> std::optional<int> {
-                                 if (info.attempt == 0) return 63;
-                                 return std::nullopt;
-                             });
+    auto r =
+        PCSX::DCT::pack(t.coeffs, t.shape, {}, 2, raised, [](const PCSX::DCT::PackAttempt &info) -> std::optional<int> {
+            if (info.attempt == 0) return 63;
+            return std::nullopt;
+        });
     EXPECT_FALSE(r.failed);
     EXPECT_LT(raised.size(), low.size());
     EXPECT_EQ(r.attempts, 2u * (t.shape.blockCount / 6));
@@ -114,10 +114,9 @@ TEST(DctPack, alternatingFunctorTerminates) {
     std::vector<uint16_t> out;
     // Never repeats a value consecutively, so the converged-test alone cannot stop
     // it. Only the hard attempt cap can. Without the cap this hangs forever.
-    auto r = PCSX::DCT::pack(t.coeffs, t.shape, {}, 8, out,
-                             [](const PCSX::DCT::PackAttempt &info) -> std::optional<int> {
-                                 return (info.attempt % 2) ? 10 : 20;
-                             });
+    auto r = PCSX::DCT::pack(
+        t.coeffs, t.shape, {}, 8, out,
+        [](const PCSX::DCT::PackAttempt &info) -> std::optional<int> { return (info.attempt % 2) ? 10 : 20; });
     EXPECT_FALSE(r.failed);
     EXPECT_GT(out.size(), 0u);
     EXPECT_EQ(r.attempts, 64u * (t.shape.blockCount / 6));
@@ -126,14 +125,12 @@ TEST(DctPack, alternatingFunctorTerminates) {
 TEST(DctPack, outOfRangeQScaleIsClamped) {
     Transformed t;
     std::vector<uint16_t> lo, hi;
-    PCSX::DCT::pack(t.coeffs, t.shape, {}, 8, lo,
-                    [](const PCSX::DCT::PackAttempt &i) -> std::optional<int> {
-                        return i.attempt == 0 ? std::optional<int>(-5) : std::nullopt;
-                    });
-    PCSX::DCT::pack(t.coeffs, t.shape, {}, 8, hi,
-                    [](const PCSX::DCT::PackAttempt &i) -> std::optional<int> {
-                        return i.attempt == 0 ? std::optional<int>(9999) : std::nullopt;
-                    });
+    PCSX::DCT::pack(t.coeffs, t.shape, {}, 8, lo, [](const PCSX::DCT::PackAttempt &i) -> std::optional<int> {
+        return i.attempt == 0 ? std::optional<int>(-5) : std::nullopt;
+    });
+    PCSX::DCT::pack(t.coeffs, t.shape, {}, 8, hi, [](const PCSX::DCT::PackAttempt &i) -> std::optional<int> {
+        return i.attempt == 0 ? std::optional<int>(9999) : std::nullopt;
+    });
     EXPECT_EQ((lo[0] >> 10) & 0x3f, 1);
     EXPECT_EQ((hi[0] >> 10) & 0x3f, 63);
 }
@@ -143,13 +140,13 @@ TEST(DctPack, reportedSizesAgreeWithTheStream) {
     std::vector<uint16_t> out;
     size_t lastTotal = 0;
     std::vector<size_t> perBlock;
-    auto r = PCSX::DCT::pack(t.coeffs, t.shape, {}, 8, out,
-                             [&](const PCSX::DCT::PackAttempt &info) -> std::optional<int> {
-                                 EXPECT_EQ(info.totalHalfwords, lastTotal + info.sizeHalfwords);
-                                 lastTotal = info.totalHalfwords;
-                                 perBlock.push_back(info.sizeHalfwords);
-                                 return std::nullopt;
-                             });
+    auto r =
+        PCSX::DCT::pack(t.coeffs, t.shape, {}, 8, out, [&](const PCSX::DCT::PackAttempt &info) -> std::optional<int> {
+            EXPECT_EQ(info.totalHalfwords, lastTotal + info.sizeHalfwords);
+            lastTotal = info.totalHalfwords;
+            perBlock.push_back(info.sizeHalfwords);
+            return std::nullopt;
+        });
     size_t sum = 0;
     for (size_t v : perBlock) sum += v;
     EXPECT_EQ(sum, lastTotal);
@@ -327,11 +324,11 @@ TEST(DctContainer, bsRoundTripsAndRefusesWhatItCannotExpress) {
     // the stock player silently misreads.
     // Odd macroblocks move to 20, even ones keep 8, so the frame really does mix.
     std::vector<uint16_t> varying;
-    auto mixed = PCSX::DCT::pack(t.coeffs, t.shape, {}, 8, varying,
-                                 [](const PCSX::DCT::PackAttempt &i) -> std::optional<int> {
-                                     if (i.attempt == 0 && (i.macroblock & 1)) return 20;
-                                     return std::nullopt;
-                                 });
+    auto mixed =
+        PCSX::DCT::pack(t.coeffs, t.shape, {}, 8, varying, [](const PCSX::DCT::PackAttempt &i) -> std::optional<int> {
+            if (i.attempt == 0 && (i.macroblock & 1)) return 20;
+            return std::nullopt;
+        });
     ASSERT_FALSE(mixed.failed);
     ASSERT_EQ(mixed.minQScale, 8);
     ASSERT_EQ(mixed.maxQScale, 20);
