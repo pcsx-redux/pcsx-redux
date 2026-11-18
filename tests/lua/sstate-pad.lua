@@ -13,7 +13,6 @@
 --   You should have received a copy of the GNU General Public License
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
-
 local ram = ffi.cast('uint32_t*', PCSX.getMemPtr())
 local bytes = ffi.cast('uint8_t*', PCSX.getMemPtr())
 local code = 0x100000 / 4
@@ -72,9 +71,7 @@ end
 
 local function field(s, wanted)
     if not s then return nil end
-    for _, r in ipairs(records(s)) do
-        if r.num == wanted then return r.payload end
-    end
+    for _, r in ipairs(records(s)) do if r.num == wanted then return r.payload end end
 end
 
 -- Field numbers of pad1 and pad2 inside the SIO message (sstate.h).
@@ -112,7 +109,10 @@ end
 -- also empties the receive FIFO first.
 local function plant(send, base, reset)
     local i = code
-    local function emit(w) ram[i] = w i = i + 1 end
+    local function emit(w)
+        ram[i] = w
+        i = i + 1
+    end
     local function reselect()
         emit(0xa500104a) -- sh $zero, 0x104a($t0)
         emit(0x34091003) -- ori $t1, $zero, 0x1003

@@ -27,20 +27,20 @@ PCSX.execSlots[0xd1] = function() PCSX.CDRom.closeLid() end
 )";
 
 // One exe per area of nugget's tests/cdrom.
-#define CDROM_TEST(name, area)                                                                                    \
-    TEST(cdrom, name##Interpreter) {                                                                              \
-        MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode",  \
-                            "-interpreter", "-iso", "test.cue", "-exec", c_lidSlots, "-loadexe",                  \
-                            "src/mips/tests/cdrom/" #area "/cdrom-" #area ".ps-exe");                             \
-        int ret = invoker.invoke();                                                                               \
-        EXPECT_EQ(ret, 0);                                                                                        \
-    }                                                                                                             \
-    TEST(cdrom, name##Dynarec) {                                                                                  \
-        MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode",  \
-                            "-dynarec", "-iso", "test.cue", "-exec", c_lidSlots, "-loadexe",                      \
-                            "src/mips/tests/cdrom/" #area "/cdrom-" #area ".ps-exe");                             \
-        int ret = invoker.invoke();                                                                               \
-        EXPECT_EQ(ret, 0);                                                                                        \
+#define CDROM_TEST(name, area)                                                                                   \
+    TEST(cdrom, name##Interpreter) {                                                                             \
+        MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode", \
+                            "-interpreter", "-iso", "test.cue", "-exec", c_lidSlots, "-loadexe",                 \
+                            "src/mips/tests/cdrom/" #area "/cdrom-" #area ".ps-exe");                            \
+        int ret = invoker.invoke();                                                                              \
+        EXPECT_EQ(ret, 0);                                                                                       \
+    }                                                                                                            \
+    TEST(cdrom, name##Dynarec) {                                                                                 \
+        MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode", \
+                            "-dynarec", "-iso", "test.cue", "-exec", c_lidSlots, "-loadexe",                     \
+                            "src/mips/tests/cdrom/" #area "/cdrom-" #area ".ps-exe");                            \
+        int ret = invoker.invoke();                                                                              \
+        EXPECT_EQ(ret, 0);                                                                                       \
     }
 
 CDROM_TEST(Commands, commands)

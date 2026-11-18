@@ -14,54 +14,32 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 local ffi = require 'ffi'
 
 TestAdpcm = {}
 
 local function swapEndian32(x)
-    return bit.bor(
-        bit.lshift(bit.band(x, 0x000000FF), 24),
-        bit.lshift(bit.band(x, 0x0000FF00), 8),
-        bit.rshift(bit.band(x, 0x00FF0000), 8),
-        bit.rshift(bit.band(x, 0xFF000000), 24)
-    )
+    return bit.bor(bit.lshift(bit.band(x, 0x000000FF), 24), bit.lshift(bit.band(x, 0x0000FF00), 8),
+                   bit.rshift(bit.band(x, 0x00FF0000), 8), bit.rshift(bit.band(x, 0xFF000000), 24))
 end
 
-local function generateToneSample(frequency, sampleRate, t)
-    return math.sin(2 * math.pi * frequency * t / sampleRate)
-end
+local function generateToneSample(frequency, sampleRate, t) return math.sin(2 * math.pi * frequency * t / sampleRate) end
 
 local function generateDTMF(frequency1, frequency2, sampleRate, t)
     return generateToneSample(frequency1, sampleRate, t) + generateToneSample(frequency2, sampleRate, t)
 end
 
 local DTMFFrequencies = {
-    { 697, 1209 },
-    { 697, 1336 },
-    { 697, 1477 },
-    { 697, 1633 },
-    { 770, 1209 },
-    { 770, 1336 },
-    { 770, 1477 },
-    { 770, 1633 },
-    { 852, 1209 },
-    { 852, 1336 },
-    { 852, 1477 },
-    { 852, 1633 },
-    { 941, 1209 },
-    { 941, 1336 },
-    { 941, 1477 },
-    { 941, 1633 },
+    { 697, 1209 }, { 697, 1336 }, { 697, 1477 }, { 697, 1633 }, { 770, 1209 }, { 770, 1336 }, { 770, 1477 },
+    { 770, 1633 }, { 852, 1209 }, { 852, 1336 }, { 852, 1477 }, { 852, 1633 }, { 941, 1209 }, { 941, 1336 },
+    { 941, 1477 }, { 941, 1633 },
 }
 
 local function generateMonoWaveform(frequency1, frequency2, sampleRate, duration)
     local size = duration * sampleRate
     local samples = ffi.new('int16_t[?]', size)
-    for t = 0, duration * sampleRate - 1 do
-        samples[t] = 10000 * generateDTMF(frequency1, frequency2, sampleRate, t)
-    end
+    for t = 0, duration * sampleRate - 1 do samples[t] = 10000 * generateDTMF(frequency1, frequency2, sampleRate, t) end
     return samples, size
 end
 
@@ -82,7 +60,8 @@ local function generateDTMF1(sampleRate, duration)
 end
 
 local function generateDTMFStereo(sampleRate, duration)
-    local samples, size = generateStereoWaveform(DTMFFrequencies[1][1], DTMFFrequencies[1][2], DTMFFrequencies[6][1], DTMFFrequencies[6][2], sampleRate, duration)
+    local samples, size = generateStereoWaveform(DTMFFrequencies[1][1], DTMFFrequencies[1][2], DTMFFrequencies[6][1],
+                                                 DTMFFrequencies[6][2], sampleRate, duration)
     lu.assertEquals(size % 28, 0)
     return samples, size
 end
@@ -101,9 +80,7 @@ function TestAdpcm:test_simpleSPU()
     file:writeU32(0)
     file:writeU32(swapEndian32((blockCount + 4) * 16))
     file:writeU32(swapEndian32(sampleRate))
-    for i = 1, 11 do
-        file:writeU32(0)
-    end
+    for i = 1, 11 do file:writeU32(0) end
     local out = Support.NewLuaBuffer(16)
     for i = 1, blockCount do
         e:processSPUBlock(ptr, out, i == blockCount and 'OneShotEnd' or 'OneShot')
@@ -139,11 +116,7 @@ function TestAdpcm:test_simpleXA()
         e:processXABlock(ptr, out, 'XAFourBits', 2)
         ptr = ptr + 112 * 2
         file:write(out)
-        if (i % 18) == 0 then
-            for j = 1, 6 do
-                file:writeU32(0)
-            end
-        end
+        if (i % 18) == 0 then for j = 1, 6 do file:writeU32(0) end end
     end
     file:close()
 end
@@ -157,9 +130,7 @@ local function makeBlock(bytes)
 end
 
 local function assertSamples(out, expected, what)
-    for i = 1, #expected do
-        lu.assertEquals(out[i - 1], expected[i], what .. ': sample ' .. (i - 1))
-    end
+    for i = 1, #expected do lu.assertEquals(out[i - 1], expected[i], what .. ': sample ' .. (i - 1)) end
 end
 
 -- Expected values below were computed from the psx-spx formula:
@@ -173,34 +144,38 @@ local handBlocks = {
     {
         filter = 0,
         block = { 0x04, 0, 0x87, 0x21, 0xf3, 0x00, 0x5c },
-        expected = { 1792, -2048, 256, 512, 768, -256, 0, 0, -1024, 1280, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0 },
-    },
-    {
+        expected = {
+            1792, -2048, 256, 512, 768, -256, 0, 0, -1024, 1280, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        },
+    }, {
         filter = 1,
         block = { 0x10, 0, 0x87 },
-        expected = { 28672, -5888, -5520, -5175, -4852, -4549, -4265, -3998, -3748, -3514, -3294, -3088, -2895,
-            -2714, -2544, -2385, -2236, -2096, -1965, -1842, -1727, -1619, -1518, -1423, -1334, -1251, -1173, -1100 },
-    },
-    {
+        expected = {
+            28672, -5888, -5520, -5175, -4852, -4549, -4265, -3998, -3748, -3514, -3294, -3088, -2895, -2714, -2544,
+            -2385, -2236, -2096, -1965, -1842, -1727, -1619, -1518, -1423, -1334, -1251, -1173, -1100,
+        },
+    }, {
         filter = 2,
         block = { 0x22, 0, 0x87, 0x10 },
-        expected = { 7168, 4688, 2600, 1887, 1278, 763, 333, -22, -310, -539, -717, -850, -945, -1007, -1042,
-            -1054, -1047, -1025, -991, -948, -898, -843, -785, -726, -667, -609, -552, -497 },
-    },
-    {
+        expected = {
+            7168, 4688, 2600, 1887, 1278, 763, 333, -22, -310, -539, -717, -850, -945, -1007, -1042, -1054, -1047,
+            -1025, -991, -948, -898, -843, -785, -726, -667, -609, -552, -497,
+        },
+    }, {
         filter = 3,
         block = { 0x31, 0, 0x97, 0x00, 0x0f },
-        expected = { 14336, 7616, -658, -7553, -13048, -13489, -9442, -2866, 3726, 8168, 9305, 7229, 3073, -1507,
-            -4948, -6282, -5367, -2820, 294, 2874, 4148, 3882, 2380, 308, -1574, -2675, -2743, -1901 },
-    },
-    {
+        expected = {
+            14336, 7616, -658, -7553, -13048, -13489, -9442, -2866, 3726, 8168, 9305, 7229, 3073, -1507, -4948, -6282,
+            -5367, -2820, 294, 2874, 4148, 3882, 2380, 308, -1574, -2675, -2743, -1901,
+        },
+    }, {
         -- Also exercises clamping on both ends.
         filter = 4,
         block = { 0x40, 0, 0x77, 0x88 },
-        expected = { 28672, 32767, 2814, -32768, -32768, -31744, -29792, -27031, -23598, -19642, -15319, -10787,
-            -6201, -1708, 2558, 6477, 9949, 12893, 15250, 16983, 18077, 18538, 18391, 17678, 16457, 14798, 12780,
-            10489 },
+        expected = {
+            28672, 32767, 2814, -32768, -32768, -31744, -29792, -27031, -23598, -19642, -15319, -10787, -6201, -1708,
+            2558, 6477, 9949, 12893, 15250, 16983, 18077, 18538, 18391, 17678, 16457, 14798, 12780, 10489,
+        },
     },
 }
 
@@ -313,21 +288,15 @@ function TestAdpcm:test_roundTripSPU()
     local blockCount = 1575
     local size = 28 * blockCount
     local samples = ffi.new('int16_t[?]', size)
-    for t = 0, size - 1 do
-        samples[t] = 10000 * generateDTMF(697, 1209, 44100, t)
-    end
+    for t = 0, size - 1 do samples[t] = 10000 * generateDTMF(697, 1209, 44100, t) end
     local encoded = ffi.new('uint8_t[?]', blockCount * 16)
     local decoded = ffi.new('int16_t[?]', size)
     local e = PCSX.Adpcm.NewEncoder()
     e:reset 'Normal'
-    for i = 0, blockCount - 1 do
-        e:processSPUBlock(samples + i * 28, encoded + i * 16, 'OneShot')
-    end
+    for i = 0, blockCount - 1 do e:processSPUBlock(samples + i * 28, encoded + i * 16, 'OneShot') end
     local d = PCSX.Adpcm.NewDecoder()
     d:reset()
-    for i = 0, blockCount - 1 do
-        d:decodeSPUBlock(encoded + i * 16, decoded + i * 28)
-    end
+    for i = 0, blockCount - 1 do d:decodeSPUBlock(encoded + i * 16, decoded + i * 28) end
     checkBounds('spu', measureError(samples, decoded, size, 'spu'))
 end
 
@@ -352,7 +321,7 @@ local function roundTripXA(bits, channels)
     e:reset 'XA'
     for g = 0, groups - 1 do
         e:processXABlock(samples + g * perGroup, encoded + g * 128, bits == 4 and 'XAFourBits' or 'XAEightBits',
-            channels)
+                         channels)
     end
     local d = PCSX.Adpcm.NewDecoder()
     d:reset()
@@ -448,9 +417,7 @@ function TestAdpcm:test_decodeXALayout()
                 lu.assertEquals(written, perGroup)
             end
             local what = 'xa' .. bits .. ' ' .. channels .. 'ch'
-            for i = 0, total - 1 do
-                lu.assertEquals(decoded[i], expected[i], what .. ': sample ' .. i)
-            end
+            for i = 0, total - 1 do lu.assertEquals(decoded[i], expected[i], what .. ': sample ' .. i) end
             measureError(samples, decoded, total, 'filter 0 packing ' .. what)
         end
     end

@@ -249,7 +249,7 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
     if (!m_overlayStatus.empty()) ImGui::TextUnformatted(m_overlayStatus.c_str());
 
     const bool showWaveform = m_selected && !m_waveform.empty();
-    const float tableHeight = ImGui::GetContentRegionAvail().y * (showWaveform ? 0.4f: 1.0f);
+    const float tableHeight = ImGui::GetContentRegionAvail().y * (showWaveform ? 0.4f : 1.0f);
     if (ImGui::BeginTable(
             "SPUSamples", 10,
             ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit,

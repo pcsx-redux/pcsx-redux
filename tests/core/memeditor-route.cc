@@ -17,8 +17,9 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#include "gtest/gtest.h"
 #include "gui/memeditor-route.h"
+
+#include "gtest/gtest.h"
 
 using Target = PCSX::MemEditorRoute::Target;
 

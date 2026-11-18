@@ -66,9 +66,7 @@ TEST(GNUDemangler, _Z3fooPM2ABi) { EXPECT_EQ(PCSX::GNUDemangler::demangle("_Z3fo
 TEST(GNUDemangler, _ZlsRSoRKSs) {
     EXPECT_EQ(PCSX::GNUDemangler::demangle("_ZlsRSoRKSs"), "operator<<(std::ostream&, std::string const&)");
 }
-TEST(GNUDemangler, _ZTI7a_class) {
-    EXPECT_EQ(PCSX::GNUDemangler::demangle("_ZTI7a_class"), "typeinfo for a_class");
-}
+TEST(GNUDemangler, _ZTI7a_class) { EXPECT_EQ(PCSX::GNUDemangler::demangle("_ZTI7a_class"), "typeinfo for a_class"); }
 TEST(GNUDemangler, _ZN4PCSX10SystemImplC2ERKNS_9ArgumentsE) {
     EXPECT_EQ(PCSX::GNUDemangler::demangle("_ZN4PCSX10SystemImplC2ERKNS_9ArgumentsE"),
               "PCSX::SystemImpl::SystemImpl(PCSX::Arguments const&)");
@@ -100,8 +98,8 @@ TEST(GNUDemangler, eastl_function_detail) {
 }
 TEST(GNUDemangler, eastl_list_DoErase) {
     EXPECT_EQ(PCSX::GNUDemangler::demangle("_ZN5eastl4listIN5psyqo3GPU5TimerENS_20fixed_node_"
-                                            "allocatorILj40ELj32ELj4ELj0ELb1ENS_9allocatorEEEE7DoEraseEPNS_"
-                                            "12ListNodeBaseE"),
+                                           "allocatorILj40ELj32ELj4ELj0ELb1ENS_9allocatorEEEE7DoEraseEPNS_"
+                                           "12ListNodeBaseE"),
               "eastl::list<psyqo::GPU::Timer, eastl::fixed_node_allocator<40, 32, 4, 0, 1, "
               "eastl::allocator>>::DoErase(eastl::ListNodeBase*)");
 }
@@ -156,9 +154,8 @@ TEST(GNUDemangler, lambda_in_method) {
               "Foo::method()::{lambda()#1}::operator()() const");
 }
 TEST(GNUDemangler, lambda_static_fun) {
-    EXPECT_EQ(
-        PCSX::GNUDemangler::demangle("_ZZN5psyqo6Kernel8Internal7prepareERNS_11ApplicationEENUlvE_4_FUNEv"),
-        "psyqo::Kernel::Internal::prepare(psyqo::Application&)::{lambda()#1}::_FUN()");
+    EXPECT_EQ(PCSX::GNUDemangler::demangle("_ZZN5psyqo6Kernel8Internal7prepareERNS_11ApplicationEENUlvE_4_FUNEv"),
+              "psyqo::Kernel::Internal::prepare(psyqo::Application&)::{lambda()#1}::_FUN()");
 }
 
 // Vtable and guard variable
@@ -207,8 +204,7 @@ TEST(GNUDemangler, coroutine_destroy) {
 // GCC global constructor/destructor wrappers
 TEST(GNUDemangler, global_ctor) {
     EXPECT_EQ(
-        PCSX::GNUDemangler::demangle(
-            "_GLOBAL__sub_I__ZN5psyqo6Kernel15setBreakHandlerEjON5eastl8functionIFbmEEE"),
+        PCSX::GNUDemangler::demangle("_GLOBAL__sub_I__ZN5psyqo6Kernel15setBreakHandlerEjON5eastl8functionIFbmEEE"),
         "global constructors keyed to psyqo::Kernel::setBreakHandler(unsigned int, eastl::function<bool(unsigned "
         "long)>&&)");
 }

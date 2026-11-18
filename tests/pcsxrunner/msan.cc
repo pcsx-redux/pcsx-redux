@@ -30,8 +30,8 @@ TEST(Msan, Interpreter) {
 }
 
 TEST(Msan, Dynarec) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/tooling/msan/msan.ps-exe");
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-luacov",
+                        "-loadexe", "src/mips/tests/tooling/msan/msan.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -44,8 +44,8 @@ TEST(MsanTrip, Interpreter) {
 }
 
 TEST(MsanTrip, Dynarec) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/tooling/msan-trip/msan-trip.ps-exe");
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-luacov",
+                        "-loadexe", "src/mips/tests/tooling/msan-trip/msan-trip.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 1);
 }

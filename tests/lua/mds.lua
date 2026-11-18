@@ -14,7 +14,6 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 
 TestMds = {}
@@ -44,17 +43,16 @@ local function writeImage(base)
     local sectors = size / 2352
     out:rSeek(0)
     local mdf = io.open(base .. '.mdf', 'wb')
-    for _ = 1, sectors do
-        mdf:write(tostring(out:read(2352)), string.rep('\0', 96))
-    end
+    for _ = 1, sectors do mdf:write(tostring(out:read(2352)), string.rep('\0', 96)) end
     mdf:close()
 
     -- Header: signature, session block at 0x58, one track block at 0x70,
     -- its extra block (pregap, length) at 0xc0.
     local mds = pad('MEDIA DESCRIPTOR', 0x50) .. u32(0x58) .. u32(0)
     mds = mds .. pad(string.rep('\0', 14) .. u16(1) .. u32(0) .. u32(0x70), 0x18)
-    local track = string.char(0xec, 0x08, 0x14, 0x00, 0x01) .. string.rep('\0', 4) .. string.char(0, 2, 0) ..
-                      u32(0xc0) .. u16(2448)
+    local track =
+        string.char(0xec, 0x08, 0x14, 0x00, 0x01) .. string.rep('\0', 4) .. string.char(0, 2, 0) .. u32(0xc0) ..
+            u16(2448)
     mds = mds .. pad(pad(track, 0x28) .. u32(0) .. u32(0), 0x50)
     mds = mds .. u32(0) .. u32(sectors)
     local f = io.open(base .. '.mds', 'wb')
