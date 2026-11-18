@@ -21,6 +21,7 @@
 
 #include <filesystem>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 #include "lua-protobuf/pb.h"
@@ -34,7 +35,7 @@
 namespace {
 
 std::vector<PCSX::ZipArchive> s_archives;
-PCSX::File* load(std::string_view name, std::string_view from, bool inArchives = true) {
+std::tuple<PCSX::File*, std::string> load(std::string_view name, std::string_view from, bool inArchives = true) {
     bool doRelative = false;
     if (!from.empty() && (from[0] == '@')) {
         from = from.substr(1);
@@ -52,11 +53,11 @@ PCSX::File* load(std::string_view name, std::string_view from, bool inArchives =
             auto& archive = *archivei;
             if (doRelative) {
                 file = archive.openFile(relativePath.string());
-                if (!file->failed()) return file;
+                if (!file->failed()) return {file, relativePath.string()};
                 delete file;
             }
             file = archive.openFile(absolutePath.string());
-            if (!file->failed()) return file;
+            if (!file->failed()) return {file, absolutePath.string()};
             delete file;
         }
     } else {
@@ -66,20 +67,20 @@ PCSX::File* load(std::string_view name, std::string_view from, bool inArchives =
             std::filesystem::path relativePath(archive.archiveFilename().parent_path() / name);
             relativePath = std::filesystem::weakly_canonical(relativePath);
             file = archive.openFile(relativePath.string());
-            if (!file->failed()) return file;
+            if (!file->failed()) return {file, relativePath.string()};
             delete file;
             file = archive.openFile(absolutePath.string());
-            if (!file->failed()) return file;
+            if (!file->failed()) return {file, absolutePath.string()};
             delete file;
         }
     }
 
     if (doRelative) {
         file = new PCSX::PosixFile(relativePath);
-        if (!file->failed()) return file;
+        if (!file->failed()) return {file, relativePath.string()};
         delete file;
     }
-    return new PCSX::PosixFile(absolutePath);
+    return {new PCSX::PosixFile(absolutePath), absolutePath.string()};
 }
 
 uint64_t djbHash(const char* str, size_t len) { return PCSX::djb::hash(str, len); }
@@ -190,7 +191,9 @@ void PCSX::LuaFFI::open_extra(Lua L) {
             Lua L(L_);
             auto ar = L.getinfo("S");
             auto name = L.tostring();
-            IO<File> file = load(name, ar.has_value() ? ar->source : "");
+            IO<File> file;
+            std::string actualName;
+            std::tie(file, actualName) = load(name, ar.has_value() ? ar->source : "");
             if (file->failed()) return L.error("Unable to locate archive file");
             addArchive(L, file);
             return 0;
@@ -204,7 +207,9 @@ void PCSX::LuaFFI::open_extra(Lua L) {
             Lua L(L_);
             auto ar = L.getinfo("S", 2);
             auto name = L.tostring();
-            IO<File> file = load(name, ar.has_value() ? ar->source : "");
+            IO<File> file;
+            std::string actualName;
+            std::tie(file, actualName) = load(name, ar.has_value() ? ar->source : "");
             L.push(new LuaFile(file));
             return 1;
         },
@@ -215,10 +220,13 @@ void PCSX::LuaFFI::open_extra(Lua L) {
             Lua L(L_);
             auto ar = L.getinfo("S", 2);
             auto name = L.tostring();
-            IO<File> file = load(name, ar.has_value() ? ar->source : "");
+            IO<File> file;
+            std::string actualName;
+            std::tie(file, actualName) = load(name, ar.has_value() ? ar->source : "");
             if (file->failed()) return L.error("Unable to locate file %s", name.c_str());
             L.push(file->readString(file->size()));
-            return 1;
+            L.push(actualName);
+            return 2;
         },
         -1);
     L.pop();

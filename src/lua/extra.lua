@@ -23,10 +23,14 @@ local C = ffi.load 'SUPPORT_EXTRA'
 
 Support.extra = {
 
-    loadfile = function(name) return loadstring(Support._internal.loadfile(name), '@' .. name) end,
+    loadfile = function(name)
+        local file, actualName = Support._internal.loadfile(name)
+        return loadstring(file, '@' .. actualName)
+    end,
 
     dofile = function(name)
-        local func, msg = loadstring(Support._internal.loadfile(name), '@' .. name)
+        local file, actualName = Support._internal.loadfile(name)
+        local func, msg = loadstring(file, '@' .. actualName)
         if func then return func() end
         error(msg)
     end,
