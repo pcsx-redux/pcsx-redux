@@ -257,9 +257,7 @@ local function xaAttribsFromFields(node, fields)
     end
     local isDir = C.dirTreeIsDir(node)
     local attribs = 0
-    for name, mask in pairs(xaPermissionBits) do
-        if fields[name] ~= false then attribs = bit.bor(attribs, mask) end
-    end
+    for name, mask in pairs(xaPermissionBits) do if fields[name] ~= false then attribs = bit.bor(attribs, mask) end end
     local flags = { interleaved = false, cdda = false, directory = isDir }
     for name, mask in pairs(xaFlagBits) do
         local value = fields[name]
@@ -334,8 +332,12 @@ local function createDirTreeWrapper(node, xaFollowing)
         getXAFileNum = function(self) return C.dirTreeGetXAFileNum(self._node) end,
         setXAFileNum = function(self, val) C.dirTreeSetXAFileNum(self._node, val) end,
         parent = function(self) return createDirTreeWrapper(C.dirTreeParent(self._node), self._xaFollowing) end,
-        firstChild = function(self) return createDirTreeWrapper(C.dirTreeFirstChild(self._node), self._xaFollowing) end,
-        nextSibling = function(self) return createDirTreeWrapper(C.dirTreeNextSibling(self._node), self._xaFollowing) end,
+        firstChild = function(self)
+            return createDirTreeWrapper(C.dirTreeFirstChild(self._node), self._xaFollowing)
+        end,
+        nextSibling = function(self)
+            return createDirTreeWrapper(C.dirTreeNextSibling(self._node), self._xaFollowing)
+        end,
         setDate = function(self, year, month, day, hour, minute, second, offset)
             C.dirTreeSetDate(self._node, year or 0, month or 0, day or 0, hour or 0, minute or 0, second or 0,
                              offset or 0)

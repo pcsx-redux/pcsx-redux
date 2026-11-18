@@ -32,8 +32,7 @@
 #include "spu/interface.h"
 
 template <typename... Args>
-void verboseLog(int32_t level, const char *str, const Args &...args) {
-}
+void verboseLog(int32_t level, const char *str, const Args &...args) {}
 
 inline void PCSX::Counters::writeCounterInternal(uint32_t index, uint32_t value, int64_t startAdjust) {
     if (value > 0xffff) {
@@ -563,7 +562,7 @@ void PCSX::Counters::init() {
     calculateHsync();
 
     // A reset clears the CPU cycle, so gate timestamps from before it would freeze the counters.
-    for (auto& rcnt : m_rcnts) {
+    for (auto &rcnt : m_rcnts) {
         rcnt.pauseUntil = 0;
         rcnt.holdFrom = 0;
     }

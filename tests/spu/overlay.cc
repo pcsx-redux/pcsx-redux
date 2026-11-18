@@ -24,10 +24,10 @@
 #include <vector>
 
 #include "gtest/gtest.h"
-#include "supportpsx/sf2.h"
 #include "spu/adpcm.h"
 #include "spu/samplepitch.h"
 #include "supportpsx/rootkey.h"
+#include "supportpsx/sf2.h"
 #include "supportpsx/spusample.h"
 
 namespace {

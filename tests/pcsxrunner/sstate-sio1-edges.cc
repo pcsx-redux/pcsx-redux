@@ -25,8 +25,7 @@
 // replaced and not merged, the interrupt delay, a state without the SIO1 message, an unknown version.
 TEST(SaveStateSIO1Edges, RoundTrip) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-softgpu", "-sio1-server", "-sio1-port", "6790", "-dofile",
-                        "tests/lua/sstate-sio1-edges.lua");
+                        "-softgpu", "-sio1-server", "-sio1-port", "6790", "-dofile", "tests/lua/sstate-sio1-edges.lua");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

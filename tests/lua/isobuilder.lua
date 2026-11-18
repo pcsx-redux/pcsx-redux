@@ -14,7 +14,6 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 local ffi = require 'ffi'
 
@@ -233,7 +232,7 @@ function TestIsoBuilder:test_declaredSize()
 
     local root = builder:createRoot(1)
     local shadow = builder:createFile(root, 'SHADOW.BIN', generateTestContent(2048))
-    shadow:setDeclaredSize(50 * 2048)  -- claim 50 sectors regardless of content
+    shadow:setDeclaredSize(50 * 2048) -- claim 50 sectors regardless of content
     lu.assertTrue(shadow:hasDeclaredSize())
     lu.assertEquals(shadow:getDeclaredSize(), 50 * 2048)
 
@@ -299,7 +298,7 @@ function TestIsoBuilder:test_m2RawRoundTrip()
     -- guard for the multi-threaded writeFiles path treating M2_RAW as M2_FORM1.
     local payload = Support.File.buffer()
     local data = ffi.new('uint8_t[?]', 4672)
-    for i = 0, 4671 do data[i] = i % 251 end  -- deterministic, non-zero pattern
+    for i = 0, 4671 do data[i] = i % 251 end -- deterministic, non-zero pattern
     payload:write(ffi.cast('const char*', data), 4672)
     payload:rSeek(0)
 
@@ -316,23 +315,19 @@ function TestIsoBuilder:test_m2RawRoundTrip()
     local iso = PCSX.openIso(out)
     local reader = iso:createReader()
     local lba
-    for _, e in ipairs(reader:listDir('')) do
-        if e.name == 'PATTERN.BIN;1' then lba = e.lba end
-    end
+    for _, e in ipairs(reader:listDir('')) do if e.name == 'PATTERN.BIN;1' then lba = e.lba end end
     lu.assertNotNil(lba)
 
     local rb = iso:open(lba, 4672, 'M2_RAW')
     for i = 0, 4671 do
-        lu.assertEquals(rb:readU8At(i), i % 251,
-            string.format('M2_RAW round-trip mismatch at byte %d', i))
+        lu.assertEquals(rb:readU8At(i), i % 251, string.format('M2_RAW round-trip mismatch at byte %d', i))
     end
 end
 
 -- Payload size per sector for each sector mode, where that payload sits in the raw frame, and the form bit
 -- the builder has to put in the subheader for the modes where it synthesizes one.
 local sectorLayouts = {
-    { mode = 'RAW', size = 2352, offset = 0 },
-    { mode = 'M2_RAW', size = 2336, offset = 16 },
+    { mode = 'RAW', size = 2352, offset = 0 }, { mode = 'M2_RAW', size = 2336, offset = 16 },
     { mode = 'M2_FORM1', size = 2048, offset = 24, form = 0x00 },
     { mode = 'M2_FORM2', size = 2324, offset = 24, form = 0x20 },
 }
@@ -354,14 +349,14 @@ local function assertPattern(file, base, size, what)
             first = first or i
         end
     end
-    lu.assertEquals(bad, 0, string.format('%s: %d of %d payload bytes corrupted, first at byte %s', what, bad,
-                                          size, tostring(first)))
+    lu.assertEquals(bad, 0, string.format('%s: %d of %d payload bytes corrupted, first at byte %s', what, bad, size,
+                                          tostring(first)))
 end
 
 local function assertForm(file, base, form, what)
     for _, offset in ipairs({ 18, 22 }) do
         lu.assertEquals(bit.band(file:readU8At(base + offset), 0x20), form,
-            string.format('%s: wrong form bit in subheader byte %d', what, offset))
+                        string.format('%s: wrong form bit in subheader byte %d', what, offset))
     end
 end
 
@@ -370,9 +365,7 @@ function TestIsoBuilder:test_writeSectorRoundTrip()
     for _, layout in ipairs(sectorLayouts) do
         local out = Support.File.buffer()
         local builder = PCSX.isoBuilder(out)
-        for lba = 0, 1 do
-            builder:writeSectorAt(patternData(layout.size), layout.size, lba, layout.mode)
-        end
+        for lba = 0, 1 do builder:writeSectorAt(patternData(layout.size), layout.size, lba, layout.mode) end
         out:rSeek(0)
         for lba = 0, 1 do
             local what = string.format('writeSectorAt %s sector %d', layout.mode, lba)
@@ -407,9 +400,7 @@ function TestIsoBuilder:test_closeRoundTrip()
             local iso = PCSX.openIso(out)
             local lba = file:getLBA()
             local rb = iso:open(lba, size, layout.mode)
-            for s = 0, 1 do
-                assertPattern(rb, s * layout.size, layout.size, what .. ' sector ' .. s)
-            end
+            for s = 0, 1 do assertPattern(rb, s * layout.size, layout.size, what .. ' sector ' .. s) end
             if layout.form then
                 local raw = iso:open(lba, 2 * 2352, 'RAW')
                 for s = 0, 1 do assertForm(raw, s * 2352, layout.form, what .. ' sector ' .. s) end
@@ -484,8 +475,7 @@ function TestIsoBuilder:test_writeSectorRaw()
     -- The payload of the first sector lands after the 24-byte header.
     out:rSeek(0)
     for i = 0, 2047 do
-        lu.assertEquals(out:readU8At(24 + i), string.byte('A'),
-            string.format('M2_FORM1 payload mismatch at byte %d', i))
+        lu.assertEquals(out:readU8At(24 + i), string.byte('A'), string.format('M2_FORM1 payload mismatch at byte %d', i))
     end
 end
 
@@ -516,8 +506,7 @@ function TestIsoBuilder:test_writeSectorModeSizes()
     local sizes = { RAW = 2352, M2_RAW = 2336, M2_FORM1 = 2048, M2_FORM2 = 2324 }
     local lba = 0
     for mode, size in pairs(sizes) do
-        lu.assertEquals(builder:writeSectorAt(string.rep('D', size), lba, mode), lba,
-            'failed to write mode ' .. mode)
+        lu.assertEquals(builder:writeSectorAt(string.rep('D', size), lba, mode), lba, 'failed to write mode ' .. mode)
         -- One byte short of what the mode needs must throw, not truncate or overread.
         local ok = pcall(function() builder:writeSectorAt(string.rep('D', size - 1), lba, mode) end)
         lu.assertFalse(ok, 'expected a short buffer to be refused for mode ' .. mode)
@@ -565,9 +554,7 @@ function TestIsoBuilder:test_writeSectorPatchesAfterClose()
     local tableNode = builder:createFile(root, 'LBATABLE.BIN', placeholder)
 
     local assets = {}
-    for i = 1, 3 do
-        assets[i] = builder:createFile(root, string.format('ASSET%d.DAT', i), generateTestContent(2048))
-    end
+    for i = 1, 3 do assets[i] = builder:createFile(root, string.format('ASSET%d.DAT', i), generateTestContent(2048)) end
 
     builder:close()
 
@@ -616,7 +603,7 @@ function TestIsoBuilder:test_customLicense()
         local expected = i < 12 and 0x40 + i or 0
         for _, offset in ipairs({ 0, 1000, 2047 }) do
             lu.assertEquals(out:readU8At(i * 2352 + 24 + offset), expected,
-                string.format('license sector %d byte %d', i, offset))
+                            string.format('license sector %d byte %d', i, offset))
         end
     end
 end
@@ -633,9 +620,7 @@ function TestIsoBuilder:test_unrecognizedLicenseIsZero()
     builder:createRoot(1)
     builder:close()
 
-    for i = 0, 15 do
-        lu.assertEquals(out:readU8At(i * 2352 + 24), 0, string.format('license sector %d', i))
-    end
+    for i = 0, 15 do lu.assertEquals(out:readU8At(i * 2352 + 24), 0, string.format('license sector %d', i)) end
 end
 
 function TestIsoBuilder:test_sortedRecords()
@@ -657,9 +642,7 @@ function TestIsoBuilder:test_sortedRecords()
     out:rSeek(0)
     local reader = PCSX.openIso(out):createReader()
     local names = {}
-    for _, e in ipairs(reader:listDir('')) do
-        table.insert(names, e.name)
-    end
+    for _, e in ipairs(reader:listDir('')) do table.insert(names, e.name) end
     lu.assertEquals(names, { 'ALPHA.DAT;1', 'MIDDLE', 'ZETA.DAT;1' })
     local f = reader:open('MIDDLE/INNER.DAT;1')
     lu.assertNotNil(f)
@@ -673,9 +656,7 @@ local function buildManyFiles(rootSectors, count)
     builder:writeLicense()
     builder:setVolumeIdent('DIR_BOUNDS')
     local root = builder:createRoot(rootSectors)
-    for i = 1, count do
-        builder:createFile(root, string.format('FILE%02d.DAT', i), generateTestContent(16))
-    end
+    for i = 1, count do builder:createFile(root, string.format('FILE%02d.DAT', i), generateTestContent(16)) end
     return builder, out
 end
 
@@ -695,9 +676,7 @@ function TestIsoBuilder:test_directoryLargeEnoughLists()
     local iso = PCSX.openIso(out)
     local entries = iso:createReader():listDir('')
     local files = 0
-    for _, e in ipairs(entries) do
-        if e.name:match('^FILE%d%d%.DAT;1$') then files = files + 1 end
-    end
+    for _, e in ipairs(entries) do if e.name:match('^FILE%d%d%.DAT;1$') then files = files + 1 end end
     lu.assertEquals(files, 60)
 end
 
@@ -730,17 +709,17 @@ function TestIsoBuilder:test_xaDefaults()
     builder:writeLicense()
     builder:setVolumeIdent('XA')
     local root = builder:createRoot(1)
-    root:setXA {}
+    root:setXA{}
     local dir = builder:createDir(root, 'DATA', 1)
-    dir:setXA {}
+    dir:setXA{}
     local form1 = builder:createFile(dir, 'FORM1.DAT', generateTestContent(2048))
-    form1:setXA {}
+    form1:setXA{}
     local form2 = builder:createFile(dir, 'FORM2.STR', generateTestContent(2324))
     form2:setSectorMode('M2_FORM2')
-    form2:setXA {}
+    form2:setXA{}
     local interleaved = builder:createFile(dir, 'MOVIE.STR', generateTestContent(2324))
     interleaved:setSectorMode('M2_FORM2')
-    interleaved:setXA { interleaved = true }
+    interleaved:setXA{ interleaved = true }
     builder:close()
 
     lu.assertEquals(root:getXAAttribs(), 0x8d55)
@@ -777,7 +756,7 @@ function TestIsoBuilder:test_xaFields()
     -- setXA(true) is setXA{}, setXA(false) drops the record altogether.
     local a, b = file('A'), file('B')
     a:setXA(true)
-    b:setXA {}
+    b:setXA{}
     lu.assertEquals(a:getXAAttribs(), b:getXAAttribs())
     lu.assertTrue(a:hasXA())
     a:setXA(false)
@@ -785,16 +764,16 @@ function TestIsoBuilder:test_xaFields()
 
     -- Named fields only touch their own bits.
     local c = file('C')
-    c:setXA { worldExecute = false, groupExecute = false, ownerExecute = false }
+    c:setXA{ worldExecute = false, groupExecute = false, ownerExecute = false }
     lu.assertEquals(c:getXAAttribs(), 0x0911)
-    c:setXA { directory = true, cdda = true }
+    c:setXA{ directory = true, cdda = true }
     lu.assertEquals(c:getXAAttribs(), 0xc555)
-    root:setXA { directory = false, ownerRead = false }
+    root:setXA{ directory = false, ownerRead = false }
     lu.assertEquals(root:getXAAttribs(), 0x0d54)
 
     -- Derived form bits follow the sector mode, in either order.
     local d = file('D')
-    d:setXA {}
+    d:setXA{}
     d:setSectorMode('M2_FORM2')
     lu.assertEquals(d:getXAAttribs(), 0x1555)
     d:setSectorMode('M2_FORM1')
@@ -803,21 +782,19 @@ function TestIsoBuilder:test_xaFields()
 
     -- The form follows the sector mode through a wrapper obtained by navigation too.
     local e = file('E')
-    e:setXA {}
+    e:setXA{}
     local found = root:firstChild()
-    while found:getName() ~= 'E' do
-        found = found:nextSibling()
-    end
+    while found:getName() ~= 'E' do found = found:nextSibling() end
     found:setSectorMode('M2_FORM2')
     lu.assertEquals(e:getXAAttribs(), 0x1555)
 
     -- An explicit form, or raw attributes, stop the following.
     local g = file('G')
-    g:setXA { form = 1 }
+    g:setXA{ form = 1 }
     g:setSectorMode('M2_FORM2')
     lu.assertEquals(g:getXAAttribs(), 0x0d55)
     local h = file('H')
-    h:setXA {}
+    h:setXA{}
     h:setXAAttribs(0x0d55)
     h:setSectorMode('M2_FORM2')
     lu.assertEquals(h:getXAAttribs(), 0x0d55)
@@ -825,7 +802,7 @@ function TestIsoBuilder:test_xaFields()
     -- M1 contents go on the disc as Form 1 sectors.
     local m1 = file('M1')
     m1:setSectorMode('M1')
-    m1:setXA {}
+    m1:setXA{}
     lu.assertEquals(m1:getXAAttribs(), 0x0d55)
     m1:setSectorMode('M2_FORM2')
     lu.assertEquals(m1:getXAAttribs(), 0x1555)
@@ -835,16 +812,16 @@ function TestIsoBuilder:test_xaFields()
     -- A raw sector mode cannot say which form the file is.
     local i = file('I')
     i:setSectorMode('M2_RAW')
-    lu.assertErrorMsgContains('pass form = 1 or 2', function() i:setXA {} end)
-    i:setXA { form = 2, interleaved = true }
+    lu.assertErrorMsgContains('pass form = 1 or 2', function() i:setXA{} end)
+    i:setXA{ form = 2, interleaved = true }
     lu.assertEquals(i:getXAAttribs(), 0x3555)
     local j = file('J')
-    j:setXA {}
+    j:setXA{}
     lu.assertErrorMsgContains('pass form = 1 or 2', function() j:setSectorMode('RAW') end)
     lu.assertEquals(j:getSectorMode(), 'M2_FORM1')
 
-    lu.assertErrorMsgContains('unknown field', function() a:setXA { owner = true } end)
-    lu.assertErrorMsgContains('form must be 1 or 2', function() a:setXA { form = 3 } end)
-    lu.assertErrorMsgContains('must be a boolean', function() a:setXA { interleaved = 1 } end)
+    lu.assertErrorMsgContains('unknown field', function() a:setXA{ owner = true } end)
+    lu.assertErrorMsgContains('form must be 1 or 2', function() a:setXA{ form = 3 } end)
+    lu.assertErrorMsgContains('must be a boolean', function() a:setXA{ interleaved = 1 } end)
     lu.assertErrorMsgContains('boolean or a table', function() a:setXA() end)
 end

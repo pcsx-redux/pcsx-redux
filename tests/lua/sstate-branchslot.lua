@@ -23,9 +23,7 @@ local CODE = 0x80100000
 local PARK = CODE + 0x100
 local SYSCALL = 0x0000000c
 
-local function ram32(addr)
-    return ffi.cast('uint32_t*', PCSX.getMemPtr() + (addr - 0x80000000))
-end
+local function ram32(addr) return ffi.cast('uint32_t*', PCSX.getMemPtr() + (addr - 0x80000000)) end
 
 local function poke(addr, words)
     local p = ram32(addr)

@@ -14,7 +14,6 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 
 -- Has to match the -webserver-port the runner passes.
@@ -52,9 +51,9 @@ local function exchange(raw)
 end
 
 local function post(path, body)
-    return exchange(
-        'POST /api/v1/lua/' .. path .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
-        'Content-Type: application/x-www-form-urlencoded\r\nContent-Length: ' .. #body .. '\r\n\r\n' .. body)
+    return exchange('POST /api/v1/lua/' .. path .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
+                        'Content-Type: application/x-www-form-urlencoded\r\nContent-Length: ' .. #body .. '\r\n\r\n' ..
+                        body)
 end
 
 function TestWebServer:test_post_body_reaches_handler()
@@ -97,7 +96,7 @@ function TestWebServer:test_pipelined_request_not_dispatched()
         return 'END'
     end
     exchange('POST /api/v1/lua/first HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 6\r\n\r\nsecret' ..
-             'GET /api/v1/lua/second HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n')
+                 'GET /api/v1/lua/second HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n')
     PCSX.WebServer.Handlers.first = nil
     PCSX.WebServer.Handlers.second = nil
     lu.assertNotNil(first)
@@ -115,7 +114,7 @@ function TestWebServer:test_multipart_body_is_raw()
     end
     local body = '--XyZ\r\nContent-Disposition: form-data; name="a"\r\n\r\n1\r\n--XyZ--\r\n'
     exchange('POST /api/v1/lua/multipart HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
-             'Content-Type: multipart/form-data; boundary=XyZ\r\nContent-Length: ' .. #body .. '\r\n\r\n' .. body)
+                 'Content-Type: multipart/form-data; boundary=XyZ\r\nContent-Length: ' .. #body .. '\r\n\r\n' .. body)
     PCSX.WebServer.Handlers.multipart = nil
     lu.assertNotNil(seen)
     lu.assertEquals(seen.body, body)

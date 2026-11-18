@@ -11,7 +11,6 @@
 --  50-59 a state whose field 18 has a version this build does not know loads the same way
 --
 -- Guest code is planted at 0x80100000 and spins when done; results land at 0x80110000.
-
 local ram = ffi.cast('uint32_t*', PCSX.getMemPtr())
 local bytes = ffi.cast('uint8_t*', PCSX.getMemPtr())
 -- Has to match the -sio1-port the runner passes.
@@ -165,7 +164,10 @@ local CTRL = 0x0427 -- TXEN DTR RXEN RTS TXIRQEN
 local frames = 0
 local seq = {}
 local at = 0
-local function step(n, f) at = at + n seq[at] = f end
+local function step(n, f)
+    at = at + n
+    seq[at] = f
+end
 
 local pre, preTime, saved, state, layout
 local function compareRegs(code, label, got)
@@ -180,8 +182,9 @@ end
 local function checkFifo(code, label, got)
     for i, want in ipairs({ 0x41, 0x42, 0x43 }) do
         if got.pops[i].data ~= want then
-            fail(code, string.format('%s: RX byte %d reads %02x, %02x was in the FIFO at save time (FIFO replaced? merged?)',
-                                     label, i, got.pops[i].data, want))
+            fail(code,
+                 string.format('%s: RX byte %d reads %02x, %02x was in the FIFO at save time (FIFO replaced? merged?)',
+                               label, i, got.pops[i].data, want))
             return false
         end
     end

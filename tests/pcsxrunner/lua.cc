@@ -43,8 +43,8 @@ end))
 
 template <typename... Args>
 int runLuaInt(Args... args) {
-    MainInvoker invoker("-no-ui", "-cli", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter", "-luacov",
-                        "-exec", prefix, args..., "-exec", suffix);
+    MainInvoker invoker("-no-ui", "-cli", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-luacov", "-exec", prefix, args..., "-exec", suffix);
     return invoker.invoke();
 }
 

@@ -1,5 +1,4 @@
 -- lualoader, R"EOF(--
-
 --[[
 
 HTML builder: any key of PCSX.Html is a tag constructor, the way Baltisot's
@@ -26,15 +25,11 @@ Rendering adds no whitespace, so <pre> and <textarea> keep their contents.
 Rendering an <html> node prepends <!DOCTYPE html>; any other node renders as
 a fragment.
 
-]]
-
-local voids = {}
-for name in ('area base br col embed hr img input link meta source track wbr'):gmatch('%S+') do
-    voids[name] = true
-end
+]] local voids = {}
+for name in ('area base br col embed hr img input link meta source track wbr'):gmatch('%S+') do voids[name] = true end
 
 local textEscapes = { ['&'] = '&amp;', ['<'] = '&lt;', ['>'] = '&gt;' }
-local attrEscapes = { ['&'] = '&amp;', ['<'] = '&lt;', ['>'] = '&gt;', ['"'] = '&quot;', ["'"] = '&#39;' }
+local attrEscapes = { ['&'] = '&amp;', ['<'] = '&lt;', ['>'] = '&gt;', ['"'] = '&quot;', ['\''] = '&#39;' }
 
 local function escape(s) return (tostring(s):gsub('[&<>]', textEscapes)) end
 local function escapeAttr(s) return (tostring(s):gsub('[&<>"\']', attrEscapes)) end

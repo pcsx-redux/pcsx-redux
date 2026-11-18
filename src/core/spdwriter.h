@@ -76,8 +76,8 @@ uint16_t filterValue(uint16_t reg, uint16_t value);
 
 // baseline is the register file at the instant before writes[0], indexed by reg / 2.
 // spuRam is all 512 KiB of sound RAM.
-Result writeCapture(std::span<const uint16_t, 0x100> baseline, std::span<const RegWrite> writes,
-                    const uint8_t *spuRam, const Options &options);
+Result writeCapture(std::span<const uint16_t, 0x100> baseline, std::span<const RegWrite> writes, const uint8_t *spuRam,
+                    const Options &options);
 
 }  // namespace SPD
 

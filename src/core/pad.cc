@@ -1036,8 +1036,7 @@ void PadsImpl::Pad::getButtons() {
 
     if (m_gamepad && !SDL_GamepadConnected(m_gamepad)) {
         const SDL_JoystickID jid = SDL_GetGamepadID(m_gamepad);
-        PCSX::g_system->printf("Gamepad error: joystick id %u disconnected, rescanning\n",
-                               static_cast<unsigned>(jid));
+        PCSX::g_system->printf("Gamepad error: joystick id %u disconnected, rescanning\n", static_cast<unsigned>(jid));
         // Defense if REMOVED was missed; rescan+map refreshes m_gamepad.
         s_pads->rescanGamepads();
     }

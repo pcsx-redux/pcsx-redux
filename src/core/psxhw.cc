@@ -372,7 +372,8 @@ namespace {
 
 void recordSPUWrite(uint32_t hwadd, uint16_t value, uint32_t width) {
     auto &events = *PCSX::g_emulator->m_hwEvents;
-    if (!events.armed(PCSX::HWEvents::Source::SPU)) [[likely]] return;
+    if (!events.armed(PCSX::HWEvents::Source::SPU)) [[likely]]
+        return;
     events.record(PCSX::HWEvents::SPURegWrite, hwadd, value, width);
     // The SPU decodes KON and KOFF on even addresses only, so a byte write to an
     // odd one keys nothing.
@@ -598,21 +599,15 @@ void PCSX::HW::write16(uint32_t add, uint32_t rawvalue) {
     }
 }
 
-inline void PCSX::HW::dma0(uint32_t madr, uint32_t bcr, uint32_t chcr) {
-    g_emulator->m_mdec->dma0(madr, bcr, chcr);
-}
+inline void PCSX::HW::dma0(uint32_t madr, uint32_t bcr, uint32_t chcr) { g_emulator->m_mdec->dma0(madr, bcr, chcr); }
 
-inline void PCSX::HW::dma1(uint32_t madr, uint32_t bcr, uint32_t chcr) {
-    g_emulator->m_mdec->dma1(madr, bcr, chcr);
-}
+inline void PCSX::HW::dma1(uint32_t madr, uint32_t bcr, uint32_t chcr) { g_emulator->m_mdec->dma1(madr, bcr, chcr); }
 
 inline bool PCSX::HW::dma2(uint32_t madr, uint32_t bcr, uint32_t chcr) {
     return g_emulator->m_gpu->dma(madr, bcr, chcr);
 }
 
-inline void PCSX::HW::dma3(uint32_t madr, uint32_t bcr, uint32_t chcr) {
-    g_emulator->m_cdrom->dma(madr, bcr, chcr);
-}
+inline void PCSX::HW::dma3(uint32_t madr, uint32_t bcr, uint32_t chcr) { g_emulator->m_cdrom->dma(madr, bcr, chcr); }
 
 // 8- and 16-bit stores land as 32 bits and can straddle two words. Delay/size registers drop bit 30.
 void PCSX::HW::clearDelaySizeBit30(uint32_t hwadd) {
@@ -703,7 +698,7 @@ void PCSX::HW::write32(uint32_t add, uint32_t value) {
             dmaExec<6>(value);  // DMA6 chcr (OT clear)
             return;
         case 0x1f8010f0: {
-            auto& mem = g_emulator->m_mem;
+            auto &mem = g_emulator->m_mem;
             const bool otcWasEnabled = mem->isDMAEnabled<6>();
             mem->writeHardwareRegister<0x10f0>(value);
             // Enabling DMA6 starts a transfer already latched in its CHCR. Whether the other channels do the
@@ -711,29 +706,28 @@ void PCSX::HW::write32(uint32_t add, uint32_t value) {
             if (!otcWasEnabled && mem->isDMAEnabled<6>() && mem->isDMABusy<6>()) dmaExec<6>(mem->getCHCR<6>());
             break;
         }
-        case 0x1f8010f4:
-            {
-                auto &mem = g_emulator->m_mem;
-                uint32_t icr = mem->readHardwareRegister<Memory::DMA_ICR>();
-                uint32_t ack = value & 0b0'1111111'000000000'000000000'000000;
-                bool wasNotTriggered = (icr & 0x80000000) == 0;
-                bool isTriggered = false;
-                bool hasError = value & 0x00008000;
-                bool isEnabled = value & 0x00800000;
-                ack ^= 0b0'1111111'000000000'000000000'000000;
-                value &= 0b0'0000000'111111111'000000000'111111;
-                icr &= ack;
-                icr |= value;
-                if (((icr & 0x7f008000) != 0) && (hasError || isEnabled)) {
-                    icr |= 0x80000000;
-                    isTriggered = true;
-                }
-                mem->writeHardwareRegister<Memory::DMA_ICR>(icr);
-                if (wasNotTriggered && isTriggered) {
-                    mem->setIRQ(8);
-                };
-                return;
+        case 0x1f8010f4: {
+            auto &mem = g_emulator->m_mem;
+            uint32_t icr = mem->readHardwareRegister<Memory::DMA_ICR>();
+            uint32_t ack = value & 0b0'1111111'000000000'000000000'000000;
+            bool wasNotTriggered = (icr & 0x80000000) == 0;
+            bool isTriggered = false;
+            bool hasError = value & 0x00008000;
+            bool isEnabled = value & 0x00800000;
+            ack ^= 0b0'1111111'000000000'000000000'000000;
+            value &= 0b0'0000000'111111111'000000000'111111;
+            icr &= ack;
+            icr |= value;
+            if (((icr & 0x7f008000) != 0) && (hasError || isEnabled)) {
+                icr |= 0x80000000;
+                isTriggered = true;
             }
+            mem->writeHardwareRegister<Memory::DMA_ICR>(icr);
+            if (wasNotTriggered && isTriggered) {
+                mem->setIRQ(8);
+            };
+            return;
+        }
         case 0x1f801014:
             g_emulator->m_mem->writeHardwareRegister<0x1014>(value);
             break;

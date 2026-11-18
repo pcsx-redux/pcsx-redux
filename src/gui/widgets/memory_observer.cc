@@ -525,8 +525,8 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
                         auto buttonName = fmt::format(f_("Show in memory editor##{}"), row);
                         if (ImGui::Button(buttonName.c_str())) {
                             const uint32_t editorAddress = currentAddress - memBase;
-                            g_system->m_eventBus->signal(
-                                PCSX::Events::GUI::JumpToMemory{editorAddress, static_cast<unsigned>(m_searchedSequenceLength)});
+                            g_system->m_eventBus->signal(PCSX::Events::GUI::JumpToMemory{
+                                editorAddress, static_cast<unsigned>(m_searchedSequenceLength)});
                         }
                     }
                 }

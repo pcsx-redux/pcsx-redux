@@ -14,18 +14,14 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 -- Boots from openbios.bin, which carries no symbols, then points the BIOS
 -- setting at a file that does not exist and hard resets, so the BIOS reload
 -- goes through the OpenBIOS fallback. The fallback must pick openbios.elf over
 -- openbios.bin: only the elf brings in symbols, so _reset at the reset vector
 -- and _boot prove which one got loaded. Exits with 0 on success, 1 when the
 -- symbols are missing after the fallback, 2 when they were there before it.
-
 local function hasSymbol(address, name)
-    for a, n in PCSX.iterateSymbols() do
-        if a == address and n == name then return true end
-    end
+    for a, n in PCSX.iterateSymbols() do if a == address and n == name then return true end end
     return false
 end
 

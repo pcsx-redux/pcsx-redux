@@ -18,7 +18,7 @@ using namespace PCSX::SaveStates;
 
 // The MDEC message as it was before fields 12-15 existed.
 typedef PCSX::Protobuf::Message<TYPESTRING("MDEC"), MDECReg0, MDECReg1, MDECRl, MDECRlEnd, MDECBlockBufferPos,
-                          MDECBlockBuffer, MDECDMAADR, MDECDMABCR, MDECDMACHCR, MDECIQY, MDECIQUV>
+                                MDECBlockBuffer, MDECDMAADR, MDECDMABCR, MDECDMACHCR, MDECIQY, MDECIQUV>
     OldMDEC;
 
 template <typename T>

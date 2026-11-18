@@ -421,11 +421,10 @@ TEST(HWEvents, GPUCommandsCarryTheirWordAndOrigin) {
                         "src/mips/tests/gpu/dma-dreq/gpu-dma-dreq.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
-    printf(
-        "hwevents gpu: %llu events, GP0 %llu port / %llu block / %llu list, %llu polygons, %llu GP1 writes\n",
-        (unsigned long long)s_gpu.total, (unsigned long long)s_gpu.commands[0], (unsigned long long)s_gpu.commands[2],
-        (unsigned long long)s_gpu.commands[3], (unsigned long long)s_gpu.polygons,
-        (unsigned long long)s_gpu.controls);
+    printf("hwevents gpu: %llu events, GP0 %llu port / %llu block / %llu list, %llu polygons, %llu GP1 writes\n",
+           (unsigned long long)s_gpu.total, (unsigned long long)s_gpu.commands[0],
+           (unsigned long long)s_gpu.commands[2], (unsigned long long)s_gpu.commands[3],
+           (unsigned long long)s_gpu.polygons, (unsigned long long)s_gpu.controls);
     EXPECT_EQ(s_gpu.stampMismatches, 0u);
     EXPECT_GT(s_gpu.controls, 0u);
     // gpu-dma-dreq feeds GP0 through the port, block DMA and linked-list DMA.

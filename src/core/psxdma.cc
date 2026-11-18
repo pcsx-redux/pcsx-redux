@@ -94,7 +94,6 @@ void dma6(uint32_t madr, uint32_t bcr, uint32_t chcr) {
     uint32_t size;
     uint32_t *mem = PCSX::g_emulator->m_mem->getPointer<uint32_t>(madr);
 
-
     // The OTC never raises a DMA request, so bit 28 (start/trigger) is required: with bit 24 alone the
     // channel stays busy until software clears bit 24.
     if ((chcr & 0x11000000) == 0x11000000) {

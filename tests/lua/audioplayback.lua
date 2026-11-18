@@ -14,7 +14,6 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 local ffi = require 'ffi'
 
@@ -85,24 +84,26 @@ function TestAudioPlayback:test_descriptorErrors()
     local pcm = sinePCM16(44100, 10)
     local play = PCSX.SPU.playAudio
     lu.assertErrorMsgContains('second argument must be a descriptor table', play, pcm)
-    lu.assertErrorMsgContains("'format' must be one of", play, pcm, { format = 'wav' })
-    lu.assertErrorMsgContains("'rate' is required", play, pcm, { format = 'pcm', bits = 16, channels = 1 })
-    lu.assertErrorMsgContains("'bits' must be one of 8, 16", play, pcm,
-        { format = 'pcm', bits = 12, channels = 1, rate = 44100 })
-    lu.assertErrorMsgContains("'chanels' is not valid", play, pcm,
-        { format = 'pcm', bits = 16, chanels = 1, rate = 44100 })
+    lu.assertErrorMsgContains('\'format\' must be one of', play, pcm, { format = 'wav' })
+    lu.assertErrorMsgContains('\'rate\' is required', play, pcm, { format = 'pcm', bits = 16, channels = 1 })
+    lu.assertErrorMsgContains('\'bits\' must be one of 8, 16', play, pcm,
+                              { format = 'pcm', bits = 12, channels = 1, rate = 44100 })
+    lu.assertErrorMsgContains('\'chanels\' is not valid', play, pcm,
+                              { format = 'pcm', bits = 16, chanels = 1, rate = 44100 })
     lu.assertErrorMsgContains('16 bits pcm data must be signed', play, pcm,
-        { format = 'pcm', bits = 16, channels = 1, rate = 44100, signed = false })
+                              { format = 'pcm', bits = 16, channels = 1, rate = 44100, signed = false })
     lu.assertErrorMsgContains('frame size', play, 'abc', { format = 'pcm', bits = 16, channels = 1, rate = 44100 })
     lu.assertErrorMsgContains('empty', play, '', { format = 'pcm', bits = 16, channels = 1, rate = 44100 })
-    lu.assertErrorMsgContains("exactly one of the descriptor fields 'rate' or 'pitch'", play, pcm, { format = 'spu' })
-    lu.assertErrorMsgContains("exactly one of", play, pcm, { format = 'spu', rate = 44100, pitch = 0x1000 })
-    lu.assertErrorMsgContains("'channels' is not valid for format 'spu'", play, pcm,
-        { format = 'spu', rate = 44100, channels = 1 })
+    lu.assertErrorMsgContains('exactly one of the descriptor fields \'rate\' or \'pitch\'', play, pcm,
+                              { format = 'spu' })
+    lu.assertErrorMsgContains('exactly one of', play, pcm, { format = 'spu', rate = 44100, pitch = 0x1000 })
+    lu.assertErrorMsgContains('\'channels\' is not valid for format \'spu\'', play, pcm,
+                              { format = 'spu', rate = 44100, channels = 1 })
     lu.assertErrorMsgContains('multiple of 16 bytes', play, 'abc', { format = 'spu', pitch = 0x1000 })
-    lu.assertErrorMsgContains("'rate' must be one of 37800, 18900", play, pcm,
-        { format = 'xa', bits = 4, channels = 1, rate = 44100 })
-    lu.assertErrorMsgContains('multiple of 128 bytes', play, 'abc', { format = 'xa', bits = 4, channels = 1, rate = 37800 })
+    lu.assertErrorMsgContains('\'rate\' must be one of 37800, 18900', play, pcm,
+                              { format = 'xa', bits = 4, channels = 1, rate = 44100 })
+    lu.assertErrorMsgContains('multiple of 128 bytes', play, 'abc',
+                              { format = 'xa', bits = 4, channels = 1, rate = 37800 })
     lu.assertErrorMsgContains('read from the subheaders', play, pcm, { format = 'xa', sectors = true, bits = 4 })
     lu.assertErrorMsgContains('multiple of 2352 bytes', play, 'abc', { format = 'xa', sectors = true })
     lu.assertErrorMsgContains('no audio sector', play, buildSectors(false, { 0x08 }), { format = 'xa', sectors = true })
@@ -187,7 +188,7 @@ function TestAudioPlayback:test_xaGroupsAndSectors()
         lu.assertTrue(sound:isPlaying())
         sound:stop()
         lu.assertErrorMsgContains('no audio sector', PCSX.SPU.playAudio, sectors,
-            { format = 'xa', sectors = true, xaChannel = 3 })
+                                  { format = 'xa', sectors = true, xaChannel = 3 })
 
         -- Without a filter, only the first audio stream plays, so a stereo channel interleaved
         -- with it is skipped instead of being rejected as a mixed format.
