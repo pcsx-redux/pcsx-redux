@@ -15,7 +15,7 @@ function format() {
     lua-format "$f" --config=/lua-format.config > "$f.2"
   fi
   if [ $? -ne 0 ] || { [ ! -s "$f.2" ] && [ -s "$f" ]; }; then
-    echo "formatter failed on $f, leaving it unchanged" >&2
+    echo "formatter failed on $f, keeping its unformatted contents" >&2
     rm -f "$f.2"
     return
   fi
