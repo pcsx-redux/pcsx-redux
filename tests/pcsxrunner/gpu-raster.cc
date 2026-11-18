@@ -53,6 +53,9 @@
     GPU_RASTER_TEST(name, dir)     \
     GPU_RASTER_THREADED_TEST(name, dir)
 
+// The directory names are stringified into paths, so clang-format must not
+// space out their hyphens.
+// clang-format off
 GPU_RASTER_BOTH(EdgesClipping, edges-clipping)
 GPU_RASTER_BOTH(LineEndpointsMaskBit, line-endpoints-mask-bit)
 GPU_RASTER_BOTH(EdgeWalkerStress, edge-walker-stress)
@@ -75,3 +78,4 @@ GPU_RASTER_BOTH(StrideSignCross, stride-sign-cross)
 GPU_RASTER_BOTH(RowWalkDrift, row-walk-drift)
 GPU_RASTER_BOTH(UvOverflow, uv-overflow)
 GPU_RASTER_BOTH(SlantedGouraud, slanted-gouraud)
+// clang-format on
