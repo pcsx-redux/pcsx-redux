@@ -30,10 +30,16 @@ if is_plat("wasm") then
     -- one, which is the narrower flag.
     -- LISTS, not space-separated strings: xmake passes a string through as ONE
     -- argument and clang reports `unknown argument: '-pthread -sSUPPORT_LONGJMP=wasm'`.
-    add_requireconfs("*", {configs = {
+    local wasm_configs = {configs = {
         cxflags = {"-pthread", "-sSUPPORT_LONGJMP=wasm"},
         cflags  = {"-pthread", "-sSUPPORT_LONGJMP=wasm"},
-        ldflags = {"-pthread", "-sSUPPORT_LONGJMP=wasm"}}})
+        ldflags = {"-pthread", "-sSUPPORT_LONGJMP=wasm"}}}
+    add_requireconfs("*", wasm_configs)
+    -- "*" only reaches the top-level requires. freetype pulls zlib in as its own
+    -- dependency, which without this gets the default configs, so xmake resolves
+    -- a second zlib (zlib#1) and installs both in parallel; that second install
+    -- is the one the wasm CI job intermittently fails on. Same configs, one zlib.
+    add_requireconfs("freetype.zlib", wasm_configs)
     add_requires("capstone", "fmt", "freetype", "libsdl3", "zlib")
 else
     add_requires("capstone", "fmt", "freetype", "libcurl", "libsdl3", "libuv", "zlib")
