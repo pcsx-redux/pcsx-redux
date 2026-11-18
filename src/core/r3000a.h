@@ -308,6 +308,8 @@ class R3000Acpu {
     std::map<uint32_t, std::string> m_symbols;
 
     std::pair<const uint32_t, std::string> *findContainingSymbol(uint32_t addr);
+    static const std::pair<const uint32_t, std::string> *findContainingSymbol(
+        const std::map<uint32_t, std::string> &symbols, uint32_t addr);
     std::string *getSymbolAt(uint32_t addr);
 
     static int psxInit();

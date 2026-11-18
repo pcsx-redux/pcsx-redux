@@ -252,6 +252,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
                 ImGui::MenuItem(_("Show Hardware Events"), nullptr, &m_hwEvents.m_show);
                 ImGui::MenuItem(_("Show Breakpoints"), nullptr, &m_breakpoints.m_show);
                 ImGui::MenuItem(_("Show Callstacks"), nullptr, &m_callstacks.m_show);
+                ImGui::MenuItem(_("Show Profiler"), nullptr, &m_callProfiler.m_show);
                 if (ImGui::BeginMenu(_("Memory Editors"))) {
                     for (auto& editor : m_mainMemEditors) {
                         editor.MenuItem();

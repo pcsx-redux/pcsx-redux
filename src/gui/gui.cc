@@ -1376,6 +1376,9 @@ void PCSX::GUI::endFrame() {
     if (m_callstacks.m_show) {
         m_callstacks.draw(_("Callstacks"), this);
     }
+    if (m_callProfiler.m_show) {
+        m_callProfiler.draw(_("Profiler"), this);
+    }
 
     drawMemoryEditors();
 
