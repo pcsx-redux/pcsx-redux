@@ -19,13 +19,13 @@ function format() {
 }
 
 # src/mips is the nugget submodule, formatted in its own repository.
-find repository/src -path repository/src/mips -prune -o \( -name '*.c' -or -name '*.cc' -or -name '*.cpp' -or -name '*.h' -or -name '*.hh' -or -name '*.lua' \) -print | while read f ; do
+find repository/src repository/tests -path repository/src/mips -prune -o \( -name '*.c' -or -name '*.cc' -or -name '*.cpp' -or -name '*.h' -or -name '*.hh' -or -name '*.lua' \) -print | while read f ; do
   echo "$f"
   clean "$f"
   format "$f"
 done
 
-find repository/src -path repository/src/mips -prune -o \( -name '*.s' -or -name '*.S' \) -print | while read f ; do
+find repository/src repository/tests -path repository/src/mips -prune -o \( -name '*.s' -or -name '*.S' \) -print | while read f ; do
   echo "$f"
   clean "$f"
 done
