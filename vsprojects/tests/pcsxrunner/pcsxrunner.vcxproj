@@ -275,6 +275,9 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\dma.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\dumpproto.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\cputrace.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\binloader-symbols.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\profiler.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\openbios-fallback.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\hwevents.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpudump.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpudump-deinterlace.cc" />
@@ -328,9 +331,12 @@
     <ClCompile Include="..\..\..\tests\core\spdwriter.cc" />
     <ClCompile Include="..\..\..\tests\core\commandline.cc" />
     <ClCompile Include="..\..\..\tests\core\gpulogger-hittest.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-sio1.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-sio1-edges.cc" />
     <ClCompile Include="..\..\..\tests\core\mdec-decoder.cc" />
     <ClCompile Include="..\..\..\tests\core\memorycard.cc" />
     <ClCompile Include="..\..\..\tests\core\memeditor-route.cc" />
+    <ClCompile Include="..\..\..\tests\core\callstacks-paths.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\archive.cpp" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\multitap.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-cdrom-flags.cc" />

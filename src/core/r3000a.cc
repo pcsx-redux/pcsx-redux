@@ -522,7 +522,6 @@ void PCSX::R3000Acpu::branchTestEvents() {
                 }                                                     \
             } else {                                                  \
                 m_regs.scheduleMask &= ~mask;                         \
-                PSXIRQ_LOG("Calling scheduled callback %08x\n", irq); \
                 act();                                                \
             }                                                         \
         }                                                             \
@@ -554,7 +553,6 @@ void PCSX::R3000Acpu::branchTestEvents() {
             return;
         }
 
-        PSXIRQ_LOG("Interrupt: %x %x\n", istat, imask);
         // A branch in the delay slot of a taken branch leaves its own jump pending here, and the next
         // instruction is that branch's delay slot. The interrupt is taken on that delay slot: EPC is the
         // branch with BD set, and the pending jump is dropped, since returning runs the branch again.
@@ -661,8 +659,13 @@ void PCSX::R3000Acpu::processB0KernelCall(uint32_t call) {
 }
 
 std::pair<const uint32_t, std::string>* PCSX::R3000Acpu::findContainingSymbol(uint32_t addr) {
-    auto symBefore = m_symbols.upper_bound(addr);
-    if (symBefore != m_symbols.begin()) {  // verify there is actually a symbol before addr
+    return const_cast<std::pair<const uint32_t, std::string>*>(findContainingSymbol(m_symbols, addr));
+}
+
+const std::pair<const uint32_t, std::string>* PCSX::R3000Acpu::findContainingSymbol(
+    const std::map<uint32_t, std::string>& symbols, uint32_t addr) {
+    auto symBefore = symbols.upper_bound(addr);
+    if (symBefore != symbols.begin()) {  // verify there is actually a symbol before addr
         symBefore--;
         if (symBefore->first != addr) {
             PCSX::PSXAddress addrInfo(addr);

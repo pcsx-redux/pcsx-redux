@@ -22,7 +22,10 @@
 #include <stdint.h>
 
 #include <memory>
+#include <string>
 #include <vector>
+
+#include "support/file.h"
 
 namespace PCSX {
 
@@ -50,6 +53,9 @@ class HWEvents {
     enum class Source : uint8_t {
         IRQ = 1,
         DMA = 2,
+        CDROM = 3,
+        GPU = 4,
+        SPU = 5,
     };
 
     enum Type : uint16_t {
@@ -59,7 +65,51 @@ class HWEvents {
         DMAStart = 0x0201,
         // payload: channel, DICR before the completion updates it
         DMAComplete = 0x0202,
+        // A command the controller starts executing, rejected ones included.
+        // payload: command | parameter count << 8, then the first 12 parameter
+        // bytes, packed little-endian
+        CDCommand = 0x0301,
+        // A response the controller produces, at the moment it produces it.
+        // payload: cause | byte count << 8 | posted << 16 | IRQ raised << 17 |
+        // dropped << 18, then the first 12 response bytes, packed little-endian.
+        // posted means it went straight into the slot the host reads, and IRQ
+        // raised that its cause got through the interrupt mask there; otherwise
+        // it waits behind an older one and reaches the host later, or, with both
+        // slots full, is dropped.
+        CDResponse = 0x0302,
+        // A data sector read off the disc.
+        // payload: position as (m * 60 + s) * 75 + f, so 00:02:00 is 150; bytes
+        // handed to the host, 0 when the sector was withheld, like real-time XA
+        // audio; sector mode | Setmode value << 8; Mode 2 subheader (file,
+        // channel, submode, coding) or 0
+        CDSector = 0x0303,
+        // A word the GPU reads as the start of a GP0 command, NOPs included.
+        // payload: the command word, how it arrived (0 port write, 2 block DMA,
+        // 3 linked-list DMA), the port value or the DMA address of the block or
+        // list node, and the word count of that write or block
+        GPUCommand = 0x0401,
+        // A GP1 write. payload: the value written
+        GPUControl = 0x0402,
+        // A CPU write to an SPU register, key on and key off included.
+        // payload: address, value, width in bits (8 or 16)
+        SPURegWrite = 0x0501,
+        // A write to KON or KOFF, recorded right after its SPURegWrite.
+        // payload: the voices it names, bit n for voice n, 24 bits
+        SPUKeyOn = 0x0502,
+        SPUKeyOff = 0x0503,
     };
+
+    // Packs up to 12 bytes little-endian into three payload words.
+    static void packBytes(const uint8_t* bytes, unsigned count, uint32_t out[3]) {
+        out[0] = out[1] = out[2] = 0;
+        if (count > 12) count = 12;
+        for (unsigned i = 0; i < count; i++) out[i / 4] |= uint32_t(bytes[i]) << ((i % 4) * 8);
+    }
+
+    // Source names, indexed by Source value; null for unused values.
+    static const char* sourceName(unsigned source);
+    // One line describing the event's type and payload, without its cycle or pc.
+    static std::string describe(const HWEvent& event);
 
     static constexpr uint32_t sourceBit(Source source) { return 1u << static_cast<unsigned>(source); }
 
@@ -79,6 +129,15 @@ class HWEvents {
     bool empty() const { return m_count == 0; }
     const HWEvent& operator[](size_t idx) const { return m_chunks[idx / kRecordsPerChunk][idx % kRecordsPerChunk]; }
     void clear();
+    // Bumped by every clear(), load() included, so a reader caching indices can
+    // tell a refilled store from one that only grew.
+    uint64_t generation() const { return m_generation; }
+
+    // The records behind a small header, the same layout as CpuTrace::save. load()
+    // replaces the contents; on a bad or truncated file it returns false and leaves
+    // the store empty.
+    bool save(IO<File> file) const;
+    bool load(IO<File> file);
 
     // Recording stops once the store holds this many events. 0 means no limit.
     void setLimit(size_t records) { m_limit = records; }
@@ -97,6 +156,7 @@ class HWEvents {
   private:
     std::vector<std::unique_ptr<HWEvent[]>> m_chunks;
     size_t m_count = 0;
+    uint64_t m_generation = 0;
     size_t m_limit = kDefaultLimit;
     uint32_t m_mask = 0;
 };

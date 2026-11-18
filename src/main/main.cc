@@ -32,6 +32,7 @@
 #include <string>
 
 #include "core/arguments.h"
+#include "core/callprofiler.h"
 #include "core/cdrom.h"
 #include "core/gpu.h"
 #include "core/logger.h"
@@ -439,6 +440,17 @@ int pcsxMain(int argc, char **argv) {
             debugSettings.get<PCSX::Emulator::DebugSettings::WebServerPort>() = args.number("webserver-port").value();
         }
 
+        if (args.has("sio1-server")) {
+            debugSettings.get<PCSX::Emulator::DebugSettings::SIO1Server>() = true;
+        }
+        if (args.has("no-sio1-server")) {
+            debugSettings.get<PCSX::Emulator::DebugSettings::SIO1Server>() = false;
+        }
+
+        if (args.number("sio1-port")) {
+            debugSettings.get<PCSX::Emulator::DebugSettings::SIO1ServerPort>() = args.number("sio1-port").value();
+        }
+
         auto argPCdrvBase = args.value("pcdrvbase");
         if (args.has("pcdrv")) {
             debugSettings.get<PCSX::Emulator::DebugSettings::PCdrv>() = true;
@@ -537,6 +549,18 @@ runner.init({
     emulator->m_gpu->setLinearFiltering();
     emulator->reset();
 
+    // Left set only when the capture started, so the exit export goes by these rather
+    // than by whether the profiler is still running, as Lua may have stopped it.
+    auto profileOut = args.value("profile", "");
+    auto callgrindOut = args.value("callgrind", "");
+    if (!profileOut.empty() || !callgrindOut.empty()) {
+        if (!emulator->m_profiler->start()) {
+            fmt::print(stderr, "-profile and -callgrind need the interpreter; nothing will be profiled.\n");
+            profileOut.clear();
+            callgrindOut.clear();
+        }
+    }
+
     // Looking at setting up what to run exactly within the emulator, if requested.
     if (args.has("run")) system->resume();
     s_ui->m_exeToLoad.set(MAKEU8(args.value("loadexe", "").c_str()));
@@ -548,7 +572,22 @@ runner.init({
         // First, set up a closer. This makes sure that everything is shut down gracefully,
         // in the right order, once we exit the scope. This is because of how we're still
         // allowing exceptions to occur.
-        Cleaner cleaner([&emulator, &system, &exitCode, luacovEnabled, sigint, sigterm]() {
+        Cleaner cleaner([&emulator, &system, &exitCode, luacovEnabled, sigint, sigterm, &profileOut, &callgrindOut]() {
+            auto writeProfile = [](const std::string& path, const std::string& data, const char* option) {
+                if (path.empty()) return;
+                PCSX::IO<PCSX::File> out(new PCSX::PosixFile(path, PCSX::FileOps::TRUNCATE));
+                if (out->failed()) {
+                    fmt::print(stderr, "-{}: unable to create '{}'\n", option, path);
+                    return;
+                }
+                if (out->write(data.data(), data.size()) != ssize_t(data.size())) {
+                    fmt::print(stderr, "-{}: unable to write '{}'\n", option, path);
+                }
+            };
+            if (!profileOut.empty() || !callgrindOut.empty()) {
+                writeProfile(profileOut, emulator->m_profiler->serializePprof(), "profile");
+                writeProfile(callgrindOut, emulator->m_profiler->serializeCallgrind(), "callgrind");
+            }
             emulator->m_spu->close();
             emulator->m_cdrom->clearIso();
 

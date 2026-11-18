@@ -249,8 +249,10 @@ bool PCSX::GUI::drawMainMenuBar(ImGuiContext* context, ImGuiID dockspaceId, bool
 in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
                 }
                 ImGui::MenuItem(_("Show CPU Trace"), nullptr, &m_cpuTrace.m_show);
+                ImGui::MenuItem(_("Show Hardware Events"), nullptr, &m_hwEvents.m_show);
                 ImGui::MenuItem(_("Show Breakpoints"), nullptr, &m_breakpoints.m_show);
                 ImGui::MenuItem(_("Show Callstacks"), nullptr, &m_callstacks.m_show);
+                ImGui::MenuItem(_("Show Profiler"), nullptr, &m_callProfiler.m_show);
                 if (ImGui::BeginMenu(_("Memory Editors"))) {
                     for (auto& editor : m_mainMemEditors) {
                         editor.MenuItem();
@@ -382,4 +384,28 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
         ImGui::EndMainMenuBar();
     }
     return changed;
+}
+
+void PCSX::GUI::drawResetSettingsModal() {
+    if (m_showResetSettings) {
+        ImGui::OpenPopup(_("Reset settings"));
+        m_showResetSettings = false;
+    }
+    if (ImGui::BeginPopupModal(_("Reset settings"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextUnformatted(
+            _("This will restore every setting to its default value, including the window layout, the input "
+              "bindings, the paths to the BIOS and the memory cards, and the contents of the shader "
+              "editors.\n\nSave states and memory card contents are left alone.\n\nThe emulator will reboot to "
+              "complete the operation."));
+        ImGui::Separator();
+        if (ImGui::Button(_("Reset and reboot"), ImVec2(160, 0))) {
+            ImGui::CloseCurrentPopup();
+            resetSettings();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(_("Cancel"), ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 }

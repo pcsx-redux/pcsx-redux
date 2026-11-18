@@ -18,9 +18,12 @@
  ***************************************************************************/
 
 #include <stdint.h>
+#include <string.h>
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
+#include <filesystem>
 #include <memory>
 #include <semaphore>
 #include <span>
@@ -33,6 +36,7 @@
 #include "mips-common/util/bitfield.hh"
 #include "support/container-file.h"
 #include "support/djbhash.h"
+#include "support/ffmpeg-movie-file.h"
 #include "support/file.h"
 #include "support/mem4g.h"
 #include "support/polyfills.h"
@@ -42,6 +46,7 @@
 #include "supportpsx/iso9660-builder.h"
 #include "supportpsx/iso9660-lowlevel.h"
 #include "supportpsx/ps1-packer.h"
+#include "supportpsx/str.h"
 #include "supportpsx/ucl-utils.h"
 #include "ucl/ucl.h"
 
@@ -64,7 +69,10 @@ union IndexEntry {
         NONE = 0,
         UCL_NRV2E = 1,
         LZ4 = 2,
-        COUNT = 3,
+        // Raw sectors, such as a movie, streamed rather than loaded. The
+        // entry's first 32-bit field holds the sector count.
+        STREAM = 3,
+        COUNT = 4,
     };
     typedef Utilities::BitSpan<uint32_t, 21> DecompSizeField;
     typedef Utilities::BitSpan<uint32_t, 11> PaddingField;
@@ -92,6 +100,140 @@ union IndexEntry {
 
 static_assert(sizeof(IndexEntry) == 16);
 
+// What psyqo-paths' StrPlayer, as it comes, does not play of a movie: frames of more
+// sectors than its maxSectorsPerFrame (32 at most), decoding to more run-level than its
+// rlHalfwords, not in whole macroblocks, or larger than its display.
+static std::string playerWarning(const PCSX::STR::Result& result) {
+    std::string warning;
+    auto add = [&warning](std::string text) {
+        if (!warning.empty()) warning += "; ";
+        warning += text;
+    };
+    if (result.mostSectorsAFrame > 32) {
+        add(fmt::format(
+            "frames take up to {} sectors, more than StrPlayer holds at all (32); a higher frame rate, or speed 1, "
+            "gives each frame fewer",
+            result.mostSectorsAFrame));
+    } else if (result.mostSectorsAFrame > 12) {
+        add(fmt::format(
+            "frames take up to {} sectors, and StrPlayer drops those over its maxSectorsPerFrame, 12 unless raised "
+            "(to 32 at most); a higher frame rate, or speed 1, gives each frame fewer",
+            result.mostSectorsAFrame));
+    }
+    if (result.mostRunLevel > 28672) {
+        add(fmt::format(
+            "a frame decodes to {} run-level halfwords, and StrPlayer drops those over its rlHalfwords, 28672 "
+            "unless raised",
+            result.mostRunLevel));
+    }
+    if (result.width % 16 || result.height % 16) {
+        add(fmt::format("its frames are {}x{}, and StrPlayer plays only whole 16x16 macroblocks", result.width,
+                        result.height));
+    }
+    if (result.width > 320 || result.height > 240) {
+        add(
+            fmt::format("its {}x{} frames are larger than the 320x240 display StrPlayer plays into unless "
+                        "given a larger one",
+                        result.width, result.height));
+    }
+    return warning;
+}
+
+// A movie entry: the file encoded to STR sectors by the options of its "movie"
+// key. `summary` says what came out, or what went wrong, and `warning` what a
+// player may not play.
+static bool encodeMovie(const std::string& path, const nlohmann::json& options, std::vector<uint8_t>& sectors,
+                        std::string& summary, std::string& warning) {
+    if (!options.is_object() && !options.is_boolean()) {
+        summary = "\"movie\" is true or an object of options";
+        return false;
+    }
+    if (options.is_object()) {
+        static const char* const known[] = {"fps",    "speed", "channels", "rate",       "width",
+                                            "height", "file",  "channel",  "rlHalfwords"};
+        for (const auto& [key, value] : options.items()) {
+            if (std::find(std::begin(known), std::end(known), key) == std::end(known)) {
+                summary = fmt::format("\"{}\" is not a movie option", key);
+                return false;
+            }
+        }
+    }
+    // A whole number, written as one or as a float (15.0), up to StrPlayer's largest rlHalfwords.
+    const char* wrongKey = nullptr;
+    auto get = [&](const char* key, unsigned fallback) -> unsigned {
+        if (!options.is_object() || !options.contains(key)) return fallback;
+        const auto& value = options[key];
+        constexpr double largest = 1 << 22;
+        if (value.is_number_unsigned() && value.get<uint64_t>() <= largest) return value.get<unsigned>();
+        if (value.is_number_float()) {
+            const double d = value.get<double>();
+            if (d >= 0 && d <= largest && d == std::floor(d)) return static_cast<unsigned>(d);
+        }
+        if (!wrongKey) wrongKey = key;
+        return fallback;
+    };
+    PCSX::STR::Settings settings;
+    settings.fps = get("fps", 15);
+    settings.speed = get("speed", 2);
+    settings.channels = get("channels", 2);
+    settings.rate = get("rate", 37800);
+    const unsigned width = get("width", 320), height = get("height", 240);
+    const unsigned fileNumber = get("file", 0), channelNumber = get("channel", 0);
+    settings.rlHalfwords = get("rlHalfwords", settings.rlHalfwords);
+    if (wrongKey) {
+        summary =
+            fmt::format("the movie's \"{}\" is {}, where a whole number is wanted", wrongKey, options[wrongKey].dump());
+        return false;
+    }
+    if (width < 16 || width > 640 || height < 16 || height > 480 || fileNumber > 255 || channelNumber > 31) {
+        summary = "a movie is 16..640 wide and 16..480 high, with a file 0..255 and a channel 0..31";
+        return false;
+    }
+    settings.fileNumber = static_cast<uint8_t>(fileNumber);
+    settings.channelNumber = static_cast<uint8_t>(channelNumber);
+    if (auto error = PCSX::STR::check(settings); !error.empty()) {
+        summary = std::move(error);
+        return false;
+    }
+    unsigned damaged = 0;
+    std::vector<int16_t> pcm;
+    if (settings.channels) {
+        auto sound = PCSX::FFmpegMovieFile::readAudio(path, settings.channels, settings.rate, damaged, summary);
+        if (!sound) return false;
+        pcm = std::move(*sound);
+    }
+    if (pcm.empty()) settings.channels = 0;
+    auto video = PCSX::FFmpegMovieFile::open(path, settings.fps, width, height, summary);
+    if (!video) return false;
+    const auto result = PCSX::STR::encode(
+        settings,
+        [&](PCSX::STR::Planes& planes, std::string& error) {
+            const uint8_t* rgb = nullptr;
+            const int got = video->nextFrame(rgb, error);
+            if (got == 1) planes.fromRGB(rgb, width, height, width * 3);
+            return got;
+        },
+        pcm, sectors);
+    if (result.failed) {
+        summary = result.error;
+        return false;
+    }
+    damaged += video->damaged();
+    summary = fmt::format(
+        "{} frames of {}x{} at {} fps, {} sectors ({:.2f} s at speed {}), {} of them audio; up to {} sectors a "
+        "frame; q_scale {:.1f} on average, {} at worst{}",
+        result.frames, result.width, result.height, settings.fps, result.sectors,
+        result.sectors / (75.0 * settings.speed), settings.speed, result.audioSectors, result.mostSectorsAFrame,
+        result.averageQScale, result.worstQScale,
+        damaged ? fmt::format("; {} damaged packet{} of the source left out", damaged, damaged == 1 ? "" : "s") : "");
+    warning = playerWarning(result);
+    if (video->isStr()) {
+        if (!warning.empty()) warning += "; ";
+        warning += "it is an STR movie already, decoded and encoded again here";
+    }
+    return true;
+}
+
 int main(int argc, char** argv) {
     args::ArgumentParser parser("");
     args::ValueFlag<std::string> outputFlag(parser, "output", "", {"o"});
@@ -118,7 +260,7 @@ Usage: {} input.json [-h] -o output.bin
   -basedir path     optional: base directory for the input files.
   -license file     optional: use this license file.
   -threads count    optional: number of threads to use for compression.
-  -q                optional: only print errors.
+  -q                optional: only print errors and warnings.
   -h                displays this help information and exit.
 )",
                    argv[0]);
@@ -257,6 +399,7 @@ Usage: {} input.json [-h] -o output.bin
         std::binary_semaphore semaphore;
         std::vector<uint8_t> sectorData;
         nlohmann::json fileInfo;
+        std::string summary, warning;
         uint32_t margin = 0;
         bool failed;
     };
@@ -288,14 +431,34 @@ Usage: {} input.json [-h] -o output.bin
                 if (workUnitIndex >= filesCount) return;
                 auto& workUnit = work[workUnitIndex];
                 auto filePath = workUnit.fileInfo["path"].get<std::string>();
+                // A movie is a STREAM entry: never compressed, and with its sector count in the entry's
+                // first 32-bit field, so neither the 2 MB nor the 1023-sector limit of a stored file applies.
+                const bool movie = workUnit.fileInfo.contains("movie") && workUnit.fileInfo["movie"] != false;
+                if (movie) {
+                    IndexEntry* entry = &indexEntryData[workUnitIndex];
+                    entry->hash = PCSX::djb::hash(workUnit.fileInfo["name"].is_string()
+                                                      ? workUnit.fileInfo["name"].get<std::string>()
+                                                      : filePath);
+                    workUnit.margin = 0;
+                    workUnit.failed = !encodeMovie((basePath / filePath).string(), workUnit.fileInfo["movie"],
+                                                   workUnit.sectorData, workUnit.summary, workUnit.warning);
+                    if (!workUnit.failed) {
+                        entry->asArray[2] = static_cast<uint32_t>(workUnit.sectorData.size() / 2352);
+                        entry->setMethod(IndexEntry::Method::STREAM);
+                    }
+                    workUnit.semaphore.release();
+                    continue;
+                }
                 PCSX::IO<PCSX::File> file(new PCSX::PosixFile(basePath / filePath));
                 if (file->failed()) {
+                    workUnit.summary = "cannot open it";
                     workUnit.failed = true;
                     workUnit.semaphore.release();
                     continue;
                 }
                 unsigned size = file->size();
                 if (size >= 2 * 1024 * 1024) {
+                    workUnit.summary = "it is 2 MB or more, more than an archive file holds (a video needs \"movie\")";
                     workUnit.failed = true;
                     workUnit.semaphore.release();
                     continue;
@@ -327,6 +490,8 @@ Usage: {} input.json [-h] -o output.bin
                 const bool compressed = compressedSectorsCount < originalSectorsCount;
                 // The index holds a size of at most 1023 sectors; a stored file of 1024 would read as 0.
                 if (!compressed && originalSectorsCount > 1023) {
+                    workUnit.summary = fmt::format("stored, it is {} sectors, more than the index counts (1023)",
+                                                   originalSectorsCount);
                     workUnit.failed = true;
                     workUnit.semaphore.release();
                     continue;
@@ -393,12 +558,19 @@ Usage: {} input.json [-h] -o output.bin
         auto& workUnit = work[workUnitIndex];
         workUnit.semaphore.acquire();
         std::atomic_thread_fence(std::memory_order_acq_rel);
+        const auto path = workUnit.fileInfo["path"].get<std::string>();
         if (workUnit.failed) {
-            fmt::print("Error processing file: {}\n", workUnit.fileInfo["path"].get<std::string>());
+            fmt::print("Error processing file: {}{}\n", path, workUnit.summary.empty() ? "" : ": " + workUnit.summary);
             return -1;
         }
         IndexEntry* entry = &indexEntryData[workUnitIndex];
-        if (!quiet) {
+        const bool stream = entry->getCompressionMethod() == IndexEntry::Method::STREAM;
+        if (!workUnit.warning.empty()) fmt::print("Warning: {}: {}\n", path, workUnit.warning);
+        if (!quiet && stream) {
+            fmt::print("Processed movie: {}\n", path);
+            fmt::print("  {}\n", workUnit.summary);
+            fmt::print("  Sector offset: {}\n", currentSector);
+        } else if (!quiet) {
             fmt::print("Processed file: {}\n", workUnit.fileInfo["path"].get<std::string>());
             fmt::print("  Original size: {}\n", entry->getDecompSize());
             fmt::print("  Compressed size: {}\n", entry->getCompressedSize() * 2048);
@@ -407,12 +579,20 @@ Usage: {} input.json [-h] -o output.bin
             fmt::print("  Margin: {}\n", workUnit.margin);
         }
         entry->setSectorOffset(currentSector);
-        unsigned sectorCount = entry->getCompressedSize();
+        unsigned sectorCount = stream ? entry->asArray[2] : entry->getCompressedSize();
+        // MSF addresses end at 99:59:74, before the index's 19-bit sector offsets do; 9000 empty sectors end the disc.
+        if (currentSector + sectorCount + 9000 - 1 > c_maximumSectorCount) {
+            fmt::print("Error processing file: {}: the disc would be {} sectors, more than its addresses reach ({})\n",
+                       path, currentSector + sectorCount + 9000, c_maximumSectorCount + 1);
+            return -1;
+        }
         for (unsigned sector = 0; sector < sectorCount; sector++) {
             uint8_t* dest = workUnit.sectorData.data() + sector * 2352;
             putSectorLBA(dest, currentSector);
             builder.writeSectorAt(dest, PCSX::IEC60908b::MSF{150 + currentSector++}, PCSX::IEC60908b::SectorMode::RAW);
         }
+        // Written, so let it go: a movie is not held to 2 MB, and a disc of them would otherwise stay in memory whole.
+        std::vector<uint8_t>().swap(workUnit.sectorData);
     }
 
     if (!quiet) {
@@ -427,6 +607,11 @@ Usage: {} input.json [-h] -o output.bin
     }
 
     const unsigned totalSectorCount = currentSector;
+    // The disc's first two seconds are the pregap before LBA 0.
+    if (totalSectorCount + 150 > 80 * 60 * 75) {
+        fmt::print("Warning: the disc is {:.1f} minutes long, more than an 80-minute CD-R holds.\n",
+                   (totalSectorCount + 150) / (60.0 * 75));
+    }
 
     indexEntryDataBuffer[0] = 'P';
     indexEntryDataBuffer[1] = 'S';

@@ -169,10 +169,10 @@ PCSX::GUI::GUI(std::vector<std::string>& favorites)
       m_memcardManager(settings.get<ShowMemcardManager>().value, favorites),
       m_assembly(settings.get<ShowAssembly>().value, favorites),
       m_cpuTrace(settings.get<ShowCpuTrace>().value, favorites),
+      m_hwEvents(settings.get<ShowHWEvents>().value, favorites),
       m_openIsoFileDialog(l_("Open Disk Image"), favorites),
       m_openBinaryDialog(l_("Open Binary"), favorites),
       m_openArchiveDialog(l_("Open Archive"), favorites),
-      m_selectEXP1Dialog(l_("Select EXP1"), favorites),
       m_isoBrowser(
           settings.get<ShowIsoBrowser>().value, favorites, [this]() { useMonoFont(); },
           [this](const std::string& name, IO<File> file) { m_dalos.addSource(name, file); }),
@@ -1376,6 +1376,9 @@ void PCSX::GUI::endFrame() {
     if (m_callstacks.m_show) {
         m_callstacks.draw(_("Callstacks"), this);
     }
+    if (m_callProfiler.m_show) {
+        m_callProfiler.draw(_("Profiler"), this);
+    }
 
     drawMemoryEditors();
 
@@ -1396,6 +1399,7 @@ void PCSX::GUI::endFrame() {
     }
 
     m_cpuTrace.draw(this, _("CPU Trace"));
+    m_hwEvents.draw(this, _("Hardware Events"));
 
     if (m_breakpoints.m_show) {
         m_breakpoints.draw(_("Breakpoints"));
@@ -1534,27 +1538,7 @@ void PCSX::GUI::endFrame() {
     m_notifier.draw();
     m_passiveNotifier.draw();
 
-    if (m_showResetSettings) {
-        ImGui::OpenPopup(_("Reset settings"));
-        m_showResetSettings = false;
-    }
-    if (ImGui::BeginPopupModal(_("Reset settings"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted(
-            _("This will restore every setting to its default value, including the window layout, the input "
-              "bindings, the paths to the BIOS and the memory cards, and the contents of the shader "
-              "editors.\n\nSave states and memory card contents are left alone.\n\nThe emulator will reboot to "
-              "complete the operation."));
-        ImGui::Separator();
-        if (ImGui::Button(_("Reset and reboot"), ImVec2(160, 0))) {
-            ImGui::CloseCurrentPopup();
-            resetSettings();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button(_("Cancel"), ImVec2(120, 0))) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
+    drawResetSettingsModal();
 
     ImGui::Render();
     glViewport(0, 0, w, h);
