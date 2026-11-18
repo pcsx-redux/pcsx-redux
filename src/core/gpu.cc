@@ -802,6 +802,12 @@ void PCSX::GPU::write1(CtrlQuery *ctrl) {
         case CtrlQuery::DrawOffset:
             m_dataRet = m_drawingOffsetRaw;
             return;
+        // Index 7 answers 2 on a v2 GPU; a v0 GPU leaves GPUREAD unchanged.
+        case CtrlQuery::GpuType:
+            m_dataRet = 2;
+            return;
+        default:
+            return;
     }
 }
 

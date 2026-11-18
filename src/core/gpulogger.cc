@@ -682,6 +682,9 @@ void PCSX::GPU::CtrlQuery::drawLogNode(unsigned, const DrawLogSettings&) {
         case QueryType::DrawOffset:
             ImGui::TextUnformatted(_("Draw Offset"));
             break;
+        case QueryType::GpuType:
+            ImGui::TextUnformatted(_("GPU Type"));
+            break;
         default:
             ImGui::TextUnformatted(_("Unknown"));
             break;

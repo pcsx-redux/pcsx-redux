@@ -1126,8 +1126,9 @@ class GPU {
         CtrlQuery(const CtrlQuery &other) = default;
         CtrlQuery(CtrlQuery &&other) = default;
         CtrlQuery &operator=(const CtrlQuery &other) = default;
-        enum QueryType { TextureWindow, DrawAreaStart, DrawAreaEnd, DrawOffset, Unknown };
+        enum QueryType { TextureWindow, DrawAreaStart, DrawAreaEnd, DrawOffset, GpuType, Unknown };
         QueryType type() {
+            if (query == 7) return GpuType;
             if ((query <= 1) || (query >= 6)) {
                 return Unknown;
             }
