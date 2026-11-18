@@ -106,6 +106,8 @@ void registerAllSymbols(PCSX::Lua L) {
 
 }  // namespace
 
+void closeArchivesForTests() { s_archives.clear(); }
+
 PCSX::ZipArchive& PCSX::LuaFFI::addArchive(Lua L, IO<File> file) {
     auto& newArchive = s_archives.emplace_back(file);
     if (newArchive.failed()) {
