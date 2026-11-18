@@ -14,8 +14,6 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
-
 -- Boots through the BIOS with the rewind ring capturing every frame, lets the shell be hijacked,
 -- and reverse-continues (rewinds, on the dynarec) back onto the first instruction run after the
 -- hijack. A replay from a snapshot taken before the hijack can't get there: the hijack only
@@ -25,7 +23,6 @@
 --   'exe': side-loaded with -loadexe, see tests/pcsxrunner/lua.cc
 --   'shellhalt': gdb writes the binary while paused at the shell
 --   'shellhalt-leave': same, but the gdb client disconnects before the emulation resumes
-
 local lu = require 'luaunit'
 
 TestGdbReverseShell = {}
@@ -60,9 +57,7 @@ local function recv()
     return table.remove(packets, 1)
 end
 
-local function send(cmd)
-    client:write('$' .. cmd .. '#' .. checksum(cmd))
-end
+local function send(cmd) client:write('$' .. cmd .. '#' .. checksum(cmd)) end
 
 local function command(cmd)
     send(cmd)
@@ -84,9 +79,7 @@ local function le32(v)
                          bit.band(bit.rshift(v, 16), 0xff), bit.band(bit.rshift(v, 24), 0xff))
 end
 
-local function pc()
-    return command('p25'):lower()
-end
+local function pc() return command('p25'):lower() end
 
 local function connect()
     co = coroutine.running()

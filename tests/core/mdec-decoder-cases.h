@@ -37,7 +37,7 @@
 namespace MDECDecoderCases {
 
 struct Case {
-    std::string name;  // fits the rig's 12-byte arm field
+    std::string name;    // fits the rig's 12-byte arm field
     uint8_t quant[128];  // Y then UV, MDEC(2) order
     bool uploadScale;
     int16_t scale[64];  // MDEC(3)

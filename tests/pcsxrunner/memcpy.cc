@@ -28,8 +28,8 @@ TEST(Memcpy, Interpreter) {
 }
 
 TEST(Memcpy, Dynarec) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/libc/memcpy/memcpy.ps-exe");
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-luacov",
+                        "-loadexe", "src/mips/tests/libc/memcpy/memcpy.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

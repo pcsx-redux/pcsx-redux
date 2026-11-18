@@ -32,8 +32,9 @@ static PCSX::CommandLine parse(std::initializer_list<const char*> args) {
 }
 
 TEST(CommandLine, TestRunner) {
-    auto args = parse({"-no-ui", "-run", "-pcdrv", "-pcdrvbase", ".", "-bios", "src/mips/openbios/openbios.bin",
-                       "-testmode", "-interpreter", "-luacov", "-loadexe", "src/mips/tests/tooling/pcdrv/pcdrv.ps-exe"});
+    auto args =
+        parse({"-no-ui", "-run", "-pcdrv", "-pcdrvbase", ".", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
+               "-interpreter", "-luacov", "-loadexe", "src/mips/tests/tooling/pcdrv/pcdrv.ps-exe"});
     ASSERT_EQ(args.status(), PCSX::CommandLine::Status::Ok) << args.message();
     EXPECT_TRUE(args.has("no-ui"));
     EXPECT_TRUE(args.has("run"));

@@ -102,10 +102,10 @@ typedef Protobuf::Message<TYPESTRING("ChannelData"), New, SBPos, spos, sinc, SB,
 
 struct SPUCHAN {
     Chan::Data data;
-    AdpcmDecoder adpcm;   // per-voice ADPCM decoder: cursor + IIR history + block decode
-    AdsrEnvelope adsr;    // per-voice ADSR envelope: state + four-phase machine
-    Interpolator interp;  // per-voice resampler: none/simple/gauss/cubic interpolation
-    VoiceVolume volume;   // per-voice left/right output volume: raw register + decoded level
+    AdpcmDecoder adpcm;    // per-voice ADPCM decoder: cursor + IIR history + block decode
+    AdsrEnvelope adsr;     // per-voice ADSR envelope: state + four-phase machine
+    Interpolator interp;   // per-voice resampler: none/simple/gauss/cubic interpolation
+    VoiceVolume volume;    // per-voice left/right output volume: raw register + decoded level
     OverlayVoice overlay;  // per-voice replacement playhead, not part of the savestate
 };
 

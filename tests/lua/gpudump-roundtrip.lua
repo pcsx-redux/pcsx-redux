@@ -14,12 +14,10 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 -- Records the OpenBIOS shell with the GPU dump recorder, replays the dump into
 -- the dump player, and checks that the replayed VRAM matches the live VRAM.
 -- A replay stopped one frame short must not match, or the comparison proves
 -- nothing. Exits with 0 on success, 1 on a mismatch, 2 on a timeout.
-
 local ffi = require('ffi')
 
 local function countDiffs(a, b)
@@ -27,9 +25,7 @@ local function countDiffs(a, b)
     local pa = ffi.cast('const uint16_t*', a.data)
     local pb = ffi.cast('const uint16_t*', b.data)
     local n = 0
-    for i = 0, a.size / 2 - 1 do
-        if pa[i] ~= pb[i] then n = n + 1 end
-    end
+    for i = 0, a.size / 2 - 1 do if pa[i] ~= pb[i] then n = n + 1 end end
     return n
 end
 
@@ -130,8 +126,9 @@ local function checkSeek(path)
     local logged = player.getLoggedCount()
     local past = player.seek(total + 1)
     player.setLogging(false)
-    print(string.format('%s: seek over %d frames, %d mismatches, last frame %d pixels from the one before, %d after a seek back',
-                        path, total, bad, control, back))
+    print(string.format(
+              '%s: seek over %d frames, %d mismatches, last frame %d pixels from the one before, %d after a seek back',
+              path, total, bad, control, back))
     return total > 0 and bad == 0 and control > 0 and back == 0 and logged == finalLogged and not past
 end
 
@@ -164,9 +161,7 @@ local function checkOverlay(path)
     local edited, b, c = 0, -1, -1
     if found then
         -- Pure blue, against the shell's white-on-grey drawing.
-        for v = 0, 3 do
-            if player.setNodeColor(found, v, 0xff0000) then edited = edited + 1 end
-        end
+        for v = 0, 3 do if player.setNodeColor(found, v, 0xff0000) then edited = edited + 1 end end
         player.replay()
         b = countDiffs(a, player.getVRAM())
         player.clearNodeOverlay(found)
@@ -189,8 +184,9 @@ local function checkOverlay(path)
     local after = player.getLoggedCount()
     local name = found and player.getNodeName(found) or 'none'
     player.setLogging(false)
-    print(string.format('%s: overlay logger node %s (%s) %d vertices edited, %d pixels changed, %d after revert, %d then %d commands',
-                        path, tostring(found), name, edited, b, c, count, after))
+    print(string.format(
+              '%s: overlay logger node %s (%s) %d vertices edited, %d pixels changed, %d after revert, %d then %d commands',
+              path, tostring(found), name, edited, b, c, count, after))
     return found ~= nil and edited > 0 and b > 0 and c == 0 and after == count
 end
 

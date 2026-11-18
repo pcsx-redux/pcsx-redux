@@ -643,9 +643,7 @@ Formula One 2001
        1 to 3 refills from that word on, which is the same rule and is not measured on its own. */
     static constexpr uint32_t c_iCachePageMask = 0x1ffff000;
     uint32_t *iCacheTag(uint32_t addr) { return reinterpret_cast<uint32_t *>(m_regs.iCacheAddr) + (addr & 0xff0) / 4; }
-    uint32_t *iCacheLine(uint32_t addr) {
-        return reinterpret_cast<uint32_t *>(m_regs.iCacheCode) + (addr & 0xff0) / 4;
-    }
+    uint32_t *iCacheLine(uint32_t addr) { return reinterpret_cast<uint32_t *>(m_regs.iCacheCode) + (addr & 0xff0) / 4; }
 
     // Used by DMA into RAM, which drops the lines it overwrites. CPU stores do not get here.
     inline void flushICacheLine(uint32_t pc) {
