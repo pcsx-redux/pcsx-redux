@@ -14,7 +14,6 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 local ffi = require 'ffi'
 
@@ -24,9 +23,7 @@ local CODE = 0x80100000
 local ALT = CODE + 0x40
 local TARGET = CODE + 0x80
 
-local function ram32(addr)
-    return ffi.cast('uint32_t*', PCSX.getMemPtr() + (addr - 0x80000000))
-end
+local function ram32(addr) return ffi.cast('uint32_t*', PCSX.getMemPtr() + (addr - 0x80000000)) end
 
 local function poke(addr, words)
     local p = ram32(addr)
@@ -119,9 +116,7 @@ function TestPCWrite:test_gpr_write_drops_pending_load()
     poke(CODE, {
         0x3c010000 + bit.rshift(DATA, 16), -- lui at, hi(DATA)
         0x8c280000 + bit.band(DATA, 0xffff), -- lw t0, lo(DATA)(at)
-        0x00000000,
-        j(CODE + 12),
-        0x00000000,
+        0x00000000, j(CODE + 12), 0x00000000,
     })
     PCSX.invalidateCache()
     local regs = PCSX.getRegisters()

@@ -25,12 +25,13 @@
 // samples where the SPU-wide sample count is a multiple of the rate's period, so
 // two voices on one rate step together whenever they were keyed on.
 
+#include "spu/adsr.h"
+
 #include <stdint.h>
 
 #include <vector>
 
 #include "gtest/gtest.h"
-#include "spu/adsr.h"
 
 namespace {
 

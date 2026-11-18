@@ -91,7 +91,8 @@ This setting is useful for debugging purposes,
 to detect uninitialized memory reads that may
 cause issues in some cases.
 )"));
-        changed |= ImGui::Checkbox(_("OpenGL GPU *ALPHA STATE*"), &settings.get<Emulator::SettingHardwareRenderer>().value);
+        changed |=
+            ImGui::Checkbox(_("OpenGL GPU *ALPHA STATE*"), &settings.get<Emulator::SettingHardwareRenderer>().value);
         ImGuiHelpers::ShowHelpMarker(_(R"(Enables the OpenGL GPU renderer.
 This is not recommended for normal use at the moment,
 as it is not fully implemented yet. It is recommended

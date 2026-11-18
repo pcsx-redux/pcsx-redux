@@ -14,7 +14,6 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 local ffi = require 'ffi'
 
@@ -24,22 +23,16 @@ local CODE = 0x80100000
 local SRC = 0x80140000
 local DST = 0x80160000
 
-local function ram32(addr)
-    return ffi.cast('uint32_t*', PCSX.getMemPtr() + (addr - 0x80000000))
-end
+local function ram32(addr) return ffi.cast('uint32_t*', PCSX.getMemPtr() + (addr - 0x80000000)) end
 
-local function ram8(addr)
-    return ffi.cast('uint8_t*', PCSX.getMemPtr() + (addr - 0x80000000))
-end
+local function ram8(addr) return ffi.cast('uint8_t*', PCSX.getMemPtr() + (addr - 0x80000000)) end
 
 local function poke(addr, words)
     local p = ram32(addr)
     for i, w in ipairs(words) do p[i - 1] = w end
 end
 
-local function writeLutMapped()
-    return ffi.cast('void**', PCSX.getWriteLUT())[0x8000] ~= nil
-end
+local function writeLutMapped() return ffi.cast('void**', PCSX.getWriteLUT())[0x8000] ~= nil end
 
 -- The recompilers can't stop on an arbitrary pc, so under them callGuest must refuse.
 local function interpreter()
@@ -59,9 +52,7 @@ local function enableStores()
     lu.assertFalse(r.storesDropped)
 end
 
-function TestCallGuest:test_refuses_without_interpreter()
-    if interpreter() then lu.skip('running on the interpreter') end
-end
+function TestCallGuest:test_refuses_without_interpreter() if interpreter() then lu.skip('running on the interpreter') end end
 
 function TestCallGuest:test_stores_dropped_tracks_the_write_lut()
     if not interpreter() then lu.skip('needs the interpreter') end
@@ -154,7 +145,7 @@ function TestCallGuest:test_nested_call_is_refused()
     PCSX.execSlots[1] = savedSlot
     lu.assertEquals(hits, 1)
     lu.assertFalse(ok)
-    lu.assertStrContains(tostring(err), "can't be nested")
+    lu.assertStrContains(tostring(err), 'can\'t be nested')
     lu.assertEquals(r.status, 'returned')
     lu.assertEquals(r.v0, 7)
 end
@@ -196,7 +187,9 @@ function TestCallGuest:test_stage_fetch_without_isolation_keeps_the_writes()
     local data = payload(256)
     ffi.fill(ram8(DST), 256, 0)
     local r = PCSX.callGuest {
-        pc = CODE, args = { SRC, DST, #data }, dirty = true,
+        pc = CODE,
+        args = { SRC, DST, #data },
+        dirty = true,
         stage = { { addr = SRC, data = data } },
         fetch = { { addr = DST, size = #data } },
     }
@@ -214,7 +207,8 @@ function TestCallGuest:test_fetch_returns_every_range_in_order()
     local data = payload(256)
     ffi.fill(ram8(DST), 256, 0)
     local r = PCSX.callGuest {
-        pc = CODE, args = { SRC, DST, #data },
+        pc = CODE,
+        args = { SRC, DST, #data },
         stage = { { addr = SRC, data = data } },
         fetch = { { addr = DST + 128, size = 16 }, { addr = DST, size = 4 }, { addr = SRC, size = 0 } },
     }
@@ -235,7 +229,9 @@ function TestCallGuest:test_ram_isolation_rolls_back_writes_and_staging()
     ffi.copy(ram8(SRC), srcBefore, 256)
     ffi.copy(ram8(DST), dstBefore, 256)
     local r = PCSX.callGuest {
-        pc = CODE, args = { SRC, DST, #data }, isolate = 'ram',
+        pc = CODE,
+        args = { SRC, DST, #data },
+        isolate = 'ram',
         stage = { { addr = SRC, data = data } },
         fetch = { { addr = DST, size = #data } },
     }
@@ -258,7 +254,9 @@ function TestCallGuest:test_full_isolation_rolls_back_writes_and_staging()
     ffi.copy(ram8(SRC), srcBefore, 64)
     ffi.copy(ram8(DST), dstBefore, 64)
     local r = PCSX.callGuest {
-        pc = CODE, args = { SRC, DST, #data }, isolate = 'full',
+        pc = CODE,
+        args = { SRC, DST, #data },
+        isolate = 'full',
         stage = { { addr = SRC, data = data } },
         fetch = { { addr = DST, size = #data } },
     }
@@ -293,7 +291,9 @@ function TestCallGuest:test_bad_fetch_leaves_the_machine_alone()
     ffi.copy(ram8(SRC), srcBefore, 16)
     ffi.copy(ram8(DST), dstBefore, 16)
     local ok, err = pcall(PCSX.callGuest, {
-        pc = CODE, args = { SRC, DST, 16 }, isolate = 'ram',
+        pc = CODE,
+        args = { SRC, DST, 16 },
+        isolate = 'ram',
         stage = { { addr = SRC, data = payload(16) } },
         fetch = { { addr = 0x801ffff0, size = 0x100 } },
     })

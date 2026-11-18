@@ -573,7 +573,7 @@ runner.init({
         // in the right order, once we exit the scope. This is because of how we're still
         // allowing exceptions to occur.
         Cleaner cleaner([&emulator, &system, &exitCode, luacovEnabled, sigint, sigterm, &profileOut, &callgrindOut]() {
-            auto writeProfile = [](const std::string& path, const std::string& data, const char* option) {
+            auto writeProfile = [](const std::string &path, const std::string &data, const char *option) {
                 if (path.empty()) return;
                 PCSX::IO<PCSX::File> out(new PCSX::PosixFile(path, PCSX::FileOps::TRUNCATE));
                 if (out->failed()) {
@@ -759,8 +759,8 @@ runner.init({
                         s_clockBase = clock;
                     }
                     // The played count is 32 bits and wraps; the wrapped difference is still right.
-                    const double elapsed = deviceClock ? double(uint32_t(played - uint32_t(s_clockBase)))
-                                                       : clock - s_clockBase;
+                    const double elapsed =
+                        deviceClock ? double(uint32_t(played - uint32_t(s_clockBase))) : clock - s_clockBase;
                     const double emulated =
                         double(cycle - s_cycleBase) * c_sampleRate / PCSX::Emulator::m_psxClockSpeed;
                     const double ahead = emulated - elapsed;

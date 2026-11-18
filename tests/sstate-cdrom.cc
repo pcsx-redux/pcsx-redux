@@ -114,8 +114,10 @@ CDRom bind(State& s) {
         CDXAEnded{s.xaended},
         CDXAFirstSector{s.xafirstsector},
         CDSoundMapEnabled{s.soundmapenabled},
-        CDCurrentPosition{CDMSF{CDMSFMinute{s.currentposition[0]}, CDMSFSecond{s.currentposition[1]}, CDMSFFrame{s.currentposition[2]}}},
-        CDSeekPosition{CDMSF{CDMSFMinute{s.seekposition[0]}, CDMSFSecond{s.seekposition[1]}, CDMSFFrame{s.seekposition[2]}}},
+        CDCurrentPosition{CDMSF{CDMSFMinute{s.currentposition[0]}, CDMSFSecond{s.currentposition[1]},
+                                CDMSFFrame{s.currentposition[2]}}},
+        CDSeekPosition{
+            CDMSF{CDMSFMinute{s.seekposition[0]}, CDMSFSecond{s.seekposition[1]}, CDMSFFrame{s.seekposition[2]}}},
         CDLastLocP{s.lastlocp},
         CDLastLocL{s.lastlocl},
         CDSeed{s.seed},
@@ -123,10 +125,25 @@ CDRom bind(State& s) {
         CDWasLidOpened{s.waslidopened},
         CDLidCloseScheduled{s.lidclosescheduled},
         CDLidCloseAtCycles{s.lidcloseatcycles},
-        CDCommandFifo{CDQueueElement{CDQueuePayload{s.commandfifo.payload}, CDQueueValue{s.commandfifo.value}, CDQueueValueRead{s.commandfifo.valueRead}, CDQueueHasValue{s.commandfifo.hasValue}, CDQueueHitMax{s.commandfifo.hitMax}, CDQueuePayloadSize{s.commandfifo.payloadSize}, CDQueuePayloadIndex{s.commandfifo.payloadIndex}}},
-        CDCommandExecuting{CDQueueElement{CDQueuePayload{s.commandexecuting.payload}, CDQueueValue{s.commandexecuting.value}, CDQueueValueRead{s.commandexecuting.valueRead}, CDQueueHasValue{s.commandexecuting.hasValue}, CDQueueHitMax{s.commandexecuting.hitMax}, CDQueuePayloadSize{s.commandexecuting.payloadSize}, CDQueuePayloadIndex{s.commandexecuting.payloadIndex}}},
-        CDResponseFifo0{CDQueueElement{CDQueuePayload{s.responsefifo0.payload}, CDQueueValue{s.responsefifo0.value}, CDQueueValueRead{s.responsefifo0.valueRead}, CDQueueHasValue{s.responsefifo0.hasValue}, CDQueueHitMax{s.responsefifo0.hitMax}, CDQueuePayloadSize{s.responsefifo0.payloadSize}, CDQueuePayloadIndex{s.responsefifo0.payloadIndex}}},
-        CDResponseFifo1{CDQueueElement{CDQueuePayload{s.responsefifo1.payload}, CDQueueValue{s.responsefifo1.value}, CDQueueValueRead{s.responsefifo1.valueRead}, CDQueueHasValue{s.responsefifo1.hasValue}, CDQueueHitMax{s.responsefifo1.hitMax}, CDQueuePayloadSize{s.responsefifo1.payloadSize}, CDQueuePayloadIndex{s.responsefifo1.payloadIndex}}},
+        CDCommandFifo{CDQueueElement{CDQueuePayload{s.commandfifo.payload}, CDQueueValue{s.commandfifo.value},
+                                     CDQueueValueRead{s.commandfifo.valueRead}, CDQueueHasValue{s.commandfifo.hasValue},
+                                     CDQueueHitMax{s.commandfifo.hitMax}, CDQueuePayloadSize{s.commandfifo.payloadSize},
+                                     CDQueuePayloadIndex{s.commandfifo.payloadIndex}}},
+        CDCommandExecuting{
+            CDQueueElement{CDQueuePayload{s.commandexecuting.payload}, CDQueueValue{s.commandexecuting.value},
+                           CDQueueValueRead{s.commandexecuting.valueRead}, CDQueueHasValue{s.commandexecuting.hasValue},
+                           CDQueueHitMax{s.commandexecuting.hitMax}, CDQueuePayloadSize{s.commandexecuting.payloadSize},
+                           CDQueuePayloadIndex{s.commandexecuting.payloadIndex}}},
+        CDResponseFifo0{CDQueueElement{CDQueuePayload{s.responsefifo0.payload}, CDQueueValue{s.responsefifo0.value},
+                                       CDQueueValueRead{s.responsefifo0.valueRead},
+                                       CDQueueHasValue{s.responsefifo0.hasValue}, CDQueueHitMax{s.responsefifo0.hitMax},
+                                       CDQueuePayloadSize{s.responsefifo0.payloadSize},
+                                       CDQueuePayloadIndex{s.responsefifo0.payloadIndex}}},
+        CDResponseFifo1{CDQueueElement{CDQueuePayload{s.responsefifo1.payload}, CDQueueValue{s.responsefifo1.value},
+                                       CDQueueValueRead{s.responsefifo1.valueRead},
+                                       CDQueueHasValue{s.responsefifo1.hasValue}, CDQueueHitMax{s.responsefifo1.hitMax},
+                                       CDQueuePayloadSize{s.responsefifo1.payloadSize},
+                                       CDQueuePayloadIndex{s.responsefifo1.payloadIndex}}},
         CDXALeft{CDADPCM{CDADPCMY0{s.xaleft[0]}, CDADPCMY1{s.xaleft[1]}}},
         CDXARight{CDADPCM{CDADPCMY0{s.xaright[0]}, CDADPCMY1{s.xaright[1]}}},
         CDSectorReadSinceSeek{s.sectorreadsinceseek},
@@ -263,7 +280,8 @@ TEST(SaveStateCDRom, EveryFieldRoundTrips) {
     EXPECT_EQ(out.xaended, in.xaended) << "xaended";
     EXPECT_EQ(out.xafirstsector, in.xafirstsector) << "xafirstsector";
     EXPECT_EQ(out.soundmapenabled, in.soundmapenabled) << "soundmapenabled";
-    for (unsigned i = 0; i < 3; i++) EXPECT_EQ(out.currentposition[i], in.currentposition[i]) << "currentposition[" << i << "]";
+    for (unsigned i = 0; i < 3; i++)
+        EXPECT_EQ(out.currentposition[i], in.currentposition[i]) << "currentposition[" << i << "]";
     for (unsigned i = 0; i < 3; i++) EXPECT_EQ(out.seekposition[i], in.seekposition[i]) << "seekposition[" << i << "]";
     for (unsigned i = 0; i < 8; i++) EXPECT_EQ(out.lastlocp[i], in.lastlocp[i]) << "lastlocp[" << i << "]";
     for (unsigned i = 0; i < 8; i++) EXPECT_EQ(out.lastlocl[i], in.lastlocl[i]) << "lastlocl[" << i << "]";
@@ -272,28 +290,33 @@ TEST(SaveStateCDRom, EveryFieldRoundTrips) {
     EXPECT_EQ(out.waslidopened, in.waslidopened) << "waslidopened";
     EXPECT_EQ(out.lidclosescheduled, in.lidclosescheduled) << "lidclosescheduled";
     EXPECT_EQ(out.lidcloseatcycles, in.lidcloseatcycles) << "lidcloseatcycles";
-    for (unsigned i = 0; i < 16; i++) EXPECT_EQ(out.commandfifo.payload[i], in.commandfifo.payload[i]) << "commandfifo.payload[" << i << "]";
+    for (unsigned i = 0; i < 16; i++)
+        EXPECT_EQ(out.commandfifo.payload[i], in.commandfifo.payload[i]) << "commandfifo.payload[" << i << "]";
     EXPECT_EQ(out.commandfifo.value, in.commandfifo.value) << "commandfifo.value";
     EXPECT_EQ(out.commandfifo.valueRead, in.commandfifo.valueRead) << "commandfifo.valueRead";
     EXPECT_EQ(out.commandfifo.hasValue, in.commandfifo.hasValue) << "commandfifo.hasValue";
     EXPECT_EQ(out.commandfifo.hitMax, in.commandfifo.hitMax) << "commandfifo.hitMax";
     EXPECT_EQ(out.commandfifo.payloadSize, in.commandfifo.payloadSize) << "commandfifo.payloadSize";
     EXPECT_EQ(out.commandfifo.payloadIndex, in.commandfifo.payloadIndex) << "commandfifo.payloadIndex";
-    for (unsigned i = 0; i < 16; i++) EXPECT_EQ(out.commandexecuting.payload[i], in.commandexecuting.payload[i]) << "commandexecuting.payload[" << i << "]";
+    for (unsigned i = 0; i < 16; i++)
+        EXPECT_EQ(out.commandexecuting.payload[i], in.commandexecuting.payload[i])
+            << "commandexecuting.payload[" << i << "]";
     EXPECT_EQ(out.commandexecuting.value, in.commandexecuting.value) << "commandexecuting.value";
     EXPECT_EQ(out.commandexecuting.valueRead, in.commandexecuting.valueRead) << "commandexecuting.valueRead";
     EXPECT_EQ(out.commandexecuting.hasValue, in.commandexecuting.hasValue) << "commandexecuting.hasValue";
     EXPECT_EQ(out.commandexecuting.hitMax, in.commandexecuting.hitMax) << "commandexecuting.hitMax";
     EXPECT_EQ(out.commandexecuting.payloadSize, in.commandexecuting.payloadSize) << "commandexecuting.payloadSize";
     EXPECT_EQ(out.commandexecuting.payloadIndex, in.commandexecuting.payloadIndex) << "commandexecuting.payloadIndex";
-    for (unsigned i = 0; i < 16; i++) EXPECT_EQ(out.responsefifo0.payload[i], in.responsefifo0.payload[i]) << "responsefifo0.payload[" << i << "]";
+    for (unsigned i = 0; i < 16; i++)
+        EXPECT_EQ(out.responsefifo0.payload[i], in.responsefifo0.payload[i]) << "responsefifo0.payload[" << i << "]";
     EXPECT_EQ(out.responsefifo0.value, in.responsefifo0.value) << "responsefifo0.value";
     EXPECT_EQ(out.responsefifo0.valueRead, in.responsefifo0.valueRead) << "responsefifo0.valueRead";
     EXPECT_EQ(out.responsefifo0.hasValue, in.responsefifo0.hasValue) << "responsefifo0.hasValue";
     EXPECT_EQ(out.responsefifo0.hitMax, in.responsefifo0.hitMax) << "responsefifo0.hitMax";
     EXPECT_EQ(out.responsefifo0.payloadSize, in.responsefifo0.payloadSize) << "responsefifo0.payloadSize";
     EXPECT_EQ(out.responsefifo0.payloadIndex, in.responsefifo0.payloadIndex) << "responsefifo0.payloadIndex";
-    for (unsigned i = 0; i < 16; i++) EXPECT_EQ(out.responsefifo1.payload[i], in.responsefifo1.payload[i]) << "responsefifo1.payload[" << i << "]";
+    for (unsigned i = 0; i < 16; i++)
+        EXPECT_EQ(out.responsefifo1.payload[i], in.responsefifo1.payload[i]) << "responsefifo1.payload[" << i << "]";
     EXPECT_EQ(out.responsefifo1.value, in.responsefifo1.value) << "responsefifo1.value";
     EXPECT_EQ(out.responsefifo1.valueRead, in.responsefifo1.valueRead) << "responsefifo1.valueRead";
     EXPECT_EQ(out.responsefifo1.hasValue, in.responsefifo1.hasValue) << "responsefifo1.hasValue";

@@ -110,8 +110,8 @@ enum {
     SCH_ERR_SRC_EOF = -3,
     SCH_ERR_DST_FULL = -4,
     SCH_ERR_NO_PROD = -6,
-    SCH_ERR_BAD_REF = -8,     /* a match points at or past the output position */
-    SCH_ERR_BAD_SCHEMA = -9,  /* see schema_validate */
+    SCH_ERR_BAD_REF = -8,      /* a match points at or past the output position */
+    SCH_ERR_BAD_SCHEMA = -9,   /* see schema_validate */
     SCH_ERR_UNSUPPORTED = -10, /* the encoder only packs OB_RELATIVE windows */
 };
 

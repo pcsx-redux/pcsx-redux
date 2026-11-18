@@ -77,8 +77,8 @@ class ReverbUnit {
         callCount.value = m_callCount;
     }
     template <typename InL, typename InR, typename OutL, typename OutR>
-    void loadFrom(const InL &inL, const InR &inR, const OutL &outL, const OutR &outR,
-                  const Protobuf::Bool &altLeftTick, const Protobuf::Int32 &callCount) {
+    void loadFrom(const InL &inL, const InR &inR, const OutL &outL, const OutR &outR, const Protobuf::Bool &altLeftTick,
+                  const Protobuf::Int32 &callCount) {
         loadHistory(m_h44L, inL);
         loadHistory(m_h44R, inR);
         loadHistory(m_h22L, outL);

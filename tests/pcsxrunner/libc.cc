@@ -28,8 +28,8 @@ TEST(libc, Interpreter) {
 }
 
 TEST(libc, Dynarec) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/libc/libc/libc.ps-exe");
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-luacov",
+                        "-loadexe", "src/mips/tests/libc/libc/libc.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

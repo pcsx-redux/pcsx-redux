@@ -44,8 +44,8 @@ TEST(Multitap, HostInterpreter) {
 
 TEST(Multitap, HostDynarec) {
     SKIP_WITHOUT_POSIX_SHM();
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-shmdisplay", "-dofile", "src/mips/tests/sio/multitap/setup-host.lua", "-loadexe",
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-luacov",
+                        "-shmdisplay", "-dofile", "src/mips/tests/sio/multitap/setup-host.lua", "-loadexe",
                         "src/mips/tests/sio/multitap/multitap.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
@@ -74,8 +74,8 @@ TEST(Multitap, Req1Interpreter) {
 
 TEST(Multitap, Req1Dynarec) {
     SKIP_WITHOUT_POSIX_SHM();
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-shmdisplay", "-dofile", "src/mips/tests/sio/multitap/setup-req1.lua", "-loadexe",
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-luacov",
+                        "-shmdisplay", "-dofile", "src/mips/tests/sio/multitap/setup-req1.lua", "-loadexe",
                         "src/mips/tests/sio/multitap/multitap.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);

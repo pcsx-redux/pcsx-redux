@@ -14,7 +14,6 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 
 TestCompression = {}
@@ -32,9 +31,13 @@ local function makeScheme(lsbFirst, lenBias)
         control = { unit = 1, perGroup = 8, lsbFirst = lsbFirst, oneMeans = 'token' },
         window = { base = 'relative', maxDist = 0x0fff, overlap = true },
         productions = {
-            { bytes = 2,
-              match = { len = { at = { 1, 0xf0, -4 }, bias = lenBias },
-                        dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } } } } },
+            {
+                bytes = 2,
+                match = {
+                    len = { at = { 1, 0xf0, -4 }, bias = lenBias },
+                    dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } } },
+                },
+            },
         },
     }
 end
@@ -113,15 +116,16 @@ end
 function TestCompression:test_schema_validation()
     lu.assertErrorMsgContains('needs `productions`', PCSX.Compression.schema, { name = 'x' })
     lu.assertErrorMsgContains('needs exactly one of', PCSX.Compression.schema,
-        { name = 'x', productions = { { bytes = 2 } } })
+                              { name = 'x', productions = { { bytes = 2 } } })
     local match = { len = { at = { 1, 0xf0, -4 }, bias = 2 }, dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } } } }
     -- a term reading past its own token
+    lu.assertErrorMsgContains('schema: invalid', PCSX.Compression.schema, {
+        productions = { { bytes = 2, match = { len = { at = { 4, 0xff } }, dist = match.dist } } },
+    })
     lu.assertErrorMsgContains('schema: invalid', PCSX.Compression.schema,
-        { productions = { { bytes = 2, match = { len = { at = { 4, 0xff } }, dist = match.dist } } } })
+                              { control = { unit = 3 }, productions = { { bytes = 2, match = match } } })
     lu.assertErrorMsgContains('schema: invalid', PCSX.Compression.schema,
-        { control = { unit = 3 }, productions = { { bytes = 2, match = match } } })
-    lu.assertErrorMsgContains('schema: invalid', PCSX.Compression.schema,
-        { window = { base = 'windowEnd' }, productions = { { bytes = 2, match = match } } })
+                              { window = { base = 'windowEnd' }, productions = { { bytes = 2, match = match } } })
 end
 
 function TestCompression:test_reference_at_output_position()
@@ -133,8 +137,12 @@ function TestCompression:test_encoder_rejects_non_relative_windows()
     local abs = PCSX.Compression.schema {
         control = { oneMeans = 'token' },
         window = { base = 'absolute' },
-        productions = { { bytes = 2, match = { len = { at = { 1, 0xf0, -4 }, bias = 2 },
-                                               dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } } } } } },
+        productions = {
+            {
+                bytes = 2,
+                match = { len = { at = { 1, 0xf0, -4 }, bias = 2 }, dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } } } },
+            },
+        },
     }
     lu.assertErrorMsgContains('only supports relative', abs.encode, abs, 'abababab')
 end
@@ -143,8 +151,12 @@ function TestCompression:test_encoder_honours_no_overlap()
     local strict = PCSX.Compression.schema {
         control = { oneMeans = 'token' },
         window = { maxDist = 0x0fff, overlap = false },
-        productions = { { bytes = 2, match = { len = { at = { 1, 0xf0, -4 }, bias = 2 },
-                                               dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } } } } } },
+        productions = {
+            {
+                bytes = 2,
+                match = { len = { at = { 1, 0xf0, -4 }, bias = 2 }, dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } } } },
+            },
+        },
     }
     local plain = string.rep('ab', 40)
     local plainOut, stats = strict:decode(strict:encode(plain), #plain)
@@ -158,8 +170,9 @@ function TestCompression:test_encoder_bounds_from_biases()
     local nobias = PCSX.Compression.schema {
         control = { oneMeans = 'token' },
         window = { maxDist = 0x0fff },
-        productions = { { bytes = 2, match = { len = { at = { 1, 0xf0, -4 } },
-                                               dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } } } } } },
+        productions = {
+            { bytes = 2, match = { len = { at = { 1, 0xf0, -4 } }, dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } } } } },
+        },
     }
     local plain = 'abcabcabcxyz'
     lu.assertEquals(nobias:decode(nobias:encode(plain), #plain), plain)
@@ -167,8 +180,15 @@ function TestCompression:test_encoder_bounds_from_biases()
     local far = PCSX.Compression.schema {
         control = { oneMeans = 'token' },
         window = { maxDist = 0x0fff },
-        productions = { { bytes = 2, match = { len = { at = { 1, 0xf0, -4 }, bias = 2 },
-                                               dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } }, bias = 3 } } } },
+        productions = {
+            {
+                bytes = 2,
+                match = {
+                    len = { at = { 1, 0xf0, -4 }, bias = 2 },
+                    dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } }, bias = 3 },
+                },
+            },
+        },
     }
     plain = 'aaaaaaaaababababab'
     lu.assertEquals(far:decode(far:encode(plain), #plain), plain)
@@ -178,8 +198,12 @@ function TestCompression:test_sixteen_bit_literals_roundtrip()
     local wide = PCSX.Compression.schema {
         control = { unit = 2, oneMeans = 'token' },
         window = { maxDist = 0x0fff },
-        productions = { { bytes = 2, match = { len = { at = { 1, 0xf0, -4 }, bias = 2 },
-                                               dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } } } } } },
+        productions = {
+            {
+                bytes = 2,
+                match = { len = { at = { 1, 0xf0, -4 }, bias = 2 }, dist = { at = { { 0, 0xff, 0 }, { 1, 0x0f, 8 } } } },
+            },
+        },
     }
     for _, plain in ipairs { 'ABCDEF', 'ABCDE', 'xyzzy-plugh-xyzzy-plugh' } do
         lu.assertEquals(wide:decode(wide:encode(plain), #plain), plain)

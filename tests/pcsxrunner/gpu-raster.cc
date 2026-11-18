@@ -28,25 +28,24 @@
 // asserts. The software GPU is the only renderer being verified
 // here.
 
-#define GPU_RASTER_TEST(name, dir)                                                                        \
-    TEST(GPURaster, name) {                                                                               \
-        MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode",     \
-                            "-interpreter", "-loadexe",                                                   \
-                            "src/mips/tests/gpu/raster/" #dir "/gpu-raster-" #dir ".ps-exe");             \
-        int ret = invoker.invoke();                                                                       \
-        EXPECT_EQ(ret, 0);                                                                                \
+#define GPU_RASTER_TEST(name, dir)                                                                                    \
+    TEST(GPURaster, name) {                                                                                           \
+        MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter", \
+                            "-loadexe", "src/mips/tests/gpu/raster/" #dir "/gpu-raster-" #dir ".ps-exe");             \
+        int ret = invoker.invoke();                                                                                   \
+        EXPECT_EQ(ret, 0);                                                                                            \
     }
 
 // The same phases with the soft GPU rasterizing on its worker thread. Every
 // probe reads VRAM back through GPUREAD, so these also check that readbacks
 // wait for the draws queued ahead of them.
-#define GPU_RASTER_THREADED_TEST(name, dir)                                                               \
-    TEST(GPURasterThreaded, name) {                                                                       \
-        MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode",     \
-                            "-interpreter", "-softgputhreaded", "-loadexe",                               \
-                            "src/mips/tests/gpu/raster/" #dir "/gpu-raster-" #dir ".ps-exe");             \
-        int ret = invoker.invoke();                                                                       \
-        EXPECT_EQ(ret, 0);                                                                                \
+#define GPU_RASTER_THREADED_TEST(name, dir)                                                                           \
+    TEST(GPURasterThreaded, name) {                                                                                   \
+        MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter", \
+                            "-softgputhreaded", "-loadexe",                                                           \
+                            "src/mips/tests/gpu/raster/" #dir "/gpu-raster-" #dir ".ps-exe");                         \
+        int ret = invoker.invoke();                                                                                   \
+        EXPECT_EQ(ret, 0);                                                                                            \
     }
 
 #define GPU_RASTER_BOTH(name, dir) \

@@ -14,14 +14,11 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 
 TestBasic = {}
 
-function TestBasic:test_basic()
-    lu.assertEquals(1, 1)
-end
+function TestBasic:test_basic() lu.assertEquals(1, 1) end
 
 function TestBasic:test_breakpoint_invoker_error_stays_in_lua()
     local bp = PCSX.addBreakpoint(0x80010000, 'Exec', 4, 'test', function() error 'invoker failure' end)
@@ -43,9 +40,7 @@ end
 
 function TestBasic:test_coroutine()
     local testCoroutine = coroutine.running()
-    PCSX.nextTick(function()
-        coroutine.resume(testCoroutine, 42)
-    end)
+    PCSX.nextTick(function() coroutine.resume(testCoroutine, 42) end)
     local r = coroutine.yield()
     lu.assertEquals(r, 42)
 end
@@ -77,7 +72,7 @@ end
 function TestBasic:test_unknown_event_name()
     local ok, err = pcall(PCSX.Events.createEventListener, 'GPU::VSync', function() end)
     lu.assertFalse(ok)
-    lu.assertStrContains(err, "'GPU::VSync'")
+    lu.assertStrContains(err, '\'GPU::VSync\'')
 end
 
 function TestBasic:test_webserver_handlers_table_exists()

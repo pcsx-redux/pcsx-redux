@@ -14,7 +14,6 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 
 TestTextTable = {}
@@ -40,21 +39,13 @@ FB08=<COLOUR %x>
 /FF=<END>
 ]]
 
-local function tbl()
-    return assert(PCSX.TextTable.parse(tableText))
-end
+local function tbl() return assert(PCSX.TextTable.parse(tableText)) end
 
-local function hex(s)
-    return (s:gsub('%x%x', function(h) return string.char(tonumber(h, 16)) end))
-end
+local function hex(s) return (s:gsub('%x%x', function(h) return string.char(tonumber(h, 16)) end)) end
 
-function TestTextTable:testDecodeLongestMatch()
-    lu.assertEquals(tbl():decode(hex('10111012')), 'AB!AC')
-end
+function TestTextTable:testDecodeLongestMatch() lu.assertEquals(tbl():decode(hex('10111012')), 'AB!AC') end
 
-function TestTextTable:testDecodeMultiByteText()
-    lu.assertEquals(tbl():decode(hex('4D0F8140')), 'é …')
-end
+function TestTextTable:testDecodeMultiByteText() lu.assertEquals(tbl():decode(hex('4D0F8140')), 'é …') end
 
 function TestTextTable:testUnknownByteRoundTrips()
     local t = tbl()
@@ -68,19 +59,13 @@ function TestTextTable:testParameters()
     lu.assertEquals(t:encode('<WAIT 120>A<COLOUR 2a>'), hex('FB077810FB082A'))
 end
 
-function TestTextTable:testParameterPastEndIsRaw()
-    lu.assertEquals(tbl():decode(hex('10FB07')), 'A<$FB><$07>')
-end
+function TestTextTable:testParameterPastEndIsRaw() lu.assertEquals(tbl():decode(hex('10FB07')), 'A<$FB><$07>') end
 
 function TestTextTable:testDecodeKeyLengthDecidesNotParameters()
     local t = assert(PCSX.TextTable.parse('41=A\n4100=AA\nFB=<UNKNOWN %x:%x>\nFB07=<WAIT %d>\n'))
     local cases = {
-        { '4100', 'AA' },
-        { '4101', 'A<$01>' },
-        { 'FB0705', '<WAIT 5>' },
-        { 'FB0811', '<UNKNOWN 08:11>' },
-        { 'FB07', '<$FB><$07>' },
-        { 'FB08', '<$FB><$08>' },
+        { '4100', 'AA' }, { '4101', 'A<$01>' }, { 'FB0705', '<WAIT 5>' }, { 'FB0811', '<UNKNOWN 08:11>' },
+        { 'FB07', '<$FB><$07>' }, { 'FB08', '<$FB><$08>' },
     }
     for _, c in ipairs(cases) do
         local b = hex(c[1])
@@ -143,10 +128,8 @@ end
 
 function TestTextTable:testParseErrors()
     local cases = {
-        { '10=A\n10=B\n', 'line 2: 10 already defined on line 1' },
-        { '1=A\n', 'line 1: expected HEX=text' },
-        { 'zz=A\n', 'line 1: expected HEX=text' },
-        { 'FB=%d\n', 'line 1: FB must start with text' },
+        { '10=A\n10=B\n', 'line 2: 10 already defined on line 1' }, { '1=A\n', 'line 1: expected HEX=text' },
+        { 'zz=A\n', 'line 1: expected HEX=text' }, { 'FB=%d\n', 'line 1: FB must start with text' },
         { 'FB=\n', 'line 1: FB must start with text' },
     }
     for _, c in ipairs(cases) do

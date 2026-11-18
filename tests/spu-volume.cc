@@ -20,13 +20,13 @@ struct Case {
 };
 
 constexpr Case c_cases[] = {
-    {0, 0x807c},                    // linear increase, shift 31 step 0: one step per 1 << 20 samples
-    {0, 0x8000 | (20 << 2)},        // linear increase
-    {0, 0xc000 | (14 << 2) | 1},    // exponential increase, crosses the knee
+    {0, 0x807c},                       // linear increase, shift 31 step 0: one step per 1 << 20 samples
+    {0, 0x8000 | (20 << 2)},           // linear increase
+    {0, 0xc000 | (14 << 2) | 1},       // exponential increase, crosses the knee
     {0x3fff, 0xe000 | (13 << 2) | 2},  // exponential decrease from the top
-    {0x3fff, 0xa000 | (16 << 2)},   // linear decrease
-    {0, 0x9000 | (12 << 2)},        // linear increase, negative phase
-    {0x4001, 0xf000 | (15 << 2)},   // exponential decrease from a negative level
+    {0x3fff, 0xa000 | (16 << 2)},      // linear decrease
+    {0, 0x9000 | (12 << 2)},           // linear increase, negative phase
+    {0x4001, 0xf000 | (15 << 2)},      // exponential decrease from a negative level
 };
 
 }  // namespace

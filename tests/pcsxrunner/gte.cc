@@ -29,8 +29,8 @@ TEST(GTE, Interpreter) {
 }
 
 TEST(GTE, Dynarec) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-luacov", "-loadexe", "src/mips/tests/gte/gte/gte.ps-exe");
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-luacov",
+                        "-loadexe", "src/mips/tests/gte/gte/gte.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -125,8 +125,8 @@ TEST(GTE, MoveFromLoadDelayInterpreter) {
 }
 
 TEST(GTE, MoveFromLoadDelayDynarec) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-exec", c_cop2LoadDelay);
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-exec",
+                        c_cop2LoadDelay);
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -206,8 +206,8 @@ TEST(GTE, MvmvaAfterMtc2) {
 }
 
 TEST(GTE, MvmvaAfterMtc2Dynarec) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec",
-                        "-exec", c_mvmvaAfterMtc2);
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-exec",
+                        c_mvmvaAfterMtc2);
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }

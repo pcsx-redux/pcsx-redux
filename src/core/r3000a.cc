@@ -508,23 +508,23 @@ void PCSX::R3000Acpu::branchTestEvents() {
     uint64_t* targets = m_regs.scheduleTargets;
 
     if ((scheduleMask != 0) && (m_regs.lowestTarget < cycle)) {
-#define checkAndUpdate(irq_, act)                                     \
-    {                                                                 \
-        constexpr unsigned irq = static_cast<unsigned>(irq_);         \
-        constexpr uint32_t mask = 1 << irq;                           \
-        if ((scheduleMask & mask) != 0) {                             \
-            uint64_t target = targets[irq];                           \
-            int64_t dist = target - cycle;                            \
-            if (dist > 0) {                                           \
-                if (lowestDistance > dist) {                          \
-                    lowestDistance = dist;                            \
-                    lowestTarget = target;                            \
-                }                                                     \
-            } else {                                                  \
-                m_regs.scheduleMask &= ~mask;                         \
-                act();                                                \
-            }                                                         \
-        }                                                             \
+#define checkAndUpdate(irq_, act)                             \
+    {                                                         \
+        constexpr unsigned irq = static_cast<unsigned>(irq_); \
+        constexpr uint32_t mask = 1 << irq;                   \
+        if ((scheduleMask & mask) != 0) {                     \
+            uint64_t target = targets[irq];                   \
+            int64_t dist = target - cycle;                    \
+            if (dist > 0) {                                   \
+                if (lowestDistance > dist) {                  \
+                    lowestDistance = dist;                    \
+                    lowestTarget = target;                    \
+                }                                             \
+            } else {                                          \
+                m_regs.scheduleMask &= ~mask;                 \
+                act();                                        \
+            }                                                 \
+        }                                                     \
     }
         checkAndUpdate(Schedule::SIO, g_emulator->m_sio->scheduledCallback);
         checkAndUpdate(Schedule::SIO1, g_emulator->m_sio1->scheduledCallback);

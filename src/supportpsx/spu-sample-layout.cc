@@ -24,7 +24,6 @@ SOFTWARE.
 
 */
 
-
 #include "supportpsx/spu-sample-layout.h"
 
 #include <algorithm>
@@ -101,8 +100,7 @@ unsigned PCSX::SPUSampleLayout::encode(ADPCM::Encoder& encoder, const std::vecto
     for (unsigned b = 0; b < blocks; b++) {
         // The loop start block is forced to filter 0, so it decodes the same whether the SPU reaches it
         // from the previous block or jumps to it from the loop end.
-        encoder.processSPUBlock(pcm.data() + b * 28, spuBlock, ADPCM::Encoder::BlockAttribute::OneShot,
-                                b == loopBlock);
+        encoder.processSPUBlock(pcm.data() + b * 28, spuBlock, ADPCM::Encoder::BlockAttribute::OneShot, b == loopBlock);
         uint8_t blockAttribute = 0;
         if (b >= loopBlock) blockAttribute |= 2;
         if (b == loopBlock) blockAttribute |= 4;
