@@ -699,6 +699,12 @@ void PCSX::GPU::writeStatus(uint32_t value) {
             m_dataRet = 0x400;
         } break;
         case 1: {
+            // GP1(01h) ends an unfinished GP0(A0h) upload; a v2 GPU writes the row it was holding.
+            if (m_processor == &m_blitRamVram) {
+                m_blitRamVram.flushHeldRow();
+                m_processor->reset();
+                m_defaultProcessor.setActive();
+            }
             CtrlClearFifo ctrl;
             m_logger->addNode(ctrl, Logged::Origin::CTRLWRITE, value, 1);
             write1(&ctrl);
@@ -1142,9 +1148,37 @@ void PCSX::GPU::BlitVramVram::processWrite(Buffer &buf, Logged::Origin origin, u
     }
 }
 
+void PCSX::GPU::BlitRamVram::writeRow(GPU *gpu, unsigned row, const uint16_t *src, unsigned count,
+                                      PartialUpdateVram mode) {
+    // Drop writes to an opened-but-unpopulated upper bank (1MB fitment): they hit floating bus and are lost.
+    if (gpu->vramOpenBus(y + row)) return;
+    gpu->uploadVRAM(x, gpu->resolveVramY(y + row), count, 1, src + row * m_stride, mode);
+}
+
+// A v2 GPU writes GP0(A0h) data to VRAM one complete row at a time, as each row completes, so an
+// upload that never finishes still leaves its complete rows in VRAM. A v0 GPU (SCPH-1000, early
+// SCPH-1001) writes every word as it arrives instead; that is not modelled.
+void PCSX::GPU::BlitRamVram::landRows(const uint16_t *src, size_t pixels) {
+    unsigned rows = std::min<size_t>(h, pixels / m_stride);
+    for (; m_rowsLanded < rows; m_rowsLanded++) writeRow(m_gpu, m_rowsLanded, src, w);
+}
+
+void PCSX::GPU::BlitRamVram::flushHeldRow() {
+    if (m_state != READ_PIXELS) return;
+    const uint16_t *src = reinterpret_cast<const uint16_t *>(m_data.data());
+    size_t pixels = m_data.size() / 2;
+    landRows(src, pixels);
+    if (m_rowsLanded >= h) return;
+    size_t held = pixels - size_t(m_rowsLanded) * m_stride;
+    // A row starting in the upper halfword of a word that ended the previous row keeps that lone
+    // halfword until the next word arrives; GP1(01h) does not write it.
+    if (held < 2) return;
+    writeRow(m_gpu, m_rowsLanded, src, std::min<size_t>(held, w));
+}
+
 void PCSX::GPU::BlitRamVram::processWrite(Buffer &buf, Logged::Origin origin, uint32_t origvalue, uint32_t length) {
     uint32_t value;
-    size_t size = (w * h + 1) / 2;
+    size_t size = (m_stride * h + 1) / 2;
     bool done = false;
     switch (m_state) {
         case READ_COMMAND:
@@ -1175,7 +1209,19 @@ void PCSX::GPU::BlitRamVram::processWrite(Buffer &buf, Logged::Origin origin, ui
             // waiting for the rest, too many corrupts the command stream.
             w = ((w - 1) & 0x3ff) + 1;
             h = ((h - 1) & 0x1ff) + 1;
-            size = (w * h + 1) / 2;
+            m_stride = w;
+            size = (m_stride * h + 1) / 2;
+            // raw.{x,y,w,h} keep the values the game actually sent, for the logger.
+            // Gate open: Y wraps mod-1024 per row via resolveVramY (silicon-
+            // measured WRAP, transfer-wrap-y 2026-06-15), so clamp X only and let
+            // the per-row loop run the full height. Gate closed: retail clip.
+            // Clipped here, before any pixel arrives, because rows land as they complete.
+            if (m_gpu->vram2MBGateOpen()) {
+                clipped = GPU::clipX<unsigned, 1024>(x, w);
+            } else {
+                clipped = GPU::clip<unsigned, 1024, 1024>(x, y, w, h);
+            }
+            m_rowsLanded = 0;
             m_data.clear();
             m_data.reserve(size * 4);
             m_state = READ_PIXELS;
@@ -1194,44 +1240,24 @@ void PCSX::GPU::BlitRamVram::processWrite(Buffer &buf, Logged::Origin origin, ui
                 if (done) {
                     data.acquire(std::move(m_data));
                     m_data.clear();
+                } else {
+                    landRows(reinterpret_cast<const uint16_t *>(m_data.data()), m_data.size() / 2);
                 }
             }
             break;
     }
     if (done) {
-        // raw.{x,y,w,h} captured at READ_HW before the COPY-size masking so
-        // the logger keeps the values the game actually sent.
-        // Gate open: Y wraps mod-1024 per row via resolveVramY (silicon-
-        // measured WRAP, transfer-wrap-y 2026-06-15), so clamp X only and let
-        // the per-row loop run the full height. Gate closed: retail clip.
-        if (m_gpu->vram2MBGateOpen()) {
-            clipped = GPU::clipX<unsigned, 1024>(x, w);
-        } else {
-            clipped = GPU::clip<unsigned, 1024, 1024>(x, y, w, h);
-        }
         m_state = READ_COMMAND;
         m_gpu->m_defaultProcessor.setActive();
         m_gpu->m_logger->addNode(*this, origin, origvalue, length);
-        {
-            const uint16_t *src = data.data<uint16_t>();
-            for (int row = 0; row < h; row++) {
-                // Drop writes to an opened-but-unpopulated upper bank (1MB
-                // fitment): they hit floating bus and are lost.
-                if (m_gpu->vramOpenBus(y + row)) continue;
-                m_gpu->uploadVRAM(x, m_gpu->resolveVramY(y + row), w, 1, src + row * w,
-                                  PartialUpdateVram::Synchronous);
-            }
-        }
+        landRows(data.data<uint16_t>(), size_t(m_stride) * h);
+        m_rowsLanded = 0;
     }
 }
 
 void PCSX::GPU::BlitRamVram::execute(GPU *gpu) {
     const uint16_t *src = data.data<uint16_t>();
-    for (int row = 0; row < h; row++) {
-        // Drop writes to an opened-but-unpopulated upper bank (1MB fitment).
-        if (gpu->vramOpenBus(y + row)) continue;
-        gpu->uploadVRAM(x, gpu->resolveVramY(y + row), w, 1, src + row * w);
-    }
+    for (unsigned row = 0; row < h; row++) writeRow(gpu, row, src, w, PartialUpdateVram::Asynchronous);
 }
 
 void PCSX::GPU::BlitVramRam::processWrite(Buffer &buf, Logged::Origin origin, uint32_t origvalue, uint32_t length) {

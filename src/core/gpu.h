@@ -605,6 +605,7 @@ class GPU {
             y = other.y;
             w = other.w;
             h = other.h;
+            m_stride = other.m_stride;
             data.copy(other.data);
         }
         BlitRamVram(BlitRamVram &&) = delete;
@@ -612,7 +613,10 @@ class GPU {
         void reset() override {
             m_state = READ_COMMAND;
             m_data.clear();
+            m_rowsLanded = 0;
         }
+        // GP1(01h) during an unfinished upload: writes the partial row, then the upload ends.
+        void flushHeldRow();
         bool isInside(unsigned x, unsigned y) override {
             return (x >= this->x) && (y >= this->y) && (x < this->x + this->w) && (y < this->y + this->h);
         }
@@ -629,6 +633,12 @@ class GPU {
       private:
         enum { READ_COMMAND, READ_XY, READ_HW, READ_PIXELS } m_state = READ_COMMAND;
         std::string m_data;
+        // Pixels per row in the data stream: the effective width before any X clip.
+        unsigned m_stride = 0;
+        unsigned m_rowsLanded = 0;
+        void writeRow(GPU *gpu, unsigned row, const uint16_t *src, unsigned count,
+                      PartialUpdateVram = PartialUpdateVram::Synchronous);
+        void landRows(const uint16_t *src, size_t pixels);
     };
 
     struct BlitVramRam final : public Command, public Logged {
