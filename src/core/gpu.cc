@@ -721,8 +721,12 @@ void PCSX::GPU::writeStatus(uint32_t value) {
             if (m_dma2Waiting && (m_dmaDirection != 0)) {
                 auto &mem = g_emulator->m_mem;
                 const uint32_t chcr = mem->getCHCR<2>();
-                m_dma2Waiting = false;
-                if ((chcr & 0x01000000) && mem->isDMAEnabled<2>()) dmaSync1(chcr);
+                // A busy channel that DPCR has disabled keeps waiting for the next GP1(04h).
+                if (!(chcr & 0x01000000)) {
+                    m_dma2Waiting = false;
+                } else if (mem->isDMAEnabled<2>()) {
+                    dmaSync1(chcr);
+                }
             }
         } break;
         case 5: {
