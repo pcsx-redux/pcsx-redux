@@ -27,19 +27,75 @@
 namespace {
 
 	std::string archive1test1 = R"(
+local success, result = pcall(function()
+	Support.extra.dofile('dummy.lua')
+end
+)
+if success then
+	error('Should have failed to open dummy.lua')
+end
+ran.archive1test1 = true
 )";
 	std::string archive1test2 = R"(
+local notfile = Support.extra.open('dummy.nothere')
+if not notfile:failed() then
+	error('Should have failed to open dummy.nothere')
+end
+local success, result = pcall(function()
+	Support.extra.addArchive('dummy.zip')
+end
+)
+if success then
+	error('Should have failed to open dummy.zip')
+end
+Support.extra.dofile('test1.lua')
+ran.archive1test2 = true
 )";
 	std::string archive1test3 = R"(
+local file = Support.extra.open('arc/somedata.txt')
+if file:failed() then
+	error('Should have opened arc/somedata.txt')
+end
+local str = tostring(file:read(file:size()))
+if str ~= 'This is some data' then
+	error('Should have read the correct data from arc/somedata.txt')
+end
+Support.extra.dofile('test2.lua')
+ran.archive1test3 = true
 )";
 	std::string archive2test1 = R"(
+Support.extra.addArchive('test1.zip')
+Support.extra.dofile('arc/test3.lua')
+ran.archive2test1 = true
 )";
 	std::string archive2test2 = R"(
+Support.extra.dofile('dir1/test.lua')
+ran.archive2test2 = true
 )";
 	std::string archive2autoexec = R"(
+ran = {}
+Support.extra.dofile('dir2/test.lua')
+gotall = true
+if not ran.archive1test1 then
+	gotall = false
+end
+if not ran.archive1test2 then
+	gotall = false
+end
+if not ran.archive1test3 then
+	gotall = false
+end
+if not ran.archive2test1 then
+	gotall = false
+end
+if not ran.archive2test2 then
+	gotall = false
+end
+if not gotall then
+	error('Not all tests ran successfully')
+end
 PCSX.quit(0)
 )";
-
 }
 
 void closeArchivesForTests();
@@ -60,14 +116,15 @@ private:
 protected:
 	void SetUp() override {
 		PCSX::IO<PCSX::File> out = new PCSX::PosixFile("test1.zip", PCSX::FileOps::TRUNCATE);
-		writeOneFile(out, "test1.lua", archive1test1);
-		writeOneFile(out, "test2.lua", archive1test2);
-		writeOneFile(out, "test3.lua", archive1test3);
+        writeOneFile(out, "arc/somedata.txt", "This is some data");
+		writeOneFile(out, "arc/test1.lua", archive1test1);
+		writeOneFile(out, "arc/test2.lua", archive1test2);
+		writeOneFile(out, "arc/test3.lua", archive1test3);
 		out->write<uint32_t>(0x06054b50);
 		out->close();
 		out = new PCSX::PosixFile("test2.zip", PCSX::FileOps::TRUNCATE);
-		writeOneFile(out, "test1.lua", archive2test1);
-		writeOneFile(out, "test2.lua", archive2test2);
+		writeOneFile(out, "dir1/test.lua", archive2test1);
+		writeOneFile(out, "dir2/test.lua", archive2test2);
 		writeOneFile(out, "autoexec.lua", archive2autoexec);
 		out->write<uint32_t>(0x06054b50);
 		out->close();

@@ -216,7 +216,7 @@ void PCSX::LuaFFI::open_extra(Lua L) {
             auto ar = L.getinfo("S", 2);
             auto name = L.tostring();
             IO<File> file = load(name, ar.has_value() ? ar->source : "");
-            if (file->failed()) return L.error("Unable to locate file");
+            if (file->failed()) return L.error("Unable to locate file %s", name.c_str());
             L.push(file->readString(file->size()));
             return 1;
         },
