@@ -311,3 +311,33 @@ end
 )"}});
     EXPECT_EQ(run(), 0);
 }
+
+// A helper defined in one file and called normally from another loads next to the file defining it.
+TEST_F(ArchiveFilesTest, HelperFromTheLoadingFile) {
+    writeZip("files.zip", {{"archive-test-moddir/a.lua", R"(
+function loadNextToA(name)
+    local r = Support.extra.dofile(name)
+    return r
+end
+local r = Support.extra.dofile('sub/c.lua')
+return r
+)"},
+                           {"archive-test-moddir/sub/c.lua", "local r = loadNextToA('b.lua')\nreturn r"},
+                           {"archive-test-moddir/b.lua", "return 'from archive'"},
+                           {"archive-test-moddir/sub/b.lua", "return 'next to the calling file'"},
+                           {"autoexec.lua", c_runA}});
+    EXPECT_EQ(run(), 0);
+}
+
+// loadfile returns the chunk itself, so setfenv on it changes what the chunk sees.
+TEST_F(ArchiveFilesTest, LoadfileSetfenv) {
+    writeZip("files.zip", {{"archive-test-moddir/a.lua", R"(
+local f = Support.extra.loadfile('b.lua')
+setfenv(f, { answer = 'from archive' })
+local r = f()
+return r
+)"},
+                           {"archive-test-moddir/b.lua", "return answer"},
+                           {"autoexec.lua", c_runA}});
+    EXPECT_EQ(run(), 0);
+}
