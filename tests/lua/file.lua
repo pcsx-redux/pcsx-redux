@@ -125,3 +125,25 @@ function TestFile:test_readToSlice()
     lu.assertEquals(slice.size, 6)
     lu.assertEquals(ffi.string(slice.data, slice.size), ' world')
 end
+
+function TestFile:test_close_lands_the_writes()
+    -- The luacov line hook slows this loop enough to hide the race, so run it unhooked.
+    local hook, mask, count = debug.gethook()
+    debug.sethook()
+    local path = 'pcsx-redux-file-close-test.bin'
+    local chunk = string.rep('0123456789abcdef', 1024)
+    local expected = string.rep(chunk, 16)
+    local short = 0
+    for i = 1, 50 do
+        local f = Support.File.open(path, 'TRUNCATE')
+        for k = 1, 16 do f:write(chunk) end
+        f:close()
+        local h = io.open(path, 'rb')
+        local got = h:read('*a')
+        h:close()
+        if got ~= expected then short = short + 1 end
+    end
+    if hook then debug.sethook(hook, mask, count) end
+    os.remove(path)
+    lu.assertEquals(short, 0)
+end
