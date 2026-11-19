@@ -14,14 +14,19 @@ def cell(text):
     text = " ".join((text or "").split())
     if len(text) > 300:
         text = text[:297] + "..."
-    return html.escape(text).replace("|", "\\|")
+    return html.escape(text, quote=False).replace("|", "\\|")
+
+
+def render(r):
+    report = r[0][:-4] if r[0].endswith(".xml") else r[0]
+    return f"| {r[2]} | {cell(report)} | {cell(r[1])} | {cell(r[3])} | {cell(r[4])} |"
 
 
 def outcome(case):
     for tag, label in (("failure", "FAIL"), ("error", "ERROR")):
         node = case.find(tag)
         if node is not None:
-            return label, node.get("message") or node.text or ""
+            return label, (node.text or "").strip() or node.get("message") or ""
     skipped = case.find("skipped")
     if skipped is not None:
         return "SKIP", skipped.get("message") or skipped.text or ""
@@ -41,7 +46,7 @@ def collect(directory):
             try:
                 tree = ET.parse(path)
             except ET.ParseError as e:
-                rows.append((source, source, "ERROR", "", f"unreadable result file: {e}"))
+                rows.append((source, "", "ERROR", "", f"unreadable result file: {e}"))
                 continue
             for suite in tree.getroot().iter("testsuite"):
                 for case in suite.findall("testcase"):
@@ -65,18 +70,18 @@ def main():
         counts[row[2]] = counts.get(row[2], 0) + 1
     out.append(", ".join(f"{counts.get(k, 0)} {k.lower()}" for k in ("PASS", "FAIL", "ERROR", "SKIP")))
     out.append("")
-    header = ["| Result | Suite | Test | Message |", "|---|---|---|---|"]
+    header = ["| Result | Report | Suite | Test | Message |", "|---|---|---|---|---|"]
     bad = [r for r in rows if r[2] in ("FAIL", "ERROR")]
     if bad:
         out.append("### Failures")
         out.append("")
         out += header
-        out += [f"| {r[2]} | {cell(r[1])} | {cell(r[3])} | {cell(r[4])} |" for r in bad]
+        out += [render(r) for r in bad]
         out.append("")
     out.append(f"<details><summary>All {len(rows)} tests</summary>")
     out.append("")
     out += header
-    out += [f"| {r[2]} | {cell(r[1])} | {cell(r[3])} | {cell(r[4])} |" for r in rows]
+    out += [render(r) for r in rows]
     out.append("")
     out.append("</details>")
     print("\n".join(out))

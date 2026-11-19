@@ -38,6 +38,7 @@ jobs:
           DBUS_SESSION_BUS_ADDRESS: "disabled:"
         run: |
           export GTEST_OUTPUT=xml:${TEST_RESULTS}/
+          export PCSX_TEST_REPORT_DIR=${TEST_RESULTS}
           mkdir -p $TEST_RESULTS
           xvfb-run ./pcsx-redux-tests
       - name: Test summary

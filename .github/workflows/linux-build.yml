@@ -111,6 +111,7 @@ jobs:
       - name: Test
         run: |
           export GTEST_OUTPUT=xml:${TEST_RESULTS}/
+          export PCSX_TEST_REPORT_DIR=${TEST_RESULTS}
           mkdir -p $TEST_RESULTS
           xvfb-run catchsegv ./pcsx-redux-tests
       - name: Test summary
