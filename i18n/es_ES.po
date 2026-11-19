@@ -2,12 +2,12 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
+# 
 # Translators:
 # Whitehole <javi_del_95@hotmail.com>, 2022
 # Name LastName, 2026
 # Víctor González, 2026
-#
+# 
 #, fuzzy
 msgid ""
 msgstr ""
@@ -15,14 +15,12 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "PO-Revision-Date: 2021-03-27 04:53+0000\n"
 "Last-Translator: Víctor González, 2026\n"
-"Language-Team: Spanish (Spain) (https://app.transifex.com/grumpycoders/teams/"
-"99251/es_ES/)\n"
-"Language: es_ES\n"
+"Language-Team: Spanish (Spain) (https://app.transifex.com/grumpycoders/teams/99251/es_ES/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? "
-"1 : 2;\n"
+"Language: es_ES\n"
+"Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
 
 #: src/cdrom/cdriso-ecm.cc:270
 #, c-format
@@ -31,8 +29,7 @@ msgid ""
 "Detected ECM file with proper header and filename suffix.\n"
 msgstr ""
 "\n"
-"Detectado un archivo ECM con la cabecera y el sufijo en su nombre de archivo "
-"correctos.\n"
+"Detectado un archivo ECM con la cabecera y el sufijo en su nombre de archivo correctos.\n"
 
 #: src/cdrom/cdriso-sbi.cc:42
 #, c-format
@@ -83,16 +80,19 @@ msgid "Use linear filtering"
 msgstr "Usar filtrado lineal"
 
 #: src/core/OpenGL_GPU/gpu_opengl.cc:700 src/gpu/soft/gpu.cc:332
-#, fuzzy
 msgid "Deinterlace"
-msgstr "Entrelazado: %s"
+msgstr "Desentrelazar"
 
 #: src/core/OpenGL_GPU/gpu_opengl.cc:704 src/gpu/soft/gpu.cc:336
 msgid ""
-"In 480i, draw every row. With drawing to the displayed area off, the console "
-"skips the rows of the field being displayed, which makes moving images comb. "
-"Timing is unchanged."
+"In 480i, draw every row. With drawing to the displayed area off, the console"
+" skips the rows of the field being displayed, which makes moving images "
+"comb. Timing is unchanged."
 msgstr ""
+"Dibuja todas las filas en 480i. Si desactivas el dibujado en el área de "
+"visualización, la consola omitirá las filas del campo mostrado y provocará "
+"un efecto peine en las imágenes en movimiento. No se cambiará la "
+"sincronización."
 
 #: src/core/OpenGL_GPU/gpu_opengl.cc:707
 msgid "Edit OpenGL GPU shaders"
@@ -244,17 +244,17 @@ msgid "GDB server: unable to listen on port %i: %s\n"
 msgstr "Servidor GDB: no se ha podido escuchar el puerto %i: %s\n"
 
 #: src/core/gdb-server.cc:158
-#, fuzzy, c-format
+#, c-format
 msgid "GDB server: reverse execution needs the debugger (use -debugger)\n"
 msgstr ""
-"Servidor GDB: punto de interrupción en %08x rechazado, depurador desactivado "
-"(utiliza -debugger)\n"
+"Servidor GDB: la ejecución invertida necesita al depurador (usa -debugger)\n"
 
 #: src/core/gdb-server.cc:163
 #, c-format
-msgid ""
-"GDB server: reverse execution needs the interpreter (use -interpreter)\n"
+msgid "GDB server: reverse execution needs the interpreter (use -interpreter)\n"
 msgstr ""
+"Servidor GDB: la ejecución invertida necesita al intérprete (usa "
+"-interpreter)\n"
 
 #: src/core/gdb-server.cc:177
 #, c-format
@@ -262,13 +262,18 @@ msgid ""
 "GDB server: reverse execution replays from the rewind ring, which is off "
 "(RewindInterval is 0)\n"
 msgstr ""
+"Servidor GDB: la ejecución invertida utiliza el anillo de repeticiones, que "
+"está desactivado (RewindInterval está a 0)\n"
 
-#. Interrupted, or an exception paused it. Wherever it is, it is a point of the past.
+#. Interrupted, or an exception paused it. Wherever it is, it is a point of
+#. the past.
 #: src/core/gdb-server.cc:217
 #, c-format
 msgid ""
 "GDB server: replay from snapshot %zu (cycle %llu) paused early at pc %08x\n"
 msgstr ""
+"Servidor GDB: la repetición de la captura %zu (ciclo %llu) se ha pausado "
+"antes de tiempo en el PC %08x\n"
 
 #: src/core/gdb-server.cc:228
 #, c-format
@@ -276,6 +281,8 @@ msgid ""
 "GDB server: replay diverged, expected to stop at cycle %llu, stopped at "
 "%llu\n"
 msgstr ""
+"Servidor GDB: divergencia en la repetición, se esperaba que se detuviese en "
+"el ciclo %llu y se ha detenido en el %llu\n"
 
 #. breakpoints are only checked when the debugger is enabled
 #: src/core/gdb-server.cc:789
@@ -284,8 +291,8 @@ msgid ""
 "GDB server: refusing breakpoint at %08x, the debugger is disabled (use "
 "-debugger)\n"
 msgstr ""
-"Servidor GDB: punto de interrupción en %08x rechazado, depurador desactivado "
-"(utiliza -debugger)\n"
+"Servidor GDB: punto de interrupción en %08x rechazado, depurador desactivado"
+" (utiliza -debugger)\n"
 
 #: src/core/gdb-server.cc:804
 msgid "GDB client"
@@ -305,7 +312,7 @@ msgstr "Un DMA de la GPU ha ido a memoria de msan no utilizable: %8.8lx\n"
 
 #: src/core/gpu.cc:1378
 msgid "Color"
-msgstr ""
+msgstr "Color"
 
 #: src/core/gpu.cc:1393 src/core/gpulogger.cc:550
 msgid "100% Back + 100% Front"
@@ -324,9 +331,8 @@ msgid "100% Back + 25% Front"
 msgstr "100 % de fondo + 25 % de frente"
 
 #: src/core/gpu.cc:1396
-#, fuzzy
 msgid "Blending"
-msgstr "Mezcla:"
+msgstr "Mezcla"
 
 #: src/core/gpu.cc:1405 src/core/gpu.cc:1506
 msgid "Shading: Flat"
@@ -380,8 +386,8 @@ msgstr "lectura"
 #: src/core/gpulogger.cc:255
 #, c-format
 msgid ""
-"VRAM breakpoint %i triggered: %.*s did a %s intersecting %ix%i at %i,%i - PC "
-"= 0x%08x\n"
+"VRAM breakpoint %i triggered: %.*s did a %s intersecting %ix%i at %i,%i - PC"
+" = 0x%08x\n"
 msgstr ""
 "Activado punto de interrupción de VRAM %i: %.*s hizo una %s que se cruza en "
 "%i×%i en %i,%i - PC = 0x%08x\n"
@@ -532,8 +538,8 @@ msgstr "Descriptor de asignación rechazado en %8.8lx: %s\n"
 #, c-format
 msgid "Guest command struct at %8.8lx is not in mapped memory\n"
 msgstr ""
-"La estructura de comando de invitado en %8.8lx no se encuentra en la memoria "
-"asignada\n"
+"La estructura de comando de invitado en %8.8lx no se encuentra en la memoria"
+" asignada\n"
 
 #: src/core/mdec.cc:136
 msgid ""
@@ -541,8 +547,8 @@ msgid ""
 "default here and will decode this to flat grey; send MDEC(3) before "
 "MDEC(1).\n"
 msgstr ""
-"Se ha emitido un comando de decodificación de MDEC sin una tabla de escalas. "
-"Un hardware real no tendría un valor predeterminado y lo descodificaría en "
+"Se ha emitido un comando de decodificación de MDEC sin una tabla de escalas."
+" Un hardware real no tendría un valor predeterminado y lo descodificaría en "
 "gris plano, hay que enviar MDEC(3) antes de MDEC(1).\n"
 
 #: src/core/memorycard.cc:162
@@ -550,6 +556,8 @@ msgstr ""
 msgid ""
 "PocketStation: kernel image %s could not be opened; device not started.\n"
 msgstr ""
+"PocketStation: no se ha podido abrir la imagen del kernel %s; no se ha "
+"iniciado el dispositivo.\n"
 
 #: src/core/memorycard.cc:170
 #, c-format
@@ -557,6 +565,8 @@ msgid ""
 "PocketStation: kernel image %s is %zu bytes, expected 16384; device not "
 "started.\n"
 msgstr ""
+"PocketStation: la imagen del kernel %s ocupa %zu bytes y se esperaban 16384;"
+" no se ha iniciado el dispositivo.\n"
 
 #: src/core/memorycard.cc:200
 #, c-format
@@ -564,6 +574,8 @@ msgid ""
 "PocketStation: the savestate has a device in slot %i, but that slot has "
 "none.\n"
 msgstr ""
+"PocketStation: el estado de guardado tiene un dispositivo en la ranura %i, "
+"pero esa ranura está vacía.\n"
 
 #: src/core/memorycard.cc:206
 #, c-format
@@ -571,6 +583,8 @@ msgid ""
 "PocketStation: the device state in this savestate is not one this build "
 "reads.\n"
 msgstr ""
+"PocketStation: el estado del dispositivo almacenado en este estado de "
+"guardado no se corresponde con el de esta compilación.\n"
 
 #: src/core/memorycard.cc:587
 #, c-format
@@ -578,9 +592,9 @@ msgid "The memory card %s doesn't exist - creating it\n"
 msgstr "La Memory Card %s no existe, creando una nueva.\n"
 
 #: src/core/memorycard.cc:594
-#, fuzzy, c-format
+#, c-format
 msgid "Memory card %s failed to load: %s\n"
-msgstr "¡La Memory Card %s ha fallado al cargar!\n"
+msgstr "Error al cargar Memory Card %s: %s\n"
 
 #: src/core/memorycard.cc:599
 #, c-format
@@ -588,9 +602,10 @@ msgid "Loading memory card %s\n"
 msgstr "Cargando Memory Card %s\n"
 
 #: src/core/memorycard.cc:612
-#, fuzzy, c-format
+#, c-format
 msgid "Memory card %s failed to load: short read (%zu of %zu bytes)\n"
-msgstr "¡La Memory Card %s ha fallado al cargar!\n"
+msgstr ""
+"Error al cargar Memory Card %s: lectura demasiado corta (%zu de %zu bytes)\n"
 
 #: src/core/memorycard.cc:648
 #, c-format
@@ -910,8 +925,8 @@ msgstr "Se ha intentado acceder a COP3 desde 0x%08x. Ignorando.\n"
 msgid ""
 "SharedMem failed to share memory for wram, falling back to memory alloc\n"
 msgstr ""
-"SharedMem no ha podido compartir memoria para la wram, utilizando asignación "
-"de memoria como método de reserva\n"
+"SharedMem no ha podido compartir memoria para la wram, utilizando asignación"
+" de memoria como método de reserva\n"
 
 #: src/core/psxmem.cc:119
 msgid "Error allocating memory!"
@@ -933,12 +948,10 @@ msgstr "No se ha cargado una BIOS, emulación detenida."
 
 #: src/core/psxmem.cc:223
 msgid ""
-"Set a BIOS file into the configuration, and do a hard reset of the "
-"emulator.\n"
+"Set a BIOS file into the configuration, and do a hard reset of the emulator.\n"
 "The distributed OpenBIOS.bin file can be an appropriate BIOS replacement."
 msgstr ""
-"Elige un archivo de BIOS en la configuración y luego haz un reinicio "
-"completo de la emulación.\n"
+"Elige un archivo de BIOS en la configuración y luego haz un reinicio completo de la emulación.\n"
 "El archivo distribuido OpenBIOS.bin podría ser una BIOS alternativa ideal."
 
 #: src/core/psxmem.cc:236
@@ -1109,14 +1122,15 @@ msgid ""
 "Stack %s: instruction at 0x%08x moved $sp to 0x%08x, outside [0x%08x, "
 "0x%08x]\n"
 msgstr ""
+"%s de pila: instrucción en 0x%08x ha sacado $sp a 0x%08x [0x%08x, 0x%08x]\n"
 
 #: src/core/r3000a.cc:68
 msgid "overflow"
-msgstr ""
+msgstr "Desbordamiento"
 
 #: src/core/r3000a.cc:68
 msgid "underflow"
-msgstr ""
+msgstr "Subdesbordamiento"
 
 #: src/core/r3000a.cc:129
 #, c-format
@@ -1124,6 +1138,9 @@ msgid ""
 "Heap over stack: memory at [0x%08x, 0x%08x] is allocated, inside stack "
 "bounds [0x%08x, 0x%08x], seen when the instruction at 0x%08x moved $sp\n"
 msgstr ""
+"El montón supera a la pila: la memoria en [0x%08x, 0x%08x] ha sido asignada "
+"dentro de los límites del montón [0x%08x, 0x%08x], se ha visto cuando la "
+"instrucción de 0x%08x ha movido $sp\n"
 
 #: src/core/shmdisplay.cc:32
 msgid "Failed to create the shared display memory block\n"
@@ -1209,8 +1226,8 @@ msgid ""
 "readbacks and frame presentation wait for the worker to catch up."
 msgstr ""
 "Rasteriza en un hilo de trabajo mientras la emulación sigue ejecutándose. "
-"Los cotejados con la VRAM y la presentación de fotogramas esperarán a que el "
-"hilo de trabajo esté actualizado."
+"Los cotejados con la VRAM y la presentación de fotogramas esperarán a que el"
+" hilo de trabajo esté actualizado."
 
 #: src/gpu/soft/gpu.cc:339
 msgid "Disable textures for polygons"
@@ -1333,8 +1350,8 @@ msgid ""
 "Skip parity at the last draw: no draw since the last reset or threading "
 "change"
 msgstr ""
-"Omitir paridad en el último dibujado: no se ha dibujado nada desde el último "
-"reinicio o cambio de proceso"
+"Omitir paridad en el último dibujado: no se ha dibujado nada desde el último"
+" reinicio o cambio de proceso"
 
 #: src/gpu/soft/gpu.cc:396
 #, c-format
@@ -1633,8 +1650,7 @@ msgstr "Mostrar desensamblador del DynaRec"
 
 #: src/gui/gui-menubar.cc:248
 msgid ""
-"DynaRec Disassembler is not available in Interpreted CPU mode. Try enabling "
-"[Dynarec CPU]\n"
+"DynaRec Disassembler is not available in Interpreted CPU mode. Try enabling [Dynarec CPU]\n"
 "in Configuration->Emulation, restart PCSX-Redux, then try again."
 msgstr ""
 "El desensamblador del DynaRec no se encuentra disponible\n"
@@ -1647,9 +1663,8 @@ msgid "Show CPU Trace"
 msgstr "Mostrar seguimiento de CPU"
 
 #: src/gui/gui-menubar.cc:252
-#, fuzzy
 msgid "Show Hardware Events"
-msgstr "Registros de hardware"
+msgstr "Mostrar eventos de hardware"
 
 #: src/gui/gui-menubar.cc:253
 msgid "Show Breakpoints"
@@ -1660,9 +1675,8 @@ msgid "Show Callstacks"
 msgstr "Mostrar pilas de llamadas"
 
 #: src/gui/gui-menubar.cc:255
-#, fuzzy
 msgid "Show Profiler"
-msgstr "Mostrar escrituras"
+msgstr "Mostrar generador de perfiles"
 
 #: src/gui/gui-menubar.cc:256
 msgid "Memory Editors"
@@ -1769,14 +1783,12 @@ msgid "Show PSYQo heap viewer"
 msgstr "Mostrar visualizador del montón de PSYQo"
 
 #: src/gui/gui-menubar.cc:328
-#, fuzzy
 msgid "Show PSYQo scope profiler"
-msgstr "Mostrar visualizador del montón de PSYQo"
+msgstr "Mostrar generador de perfiles de ámbito de PSYQo"
 
 #: src/gui/gui-menubar.cc:329
-#, fuzzy
 msgid "Show PocketStation LCD"
-msgstr "Mostrar iconos de PocketStation"
+msgstr "Mostrar pantalla LCD de PocketStation"
 
 #: src/gui/gui-menubar.cc:330
 msgid "Show allocator tracker"
@@ -1882,20 +1894,15 @@ msgstr "Restablecer configuración"
 
 #: src/gui/gui-menubar.cc:396
 msgid ""
-"This will restore every setting to its default value, including the window "
-"layout, the input bindings, the paths to the BIOS and the memory cards, and "
-"the contents of the shader editors.\n"
+"This will restore every setting to its default value, including the window layout, the input bindings, the paths to the BIOS and the memory cards, and the contents of the shader editors.\n"
 "\n"
 "Save states and memory card contents are left alone.\n"
 "\n"
 "The emulator will reboot to complete the operation."
 msgstr ""
-"Se van a restablecer todos los ajustes a sus valores predeterminados, lo que "
-"incluye a la disposición de ventanas, las asignaciones de entrada, las rutas "
-"de BIOS y Memory Cards y los contenidos de los editores de shaders.\n"
+"Se van a restablecer todos los ajustes a sus valores predeterminados, lo que incluye a la disposición de ventanas, las asignaciones de entrada, las rutas de BIOS y Memory Cards y los contenidos de los editores de shaders.\n"
 "\n"
-"Los contenidos de los guardados rápidos y las Memory Card no se verán "
-"afectados.\n"
+"Los contenidos de los guardados rápidos y las Memory Card no se verán afectados.\n"
 "\n"
 "El emulador se reiniciará para completar la operación."
 
@@ -1987,9 +1994,8 @@ msgid "Callstacks"
 msgstr "Pilas de llamadas"
 
 #: src/gui/gui.cc:1380
-#, fuzzy
 msgid "Profiler"
-msgstr "No hay archivo"
+msgstr "Generador de perfiles"
 
 #: src/gui/gui.cc:1386
 msgid "Memory Card Manager"
@@ -2012,9 +2018,8 @@ msgid "CPU Trace"
 msgstr "Seguimiento de CPU"
 
 #: src/gui/gui.cc:1402
-#, fuzzy
 msgid "Hardware Events"
-msgstr "Registros de hardware"
+msgstr "Eventos de hardware"
 
 #: src/gui/gui.cc:1405 src/gui/widgets/typed_debugger.cc:832
 #: src/gui/widgets/typed_debugger.cc:878 src/gui/widgets/typed_debugger.cc:931
@@ -2092,16 +2097,15 @@ msgstr "Visualizador del montón de PSYQo"
 
 #: src/gui/gui.cc:1480
 msgid "PSYQo Scope Profiler"
-msgstr ""
+msgstr "Generador de perfiles de ámbito de PSYQo"
 
 #: src/gui/gui.cc:1481
 msgid "Allocator Tracker"
 msgstr "Rastreador de asignaciones"
 
 #: src/gui/gui.cc:1491
-#, fuzzy
 msgid "PocketStation LCD"
-msgstr "Tarjeta 1 PocketStation"
+msgstr "Pantalla LCD de PocketStation"
 
 #: src/gui/gui.cc:1599 src/gui/gui.cc:1688
 msgid "Version"
@@ -2166,8 +2170,8 @@ msgid ""
 "be able to properly report problems accurately."
 msgstr ""
 "Se ha desactivado el informe de errores de OpenGL porque tu controlador de "
-"OpenGL es demasiado antiguo. Los informes de errores requieren, como mínimo, "
-"de la versión 4.3 de Open GL. Recomendamos actualizar los controladores de "
+"OpenGL es demasiado antiguo. Los informes de errores requieren, como mínimo,"
+" de la versión 4.3 de Open GL. Recomendamos actualizar los controladores de "
 "tu tarjeta gráfica o contactar con el fabricante de tu GPU para obtener los "
 "controladores más recientes para OpenGL. Desactivar los informes de errores "
 "de OpenGL no afectará de forma negativa al rendimiento de este software, "
@@ -2184,8 +2188,8 @@ msgid ""
 "However it requires OpenGL 4.3+ and might have performance repercussions on "
 "some computers. (Requires a restart of the emulator)"
 msgstr ""
-"El informe de errores de OpenGL es necesario para poder informar debidamente "
-"de cualquier problema que pueda ocurrir con OpenGL. Sin embargo, es "
+"El informe de errores de OpenGL es necesario para poder informar debidamente"
+" de cualquier problema que pueda ocurrir con OpenGL. Sin embargo, es "
 "necesaria la versión 4.3 o superior de OpenGL y esto podría afectar al "
 "rendimiento de algunos equipos (es necesario reiniciar el emulador)."
 
@@ -2229,29 +2233,28 @@ msgid "Extensions:"
 msgstr "Extensiones:"
 
 #: src/gui/gui.cc:1713
-#, fuzzy
 msgid "Unknown controller"
-msgstr "Mando"
+msgstr "Mando desconocido"
 
 #: src/gui/gui.cc:1715
 #, c++-format
 msgid "Controller connected: {} (port {})"
-msgstr ""
+msgstr "Mando conectado: {} (puerto {})"
 
 #: src/gui/gui.cc:1716
 #, c++-format
 msgid "Controller disconnected: {} (port {})"
-msgstr ""
+msgstr "Mando desconectado: {} (puerto {})"
 
 #: src/gui/gui.cc:1720
-#, fuzzy, c++-format
+#, c++-format
 msgid "Controller connected: {}"
-msgstr "Tipo de mando"
+msgstr "Mando conectado: {}"
 
 #: src/gui/gui.cc:1720
 #, c++-format
 msgid "Controller disconnected: {}"
-msgstr ""
+msgstr "Mando desconectado: {}"
 
 #: src/gui/gui.cc:1902
 #, c++-format
@@ -2279,9 +2282,9 @@ msgid "Screenshot saved to {}\n"
 msgstr "Pantalla capturada en {}\n"
 
 #: src/gui/gui.cc:2205
-#, fuzzy, c++-format
+#, c++-format
 msgid "Screenshot saved to {}"
-msgstr "Pantalla capturada en {}\n"
+msgstr "Pantalla capturada en {}"
 
 #: src/gui/gui.cc:2207
 msgid "Failed to save screenshot"
@@ -2296,24 +2299,20 @@ msgid "Notification"
 msgstr "Notificación"
 
 #: src/gui/widgets/assembly.cc:351
-#, fuzzy
 msgid "Go to in Parallel Port Editor"
-msgstr "Ver en editor de memoria"
+msgstr "Ver en editor de puerto paralelo"
 
 #: src/gui/widgets/assembly.cc:353
-#, fuzzy
 msgid "Go to in Scratchpad Editor"
-msgstr "Ver en editor de memoria"
+msgstr "Ver en editor de scratchpad"
 
 #: src/gui/widgets/assembly.cc:355
-#, fuzzy
 msgid "Go to in Hardware Registers Editor"
-msgstr "Registros de hardware"
+msgstr "Ver en editor de registros de hardware"
 
 #: src/gui/widgets/assembly.cc:357
-#, fuzzy
 msgid "Go to in BIOS Editor"
-msgstr "Ver en editor de memoria"
+msgstr "Ver en editor de BIOS"
 
 #: src/gui/widgets/assembly.cc:367
 msgid "Go to in Memory Editor #1 (Default Click)"
@@ -2497,7 +2496,8 @@ msgstr "Ejecutar hasta el cursor"
 
 #: src/gui/widgets/assembly.cc:838
 msgid ""
-"Run the emulation until the program counter reaches this address, then pause."
+"Run the emulation until the program counter reaches this address, then "
+"pause."
 msgstr ""
 "Ejecuta la emulación hasta que el contador\n"
 "del programa llegue a esta dirección para\n"
@@ -2509,8 +2509,8 @@ msgstr "Saltar al cursor"
 
 #: src/gui/widgets/assembly.cc:849
 msgid ""
-"Set the program counter to this address. This will skip over any instruction "
-"between the current one and the one you're selecting. This can cause "
+"Set the program counter to this address. This will skip over any instruction"
+" between the current one and the one you're selecting. This can cause "
 "inconsistencies, so use with caution."
 msgstr ""
 "Establece esta dirección en el contador del programa.\n"
@@ -2551,7 +2551,8 @@ msgstr "Ensamblar"
 #: src/gui/widgets/assembly.cc:1031 src/gui/widgets/breakpoints.cc:181
 #: src/gui/widgets/memory_observer.cc:170
 #: src/gui/widgets/memory_observer.cc:397
-#: src/gui/widgets/memory_observer.cc:511 src/gui/widgets/typed_debugger.cc:929
+#: src/gui/widgets/memory_observer.cc:511
+#: src/gui/widgets/typed_debugger.cc:929
 msgid "Address"
 msgstr "Dirección"
 
@@ -2814,13 +2815,15 @@ msgstr "Interrumpir al escribir WORDs del mapa"
 
 #: src/gui/widgets/call_profiler.cc:44
 msgid ""
-"The profiler needs the interpreter. Disable the dynarec in Configuration-"
-">Emulation and restart."
+"The profiler needs the interpreter. Disable the dynarec in "
+"Configuration->Emulation and restart."
 msgstr ""
+"El generador de perfiles necesita al intérprete. Desactiva el DynaRec en "
+"Configuración->Emulación y reinicia."
 
 #: src/gui/widgets/call_profiler.cc:48
 msgid "Stop"
-msgstr ""
+msgstr "Parar"
 
 #: src/gui/widgets/call_profiler.cc:50 src/gui/widgets/spusamples.cc:258
 msgid "Start"
@@ -2829,52 +2832,50 @@ msgstr "START"
 #: src/gui/widgets/call_profiler.cc:68
 #, c-format
 msgid "%llu instructions, %llu calls"
-msgstr ""
+msgstr "%llu instrucciones, %llu llamadas"
 
 #: src/gui/widgets/call_profiler.cc:73
 msgid "Save pprof"
-msgstr ""
+msgstr "Guardar pprof"
 
 #: src/gui/widgets/call_profiler.cc:76 src/gui/widgets/call_profiler.cc:90
-#, fuzzy, c++-format
+#, c++-format
 msgid "Unable to create {}"
-msgstr "No se ha podido crear el archivo de volcado."
+msgstr "No se ha podido crear {}"
 
 #: src/gui/widgets/call_profiler.cc:80 src/gui/widgets/call_profiler.cc:94
-#, fuzzy, c++-format
+#, c++-format
 msgid "Unable to write {}"
-msgstr "No se ha podido abrir"
+msgstr "No se ha podido escribir {}"
 
 #: src/gui/widgets/call_profiler.cc:82 src/gui/widgets/call_profiler.cc:96
 #, c++-format
 msgid "Wrote {}"
-msgstr ""
+msgstr "Se ha escrito {}"
 
 #: src/gui/widgets/call_profiler.cc:87
 msgid "Save callgrind"
-msgstr ""
+msgstr "Guardar callgrind"
 
 #: src/gui/widgets/call_profiler.cc:111
-#, fuzzy
 msgid "Function"
-msgstr "Funciones"
+msgstr "Función"
 
 #: src/gui/widgets/call_profiler.cc:112
 msgid "Self"
-msgstr ""
+msgstr "Propia"
 
 #: src/gui/widgets/call_profiler.cc:114
 msgid "Self %"
-msgstr ""
+msgstr "% propio"
 
 #: src/gui/widgets/call_profiler.cc:115
 msgid "Inclusive"
-msgstr ""
+msgstr "Inclusiva"
 
 #: src/gui/widgets/call_profiler.cc:116 src/gui/widgets/scope_profiler.cc:281
-#, fuzzy
 msgid "Calls"
-msgstr "Pilas de llamadas"
+msgstr "Llamadas"
 
 #: src/gui/widgets/cdrom-viewer.cc:350
 msgid "CD-ROM Viewer"
@@ -3217,14 +3218,12 @@ msgid "Select BIOS"
 msgstr "Seleccionar BIOS"
 
 #: src/gui/widgets/emulation-config.cc:40
-#, fuzzy
 msgid "Select screenshot folder"
-msgstr "Seleccionar color de búsquedas"
+msgstr "Seleccionar carpeta de capturas de pantalla"
 
 #: src/gui/widgets/emulation-config.cc:41
-#, fuzzy
 msgid "Select save state folder"
-msgstr "Seleccionar color de búsquedas"
+msgstr "Seleccionar carpeta de estados de guardado"
 
 #: src/gui/widgets/emulation-config.cc:55
 msgid "Emulation Configuration"
@@ -3234,7 +3233,8 @@ msgstr "Configuración de emulación"
 msgid "Idle Swap Interval"
 msgstr "Intervalo de intercambio de inactividad"
 
-#. Emulation speed now lives at the audio sink (SPU::Speed), set in the SPU configuration window.
+#. Emulation speed now lives at the audio sink (SPU::Speed), set in the SPU
+#. configuration window.
 #: src/gui/widgets/emulation-config.cc:62
 msgid "Enable XA decoder"
 msgstr "Activar decodificador XA"
@@ -3288,7 +3288,6 @@ msgid "Memory Fill Value"
 msgstr "Valor con el que llenar memoria"
 
 #: src/gui/widgets/emulation-config.cc:86
-#, fuzzy
 msgid ""
 "Main RAM and sound RAM will be filled with\n"
 "this value at startup and on a hard reset.\n"
@@ -3298,9 +3297,10 @@ msgid ""
 "to detect uninitialized memory reads that may\n"
 "cause issues in some cases.\n"
 msgstr ""
-"Al arrancar la consola, su SDRAM\n"
-"se llenará con este valor.\n"
-"La SDRAM de un hardware real se deteriora\n"
+"Las RAM principal y de sonido se llenarán\n"
+"con este valor al arrancar la consola y\n"
+"al hacer un reinicio completo.\n"
+"La RAM de un hardware real se degrada\n"
 "con el tiempo y sus contenidos no son\n"
 "siempre 0 tras un arranque en frío.\n"
 "Este ajuste sirve para depurar lecturas\n"
@@ -3331,7 +3331,6 @@ msgid "2MB VRAM"
 msgstr "2 MB de VRAM"
 
 #: src/gui/widgets/emulation-config.cc:101
-#, fuzzy
 msgid ""
 "Emulates a console fitted with 2MB of VRAM\n"
 "instead of the stock 1MB, exposing the upper bank through\n"
@@ -3343,9 +3342,8 @@ msgstr ""
 "el MB que tienen los modelos comerciales exponiendo\n"
 "el banco superior a través de GP1(09h). Los 2 MB\n"
 "existen en un puñado de consolas modificadas y en\n"
-"algunas placas de arcade. Esta opción solo es\n"
-"compatible con el renderizador por software, la GPU\n"
-"por OpenGL no es compatible. Es necesario reiniciar."
+"algunas placas de arcade. Es necesario reiniciar\n"
+"tras cambiar esta opción."
 
 #: src/gui/widgets/emulation-config.cc:110
 msgid "Rewind capture interval (frames; 0 = disabled)"
@@ -3427,22 +3425,19 @@ msgstr "Archivo de BIOS"
 
 #: src/gui/widgets/emulation-config.cc:174
 msgid "(settings folder)"
-msgstr ""
+msgstr "(carpeta de configuración)"
 
 #: src/gui/widgets/emulation-config.cc:178
-#, fuzzy
 msgid "Reset"
-msgstr "Reiniciar todo"
+msgstr "Reiniciar"
 
 #: src/gui/widgets/emulation-config.cc:196
-#, fuzzy
 msgid "Screenshot folder"
-msgstr "Capturar pantalla"
+msgstr "Carpeta de capturas de pantalla"
 
 #: src/gui/widgets/emulation-config.cc:198
-#, fuzzy
 msgid "Save state folder"
-msgstr "Guardar un estado de guardado"
+msgstr "Carpeta de estados de guardado"
 
 #: src/gui/widgets/emulation-config.cc:207
 msgid ""
@@ -3522,10 +3517,11 @@ msgid "Start recording..."
 msgstr "Iniciar grabación..."
 
 #: src/gui/widgets/gpudump.cc:104
-msgid "The capture starts at the next vsync, with the full VRAM and GPU state."
+msgid ""
+"The capture starts at the next vsync, with the full VRAM and GPU state."
 msgstr ""
-"Se empezará a capturar el estado completo de la VRAM y de la GPU a partir de "
-"la próxima sincronización vertical."
+"Se empezará a capturar el estado completo de la VRAM y de la GPU a partir de"
+" la próxima sincronización vertical."
 
 #: src/gui/widgets/gpudump.cc:111
 msgid "Player"
@@ -3604,8 +3600,8 @@ msgstr "Registro de GPU"
 
 #: src/gui/widgets/gpulogger.cc:129
 msgid ""
-"Logs each frame's draw calls. When enabled, all the commands sent to the GPU "
-"will be logged and displayed here. This will contain only a single frame "
+"Logs each frame's draw calls. When enabled, all the commands sent to the GPU"
+" will be logged and displayed here. This will contain only a single frame "
 "worth of commands. The feature can be pretty demanding in CPU and memory."
 msgstr ""
 "Registra las llamadas de dibujo de cada fotograma. Al activar esta opción, "
@@ -3625,18 +3621,19 @@ msgstr "Repetir fotograma"
 msgid ""
 "When enabled, the framebuffer will be constantly redrawned using the "
 "selected commands, allowing to see the resulting output immediately. This "
-"doesn't make sense to have this enabled when: (1) the CPU is running and (2) "
-"the GPU logging isn't enabled. Selection of which commands to replay is done "
-"using the first checkbox in the logger display below. The [T] button will "
-"select all commands for replay from the top and until this command."
+"doesn't make sense to have this enabled when: (1) the CPU is running and (2)"
+" the GPU logging isn't enabled. Selection of which commands to replay is "
+"done using the first checkbox in the logger display below. The [T] button "
+"will select all commands for replay from the top and until this command."
 msgstr ""
-"Al activar esta opción, el búfer de fotogramas será reescrito constantemente "
-"con los comandos seleccionados, lo que permitirá mostrar la salida "
+"Al activar esta opción, el búfer de fotogramas será reescrito constantemente"
+" con los comandos seleccionados, lo que permitirá mostrar la salida "
 "resultante de forma inmediata. No tiene sentido activar esta opción en los "
 "siguientes casos: (1) si la CPU está funcionando y (2) si el registro de la "
-"GPU no está activado. Puedes seleccionar qué comandos repetir con la primera "
-"casilla de la ventana de registro que hay debajo. El botón [T] seleccionará "
-"todos los comandos desde el primero hasta el que se muestre para repetirlos."
+"GPU no está activado. Puedes seleccionar qué comandos repetir con la primera"
+" casilla de la ventana de registro que hay debajo. El botón [T] seleccionará"
+" todos los comandos desde el primero hasta el que se muestre para "
+"repetirlos."
 
 #: src/gui/widgets/gpulogger.cc:146
 msgid "Show origins"
@@ -3678,13 +3675,13 @@ msgstr "Resaltar al pasar el cursor por encima"
 
 #: src/gui/widgets/gpulogger.cc:179
 msgid ""
-"When enabled, hovering a command in the logger view will highlight it in the "
-"vram display. Individual commands can be selected for highlight by using the "
-"second checkbox in the logger view. The [B] and [E] buttons can be used to "
-"specify the beginning and the end of a span of commands to highlight."
+"When enabled, hovering a command in the logger view will highlight it in the"
+" vram display. Individual commands can be selected for highlight by using "
+"the second checkbox in the logger view. The [B] and [E] buttons can be used "
+"to specify the beginning and the end of a span of commands to highlight."
 msgstr ""
-"Al activar esta opción, cuando pases el cursor del ratón sobre un comando en "
-"la ventana de registro, este se resaltará en el visualizador de VRAM. Se "
+"Al activar esta opción, cuando pases el cursor del ratón sobre un comando en"
+" la ventana de registro, este se resaltará en el visualizador de VRAM. Se "
 "pueden seleccionar comandos individuales para resaltarlos con la segunda "
 "casilla de la ventana de registro. Los botones [B] y [E] pueden utilizarse "
 "para especificar el inicio y el final de un rango de comandos a resaltar."
@@ -3695,16 +3692,16 @@ msgstr "Filtrar por píxeles"
 
 #: src/gui/widgets/gpulogger.cc:184
 msgid ""
-"When enabled, only the commands that are related to the specified pixel will "
-"be shown. The pixel location is specified in the next input fields. The "
+"When enabled, only the commands that are related to the specified pixel will"
+" be shown. The pixel location is specified in the next input fields. The "
 "[Probe VRAM] button can be used to set the pixel location by hovering and "
 "clicking inside the VRAM viewer."
 msgstr ""
 "Al activar esta opción, se mostrarán únicamente los comandos relacionados "
-"con el píxel especificado. La ubicación del mismo puede especificarse en los "
-"campos de entrada de más abajo. Puedes utilizar el botón [Sondear VRAM] para "
-"establecer la ubicación del píxel si haces clic con el ratón dentro del "
-"visualizador de VRAM."
+"con el píxel especificado. La ubicación del mismo puede especificarse en los"
+" campos de entrada de más abajo. Puedes utilizar el botón [Sondear VRAM] "
+"para establecer la ubicación del píxel si haces clic con el ratón dentro del"
+" visualizador de VRAM."
 
 #: src/gui/widgets/gpulogger.cc:187
 msgid "Pixel location"
@@ -3719,10 +3716,11 @@ msgid ""
 "When enabled, hovering then clicking inside the VRAM viewer will set the "
 "pixel location for the filtering."
 msgstr ""
-"Al activar esta opción, se podrá establecer la ubicación del píxel a filtrar "
-"haciendo clic dentro del visualizador de VRAM."
+"Al activar esta opción, se podrá establecer la ubicación del píxel a filtrar"
+" haciendo clic dentro del visualizador de VRAM."
 
-#. Breakpoints pause the emulator, so they only make sense on the emulator's own logger.
+#. Breakpoints pause the emulator, so they only make sense on the emulator's
+#. own logger.
 #: src/gui/widgets/gpulogger.cc:198
 msgid "VRAM breakpoints"
 msgstr "Puntos de interrupción de la VRAM"
@@ -3732,13 +3730,13 @@ msgid ""
 "Pauses emulation when a command reads from or writes to one of these VRAM "
 "rectangles. Handy to catch the texture upload that stomped an area, since "
 "those are hard to spot in a frame that redraws everything. The command that "
-"triggered gets highlighted in the logger view below. Note the footprints are "
-"unclipped, so a primitive that ends up entirely outside the drawing area "
+"triggered gets highlighted in the logger view below. Note the footprints are"
+" unclipped, so a primitive that ends up entirely outside the drawing area "
 "still counts as a write."
 msgstr ""
-"Pausa la emulación cuando un comando lea o escriba un rectángulo de la VRAM. "
-"Ideal para localizar un envío de texturas que haya sobrescrito una zona, ya "
-"que no es fácil detectar estos envíos en un fotograma que lo sobrescriba "
+"Pausa la emulación cuando un comando lea o escriba un rectángulo de la VRAM."
+" Ideal para localizar un envío de texturas que haya sobrescrito una zona, ya"
+" que no es fácil detectar estos envíos en un fotograma que lo sobrescriba "
 "todo. El comando de activación se resaltará en el visualizador del registro "
 "de la parte inferior. Ten en cuenta que las superficies de memoria no están "
 "recortadas, así que si un primitivo acaba fuera del área de dibujado, "
@@ -3815,26 +3813,29 @@ msgid "%i texel reads"
 msgstr "%i lecturas a texels"
 
 #: src/gui/widgets/gpulogger.cc:251
-#, fuzzy
 msgid "Overdraw statistics"
-msgstr "Mapa de calor de sobredibujados"
+msgstr "Estadísticas de sobredibujado"
 
 #: src/gui/widgets/gpulogger.cc:253
 msgid ""
-"Counts how many times each VRAM pixel was touched during the previous frame, "
-"from the same buffers as the overdraw heatmap. Reading them back costs a GPU "
-"stall per frame."
+"Counts how many times each VRAM pixel was touched during the previous frame,"
+" from the same buffers as the overdraw heatmap. Reading them back costs a "
+"GPU stall per frame."
 msgstr ""
+"Cuenta el número de veces en el que se ha tocado cada píxel de la VRAM "
+"respecto al fotograma anterior, usando los mismos búferes que el mapa de "
+"calor de sobredibujado. El cotejado provocará un leve bloqueo en la GPU por "
+"cada fotograma."
 
 #: src/gui/widgets/gpulogger.cc:259
 #, c-format
 msgid "%u pixels, %llu touches, mean %.2f, max %u"
-msgstr ""
+msgstr "%u píxeles, %llu contactos, media %.2f, máximo %u"
 
 #: src/gui/widgets/gpulogger.cc:261
 #, c-format
 msgid "1x: %u  2x: %u  3-4x: %u  5-8x: %u  9x+: %u"
-msgstr ""
+msgstr "× 1: %u  × 2: %u  × 3-4: %u  × 5-8: %u  × 9+: %u"
 
 #: src/gui/widgets/gpulogger.cc:265 src/gui/widgets/vram-viewer.cc:665
 msgid "Pixels written"
@@ -3866,7 +3867,8 @@ msgstr "Encadenar DMA desde "
 msgid "at PC ="
 msgstr "en PC = "
 
-#. Keep the node names in one column whether the row has an Edit button or not.
+#. Keep the node names in one column whether the row has an Edit button or
+#. not.
 #: src/gui/widgets/gpulogger.cc:341 src/gui/widgets/gpulogger.cc:359
 #: src/gui/widgets/sio1.cc:141
 msgid "Edit"
@@ -3874,7 +3876,7 @@ msgstr "Editar"
 
 #: src/gui/widgets/gpulogger.cc:350
 msgid "Revert"
-msgstr ""
+msgstr "Revertir"
 
 #: src/gui/widgets/handlers.cc:40
 msgid "Invalid data at 0x100"
@@ -3907,29 +3909,24 @@ msgid "handler:"
 msgstr "  controlador: "
 
 #: src/gui/widgets/hwevents.cc:32
-#, fuzzy
 msgid "Save hardware events"
-msgstr "Eventos del kernel"
+msgstr "Guardar eventos de hardware"
 
 #: src/gui/widgets/hwevents.cc:33
-#, fuzzy
 msgid "Load hardware events"
-msgstr "Registrar accesos al hardware del CD-ROM"
+msgstr "Cargar eventos de hardware"
 
 #: src/gui/widgets/hwevents.cc:39
-#, fuzzy
 msgid "Record:"
-msgstr "Grabador"
+msgstr "Grabación:"
 
 #: src/gui/widgets/hwevents.cc:59
-#, fuzzy
 msgid "Limit reached, recording stopped."
-msgstr "Límite alcanzado, se han detenido las capturas."
+msgstr "Límite alcanzado, se ha detenido la grabación."
 
 #: src/gui/widgets/hwevents.cc:88
-#, fuzzy
 msgid "Not a hardware events file."
-msgstr "El archivo no es un seguimiento de CPU."
+msgstr "Este archivo no contiene eventos de hardware."
 
 #: src/gui/widgets/hwevents.cc:114 src/gui/widgets/spulogger.cc:48
 #, c++-format
@@ -3937,20 +3934,16 @@ msgid "{} events"
 msgstr "{} eventos"
 
 #: src/gui/widgets/hwevents.cc:115
-#, fuzzy
 msgid "Show:"
-msgstr "Mostrar todo"
+msgstr "Mostrar:"
 
 #: src/gui/widgets/hwevents.cc:149
-#, fuzzy
 msgid "Empty store."
-msgstr "Seguimiento en blanco."
+msgstr "Almacenamiento vacío."
 
 #: src/gui/widgets/hwevents.cc:149
-#, fuzzy
 msgid "No events recorded. Tick a source and run."
-msgstr ""
-"No se ha capturado el seguimiento. Activa la captura antes de arrancar."
+msgstr "No se han registrado eventos. Selecciona un origen y ejecuta."
 
 #: src/gui/widgets/hwregs.cc:197
 msgid "Bus Error###dicr_buserr"
@@ -4161,7 +4154,8 @@ msgstr "Reemplazo de ISO: error al abrir el archivo de reemplazo.\n"
 #: src/gui/widgets/isobrowser.cc:760
 #, c-format
 msgid ""
-"ISO replace: replacement file is larger than target (%zu > %u). Truncating.\n"
+"ISO replace: replacement file is larger than target (%zu > %u). "
+"Truncating.\n"
 msgstr ""
 "Reemplazo de ISO: el archivo de reemplazo es más grande que el destino (%zu "
 "> %u). Truncando.\n"
@@ -4298,7 +4292,8 @@ msgstr "Última"
 msgid "Clear Undo buffer"
 msgstr "Borrar búfer de acciones deshechas"
 
-#. Insert or remove memory cards. Send a SIO IRQ to the emulator if this happens as well.
+#. Insert or remove memory cards. Send a SIO IRQ to the emulator if this
+#. happens as well.
 #: src/gui/widgets/memcard_manager.cc:164
 msgid "Memory Card 1 inserted"
 msgstr "Memory Card 1 introducida"
@@ -4314,49 +4309,56 @@ msgid ""
 "link; without one, it falls back to canned command responses. Set the BIOS "
 "before enabling. Experimental."
 msgstr ""
+"Activa la emulación de PocketStation en esta Memory Card. Al seleccionar un "
+"conjunto de volcados de la BIOS más abajo, el emulador ejecutará un kernel "
+"real de PocketStation y lo ejecutará tras el enlace de la Memory Card, si no"
+" existen, se pasarán a usar respuestas de comandos predefinidas. Configura "
+"la BIOS antes de activar esta opción. Experimental."
 
 #: src/gui/widgets/memcard_manager.cc:185
 msgid "Port 1 tap slot B inserted"
-msgstr ""
+msgstr "Ranura B del multitap del puerto 1 insertada"
 
 #: src/gui/widgets/memcard_manager.cc:187
 msgid "Port 1 tap slot C inserted"
-msgstr ""
+msgstr "Ranura C del multitap del puerto 1 insertada"
 
 #: src/gui/widgets/memcard_manager.cc:189
 msgid "Port 1 tap slot D inserted"
-msgstr ""
+msgstr "Ranura D del multitap del puerto 1 insertada"
 
 #: src/gui/widgets/memcard_manager.cc:193
 msgid "Port 2 tap slot B inserted"
-msgstr ""
+msgstr "Ranura B del multitap del puerto 2 insertada"
 
 #: src/gui/widgets/memcard_manager.cc:195
 msgid "Port 2 tap slot C inserted"
-msgstr ""
+msgstr "Ranura C del multitap del puerto 2 insertada"
 
 #: src/gui/widgets/memcard_manager.cc:197
 msgid "Port 2 tap slot D inserted"
-msgstr ""
+msgstr "Ranura D del multitap del puerto 2 insertada"
 
 #: src/gui/widgets/memcard_manager.cc:201
 msgid "Card 1 Pocketstation"
-msgstr "Tarjeta 1 PocketStation"
+msgstr "PocketStation en ranura 1"
 
 #: src/gui/widgets/memcard_manager.cc:207
 msgid "Card 2 Pocketstation"
-msgstr "Tarjeta 2 PocketStation"
+msgstr "PocketStation en ranura 2"
 
 #: src/gui/widgets/memcard_manager.cc:218
-#, fuzzy
 msgid "Pocketstation BIOS"
-msgstr "Tarjeta 1 PocketStation"
+msgstr "BIOS de PocketStation"
 
 #: src/gui/widgets/memcard_manager.cc:227
 msgid ""
 "A 16 KiB PocketStation BIOS (kernel) dump. Required to boot a real "
 "PocketStation; the card uses canned responses without it."
 msgstr ""
+"Un volcado de 16 KiB de la BIOS (el kernel) de PocketStation. Es necesario "
+"para ejecutar una PocketStation real, de lo contrario la Memory Card "
+"utilizará respuestas predefinidas."
 
 #: src/gui/widgets/memcard_manager.cc:241
 msgid "Icon size"
@@ -4458,9 +4460,8 @@ msgid "Export Memory Card file"
 msgstr "Exportar archivo de Memory Card"
 
 #: src/gui/widgets/memcard_manager.h:45
-#, fuzzy
 msgid "Select Pocketstation BIOS"
-msgstr "Tarjeta 1 PocketStation"
+msgstr "Seleccionar BIOS de PocketStation"
 
 #: src/gui/widgets/memory_observer.cc:97
 msgid "Plain search"
@@ -4470,7 +4471,8 @@ msgstr "Búsqueda sin formato"
 msgid "Pattern"
 msgstr "Patrón"
 
-#: src/gui/widgets/memory_observer.cc:99 src/gui/widgets/memory_observer.cc:265
+#: src/gui/widgets/memory_observer.cc:99
+#: src/gui/widgets/memory_observer.cc:265
 msgid "Hex"
 msgstr "Hexadecimal"
 
@@ -4526,6 +4528,8 @@ msgid ""
 "Results were scanned as {}, and Next keeps using that type. The Value type "
 "above applies to the next New scan."
 msgstr ""
+"Los resultados han sido buscados como {}, pulsa Siguiente para seguir usando"
+" ese tipo. El valor se aplicará a la siguiente búsqueda."
 
 #: src/gui/widgets/memory_observer.cc:299
 msgid "Scan type"
@@ -4555,7 +4559,8 @@ msgstr "Actual"
 msgid "Previous"
 msgstr "Anterior"
 
-#: src/gui/widgets/memory_observer.cc:400 src/gui/widgets/scope_profiler.cc:173
+#: src/gui/widgets/memory_observer.cc:400
+#: src/gui/widgets/scope_profiler.cc:173
 msgid "Freeze"
 msgstr "Bloquear"
 
@@ -4815,41 +4820,43 @@ msgid ""
 "Enable PocketStation mode on a memory card slot and set the\n"
 "PocketStation BIOS path in the configuration to create one."
 msgstr ""
+"No hay un dispositivo PocketStation.\n"
+"Activa el modo PocketStation en una ranura de Memory Card\n"
+"y configura la ruta de la BIOS de PocketStation para crear una."
 
 #: src/gui/widgets/pocketstation.cc:83
 #, c-format
 msgid "Slot %u: %s"
-msgstr ""
+msgstr "Ranura %u: %s"
 
 #: src/gui/widgets/pocketstation.cc:83
 msgid "docked in the PlayStation"
-msgstr ""
+msgstr "conectada en PlayStation"
 
 #: src/gui/widgets/pocketstation.cc:83
 msgid "undocked"
-msgstr ""
+msgstr "sin conectar"
 
 #: src/gui/widgets/pocketstation.cc:85
 msgid "Dock"
-msgstr ""
+msgstr "Conectar"
 
 #: src/gui/widgets/pocketstation.cc:85
-#, fuzzy
 msgid "Undock"
-msgstr "Deshacer"
+msgstr "Desconectar"
 
 #: src/gui/widgets/pocketstation.cc:88
 msgid "(manual)"
-msgstr ""
+msgstr "(manual)"
 
 #: src/gui/widgets/pocketstation.cc:130
 msgid ", rotated"
-msgstr ""
+msgstr ", rotando"
 
 #: src/gui/widgets/pocketstation.cc:130
 #, c-format
 msgid "LCD mode: %08X (%s%s)"
-msgstr ""
+msgstr "Modo LCD: %08X (%s%s)"
 
 #: src/gui/widgets/ram-viewer.cc:485
 msgid "RAM Viewer"
@@ -4964,60 +4971,61 @@ msgid ""
 "No profiler registered. A psyqo program registers one by calling "
 "psyqo::Profiler::install()."
 msgstr ""
+"No se ha registrado un generador de perfiles. Un programa psyqo los registra"
+" invocando a psyqo::Profiler::install()."
 
 #: src/gui/widgets/scope_profiler.cc:176
 msgid "VSyncs shown"
-msgstr ""
+msgstr "Sincronías mostradas"
 
 #: src/gui/widgets/scope_profiler.cc:181
-#, fuzzy
 msgid "Back"
-msgstr "Motor"
+msgstr "Volver"
 
 #: src/gui/widgets/scope_profiler.cc:185
 #, c-format
 msgid "%zu scopes held, %llu lost to buffer overruns, %u cycles per 16 lines"
 msgstr ""
+"%zu ámbitos mantenidos, %llu perdidos por saturación de búfer, %u ciclos por"
+" cada 16 líneas"
 
 #: src/gui/widgets/scope_profiler.cc:189
-#, fuzzy
 msgid "Waiting for vsyncs..."
-msgstr "Esperando a la siguiente sincronización vertical..."
+msgstr "Esperando sincronías verticales..."
 
 #: src/gui/widgets/scope_profiler.cc:246
 #, c-format
 msgid "%llu cycles, %.1f us"
-msgstr ""
+msgstr "%llu ciclos, %.1f us"
 
 #: src/gui/widgets/scope_profiler.cc:247
 #, c-format
 msgid "depth %u, call stack depth %u"
-msgstr ""
+msgstr "profundidad %u, profundidad de pila de llamadas %u"
 
 #: src/gui/widgets/scope_profiler.cc:280
 msgid "Zone"
-msgstr ""
+msgstr "Zona"
 
 #: src/gui/widgets/scope_profiler.cc:282
-#, fuzzy
 msgid "Cycles"
-msgstr "Ciclo"
+msgstr "Ciclos"
 
 #: src/gui/widgets/scope_profiler.cc:283
 msgid "Per vsync"
-msgstr ""
+msgstr "Por sinc. vert."
 
 #: src/gui/widgets/scope_profiler.cc:284
 msgid "Mean"
-msgstr ""
+msgstr "Media"
 
 #: src/gui/widgets/scope_profiler.cc:285
 msgid "Min"
-msgstr ""
+msgstr "Mín."
 
 #: src/gui/widgets/scope_profiler.cc:286
 msgid "Max"
-msgstr ""
+msgstr "Máx."
 
 #: src/gui/widgets/shader-editor.cc:343
 #, c++-format
@@ -5095,9 +5103,8 @@ msgid "Enable"
 msgstr "Activado"
 
 #: src/gui/widgets/spulogger.cc:38
-#, fuzzy
 msgid "Export SPD..."
-msgstr "Exportar texto..."
+msgstr "Exportar SPD..."
 
 #: src/gui/widgets/spulogger.cc:46
 #, c++-format
@@ -5129,32 +5136,29 @@ msgid "SPU addr"
 msgstr "Dir. SPU"
 
 #: src/gui/widgets/spulogger.cc:153
-#, fuzzy
 msgid "Unable to create the SPD file."
-msgstr "No se ha podido crear el archivo de volcado."
+msgstr "No se ha podido crear el archivo SPD."
 
 #: src/gui/widgets/spulogger.cc:157
-#, fuzzy
 msgid "Unable to write the whole SPD file."
-msgstr "No se ha podido crear el archivo de volcado."
+msgstr "No se ha podido escribir la totalidad del archivo SPD."
 
 #: src/gui/widgets/spulogger.cc:160 src/gui/widgets/spusamples.cc:388
-#, fuzzy, c++-format
+#, c++-format
 msgid "Exported {} bytes."
-msgstr "Exportar texto..."
+msgstr "Se han exportado {} bytes."
 
 #: src/gui/widgets/spulogger.h:37
-#, fuzzy
 msgid "Export SPU dump"
-msgstr "Abrir volcado de GPU"
+msgstr "Exportar volcado de SPU"
 
 #: src/gui/widgets/spusamples.cc:45
 msgid "Export SoundFont"
-msgstr ""
+msgstr "Exportar SoundFont"
 
 #: src/gui/widgets/spusamples.cc:46
 msgid "Load replacement SoundFont"
-msgstr ""
+msgstr "Cargar SoundFont de reemplazo"
 
 #: src/gui/widgets/spusamples.cc:209
 msgid "The SPU is not initialized."
@@ -5166,7 +5170,8 @@ msgstr "Autoactualizar"
 
 #: src/gui/widgets/spusamples.cc:222
 msgid ""
-"Sample starts come from key on events. Enable the SPU logger to collect them."
+"Sample starts come from key on events. Enable the SPU logger to collect "
+"them."
 msgstr ""
 "Los inicios de las muestras provienen de los eventos invocados. Activa el "
 "registro de la SPU para poder recopilarlos."
@@ -5177,9 +5182,8 @@ msgid "{} samples"
 msgstr "{} muestras"
 
 #: src/gui/widgets/spusamples.cc:226
-#, fuzzy
 msgid "Export SoundFont..."
-msgstr "Exportar texto..."
+msgstr "Exportar SoundFont..."
 
 #: src/gui/widgets/spusamples.cc:228
 msgid ""
@@ -5187,25 +5191,35 @@ msgid ""
 "with note 69 = 440 Hz = A4. The check column compares it with the pitches "
 "the game keyed the sample on with; a disagreement needs a human ear."
 msgstr ""
+"Las teclas fundamentales provienen del valor fundamental de cada muestra con"
+" un tono de 1000h (44100 Hz), siendo la nota 69 = 440 Hz = A4. La columna de"
+" comprobación lo comparará con los tonos con los que el juego ha tocado la "
+"muestra; si hay cualquier disonancia, hay que captarla de oídas."
 
 #: src/gui/widgets/spusamples.cc:234
 msgid "Load replacements..."
-msgstr ""
+msgstr "Cargar reemplazos..."
 
 #: src/gui/widgets/spusamples.cc:237
-#, fuzzy
 msgid "Clear replacements"
-msgstr "Eliminar puntos de interrupción"
+msgstr "Quitar reemplazos"
 
 #: src/gui/widgets/spusamples.cc:244
 msgid ""
 "Load a SoundFont whose sample names are signatures, such as an edited "
 "export. Each key on of a sample with a matching signature plays the "
 "replacement instead; the original keeps running underneath for everything "
-"but the sound. A replacement is tuned from its root key and pitch correction "
-"to sound the same note as the original, whose pitch is measured the same way "
-"as the export measures it."
+"but the sound. A replacement is tuned from its root key and pitch correction"
+" to sound the same note as the original, whose pitch is measured the same "
+"way as the export measures it."
 msgstr ""
+"Carga un archivo de SoundFont cuyos nombres de las muestras sean firmas, "
+"como pueda ser un exportado editado. Cada tecla de una muestra que tenga una"
+" firma coincidente reproducirá la muestra de reemplazo, la original seguirá "
+"ejecutándose en segundo plano para todo lo que no sea el sonido en sí mismo."
+" Un reemplazo es afinado a partir de su tecla fundamental y de su corrección"
+" de tono para que suene con la misma nota que la original, cuyo tono se "
+"medirá tal y como lo mida el exportado."
 
 #: src/gui/widgets/spusamples.cc:259
 msgid "End"
@@ -5224,22 +5238,20 @@ msgid "Voices"
 msgstr "Voces"
 
 #: src/gui/widgets/spusamples.cc:264
-#, fuzzy
 msgid "Signature"
-msgstr "Capturar"
+msgstr "Firma"
 
 #: src/gui/widgets/spusamples.cc:265
 msgid "Root"
-msgstr ""
+msgstr "Fundamental"
 
 #: src/gui/widgets/spusamples.cc:266
 msgid "Check"
-msgstr ""
+msgstr "Comprobar"
 
 #: src/gui/widgets/spusamples.cc:267
-#, fuzzy
 msgid "Replaced"
-msgstr "Reemplazar"
+msgstr "Reemplazado"
 
 #: src/gui/widgets/spusamples.cc:288
 msgid "repeat"
@@ -5251,47 +5263,46 @@ msgstr "único"
 
 #: src/gui/widgets/spusamples.cc:304
 msgid "no end"
-msgstr ""
+msgstr "sin fin"
 
 #: src/gui/widgets/spusamples.cc:317
 msgid "unpitched"
-msgstr ""
+msgstr "sin tono"
 
 #: src/gui/widgets/spusamples.cc:320
 msgid "key-ons dropped, content changed"
-msgstr ""
+msgstr "llaves activas perdidas, contenido cambiado"
 
 #: src/gui/widgets/spusamples.cc:321
 msgid "no pitch logged"
-msgstr ""
+msgstr "no se ha registrado tono"
 
 #: src/gui/widgets/spusamples.cc:324
 #, c++-format
 msgid "agrees ({:+.0f}c)"
-msgstr ""
+msgstr "coincide ({:+.0f}c)"
 
 #: src/gui/widgets/spusamples.cc:327
 #, c++-format
 msgid "disagrees ({:+.0f}c)"
-msgstr ""
+msgstr "no coincide ({:+.0f}c)"
 
 #: src/gui/widgets/spusamples.cc:340
 msgid "Sample"
 msgstr "Muestra"
 
 #: src/gui/widgets/spusamples.cc:365
-#, fuzzy
 msgid "Not a SoundFont file."
-msgstr "El archivo no es un volcado de GPU."
+msgstr "El archivo no es un SoundFont."
 
 #: src/gui/widgets/spusamples.cc:368
 #, c++-format
 msgid "{} replacements loaded, {} samples without a signature name skipped."
-msgstr ""
+msgstr "{} reemplazos cargados, {} muestras sin nombre con firma omitidas."
 
 #: src/gui/widgets/spusamples.cc:380
 msgid "No complete samples to export."
-msgstr ""
+msgstr "No hay muestras completas para exportar."
 
 #: src/gui/widgets/typed_debugger.cc:144 src/gui/widgets/typed_debugger.cc:635
 msgid "Import data types"
@@ -5330,12 +5341,14 @@ msgstr "WritePause"
 msgid "Display log entries##{}{}"
 msgstr "Mostrar entradas del registro##{}{}"
 
-#: src/gui/widgets/typed_debugger.cc:315 src/gui/widgets/typed_debugger.cc:1033
+#: src/gui/widgets/typed_debugger.cc:315
+#: src/gui/widgets/typed_debugger.cc:1033
 #, c++-format
 msgid "Re-enable##{}"
 msgstr "Reactivar##{}"
 
-#: src/gui/widgets/typed_debugger.cc:316 src/gui/widgets/typed_debugger.cc:1034
+#: src/gui/widgets/typed_debugger.cc:316
+#: src/gui/widgets/typed_debugger.cc:1034
 #, c++-format
 msgid "Disable##{}"
 msgstr "Desactivar##{}"
@@ -5354,12 +5367,9 @@ msgstr "Añadir a pestaña Inspección##{}{}"
 #: src/gui/widgets/typed_debugger.cc:623
 msgid ""
 "\n"
-"Data types can be imported from Ghidra using tools/ghidra_scripts/"
-"export_redux.py, which will\n"
-"generate a redux_data_types.txt file in its folder, or from any text file "
-"where each line specifies the\n"
-"data type's name and fields, separated by semi-colons; fields are specified "
-"in type-name-size tuples\n"
+"Data types can be imported from Ghidra using tools/ghidra_scripts/export_redux.py, which will\n"
+"generate a redux_data_types.txt file in its folder, or from any text file where each line specifies the\n"
+"data type's name and fields, separated by semi-colons; fields are specified in type-name-size tuples\n"
 "whose elements are separated by commas.\n"
 "\n"
 "For example:\n"
@@ -5370,12 +5380,7 @@ msgid ""
 "Arrays are specified as `type[number]` and pointers as `type *`."
 msgstr ""
 "\n"
-"Los tipos de datos se pueden importar de Ghidra mediante el script tools/"
-"ghidra_scripts/export_redux.py, el cual generará un archivo llamado "
-"redux_data_types.txt en su carpeta; o a partir de cualquier archivo de texto "
-"donde cada línea especifique el nombre y los campos del tipo de datos "
-"separados por puntos y coma. Los campos se deben especificar como tuplas "
-"tipo/nombre/tamaño y sus elementos deben estar separados por comas.\n"
+"Los tipos de datos se pueden importar de Ghidra mediante el script tools/ghidra_scripts/export_redux.py, el cual generará un archivo llamado redux_data_types.txt en su carpeta; o a partir de cualquier archivo de texto donde cada línea especifique el nombre y los campos del tipo de datos separados por puntos y coma. Los campos se deben especificar como tuplas tipo/nombre/tamaño y sus elementos deben estar separados por comas.\n"
 "\n"
 "Por ejemplo:\n"
 "```\n"
@@ -5387,12 +5392,9 @@ msgstr ""
 #: src/gui/widgets/typed_debugger.cc:653
 msgid ""
 "\n"
-"Functions can be imported from Ghidra using tools/ghidra_scripts/"
-"export_redux.py, which will generate\n"
-"a redux_funcs.txt file in its folder, or from any text file where each line "
-"specifies the function\n"
-"address, name and arguments, separated by semi-colons; arguments are "
-"specified in type-name-size tuples\n"
+"Functions can be imported from Ghidra using tools/ghidra_scripts/export_redux.py, which will generate\n"
+"a redux_funcs.txt file in its folder, or from any text file where each line specifies the function\n"
+"address, name and arguments, separated by semi-colons; arguments are specified in type-name-size tuples\n"
 "whose elements are separated by commas.\n"
 "\n"
 "For example:\n"
@@ -5403,13 +5405,7 @@ msgid ""
 "Arrays and pointers are specified as for data types"
 msgstr ""
 "\n"
-"Las funciones se pueden importar de Ghidra mediante el script tools/"
-"ghidra_scripts/export_redux.py, el cual generará un archivo llamado "
-"redux_funcs.txt en su carpeta; o a partir de cualquier archivo de texto "
-"donde cada línea especifique la dirección de la función, su nombre y sus "
-"argumentos, todos ellos separados por puntos y coma. Los argumentos se deben "
-"especificar como tuplas tipo/nombre/tamaño y sus elementos deben estar "
-"separados por comas.\n"
+"Las funciones se pueden importar de Ghidra mediante el script tools/ghidra_scripts/export_redux.py, el cual generará un archivo llamado redux_funcs.txt en su carpeta; o a partir de cualquier archivo de texto donde cada línea especifique la dirección de la función, su nombre y sus argumentos, todos ellos separados por puntos y coma. Los argumentos se deben especificar como tuplas tipo/nombre/tamaño y sus elementos deben estar separados por comas.\n"
 "\n"
 "Por ejemplo:\n"
 "```\n"
@@ -5881,8 +5877,7 @@ msgstr "Multiplicador de velocidad"
 #: src/spu/cfg.cc:83
 msgid ""
 "Emulation speed, applied at the audio sink (the master clock).\n"
-"1 = realtime, N = N times faster. Frames are skipped, not resampled, so "
-"pitch is preserved.\n"
+"1 = realtime, N = N times faster. Frames are skipped, not resampled, so pitch is preserved.\n"
 "0 or less = unbounded: run as fast as the host allows."
 msgstr ""
 "La velocidad de emulación aplicada al receptor\n"
@@ -5913,14 +5908,3 @@ msgstr ""
 #: src/spu/debug.cc:594
 msgid "SPU Debug"
 msgstr "Depurador de SPU"
-
-#~ msgid "Error reading memory card."
-#~ msgstr "Error al leer la Memory Card."
-
-#~ msgid ""
-#~ "Experimental. Emulator will attempt to send artificial responses to "
-#~ "Pocketstation commands, possibly allowing apps to be saved/exported."
-#~ msgstr ""
-#~ "Experimental. El emulador intentará enviar respuestas artificiales a los "
-#~ "comandos de PocketStation, lo que tal vez permita el guardado o exportado "
-#~ "de aplicaciones."
