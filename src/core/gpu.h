@@ -1190,6 +1190,12 @@ class GPU {
     // DMA2 sync-1 holding its remaining blocks in MADR/BCR until GP1(04h) gives it a DREQ.
     bool m_dma2Waiting = false;
 
+  public:
+    // CHCR bit 24 was cleared: a sync-1 DMA2 waiting between blocks is over.
+    void dmaStopped() { m_dma2Waiting = false; }
+
+  private:
+
     // Sync-1 DMA2 from the MADR/BCR and CHCR the registers hold now. True while the channel waits.
     bool dmaSync1(uint32_t chcr);
 

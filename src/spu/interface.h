@@ -92,6 +92,9 @@ class impl final : public SPUInterface {
         return m_overlay;
     }
     uint32_t getTransferAddr() final { return spuAddr; }
+    uint16_t getCtrl() final { return readCtrl(); }
+    bool getDMAWaiting() final { return m_dmaWaiting; }
+    void setDMAWaiting(bool waiting) final { m_dmaWaiting = waiting; }
     void resetCaptureBuffer() final;
     void writeDMAMem(uint16_t *, int) final;
     void readDMAMem(uint16_t *, int) final;
@@ -507,6 +510,8 @@ class impl final : public SPUInterface {
     // CPU cycle at which the last sound RAM write DMA's data lands and SPUSTAT bits 7 and 9 rise;
     // 0 while they are low. CPU thread only: the bits are put in at read time.
     uint64_t m_writeDMALandedCycle = 0;
+    // See SPUInterface::getDMAWaiting. CPU thread only.
+    bool m_dmaWaiting = false;
     uint16_t spuIrq = 0;
     // Sound RAM transfer address, in bytes.
     uint32_t spuAddr = 0;
