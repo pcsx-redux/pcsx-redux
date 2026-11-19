@@ -34,6 +34,7 @@ end
 if success then
 	error('Should have failed to open dummy.lua')
 end
+Support.extra.dofile('overlay/test.lua')
 ran.archive1test1 = true
 )";
 	std::string archive1test2 = R"(
@@ -94,6 +95,12 @@ end
 if not gotall then
 	error('Not all tests ran successfully')
 end
+if not ran.overlaytest then
+	error('Overlay test did not run successfully')
+end
+if ran.wrongoverlaytest then
+	error('Wrong overlay test ran')
+end
 PCSX.quit(0)
 )";
 }
@@ -120,12 +127,14 @@ protected:
 		writeOneFile(out, "arc/test1.lua", archive1test1);
 		writeOneFile(out, "arc/test2.lua", archive1test2);
 		writeOneFile(out, "arc/test3.lua", archive1test3);
+        writeOneFile(out, "overlay/test.lua", "ran.overlaytest = true");
 		out->write<uint32_t>(0x06054b50);
 		out->close();
 		out = new PCSX::PosixFile("test2.zip", PCSX::FileOps::TRUNCATE);
 		writeOneFile(out, "dir1/test.lua", archive2test1);
 		writeOneFile(out, "dir2/test.lua", archive2test2);
 		writeOneFile(out, "autoexec.lua", archive2autoexec);
+        writeOneFile(out, "overlay/test.lua", "ran.wrongoverlaytest = true");
 		out->write<uint32_t>(0x06054b50);
 		out->close();
 	}
