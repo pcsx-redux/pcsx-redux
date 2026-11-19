@@ -19,6 +19,7 @@
 
 #include "core/guest-command.h"
 
+#include <cstdio>
 #include <optional>
 
 #include "core/alloc-tracker.h"
@@ -69,7 +70,8 @@ void doQuery(uint32_t structAddress, uint32_t declaredSize) {
     // switch below: a bit set here is a promise the switch honors it.
     for (uint32_t op :
          {uint32_t(PCSX_CMD_QUERY), uint32_t(PCSX_CMD_REGISTER_ALLOCATOR), uint32_t(PCSX_CMD_ALLOC_REPORT),
-          uint32_t(PCSX_CMD_SET_STACK_BOUNDS), uint32_t(PCSX_CMD_REGISTER_PROFILER)}) {
+          uint32_t(PCSX_CMD_SET_STACK_BOUNDS), uint32_t(PCSX_CMD_REGISTER_PROFILER),
+          uint32_t(PCSX_CMD_REPORT_WRITE)}) {
         bitmap[op >> 5] |= 1u << (op & 31);
     }
     if (!poke(structAddress + c_headerSize + 0, PCSX_CMD_PROTOCOL_VERSION)) {
@@ -210,7 +212,56 @@ void doRegisterProfiler(uint32_t structAddress, uint32_t declaredSize) {
     setStatus(structAddress, PCSX_CMDSTATUS_OK);
 }
 
+std::filesystem::path s_reportPath;
+FILE* s_report = nullptr;
+
+void doReportWrite(uint32_t structAddress, uint32_t declaredSize) {
+    // header(16) + data + length + collecting
+    constexpr uint32_t c_needed = c_headerSize + 12;
+    if (declaredSize < c_needed) {
+        setStatus(structAddress, PCSX_CMDSTATUS_SHORT_STRUCT);
+        return;
+    }
+    auto data = peek(structAddress + c_headerSize);
+    auto length = peek(structAddress + c_headerSize + 4);
+    if (!data || !length) {
+        setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
+        return;
+    }
+    bool collecting = !s_reportPath.empty();
+    if (collecting && *length) {
+        auto& mem = *PCSX::g_emulator->m_mem;
+        auto* first = mem.getPointer<uint8_t>(*data);
+        auto* last = mem.getPointer<uint8_t>(*data + *length - 1);
+        if (!first || last != first + *length - 1) {
+            setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
+            return;
+        }
+        if (!s_report) s_report = std::fopen(s_reportPath.string().c_str(), "wb");
+        if (!s_report) {
+            PCSX::g_system->printf(_("Could not create the report file %s\n"), s_reportPath.string().c_str());
+            s_reportPath.clear();
+            collecting = false;
+        } else {
+            std::fwrite(first, 1, *length, s_report);
+        }
+    }
+    poke(structAddress + c_headerSize + 8, collecting ? 1 : 0);
+    setStatus(structAddress, PCSX_CMDSTATUS_OK);
+}
+
 }  // namespace
+
+void PCSX::GuestCommand::setReportPath(const std::filesystem::path& path) {
+    closeReport();
+    s_reportPath = path;
+}
+
+void PCSX::GuestCommand::closeReport() {
+    if (s_report) std::fclose(s_report);
+    s_report = nullptr;
+    s_reportPath.clear();
+}
 
 void PCSX::GuestCommand::dispatch(uint32_t structAddress) {
     auto magic = peek(structAddress + c_offMagic);
@@ -250,6 +301,9 @@ void PCSX::GuestCommand::dispatch(uint32_t structAddress) {
             break;
         case PCSX_CMD_REGISTER_PROFILER:
             doRegisterProfiler(structAddress, *size);
+            break;
+        case PCSX_CMD_REPORT_WRITE:
+            doReportWrite(structAddress, *size);
             break;
         default:
             setStatus(structAddress, PCSX_CMDSTATUS_UNKNOWN_OP);
