@@ -137,7 +137,6 @@ void PCSX::SIO1::sio1StateMachine() {
 }
 
 void PCSX::SIO1::scheduledCallback() {
-    SIO1_LOG("SIO1 Interrupt (CP0.Status = %x)\n", PCSX::g_emulator->m_cpu->m_regs.CP0.n.Status);
     g_emulator->m_mem->setIRQ(IRQ8_SIO);
     m_regs.status |= SR_IRQ;
 
@@ -257,13 +256,34 @@ bool PCSX::SIO1::isTransmitReady() {
     return (m_regs.control & CR_TXEN) && (m_regs.status & SR_CTS) && (m_regs.status & SR_TXRDY2);
 }
 
+uint32_t PCSX::SIO1::currentStatus() {
+    uint32_t status = m_regs.status;
+    if (m_sio1Mode == SIO1Mode::Raw ? !m_sio1fifo : fifoError()) return status;
+    if (m_sio1fifo->size() > 0) {
+        status |= SR_RXRDY;
+    } else {
+        status &= ~SR_RXRDY;
+    }
+    return status;
+}
+
 void PCSX::SIO1::updateStat() {
     if (m_sio1Mode == SIO1Mode::Raw ? !m_sio1fifo : fifoError()) return;
-    if (m_sio1fifo->size() > 0) {
-        m_regs.status |= SR_RXRDY;
-    } else {
-        m_regs.status &= ~SR_RXRDY;
-    }
+    m_regs.status = currentStatus();
+    g_emulator->m_mem->writeHardwareRegister<0x1054>(m_regs.status);
+}
+
+void PCSX::SIO1::loadResetValues() {
+    m_regs.data = 0;
+    m_regs.status = (SR_TXRDY | SR_TXRDY2 | SR_DSR | SR_CTS);
+    m_regs.mode = 0;
+    m_regs.control = 0;
+    m_regs.baud = 0;
+    m_regs.guizmo = 0;
+    m_cycleCount = c_defaultCycleCount;
+    m_baudRate = c_defaultBaudRate;
+    if (m_sio1fifo.isA<Fifo>()) m_sio1fifo.asA<Fifo>()->reset();
+    g_emulator->m_cpu->unschedule(Schedule::SIO1);
     g_emulator->m_mem->writeHardwareRegister<0x1054>(m_regs.status);
 }
 

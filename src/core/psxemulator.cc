@@ -20,6 +20,7 @@
 #include "core/psxemulator.h"
 
 #include "core/alloc-tracker.h"
+#include "core/callprofiler.h"
 #include "core/callstacks.h"
 #include "core/cdrom.h"
 #include "core/cdromlogger.h"
@@ -53,6 +54,7 @@
 #include "lua/luafile.h"
 #include "lua/luawrapper.h"
 #include "lua/luv-glue.h"
+#include "lua/sqliteffi.h"
 #include "lua/zlibffi.h"
 #include "luafilesystem/src/lfs.h"
 #include "spu/interface.h"
@@ -110,6 +112,7 @@ PCSX::Emulator::Emulator()
       m_pads(PCSX::Pads::factory()),
       m_patchManager(new PatchManager()),
       m_pioCart(new PCSX::PIOCart),
+      m_profiler(new PCSX::Profiler()),
       m_sio(new PCSX::SIO()),
       m_sio1(new PCSX::SIO1()),
       m_sio1Server(new PCSX::SIO1Server()),
@@ -175,6 +178,21 @@ void PCSX::Emulator::setLua() {
     LuaFFI::open_extra(L);
     LuaBindings::open_events(L);
     LuaFFI::open_compression(L);
+    LuaFFI::open_sqlite(L);
+    {
+        static int lualoader = 1;
+        static const char* textTable = (
+#include "lua/texttable.lua"
+        );
+        L.load(textTable, "src:lua/texttable.lua");
+    }
+    {
+        static int lualoader = 1;
+        static const char* html = (
+#include "lua/html.lua"
+        );
+        L.load(html, "src:lua/html.lua");
+    }
     LuaSupportPSX::open_adpcm(L);
     LuaSupportPSX::open_assembler(L);
     LuaSupportPSX::open_binaries(L);
@@ -224,7 +242,10 @@ int PCSX::Emulator::init() {
 
 void PCSX::Emulator::reset() {
     m_mem->reset();
-    m_spu->resetCaptureBuffer();
+    // psxReset() zeroes the cycle; the SPU's reset restarts its clock, and stamps the writes it
+    // replays, at that cycle too.
+    m_cpu->m_regs.cycle = 0;
+    m_spu->reset();
     m_cpu->psxReset();
     m_gpu->reset();
     m_pads->shutdown();

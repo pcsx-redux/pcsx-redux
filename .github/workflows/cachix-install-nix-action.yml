@@ -1,8 +1,18 @@
 name: Nix Flake actions
 
 on:
+  # Not a required check, and a full rebuild of the tree for four targets, so PRs
+  # only run it when they touch the packaging or the nugget pin it checks.
   pull_request:
+    paths:
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'pcsx-redux.nix'
+      - 'src/mips'
+      - '.github/workflows/cachix-install-nix-action.yml'
   push:
+    branches:
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -28,6 +28,7 @@
 #include "core/debug.h"
 #include "core/gpudump.h"
 #include "core/gpulogger.h"
+#include "core/hwevents.h"
 #include "core/pgxp_mem.h"
 #include "core/psxcounters.h"
 #include "core/psxdma.h"
@@ -467,12 +468,19 @@ bool PCSX::GPU::dma(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // GPU
     uint32_t *ptr;
     uint32_t size, bs;
 
+    // A CHCR write that keeps bit 24 while the channel waits between blocks does not start a new
+    // transfer: the remaining blocks take its direction and step when DREQ resumes them.
+    if (m_dma2Waiting) return true;
+    // Sync-1 RAM to VRAM that is forced (bit 28), steps backwards (bit 1), or starts with
+    // GP1(04h)=0 and so has no DREQ.
+    if ((chcr & 0x00000601) == 0x00000201 && ((chcr & 0x10000002) || (m_dmaDirection == 0))) {
+        return dmaSync1(chcr);
+    }
+
     switch (chcr) {
         case 0x01000200:  // vram2mem
-            PSXDMA_LOG("*** DMA2 GPU - vram2mem *** %lx addr = %lx size = %lx\n", chcr, madr, bcr);
             ptr = g_emulator->m_mem->getPointer<uint32_t>(madr);
             if (ptr == nullptr) {
-                PSXDMA_LOG("*** DMA2 GPU - vram2mem *** NULL Pointer!!!\n");
                 break;
             }
             // BA blocks * BS words (word = 32-bits)
@@ -495,11 +503,8 @@ bool PCSX::GPU::dma(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // GPU
         case 0x01000201:  // mem2vram
             bs = (bcr & 0xffff);
             size = (bcr >> 16) * bs;  // BA blocks * BS words (word = 32-bits)
-            PSXDMA_LOG("*** DMA 2 - GPU mem2vram *** %lx addr = %lxh, BCR %lxh => size %d = BA(%d) * BS(%xh)\n", chcr,
-                       madr, bcr, size, size / bs, size / (bcr >> 16));
             ptr = g_emulator->m_mem->getPointer<uint32_t>(madr);
             if (ptr == nullptr) {
-                PSXDMA_LOG("*** DMA2 GPU - mem2vram *** NULL Pointer!!!\n");
                 break;
             }
             if (g_emulator->settings.get<Emulator::SettingDebugSettings>().get<Emulator::DebugSettings::Debug>()) {
@@ -530,7 +535,6 @@ bool PCSX::GPU::dma(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // GPU
 
         case 0x00000401:  // Vampire Hunter D: title screen linked list update (see psxhw.c)
         case 0x01000401:  // dma chain
-            PSXDMA_LOG("*** DMA 2 - GPU dma chain *** %8.8lx addr = %lx size = %lx\n", chcr, madr, bcr);
 
             size = gpuDmaChainSize(madr);
             chainedDMAWrite((uint32_t *)PCSX::g_emulator->m_mem->m_wram, madr);
@@ -545,7 +549,6 @@ bool PCSX::GPU::dma(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // GPU
             return false;
 
         default:
-            PSXDMA_LOG("*** DMA 2 - GPU unknown *** %lx addr = %lx size = %lx\n", chcr, madr, bcr);
             break;
     }
 
@@ -562,6 +565,68 @@ bool PCSX::GPU::dmaBlockRequestLow() const {
         if (m_processor == c) return true;
     }
     return false;
+}
+
+// Moves the blocks left in BCR from MADR one at a time, re-reading direction and step from CHCR,
+// so registers rewritten while the channel waited between blocks take effect. With GP1(04h)=0
+// there is no DREQ: a forced block (CHCR bit 28) still goes, and of its words only 0, 2, 4...
+// reach the GPU while MADR moves past the whole block (SCPH-1000, 1001, 5501, 7001).
+bool PCSX::GPU::dmaSync1(uint32_t chcr) {
+    auto &mem = g_emulator->m_mem;
+    // As in HW::dmaExec: MSAN addresses stay as they are, anything else wraps into RAM.
+    auto physical = [&](uint32_t addr) -> uint32_t {
+        return (mem->msanInitialized() && PCSX::Memory::inMsanRange(addr)) ? (addr & 0xfffffffc) : (addr & 0x7ffffc);
+    };
+    uint32_t madr = physical(mem->getMADR<2>());
+    const uint32_t bcr = mem->getBCR<2>();
+    const uint32_t bs = bcr & 0xffff;
+    uint32_t blocks = bcr >> 16;
+    const uint32_t step = (chcr & 2) ? uint32_t(-4) : 4u;
+    const bool toVram = chcr & 1;
+    uint32_t moved = 0;
+    m_dma2Waiting = false;
+
+    auto word = [&](uint32_t addr) -> uint32_t * { return mem->getPointer<uint32_t>(physical(addr)); };
+    auto block = [&](bool everyOther) {
+        for (uint32_t i = 0; i < bs; i += everyOther ? 2 : 1) {
+            const uint32_t addr = madr + i * step;
+            uint32_t *p = word(addr);
+            if (!p) continue;
+            if (toVram) {
+                directDMAWrite(p, 1, addr);
+            } else {
+                directDMARead(p, 1, addr);
+                mem->msanDmaWrite(physical(addr), 4);
+                g_emulator->m_cpu->Clear(physical(addr), 1);
+            }
+        }
+        madr += bs * step;
+        blocks--;
+        moved++;
+    };
+
+    if (chcr & 0x10000000) {
+        mem->setCHCR<2>(chcr & ~0x10000000);
+        if ((m_dmaDirection == 0) && blocks && bs) block(true);
+    }
+    while (blocks && bs) {
+        if (m_dmaDirection == 0) {
+            mem->setMADR<2>(madr);
+            mem->setBCR<2>((blocks << 16) | bs);
+            m_dma2Waiting = true;
+            return true;
+        }
+        if (dmaBlockRequestLow()) {
+            mem->setMADR<2>(madr);
+            mem->setBCR<2>((blocks << 16) | bs);
+            return true;
+        }
+        block(false);
+    }
+    mem->setMADR<2>(madr);
+    mem->setBCR<2>(bs);
+    scheduleGPUDMAIRQ(7 * (moved ? moved : 1));
+    return true;
 }
 
 void PCSX::GPU::gpuInterrupt() {
@@ -594,6 +659,11 @@ void PCSX::GPU::writeStatus(uint32_t value) {
     uint32_t cmd = (value >> 24) & 0xff;
     bool gotUnknown = false;
 
+    // A detached GPU, like the one replaying a dump, is not the emulated machine's.
+    auto &events = *g_emulator->m_hwEvents;
+    if (!m_detached && events.armed(HWEvents::Source::GPU)) [[unlikely]] {
+        events.record(HWEvents::GPUControl, value);
+    }
     if (m_dumper) m_dumper->gp1(value);
     if ((cmd == 8) && !m_detached && !m_replayingGP1) {
         // Turning interlace off freezes the field flag; turning it on resumes the alternation
@@ -648,6 +718,16 @@ void PCSX::GPU::writeStatus(uint32_t value) {
             CtrlDmaSetting ctrl(value);
             m_logger->addNode(ctrl, Logged::Origin::CTRLWRITE, value, 1);
             write1(&ctrl);
+            if (m_dma2Waiting && (m_dmaDirection != 0)) {
+                auto &mem = g_emulator->m_mem;
+                const uint32_t chcr = mem->getCHCR<2>();
+                // A busy channel that DPCR has disabled keeps waiting for the next GP1(04h).
+                if (!(chcr & 0x01000000)) {
+                    m_dma2Waiting = false;
+                } else if (mem->isDMAEnabled<2>()) {
+                    dmaSync1(chcr);
+                }
+            }
         } break;
         case 5: {
             CtrlDisplayStart ctrl(value);
@@ -745,10 +825,10 @@ void PCSX::GPU::directDMAWrite(const uint32_t *feed, int transferSize, uint32_t 
 
 void PCSX::GPU::directDMARead(uint32_t *dest, int transferSize, uint32_t hwAddr) {
     if (m_dumper) m_dumper->read(transferSize);
-    auto size = m_readFifo->size();
-    m_readFifo->read(dest, transferSize * 4);
-    transferSize -= size / 4;
-    dest += size / 4;
+    auto got = m_readFifo->read(dest, transferSize * 4);
+    if (got < 0) got = 0;
+    transferSize -= got / 4;
+    dest += got / 4;
     while (transferSize != 0) {
         *dest++ = m_dataRet;
         transferSize--;
@@ -816,6 +896,10 @@ void PCSX::GPU::chainedDMAWrite(const uint32_t *memory, uint32_t hwAddr) {
 void PCSX::GPU::Command::processWrite(Buffer &buf, Logged::Origin origin, uint32_t originValue, uint32_t length) {
     while (!buf.isEmpty()) {
         uint32_t value = buf.get();
+        auto &events = *g_emulator->m_hwEvents;
+        if (!m_gpu->isDetached() && events.armed(HWEvents::Source::GPU)) [[unlikely]] {
+            events.record(HWEvents::GPUCommand, value, static_cast<uint32_t>(origin), originValue, length);
+        }
         bool gotUnknown = false;
         const uint8_t cmdType = value >> 29;           // 3 topmost bits = command "type"
         const uint8_t command = (value >> 24) & 0x1f;  // 5 next bits = "command", which may be a bitfield
@@ -1134,8 +1218,7 @@ void PCSX::GPU::BlitRamVram::processWrite(Buffer &buf, Logged::Origin origin, ui
                 // Drop writes to an opened-but-unpopulated upper bank (1MB
                 // fitment): they hit floating bus and are lost.
                 if (m_gpu->vramOpenBus(y + row)) continue;
-                m_gpu->uploadVRAM(x, m_gpu->resolveVramY(y + row), w, 1, src + row * w,
-                                  PartialUpdateVram::Synchronous);
+                m_gpu->uploadVRAM(x, m_gpu->resolveVramY(y + row), w, 1, src + row * w, PartialUpdateVram::Synchronous);
             }
         }
     }
@@ -1367,7 +1450,7 @@ void PCSX::GPU::Logged::drawColorBox(uint32_t color, unsigned itemIndex, unsigne
     }
 }
 
-void PCSX::GPU::Logged::editColor(Overlay& overlay, unsigned i, uint32_t current) {
+void PCSX::GPU::Logged::editColor(Overlay &overlay, unsigned i, uint32_t current) {
     // The colour word is 0x00BBGGRR.
     const uint32_t color = overlay.colors[i].value_or(current);
     float rgb[3] = {float(color & 0xff) / 255.0f, float((color >> 8) & 0xff) / 255.0f,
@@ -1378,7 +1461,7 @@ void PCSX::GPU::Logged::editColor(Overlay& overlay, unsigned i, uint32_t current
     }
 }
 
-void PCSX::GPU::Logged::editXY(Overlay& overlay, unsigned i, int currentX, int currentY) {
+void PCSX::GPU::Logged::editXY(Overlay &overlay, unsigned i, int currentX, int currentY) {
     int x = overlay.x[i].value_or(currentX);
     int y = overlay.y[i].value_or(currentY);
     // A GP0 vertex carries a signed 11-bit coordinate, so an edit cannot leave that range.
@@ -1386,8 +1469,8 @@ void PCSX::GPU::Logged::editXY(Overlay& overlay, unsigned i, int currentX, int c
     if (ImGui::InputInt("Y", &y)) overlay.y[i] = std::clamp(y, -1024, 1023);
 }
 
-void PCSX::GPU::Logged::editBlendFunction(Overlay& overlay, BlendFunction current) {
-    const char* names[] = {_("50% Back + 50% Front"), _("100% Back + 100% Front"), _("100% Back - 100% Front"),
+void PCSX::GPU::Logged::editBlendFunction(Overlay &overlay, BlendFunction current) {
+    const char *names[] = {_("50% Back + 50% Front"), _("100% Back + 100% Front"), _("100% Back - 100% Front"),
                            _("100% Back + 25% Front")};
     int function = int(overlay.blendFunction.value_or(current));
     if (ImGui::Combo(_("Blending"), &function, names, 4)) overlay.blendFunction = BlendFunction(function);
@@ -1481,7 +1564,7 @@ void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawLogNode(u
 
 template <PCSX::GPU::Shading shading, PCSX::GPU::Shape shape, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend,
           PCSX::GPU::Modulation modulation>
-void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawEditor(Overlay& overlay) {
+void PCSX::GPU::Poly<shading, shape, textured, blend, modulation>::drawEditor(Overlay &overlay) {
     for (unsigned i = 0; i < count; i++) {
         ImGui::PushID(i);
         ImGui::Separator();
@@ -1538,7 +1621,7 @@ void PCSX::GPU::Line<shading, lineType, blend>::drawLogNode(unsigned itemIndex, 
 }
 
 template <PCSX::GPU::Shading shading, PCSX::GPU::LineType lineType, PCSX::GPU::Blend blend>
-void PCSX::GPU::Line<shading, lineType, blend>::drawEditor(Overlay& overlay) {
+void PCSX::GPU::Line<shading, lineType, blend>::drawEditor(Overlay &overlay) {
     for (unsigned i = 0; i < editableCount(); i++) {
         ImGui::PushID(i);
         ImGui::Separator();
@@ -1604,7 +1687,7 @@ void PCSX::GPU::Rect<size, textured, blend, modulation>::drawLogNode(unsigned it
 }
 
 template <PCSX::GPU::Size size, PCSX::GPU::Textured textured, PCSX::GPU::Blend blend, PCSX::GPU::Modulation modulation>
-void PCSX::GPU::Rect<size, textured, blend, modulation>::drawEditor(Overlay& overlay) {
+void PCSX::GPU::Rect<size, textured, blend, modulation>::drawEditor(Overlay &overlay) {
     // A textured rectangle without modulation has no colour field, so this cannot be a runtime test.
     if constexpr ((textured == Textured::No) || (modulation == Modulation::On)) {
         editColor(overlay, 0, color);

@@ -21,7 +21,7 @@
 //
 // Every golden below was taken from the emulator BEFORE its decoder moved into
 // src/core/mdec-decoder.cc: the block hash from src/core/mdec.cc's own rl2blk, and the pixel
-// hashes from a booted guest (src/mips/tests/mdec-roundtrip) pushing each case
+// hashes from a booted guest (src/mips/tests/mdec/roundtrip) pushing each case
 // through the emulated MDEC at 24 bits, and at 15 bits with STP set. So these
 // pin the shared code to what the emulator's MDEC did, and the emulator's MDEC
 // is what the hardware arms were graded against. A mismatch here is a change in
@@ -178,8 +178,8 @@ TEST(MDECDecoder, aFrameIsTheEmulatorsMacroblocksInPlace) {
         // way the stream order is the case order.
         const unsigned w = column ? 16 : 16 * n, h = column ? 16 * n : 16;
         std::vector<uint8_t> image(w * h * 3);
-        const auto frame = PCSX::MDECDecoder::decodeFrame(stream.data(), static_cast<unsigned>(stream.size()), t, w,
-                                                          h, column, image.data());
+        const auto frame = PCSX::MDECDecoder::decodeFrame(stream.data(), static_cast<unsigned>(stream.size()), t, w, h,
+                                                          column, image.data());
         EXPECT_EQ(frame.status.anomaly, PCSX::MDECDecoder::Anomaly::None);
         EXPECT_EQ(frame.consumed, stream.size());
         for (unsigned i = 0; i < n; i++) {

@@ -39,20 +39,23 @@
 #include "gui/widgets/alloc_tracker.h"
 #include "gui/widgets/assembly.h"
 #include "gui/widgets/breakpoints.h"
+#include "gui/widgets/call_profiler.h"
 #include "gui/widgets/callstacks.h"
 #include "gui/widgets/cdrom-viewer.h"
 #include "gui/widgets/console.h"
 #include "gui/widgets/cputrace.h"
 #include "gui/widgets/dalos.h"
 #include "gui/widgets/dynarec_disassembly.h"
+#include "gui/widgets/emulation-config.h"
 #include "gui/widgets/events.h"
 #include "gui/widgets/filedialog.h"
 #include "gui/widgets/gpudump.h"
 #include "gui/widgets/gpulogger.h"
 #include "gui/widgets/handlers.h"
 #include "gui/widgets/heap_viewer.h"
-#include "gui/widgets/scope_profiler.h"
+#include "gui/widgets/hwevents.h"
 #include "gui/widgets/hwregs.h"
+#include "gui/widgets/interrupts-scaler.h"
 #include "gui/widgets/isobrowser.h"
 #include "gui/widgets/kernellog.h"
 #include "gui/widgets/log.h"
@@ -67,6 +70,7 @@
 #include "gui/widgets/pocketstation.h"
 #include "gui/widgets/ram-viewer.h"
 #include "gui/widgets/registers.h"
+#include "gui/widgets/scope_profiler.h"
 #include "gui/widgets/shader-editor.h"
 #include "gui/widgets/sio1.h"
 #include "gui/widgets/spulogger.h"
@@ -80,6 +84,9 @@
 #include "support/version.h"
 #include "widgets/memory_observer.h"
 #include "widgets/typed_debugger.h"
+#include "widgets/ui-config.h"
+#include "widgets/updater.h"
+#include "widgets/uvfiles.h"
 
 #if defined(__APPLE__)
 #define GL_SHADER_VERSION "#version 410\n"
@@ -90,6 +97,7 @@
 struct SDL_Window;
 struct SDL_GLContextState;
 typedef SDL_GLContextState *SDL_GLContext;
+struct ImGuiDockNode;
 struct ImGuiViewport;
 namespace tvg {
 struct GlCanvas;
@@ -104,6 +112,8 @@ extern GUI *g_gui;
 enum class LogClass : unsigned;
 
 class GUI final : public UI {
+    friend class Widgets::UIConfig;
+
     typedef Setting<bool, TYPESTRING("Fullscreen"), false> Fullscreen;
     typedef Setting<bool, TYPESTRING("FullWindowRender"), true> FullWindowRender;
     typedef Setting<bool, TYPESTRING("ShowMenu")> ShowMenu;
@@ -125,12 +135,14 @@ class GUI final : public UI {
     typedef Setting<bool, TYPESTRING("ShowAssembly")> ShowAssembly;
     typedef Setting<bool, TYPESTRING("ShowDisassembly")> ShowDisassembly;
     typedef Setting<bool, TYPESTRING("ShowCpuTrace")> ShowCpuTrace;
+    typedef Setting<bool, TYPESTRING("ShowHWEvents")> ShowHWEvents;
     typedef Setting<bool, TYPESTRING("ShowBreakpoints")> ShowBreakpoints;
     typedef Setting<bool, TYPESTRING("ShowNamedSaveStates")> ShowNamedSaveStates;
     typedef Setting<bool, TYPESTRING("ShowEvents")> ShowEvents;
     typedef Setting<bool, TYPESTRING("ShowHandlers")> ShowHandlers;
     typedef Setting<bool, TYPESTRING("ShowKernelLog")> ShowKernelLog;
     typedef Setting<bool, TYPESTRING("ShowCallstacks")> ShowCallstacks;
+    typedef Setting<bool, TYPESTRING("ShowCallProfiler")> ShowCallProfiler;
     typedef Setting<bool, TYPESTRING("ShowSIO1")> ShowSIO1;
     typedef Setting<bool, TYPESTRING("ShowNetwork")> ShowNetwork;
     typedef Setting<bool, TYPESTRING("ShowIsoBrowser")> ShowIsoBrowser;
@@ -153,6 +165,8 @@ class GUI final : public UI {
     typedef Setting<int, TYPESTRING("WindowSizeX"), 1280> WindowSizeX;
     typedef Setting<int, TYPESTRING("WindowSizeY"), 800> WindowSizeY;
     typedef Setting<bool, TYPESTRING("WindowMaximized"), false> WindowMaximized;
+    typedef SettingString<TYPESTRING("WindowTitle"), TYPESTRING("PCSX-Redux")> WindowTitle;
+    typedef SettingPath<TYPESTRING("WindowIcon")> WindowIcon;
     typedef Setting<int, TYPESTRING("IdleSwapInterval"), 1> IdleSwapInterval;
     typedef Setting<int, TYPESTRING("MainFontSize"), 16> MainFontSize;
     typedef Setting<int, TYPESTRING("MonoFontSize"), 16> MonoFontSize;
@@ -193,16 +207,17 @@ class GUI final : public UI {
              WindowMaximized, IdleSwapInterval, ShowLuaConsole, ShowLuaInspector, ShowLuaEditor, ShowMainVRAMViewer,
              ShowCLUTVRAMViewer, ShowVRAMViewer1, ShowVRAMViewer2, ShowVRAMViewer3, ShowVRAMViewer4, ShowMemoryObserver,
              ShowTypedDebugger, ShowPatches, ShowMemcardManager, ShowRegisters, ShowAssembly, ShowDisassembly,
-             ShowCpuTrace, ShowBreakpoints, ShowNamedSaveStates, ShowEvents, ShowHandlers, ShowKernelLog,
+             ShowCpuTrace, ShowHWEvents, ShowBreakpoints, ShowNamedSaveStates, ShowEvents, ShowHandlers, ShowKernelLog,
              ShowCallstacks, ShowSIO1, ShowNetwork, ShowIsoBrowser, ShowGPULogger, ShowGPUDump, ShowRAMViewer,
-             ShowCDRomViewer, ShowHeapViewer, ShowScopeProfiler, ShowPocketStationLCD, ShowAllocTracker, ShowHWRegs, MainFontSize, MonoFontSize, GUITheme,
-             AllowMouseCaptureToggle, EnableRawMouseMotion, WidescreenRatio, ShowPIOCartConfig, ShowMemoryEditor1,
-             ShowMemoryEditor2, ShowMemoryEditor3, ShowMemoryEditor4, ShowMemoryEditor5, ShowMemoryEditor6,
-             ShowMemoryEditor7, ShowMemoryEditor8, ShowParallelPortEditor, ShowScratchpadEditor, ShowHWRegsEditor,
-             ShowBiosEditor, ShowVRAMEditor, MemoryEditor1Addr, MemoryEditor2Addr, MemoryEditor3Addr, MemoryEditor4Addr,
-             MemoryEditor5Addr, MemoryEditor6Addr, MemoryEditor7Addr, MemoryEditor8Addr, ParallelPortEditorAddr,
-             ScratchpadEditorAddr, HWRegsEditorAddr, BiosEditorAddr, VRAMEditorAddr, ShowSPURAMEditor, SPURAMEditorAddr,
-             ShowSPULogger, SPULoggerEnabled, ShowSPUSamples, ShowDalos, ShowMsanViewer>
+             ShowCDRomViewer, ShowHeapViewer, ShowScopeProfiler, ShowPocketStationLCD, ShowAllocTracker, ShowHWRegs,
+             MainFontSize, MonoFontSize, GUITheme, AllowMouseCaptureToggle, EnableRawMouseMotion, WidescreenRatio,
+             ShowPIOCartConfig, ShowMemoryEditor1, ShowMemoryEditor2, ShowMemoryEditor3, ShowMemoryEditor4,
+             ShowMemoryEditor5, ShowMemoryEditor6, ShowMemoryEditor7, ShowMemoryEditor8, ShowParallelPortEditor,
+             ShowScratchpadEditor, ShowHWRegsEditor, ShowBiosEditor, ShowVRAMEditor, MemoryEditor1Addr,
+             MemoryEditor2Addr, MemoryEditor3Addr, MemoryEditor4Addr, MemoryEditor5Addr, MemoryEditor6Addr,
+             MemoryEditor7Addr, MemoryEditor8Addr, ParallelPortEditorAddr, ScratchpadEditorAddr, HWRegsEditorAddr,
+             BiosEditorAddr, VRAMEditorAddr, ShowSPURAMEditor, SPURAMEditorAddr, ShowSPULogger, SPULoggerEnabled,
+             ShowSPUSamples, ShowDalos, ShowMsanViewer, WindowTitle, WindowIcon, ShowCallProfiler>
         settings;
 
     // imgui can't handle more than one "instance", so...
@@ -335,18 +350,25 @@ class GUI final : public UI {
 
   private:
     void saveCfg();
+    void centreWindow();
     void resetSettings();
     bool m_settingsNuked = false;
     bool m_showResetSettings = false;
 
     void startFrame();
     void endFrame();
+    void notifyControllerHotplug(bool connected, const char *name, int port);
+    void announceConnectedControllers();
+    bool drawMainMenuBar(ImGuiContext *context, ImGuiID dockspaceId, bool &showOpenIsoFileDialog,
+                         bool &showOpenBinaryDialog, bool &showOpenArchiveDialog);
+    void drawResetSettingsModal();
+    void drawOutputWindow(ImGuiContext *context, ImGuiID dockspaceId, ImGuiDockNode *dockspaceNode, int w, int h,
+                          float renderRatio);
+    void initMemoryEditors();
+    void drawMemoryEditors();
 
-    bool configure();
-    bool showThemes();  // Theme window : Allows for custom imgui themes
     bool about();
     void aboutFFmpegTab();
-    void interruptsScaler();
 
   public:
     const ImVec2 &getRenderSize() { return m_renderSize; }
@@ -394,8 +416,10 @@ class GUI final : public UI {
     bool m_showDemo = false;
     bool m_showImPlotDemo = false;
     bool m_showHandles = false;
+    Widgets::UvFiles m_uvFiles = {m_showHandles};
     bool m_showAbout = false;
     bool m_showInterruptsScaler = false;
+    Widgets::InterruptsScaler m_interruptsScaler = {m_showInterruptsScaler};
     bool m_turboEnabled = false;
     bool m_outputWindowFocused = false;
     Widgets::Log m_log = {settings.get<ShowLog>().value};
@@ -467,13 +491,10 @@ class GUI final : public UI {
     Widgets::Assembly m_assembly;
     Widgets::Disassembly m_disassembly = {settings.get<ShowDisassembly>().value};
     Widgets::CpuTrace m_cpuTrace;
+    Widgets::HWEvents m_hwEvents;
     Widgets::FileDialog<> m_openIsoFileDialog;
     Widgets::FileDialog<> m_openBinaryDialog;
     Widgets::FileDialog<> m_openArchiveDialog;
-    Widgets::FileDialog<> m_selectBiosDialog;
-    Widgets::FileDialog<> m_selectEXP1Dialog;
-    Widgets::FileDialog<Widgets::FileDialogMode::SelectDirectory> m_selectScreenshotDirDialog;
-    Widgets::FileDialog<Widgets::FileDialogMode::SelectDirectory> m_selectSaveStateDirDialog;
     Widgets::NamedSaveStates m_namedSaveStates = {settings.get<ShowNamedSaveStates>().value};
     Widgets::Breakpoints m_breakpoints = {settings.get<ShowBreakpoints>().value};
     Widgets::IsoBrowser m_isoBrowser;
@@ -481,8 +502,11 @@ class GUI final : public UI {
     Widgets::Dalos m_dalos = {settings.get<ShowDalos>().value};
 
     bool m_showCfg = false;
+    Widgets::EmulationConfig m_emulationConfig;
     bool m_showUiCfg = false;
     bool m_showSysCfg = false;
+    Widgets::UIConfig m_uiConfig;
+    Widgets::SystemConfig m_systemConfig;
 
     Widgets::VRAMViewer m_mainVRAMviewer = {settings.get<ShowMainVRAMViewer>().value};
     Widgets::VRAMViewer m_clutVRAMviewer = {settings.get<ShowCLUTVRAMViewer>().value};
@@ -500,6 +524,7 @@ class GUI final : public UI {
     Widgets::KernelLog m_kernelLog = {settings.get<ShowKernelLog>().value};
 
     Widgets::CallStacks m_callstacks = {settings.get<ShowCallstacks>().value};
+    Widgets::CallProfiler m_callProfiler = {settings.get<ShowCallProfiler>().value};
 
     Widgets::PIOCart m_pioCart;
     Widgets::GPUDump m_gpuDump;
@@ -563,11 +588,7 @@ class GUI final : public UI {
     bool m_reloadFonts = true;
     Widgets::ShaderEditor m_outputShaderEditor = {"output"};
 
-    static void byteRateToString(float rate, std::string &out);
-
-    Update m_update;
-    bool m_updateAvailable = false;
-    bool m_updateDownloading = false;
+    Widgets::Updater m_updater;
     bool m_aboutSelectAuthors = false;
     bool m_enableSplashScreen = true;
 
@@ -577,6 +598,7 @@ class GUI final : public UI {
   public:
     bool hasJapanese() { return m_hasJapanese; }
     bool m_setupScreenSize = true;
+    bool m_announcedStartupControllers = false;
     bool m_clearTextures = true;
     bool m_presentAfterHardReset = false;
     Widgets::ShaderEditor m_offscreenShaderEditor = {"offscreen"};

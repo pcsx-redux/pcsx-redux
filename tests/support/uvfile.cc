@@ -17,13 +17,14 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include "support/uvfile.h"
+
 #include <uv.h>
 
 #include <filesystem>
 #include <string>
 
 #include "gtest/gtest.h"
-#include "support/uvfile.h"
 #include "support/zfile.h"
 
 using namespace PCSX;

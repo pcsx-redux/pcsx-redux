@@ -228,7 +228,10 @@ class SDLAudio {
 
     EventBus::Listener m_listener;
 
-    typedef Circular<Frame, 2 * 1024> VoiceStream;
+    // Has to hold the SPU's lead (getLeadFrames: a device period, two mixer batches and the
+    // latency margin) plus one more period. A browser's audio callback asks for about 1900
+    // frames at a time, so 2048 could not even hold the lead.
+    typedef Circular<Frame, 16 * 1024> VoiceStream;
     VoiceStream m_voicesStream;
     Circular<Frame, 16 * 1024> m_audioStream;
     typedef std::array<Frame, VoiceStream::BUFFER_SIZE> Buffer;

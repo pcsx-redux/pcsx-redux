@@ -235,12 +235,17 @@ void PCSX::Memory::reset() {
         if (f->failed()) {
             g_system->printf(_("Could not open BIOS:\"%s\". Retrying with the OpenBIOS\n"), biosPath.string());
 
-            g_system->findResource(
-                [&f](const std::filesystem::path &filename) {
-                    f.setFile(new PosixFile(filename));
-                    return !f->failed();
-                },
-                "openbios.bin", "resources", std::filesystem::path("src") / "mips" / "openbios");
+            // Prefer the elf: it loads the same ROM bytes, and also brings in the BIOS symbols.
+            auto openFallback = [&f](const std::filesystem::path &filename) {
+                f.setFile(new PosixFile(filename));
+                return !f->failed();
+            };
+            for (auto name : {"openbios.elf", "openbios.bin"}) {
+                if (g_system->findResource(openFallback, name, "resources",
+                                           std::filesystem::path("src") / "mips" / "openbios")) {
+                    break;
+                }
+            }
             if (f->failed()) {
                 g_system->printf(
                     _("Could not open OpenBIOS fallback. Things won't work properly.\nAdd a valid BIOS in the "
@@ -401,7 +406,7 @@ uint16_t PCSX::Memory::read16(uint32_t address) {
 /* COP0 SR.IsC set with BIU_CONFIG.IS1 set sends a 32-bit load or store to a KUSEG or KSEG0
    address into the i-cache (see R3000Acpu::readICacheIsolated). Only RAM addresses and a
    non-default BIU_CONFIG are modelled, which is how cache flush routines and the nugget
-   tests/icache probes use it. Isolation under the default 1E988h, sub-word accesses, and other
+   tests/cpu/icache probes use it. Isolation under the default 1E988h, sub-word accesses, and other
    addresses keep reaching memory as they do without isolation. */
 bool PCSX::Memory::isolatedToICache(uint32_t address) const {
     if ((m_BIU & 0x800) == 0) return false;

@@ -37,8 +37,7 @@
 // INT_INPUT as live levels and latches a press (which is what wakes a sleeping device on Fire).
 static uint32_t readButtonMask() {
     uint32_t mask = 0;
-    if (ImGui::IsKeyDown(ImGuiKey_Z) || ImGui::IsKeyDown(ImGuiKey_Enter) ||
-        ImGui::IsKeyDown(ImGuiKey_GamepadFaceDown))
+    if (ImGui::IsKeyDown(ImGuiKey_Z) || ImGui::IsKeyDown(ImGuiKey_Enter) || ImGui::IsKeyDown(ImGuiKey_GamepadFaceDown))
         mask |= 1u << 0;  // Fire
     if (ImGui::IsKeyDown(ImGuiKey_RightArrow) || ImGui::IsKeyDown(ImGuiKey_GamepadDpadRight)) mask |= 1u << 1;
     if (ImGui::IsKeyDown(ImGuiKey_LeftArrow) || ImGui::IsKeyDown(ImGuiKey_GamepadDpadLeft)) mask |= 1u << 2;

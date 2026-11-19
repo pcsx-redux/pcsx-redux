@@ -20,7 +20,7 @@
 #pragma once
 
 // A fixed set of one-macroblock MDEC jobs: tables plus a run-level stream. Each
-// case is shaped like a job of src/mips/tests/mdec-roundtrip, so the very same
+// case is shaped like a job of src/mips/tests/mdec/roundtrip, so the very same
 // input can be pushed through the emulator's MDEC by a booted guest and through
 // the decoder in-process, and the two compared byte for byte.
 //
@@ -37,7 +37,7 @@
 namespace MDECDecoderCases {
 
 struct Case {
-    std::string name;  // fits the rig's 12-byte arm field
+    std::string name;    // fits the rig's 12-byte arm field
     uint8_t quant[128];  // Y then UV, MDEC(2) order
     bool uploadScale;
     int16_t scale[64];  // MDEC(3)

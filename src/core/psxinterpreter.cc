@@ -17,6 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include "core/callprofiler.h"
 #include "core/callstacks.h"
 #include "core/cputrace.h"
 #include "core/debug.h"
@@ -313,6 +314,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     GTE_WRAPPER(SQR);
 #undef GTE_WRAPPER
     void gteSWC2(uint32_t code) {
+        if (!copUsable(2)) return;
         if (userAddressError(m_regs.GPR.r[_Rs_] + _Imm_, Exception::StoreAddressError)) return;
         gteDrainIfStalling();
         gteStall();
@@ -345,6 +347,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
     void gteMTC2(uint32_t code) { gteQueueWrite(false, _Rd_, m_regs.GPR.r[_Rt_]); }
     void gteCTC2(uint32_t code) { gteQueueWrite(true, _Rd_, m_regs.GPR.r[_Rt_]); }
     void gteLWC2(uint32_t code) {
+        if (!copUsable(2)) return;
         uint32_t addr = m_regs.GPR.r[_Rs_] + _Imm_;
         if (userAddressError(addr, Exception::LoadAddressError)) return;
         if (addr & 3) {
@@ -719,17 +722,18 @@ void InterpretedCPU::psxMULTU(uint32_t code) {
     if (int32_t(_rRs_) op 0) {           \
         doBranch(_BranchTarget_, false); \
     }
-#define RepZBranchLinki32(op)                                    \
-    {                                                            \
-        uint32_t ra = m_regs.pc + 4;                             \
-        markBranch();                                            \
-        if ((int32_t)_rRs_ op 0) {                               \
-            uint32_t sp = m_regs.GPR.n.sp;                       \
-            doBranch(_BranchTarget_, true);                      \
-            PCSX::g_emulator->m_callStacks->potentialRA(ra, sp); \
-        }                                                        \
-        m_regs.GPR.r[31] = ra;                                   \
-        maybeCancelDelayedLoad(31);                              \
+#define RepZBranchLinki32(op)                                            \
+    {                                                                    \
+        uint32_t ra = m_regs.pc + 4;                                     \
+        markBranch();                                                    \
+        if ((int32_t)_rRs_ op 0) {                                       \
+            uint32_t sp = m_regs.GPR.n.sp;                               \
+            uint32_t target = _BranchTarget_;                            \
+            doBranch(target, true);                                      \
+            PCSX::g_emulator->m_callStacks->potentialRA(ra, sp, target); \
+        }                                                                \
+        m_regs.GPR.r[31] = ra;                                           \
+        maybeCancelDelayedLoad(31);                                      \
     }
 
 void InterpretedCPU::psxBGEZ(uint32_t code) { RepZBranchi32(>=) }         // Branch if Rs >= 0
@@ -895,8 +899,9 @@ void InterpretedCPU::psxJAL(uint32_t code) {
     maybeCancelDelayedLoad(31);
     uint32_t ra = m_regs.pc + 4;
     m_regs.GPR.r[31] = ra;
-    doBranch(_JumpTarget_, true);
-    PCSX::g_emulator->m_callStacks->potentialRA(ra, m_regs.GPR.n.sp);
+    uint32_t target = _JumpTarget_;
+    doBranch(target, true);
+    PCSX::g_emulator->m_callStacks->potentialRA(ra, m_regs.GPR.n.sp, target);
 }
 
 /*********************************************************
@@ -924,7 +929,7 @@ void InterpretedCPU::psxJALR(uint32_t code) {
         uint32_t ra = m_regs.pc + 4;
         _rRd_ = ra;
         if (_Rd_ == 31) {
-            PCSX::g_emulator->m_callStacks->potentialRA(ra, m_regs.GPR.n.sp);
+            PCSX::g_emulator->m_callStacks->potentialRA(ra, m_regs.GPR.n.sp, temp);
         }
     }
 
@@ -1175,8 +1180,8 @@ void InterpretedCPU::psxMFC0(uint32_t code) {
     if (_Rd_ == 13) {
         // Cause bit 10 follows I_STAT & I_MASK, both ways, with no latch.
         auto& mem = PCSX::g_emulator->m_mem;
-        const uint32_t pending = mem->readHardwareRegister<PCSX::Memory::ISTAT>() &
-                                 mem->readHardwareRegister<PCSX::Memory::IMASK>() & 0x7ff;
+        const uint32_t pending =
+            mem->readHardwareRegister<PCSX::Memory::ISTAT>() & mem->readHardwareRegister<PCSX::Memory::IMASK>() & 0x7ff;
         value = (value & ~0x400) | (pending ? 0x400 : 0);
     }
     delayedLoadRef<int32_t>(_Rt_) = (int)value;
@@ -1262,12 +1267,15 @@ void InterpretedCPU::psxCOP0(uint32_t code) {
         psxBCz(code, 0);
         return;
     }
+    // In user mode, MFC0, MTC0 and RFE need SR.CU0.
+    if ((_Rs_ == 0 || _Rs_ == 4 || _Rs_ == 16) && (m_regs.CP0.n.Status & 2) && !copUsable(0)) return;
     (*this.*(s_pPsxCP0[_Rs_]))(code);
 }
 
-// There is no COP1 or COP3. With SR.CU1 (CU3) clear, their opcodes, LWCz and SWCz included, raise a
-// coprocessor unusable exception, even in kernel mode. With the bit set they raise nothing, and are
-// ignored here: on silicon, MFCz and CFCz load an unspecified value and SWCz stores one.
+// Raises a coprocessor unusable exception for coprocessor z, and returns false, if SR.CUz is clear.
+// There is no COP1 or COP3. With SR.CU1 (CU3) clear, their opcodes, LWCz and SWCz included, raise one even in
+// kernel mode, and so do LWC0 and SWC0 with SR.CU0 clear. With the bit set they raise nothing, and are ignored
+// here: on silicon, MFCz and CFCz load an unspecified value and SWCz stores one.
 bool InterpretedCPU::copUsable(unsigned z) {
     if (m_regs.CP0.n.Status & (0x10000000 << z)) return true;
     m_regs.pc.raw() -= 4;
@@ -1293,7 +1301,7 @@ void InterpretedCPU::psxCOP2(uint32_t code) {
         psxBCz(code, 2);
         return;
     }
-    if ((m_regs.CP0.n.Status & 0x40000000) == 0) return;
+    if (!copUsable(2)) return;
 
     if ((code & 0x02000000) == 0) {
         (*this.*(s_pPsxCP2[_Funct_]))(code);
@@ -1331,9 +1339,9 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_psxBSC[64] = {
     &InterpretedCPU::psxLBU,     &InterpretedCPU::psxLHU,    &InterpretedCPU::psxLWR,  &InterpretedCPU::psxNULL,   // 24
     &InterpretedCPU::psxSB,      &InterpretedCPU::psxSH,     &InterpretedCPU::psxSWL,  &InterpretedCPU::psxSW,     // 28
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxSWR,  &InterpretedCPU::psxNULL,   // 2c
-    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteLWC2, &InterpretedCPU::psxLSCz,   // 30
+    &InterpretedCPU::psxLSCz,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteLWC2, &InterpretedCPU::psxLSCz,   // 30
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,   // 34
-    &InterpretedCPU::psxNULL,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteSWC2, &InterpretedCPU::psxLSCz,   // 38
+    &InterpretedCPU::psxLSCz,    &InterpretedCPU::psxLSCz,   &InterpretedCPU::gteSWC2, &InterpretedCPU::psxLSCz,   // 38
     &InterpretedCPU::psxNULL,    &InterpretedCPU::psxNULL,   &InterpretedCPU::psxNULL, &InterpretedCPU::psxNULL,   // 3c
 };
 
@@ -1627,11 +1635,11 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxBSC[64] = {
     &InterpretedCPU::pgxpPsxSWL,  &InterpretedCPU::pgxpPsxSW,     // 2a
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,   // 2c
     &InterpretedCPU::pgxpPsxSWR,  &InterpretedCPU::pgxpPsxNULL,   // 2e
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,       // 30
+    &InterpretedCPU::psxLSCz,     &InterpretedCPU::psxLSCz,       // 30
     &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxLSCz,       // 32
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 34
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 36
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,       // 38
+    &InterpretedCPU::psxLSCz,     &InterpretedCPU::psxLSCz,       // 38
     &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxLSCz,       // 3a
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 3c
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,       // 3e
@@ -1736,11 +1744,11 @@ const InterpretedCPU::intFunc_t InterpretedCPU::s_pgxpPsxBSCMem[64] = {
     &InterpretedCPU::pgxpPsxSWL,  &InterpretedCPU::pgxpPsxSW,    // 2a
     &InterpretedCPU::pgxpPsxNULL, &InterpretedCPU::pgxpPsxNULL,  // 2c
     &InterpretedCPU::pgxpPsxSWR,  &InterpretedCPU::pgxpPsxNULL,  // 2e
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,      // 30
+    &InterpretedCPU::psxLSCz,     &InterpretedCPU::psxLSCz,      // 30
     &InterpretedCPU::pgxpPsxLWC2, &InterpretedCPU::psxLSCz,      // 32
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 34
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 36
-    &InterpretedCPU::psxNULL,     &InterpretedCPU::psxLSCz,      // 38
+    &InterpretedCPU::psxLSCz,     &InterpretedCPU::psxLSCz,      // 38
     &InterpretedCPU::pgxpPsxSWC2, &InterpretedCPU::psxLSCz,      // 3a
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 3c
     &InterpretedCPU::psxNULL,     &InterpretedCPU::psxNULL,      // 3e
@@ -1899,6 +1907,9 @@ inline void InterpretedCPU::execBlock() {
         if constexpr (trace) {
             PCSX::g_emulator->m_cpuTrace->capture(pc, code);
         }
+        if (PCSX::g_emulator->m_profiler->m_running) [[unlikely]] {
+            PCSX::g_emulator->m_profiler->countInstruction(pc);
+        }
 
         m_regs.pc.increment();
         m_regs.cycle += PCSX::Emulator::BIAS;
@@ -1963,7 +1974,8 @@ inline void InterpretedCPU::execBlock() {
         if constexpr (debug || detached) break;
         // Stop on the offending instruction, as a breakpoint would: the paused cpu then sits right
         // after it, and nothing further in the block can report again.
-        if (stackTripped) [[unlikely]] break;
+        if (stackTripped) [[unlikely]]
+            break;
     } while (!ranDelaySlot && !cop0Armed());
 }
 

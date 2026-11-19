@@ -126,6 +126,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\gui\gui.cc" />
+    <ClCompile Include="..\..\src\gui\gui-menubar.cc" />
+    <ClCompile Include="..\..\src\gui\gui-output.cc" />
+    <ClCompile Include="..\..\src\gui\gui-memeditors.cc" />
     <ClCompile Include="..\..\src\gui\gui-about-ffmpeg.cc" />
     <ClCompile Include="..\..\src\gui\gui-platform-desktop.cc" />
     <ClCompile Include="..\..\src\gui\luaimguiextra.cc" />
@@ -139,13 +142,19 @@
     <ClCompile Include="..\..\src\gui\widgets\assembly.cc" />
     <ClCompile Include="..\..\src\gui\widgets\breakpoints.cc" />
     <ClCompile Include="..\..\src\gui\widgets\callstacks.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\call_profiler.cc" />
     <ClCompile Include="..\..\src\gui\widgets\alloc_tracker.cc" />
     <ClCompile Include="..\..\src\gui\widgets\cdrom-viewer.cc" />
     <ClCompile Include="..\..\src\gui\widgets\console.cc" />
     <ClCompile Include="..\..\src\gui\widgets\dynarec_disassembly.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\emulation-config.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\uvfiles.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\updater.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\interrupts-scaler.cc" />
     <ClCompile Include="..\..\src\gui\widgets\events.cc" />
     <ClCompile Include="..\..\src\gui\widgets\filedialog.cc" />
     <ClCompile Include="..\..\src\gui\widgets\cputrace.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\hwevents.cc" />
     <ClCompile Include="..\..\src\gui\widgets\gpudump.cc" />
     <ClCompile Include="..\..\src\gui\widgets\gpulogger.cc" />
     <ClCompile Include="..\..\src\gui\widgets\spulogger.cc" />
@@ -171,6 +180,7 @@
     <ClCompile Include="..\..\src\gui\widgets\pocketstation.cc" />
     <ClCompile Include="..\..\src\gui\widgets\ram-viewer.cc" />
     <ClCompile Include="..\..\src\gui\widgets\typed_debugger.cc" />
+    <ClCompile Include="..\..\src\gui\widgets\ui-config.cc" />
     <ClCompile Include="..\..\src\gui\widgets\registers.cc" />
     <ClCompile Include="..\..\src\gui\widgets\shader-editor.cc" />
     <ClCompile Include="..\..\src\gui\widgets\sio1.cc" />
@@ -191,13 +201,19 @@
     <ClInclude Include="..\..\src\gui\widgets\assembly.h" />
     <ClInclude Include="..\..\src\gui\widgets\breakpoints.h" />
     <ClInclude Include="..\..\src\gui\widgets\callstacks.h" />
+    <ClInclude Include="..\..\src\gui\widgets\call_profiler.h" />
     <ClInclude Include="..\..\src\gui\widgets\alloc_tracker.h" />
     <ClInclude Include="..\..\src\gui\widgets\cdrom-viewer.h" />
     <ClInclude Include="..\..\src\gui\widgets\console.h" />
     <ClInclude Include="..\..\src\gui\widgets\dynarec_disassembly.h" />
+    <ClInclude Include="..\..\src\gui\widgets\emulation-config.h" />
+    <ClInclude Include="..\..\src\gui\widgets\uvfiles.h" />
+    <ClInclude Include="..\..\src\gui\widgets\updater.h" />
+    <ClInclude Include="..\..\src\gui\widgets\interrupts-scaler.h" />
     <ClInclude Include="..\..\src\gui\widgets\events.h" />
     <ClInclude Include="..\..\src\gui\widgets\filedialog.h" />
     <ClInclude Include="..\..\src\gui\widgets\cputrace.h" />
+    <ClInclude Include="..\..\src\gui\widgets\hwevents.h" />
     <ClInclude Include="..\..\src\gui\widgets\gpudump.h" />
     <ClInclude Include="..\..\src\gui\widgets\gpulogger.h" />
     <ClInclude Include="..\..\src\gui\widgets\spulogger.h" />
@@ -223,6 +239,7 @@
     <ClInclude Include="..\..\src\gui\widgets\pocketstation.h" />
     <ClInclude Include="..\..\src\gui\widgets\ram-viewer.h" />
     <ClInclude Include="..\..\src\gui\widgets\typed_debugger.h" />
+    <ClInclude Include="..\..\src\gui\widgets\ui-config.h" />
     <ClInclude Include="..\..\src\gui\widgets\registers.h" />
     <ClInclude Include="..\..\src\gui\widgets\shader-editor.h" />
     <ClInclude Include="..\..\src\gui\widgets\sio1.h" />

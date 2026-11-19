@@ -137,10 +137,10 @@ jobs:
         which make mipsel-none-elf-gcc
         make -C src/mips/tests -j 2 PCSX_TESTS=true
         make -C src/mips/openbios -j 2 all
-        cp src/mips/openbios/openbios.bin .
+        cp src/mips/openbios/openbios.bin src/mips/openbios/openbios.elf .
         make -C src/mips/openbios clean
         make -C src/mips/tests -j 2 PCSX_TESTS=true
-        cp ./openbios.bin src/mips/openbios/
+        cp ./openbios.bin ./openbios.elf src/mips/openbios/
         make -C src/mips/monitor/hosts/retail -j 2
 
   - task: PowerShell@2
@@ -149,7 +149,7 @@ jobs:
     inputs:
       targetType: 'inline'
       script: |
-        vsprojects\x64\ReleaseCLI\pcsx-redux.exe -no-ui -stdout -lua_stdout -testmode -no-gui-log -exec "dofile 'src/mips/tests/cdrom/create-test-iso.lua'"
+        vsprojects\x64\ReleaseCLI\pcsx-redux.exe -no-ui -stdout -lua_stdout -testmode -no-gui-log -exec "dofile 'src/mips/tests/cdrom/common/create-test-iso.lua'"
         if ($LASTEXITCODE) { exit $LASTEXITCODE }
         Get-ChildItem test.*
 

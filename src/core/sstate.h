@@ -111,8 +111,9 @@ typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("status"), 1> GPUStatus;
 typedef Protobuf::Field<Protobuf::FixedBytes<0x400>, TYPESTRING("control"), 2> GPUControl;
 typedef Protobuf::Field<Protobuf::FixedBytes<0x00200000>, TYPESTRING("vram"), 3> GPUVRam;
 typedef Protobuf::Field<Protobuf::FixedBytes<24>, TYPESTRING("environment"), 4> GPUEnvironment;
-// Bit 0: the frozen interlace field flag is 0. Bit 1: the field flag's phase is flipped. Absent
-// on older states, which then hold the flag at 1 with no flip.
+// Bit 0: the frozen interlace field flag is 0. Bit 1: the field flag's phase is flipped. Bit 2:
+// DMA2 sync-1 waits between blocks for GP1(04h) to give it a DREQ. Absent on older states, which
+// then hold the flag at 1 with no flip and no DMA2 waiting.
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("field_flags"), 5> GPUFieldFlags;
 typedef Protobuf::Message<TYPESTRING("GPU"), GPUStatus, GPUControl, GPUVRam, GPUEnvironment, GPUFieldFlags> GPU;
 typedef Protobuf::MessageField<GPU, TYPESTRING("gpu"), 5> GPUField;
@@ -207,12 +208,26 @@ typedef Protobuf::Field<Protobuf::Int32, TYPESTRING("reverbCurrAddr"), 28> SPURe
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("noisePosition"), 29> SPUNoisePosition;
 // CPU cycle at which SPUSTAT bits 7 and 9 rise after a sound RAM write DMA; 0 while they are low
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("writeDMALandedCycle"), 30> SPUWriteDMALandedCycle;
+// The XA decoder's 44.1 kHz resampler (SPU::impl::FeedXA): its last 32 inputs, where the next one
+// goes, how many it has taken since its last output, and the last sample of the stream, which an
+// 18.9 kHz stream averages with the next. A state saved without them loads all zeroes, a resampler
+// that has taken nothing, as an SPU just opened has it.
+typedef Protobuf::RepeatedField<Protobuf::Int16, 32, TYPESTRING("xaRingL"), 31> SPUXARingL;
+typedef Protobuf::RepeatedField<Protobuf::Int16, 32, TYPESTRING("xaRingR"), 32> SPUXARingR;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("xaRingPos"), 33> SPUXARingPos;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("xaInputsTaken"), 34> SPUXAInputsTaken;
+typedef Protobuf::Field<Protobuf::Int16, TYPESTRING("xaLastL"), 35> SPUXALastL;
+typedef Protobuf::Field<Protobuf::Int16, TYPESTRING("xaLastR"), 36> SPUXALastR;
+// CPU cycle of the last CD audio fed (SPU::impl::cdFeedCycle). 0, as in a state saved without it,
+// means the CD has fed nothing.
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cdFeedCycle"), 37> SPUCDFeedCycle;
 
 typedef Protobuf::Message<TYPESTRING("SPU"), SPURam, SPUPorts, XAField, SPUIrq, SPUIrqPtr, Channels, SPUAddr, SPUCtrl,
                           SPUStat, CBStartIndex, CBCurrIndex, CBEndIndex, CBVoiceIndex, CBCDLeft, CBCDRight,
                           SPUNoiseClock, SPUNoiseCount, SPUNoiseVal, SPUEndx, SPUMainVolWritten, EnvelopeCheckpoints,
                           SPUReverbFirInL, SPUReverbFirInR, SPUReverbFirOutL, SPUReverbFirOutR, SPUReverbAltLeftTick,
-                          SPUReverbCallCount, SPUReverbCurrAddr, SPUNoisePosition, SPUWriteDMALandedCycle>
+                          SPUReverbCallCount, SPUReverbCurrAddr, SPUNoisePosition, SPUWriteDMALandedCycle, SPUXARingL,
+                          SPUXARingR, SPUXARingPos, SPUXAInputsTaken, SPUXALastL, SPUXALastR, SPUCDFeedCycle>
     SPU;
 typedef Protobuf::MessageField<SPU, TYPESTRING("spu"), 6> SPUField;
 
@@ -347,8 +362,13 @@ typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("irq_state"), 6> RcntIRQSta
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cycle"), 7> RcntCycle;
 typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cycle_start"), 8> RcntCycleStart;
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("gate_started"), 9> RcntGateStarted;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("rate_den"), 10> RcntRateDen;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("start_frac"), 11> RcntStartFrac;
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("pause_until"), 12> RcntPauseUntil;
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("hold_from"), 13> RcntHoldFrom;
 typedef Protobuf::Message<TYPESTRING("Rcnt"), RcntMode, RcntTarget, RcntRate, RcntIRQ, RcntCounterState, RcntIRQState,
-                          RcntCycle, RcntCycleStart, RcntGateStarted>
+                          RcntCycle, RcntCycleStart, RcntGateStarted, RcntRateDen, RcntStartFrac, RcntPauseUntil,
+                          RcntHoldFrom>
     Rcnt;
 typedef Protobuf::RepeatedField<Rcnt, 4, TYPESTRING("rcnts"), 1> Rcnts;
 typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("hsync_count"), 2> HSyncCount;
@@ -516,16 +536,37 @@ typedef Protobuf::Message<TYPESTRING("PocketStationSlot"), PocketStationDevice, 
 typedef Protobuf::MessageField<PocketStationSlot, TYPESTRING("pocketstation1"), 16> PocketStation1Field;
 typedef Protobuf::MessageField<PocketStationSlot, TYPESTRING("pocketstation2"), 17> PocketStation2Field;
 
+// The serial port at 1F801050h. Only a version 1 message is honoured: a state without one, or with
+// any other version, loads SIO1 at its reset values. The network connection is not part of it.
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("version"), 1> SIO1StateVersion;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("data"), 2> SIO1StateData;
+// As the guest reads it, RXRDY included
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("status"), 3> SIO1StateStatus;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("mode"), 4> SIO1StateMode;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("control"), 5> SIO1StateControl;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("baud"), 6> SIO1StateBaud;
+typedef Protobuf::Field<Protobuf::UInt32, TYPESTRING("misc"), 7> SIO1StateMisc;
+// The delay used to schedule interrupts, in CPU cycles, and the baud rate it was derived from
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cycle_count"), 8> SIO1StateCycleCount;
+typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("baud_rate"), 9> SIO1StateBaudRate;
+// The bytes waiting in the receive buffer, oldest first
+typedef Protobuf::Field<Protobuf::Bytes, TYPESTRING("rx_fifo"), 10> SIO1StateRxFifo;
+typedef Protobuf::Message<TYPESTRING("SIO1State"), SIO1StateVersion, SIO1StateData, SIO1StateStatus, SIO1StateMode,
+                          SIO1StateControl, SIO1StateBaud, SIO1StateMisc, SIO1StateCycleCount, SIO1StateBaudRate,
+                          SIO1StateRxFifo>
+    SIO1State;
+typedef Protobuf::MessageField<SIO1State, TYPESTRING("sio1"), 18> SIO1StateField;
+
 typedef Protobuf::Message<TYPESTRING("SaveState"), SaveStateInfoField, ThumbnailField, MemoryField, RegistersField,
                           GPUField, SPUField, SIOField, HardwareField, CountersField, MDECField, PCdrvFilesField,
-                          CallStacksField, CDRomField, PocketStation1Field, PocketStation2Field>
+                          CallStacksField, CDRomField, PocketStation1Field, PocketStation2Field, SIO1StateField>
     SaveState;
 
 typedef Protobuf::ProtoFile<SaveStateInfo, Thumbnail, Memory, DelaySlotInfo, GtePendingWriteInfo, Registers, GPU,
                             ADPCMDecode, XA, ::PCSX::SPU::Chan::Data, ::PCSX::SPU::ADSRInfo, ::PCSX::SPU::ADSRInfoEx,
                             Channel, EnvelopeCheckpoint, SPU, PadTransfer, SIO, CDQueueElement, CDMSF, CDADPCM, CDRom,
                             Hardware, Rcnt, Counters, MDEC, PCdrvFile, Call, CallStack, CallStacks, PocketStationSlot,
-                            SaveState>
+                            SIO1State, SaveState>
     ProtoFile;
 
 SaveState constructSaveState();

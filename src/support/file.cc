@@ -378,7 +378,7 @@ ssize_t PCSX::Fifo::read(void *dest_, size_t size) {
         m_size -= tocopy;
         m_ptrR += tocopy;
         if (slice.size() == m_ptrR) {
-            m_slices.pop();
+            m_slices.pop_front();
             m_ptrR = 0;
         }
     }

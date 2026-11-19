@@ -14,15 +14,12 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 local ffi = require 'ffi'
 
 TestRewind = {}
 
-local function ram32(offset)
-    return ffi.cast('uint32_t*', PCSX.getMemPtr() + offset)
-end
+local function ram32(offset) return ffi.cast('uint32_t*', PCSX.getMemPtr() + offset) end
 
 function TestRewind:test_empty()
     while PCSX.getRewindStateCount() > 0 do PCSX.rewindState() end

@@ -34,7 +34,7 @@
 #include "support/strings-helpers.h"
 
 PCSX::SIO::SIO() : m_listener(g_system->m_eventBus) {
-    m_listener.listen<Events::ExecutionFlow::SaveStateLoaded>([this](const auto &) {
+    m_listener.listen<Events::ExecutionFlow::SaveStateLoaded>([this](const auto&) {
         m_psxCycleValid = false;
         m_wallClockValid = false;
     });
@@ -46,7 +46,7 @@ PCSX::SIO::SIO() : m_listener(g_system->m_eventBus) {
 // each docked PocketStation that far. See sio.h for why this is at the inter-burst boundary and not
 // per-instruction or per-frame. Cheap when nothing is docked (early return).
 void PCSX::SIO::stepPocketstation() {
-    PocketStation::PocketStation *devs[c_cardCount];
+    PocketStation::PocketStation* devs[c_cardCount];
     bool any = false;
     for (unsigned i = 0; i < c_cardCount; i++) {
         // Dock before stepping, so the edge is taken by the cycles this call is about to run.
@@ -100,7 +100,7 @@ void PCSX::SIO::stepPocketstation() {
 // once per GUI frame from main.cc's not-running branch; that gating is what prevents double-driving
 // with stepPocketstation() (which only runs while the core executes). Inert when nothing is enabled.
 void PCSX::SIO::stepPocketstationWallClock() {
-    PocketStation::PocketStation *devs[c_cardCount];
+    PocketStation::PocketStation* devs[c_cardCount];
     bool any = false;
     for (unsigned i = 0; i < c_cardCount; i++) {
         // Dock before stepping, so the edge is taken by the cycles this call is about to run.
@@ -408,7 +408,7 @@ void PCSX::SIO::transmitData() {
             const unsigned index = portIndex * 3 + m_currentDevice - DeviceType::TapMemoryCardB;
             const auto port = portIndex ? Pads::Port::Port2 : Pads::Port::Port1;
             const auto [inserted, path] = tapMcdSettings(index);
-            auto &card = m_tapMemoryCard[index];
+            auto& card = m_tapMemoryCard[index];
             const bool tap = PCSX::g_emulator->m_pads->hasMultitap(port);
             if (tap && inserted && !m_tapMemoryCardLoaded[index]) {
                 // loadMcd resets the directory flag; keep the one a save state may have restored.
@@ -453,8 +453,6 @@ void PCSX::SIO::transmitData() {
 }
 
 void PCSX::SIO::write8(uint8_t value) {
-    SIO0_LOG("sio write8 %x (PAR:%x PAD:%x)\n", value, m_bufferIndex, m_padState);
-
     m_regs.data = value;
     m_regs.status &= ~StatusFlags::TX_DATACLEAR;
     g_emulator->m_mem->writeHardwareRegister<0x1044>(m_regs.status);
@@ -479,8 +477,6 @@ void PCSX::SIO::writeCtrl16(uint16_t value) {
     const bool wasReady = isTransmitReady();
 
     m_regs.control = value;
-
-    SIO0_LOG("sio ctrlwrite16 %x (PAR:%x PAD:%x)\n", value, m_bufferIndex, m_padState);
 
     if (selected && (m_regs.control & ControlFlags::TX_IRQEN) && !(m_regs.status & StatusFlags::IRQ)) {
         scheduleInterrupt(SIO_CYCLES);
@@ -552,10 +548,6 @@ uint8_t PCSX::SIO::read8() {
         updateFIFOStatus();
     }
 
-    SIO0_LOG("sio read8 ;ret = %x (I:%x ST:%x BUF:(%x %x %x))\n", ret, m_bufferIndex, m_regs.status,
-             m_buffer[m_bufferIndex > 0 ? m_bufferIndex - 1 : 0], m_buffer[m_bufferIndex],
-             m_buffer[m_bufferIndex < c_padBufferSize - 1 ? m_bufferIndex + 1 : c_padBufferSize - 1]);
-
     g_emulator->m_mem->writeHardwareRegister<0x1040, uint8_t>(ret);
 
     return ret;
@@ -568,7 +560,6 @@ uint16_t PCSX::SIO::readStatus16() {
 }
 
 void PCSX::SIO::scheduledCallback() {
-    SIO0_LOG("Sio Interrupt (CP0.Status = %x)\n", PCSX::g_emulator->m_cpu->m_regs.CP0.n.Status);
     m_regs.status |= StatusFlags::IRQ;
     g_emulator->m_mem->writeHardwareRegister<0x1044>(m_regs.status);
     g_emulator->m_mem->setIRQ(0x80);

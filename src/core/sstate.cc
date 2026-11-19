@@ -33,6 +33,7 @@
 #include "core/psxmem.h"
 #include "core/r3000a.h"
 #include "core/sio.h"
+#include "core/sio1.h"
 #include "spu/interface.h"
 
 namespace {
@@ -338,6 +339,7 @@ PCSX::SaveStates::SaveState PCSX::SaveStates::Access::constructSaveState() {
         },
         PocketStationSlot{},
         PocketStationSlot{},
+        SIO1State{},
     };
 }
 
@@ -375,6 +377,7 @@ std::string PCSX::SaveStates::save() {
 
     g_emulator->m_sio->getMemoryCard(0)->savePocketstationState(state.get<PocketStation1Field>());
     g_emulator->m_sio->getMemoryCard(1)->savePocketstationState(state.get<PocketStation2Field>());
+    g_emulator->m_sio1->serialize(&wrapper);
 
     Protobuf::OutSlice slice;
     state.serialize(&slice);
@@ -414,6 +417,7 @@ void PCSX::SaveStates::capture(SaveState& state) {
     state.get<PocketStation2Field>().get<PocketStationDevice>().value.clear();
     g_emulator->m_sio->getMemoryCard(0)->savePocketstationState(state.get<PocketStation1Field>());
     g_emulator->m_sio->getMemoryCard(1)->savePocketstationState(state.get<PocketStation2Field>());
+    g_emulator->m_sio1->serialize(&wrapper);
 
     /* And this is the half that never existed: the flat live -> copy for the ref/ptr fields. */
     state.capture();
@@ -483,6 +487,8 @@ void PCSX::SaveStates::restore(SaveState& state) {
     // its next context switch, and until then nothing is checked.
     g_emulator->m_cpu->clearStackBounds();
 
+    g_emulator->m_sio1->deserialize(&wrapper);
+
     g_system->m_eventBus->signal(Events::ExecutionFlow::SaveStateLoaded{});
 }
 
@@ -530,7 +536,7 @@ void PCSX::GPU::serialize(SaveStateWrapper* w) {
     for (unsigned i = 0; i < 6; i++) {
         setU32(env + i * 4, m_envRaw[i + 1]);
     }
-    gpu.get<GPUFieldFlags>() = (m_heldField ? 0 : 1) | (m_fieldPhase ? 2 : 0);
+    gpu.get<GPUFieldFlags>() = (m_heldField ? 0 : 1) | (m_fieldPhase ? 2 : 0) | (m_dma2Waiting ? 4 : 0);
 }
 
 void PCSX::MDEC::serialize(SaveStateWrapper* w) {
@@ -577,11 +583,60 @@ void PCSX::Counters::serialize(SaveStateWrapper* w) {
         counters.get<Rcnts>().value[i].get<RcntCycle>().value = m_rcnts[i].cycle;
         counters.get<Rcnts>().value[i].get<RcntCycleStart>().value = m_rcnts[i].cycleStart;
         counters.get<Rcnts>().value[i].get<RcntGateStarted>().value = m_rcnts[i].gateStarted;
+        counters.get<Rcnts>().value[i].get<RcntRateDen>().value = m_rcnts[i].rateDen;
+        counters.get<Rcnts>().value[i].get<RcntStartFrac>().value = m_rcnts[i].startFrac;
+        counters.get<Rcnts>().value[i].get<RcntPauseUntil>().value = m_rcnts[i].pauseUntil;
+        counters.get<Rcnts>().value[i].get<RcntHoldFrom>().value = m_rcnts[i].holdFrom;
     }
     counters.get<HSyncCount>().value = m_hSyncCount;
     counters.get<PSXNextCounter>().value = m_psxNextCounter;
     counters.get<FieldCount>().value = m_fieldCount;
     counters.get<LineRemainder>().value = m_lineRemainder;
+}
+
+void PCSX::SIO1::serialize(SaveStateWrapper* w) {
+    using namespace SaveStates;
+    auto& sio1 = w->state.get<SIO1StateField>();
+    sio1.get<SIO1StateVersion>().value = 1;
+    sio1.get<SIO1StateData>().value = m_regs.data;
+    sio1.get<SIO1StateStatus>().value = currentStatus();
+    sio1.get<SIO1StateMode>().value = m_regs.mode;
+    sio1.get<SIO1StateControl>().value = m_regs.control;
+    sio1.get<SIO1StateBaud>().value = m_regs.baud;
+    sio1.get<SIO1StateMisc>().value = m_regs.guizmo;
+    sio1.get<SIO1StateCycleCount>().value = m_cycleCount;
+    sio1.get<SIO1StateBaudRate>().value = m_baudRate;
+    // Only the protobuf mode owns a receive buffer; in raw mode the bytes are still on the socket.
+    sio1.get<SIO1StateRxFifo>().value = m_sio1fifo.isA<Fifo>() ? m_sio1fifo.asA<Fifo>()->contents() : std::string();
+}
+
+void PCSX::SIO1::deserialize(const SaveStateWrapper* w) {
+    using namespace SaveStates;
+    const auto& sio1 = w->state.get<SIO1StateField>();
+    if (sio1.get<SIO1StateVersion>().value != 1) {
+        loadResetValues();
+        return;
+    }
+    m_regs.data = sio1.get<SIO1StateData>().value;
+    m_regs.status = sio1.get<SIO1StateStatus>().value;
+    m_regs.mode = sio1.get<SIO1StateMode>().value;
+    m_regs.control = sio1.get<SIO1StateControl>().value;
+    m_regs.baud = sio1.get<SIO1StateBaud>().value;
+    m_regs.guizmo = sio1.get<SIO1StateMisc>().value;
+    m_cycleCount = sio1.get<SIO1StateCycleCount>().value;
+    m_baudRate = sio1.get<SIO1StateBaudRate>().value;
+
+    // Replaced, not merged: whatever arrived since the save is gone.
+    if (m_sio1fifo.isA<Fifo>()) {
+        auto fifo = m_sio1fifo.asA<Fifo>();
+        fifo->reset();
+        const auto& rx = sio1.get<SIO1StateRxFifo>().value;
+        if (!rx.empty()) {
+            Slice slice;
+            slice.copy(rx);
+            fifo->pushSlice(std::move(slice));
+        }
+    }
 }
 
 static bool parseSaveState(std::string_view data, PCSX::SaveStates::SaveState& state) {
@@ -666,6 +721,8 @@ bool PCSX::SaveStates::load(std::string_view data) {
     // its next context switch, and until then nothing is checked.
     g_emulator->m_cpu->clearStackBounds();
 
+    g_emulator->m_sio1->deserialize(&wrapper);
+
     g_system->m_eventBus->signal(Events::ExecutionFlow::SaveStateLoaded{});
 
     return true;
@@ -719,6 +776,7 @@ void PCSX::CallStacks::deserialize(const SaveStateWrapper* w) {
     }
 
     m_currentSP = w->state.get<SaveStates::CallStacksField>().get<CallStacksCurrentSP>().value;
+    if (m_pathTracking) rechainAll();
 }
 
 static uint32_t getU32(const uint8_t* ptr) { return ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24); }
@@ -757,6 +815,7 @@ void PCSX::GPU::deserialize(const SaveStateWrapper* w) {
     const uint32_t fieldFlags = gpu.get<GPUFieldFlags>().value;
     m_heldField = !(fieldFlags & 1);
     m_fieldPhase = fieldFlags & 2;
+    m_dma2Waiting = fieldFlags & 4;
 }
 
 void PCSX::GPU::snapshot(Snapshot& s) {
@@ -873,6 +932,11 @@ void PCSX::Counters::deserialize(const SaveStateWrapper* w) {
         m_rcnts[i].cycle = counters.get<Rcnts>().value[i].get<RcntCycle>().value;
         m_rcnts[i].cycleStart = counters.get<Rcnts>().value[i].get<RcntCycleStart>().value;
         m_rcnts[i].gateStarted = counters.get<Rcnts>().value[i].get<RcntGateStarted>().value;
+        // Older states carry no denominator: their rates are whole cycles.
+        m_rcnts[i].rateDen = std::max<uint32_t>(counters.get<Rcnts>().value[i].get<RcntRateDen>().value, 1);
+        m_rcnts[i].startFrac = counters.get<Rcnts>().value[i].get<RcntStartFrac>().value;
+        m_rcnts[i].pauseUntil = counters.get<Rcnts>().value[i].get<RcntPauseUntil>().value;
+        m_rcnts[i].holdFrom = counters.get<Rcnts>().value[i].get<RcntHoldFrom>().value;
     }
     m_hSyncCount = counters.get<HSyncCount>().value;
     m_psxNextCounter = counters.get<PSXNextCounter>().value;
@@ -883,8 +947,11 @@ void PCSX::Counters::deserialize(const SaveStateWrapper* w) {
     // so a restored state replays the same hblank times. A state saved before the remainder was
     // stored loads it as 0.
     m_lineRemainder = counters.get<LineRemainder>().value % m_lineDen;
-    // Recalculate rates from mode registers (handles overclock changes and dotclock)
+    // Recalculate rates from mode registers (handles overclock changes and dotclock). A state saved
+    // without a rate denominator keeps its whole-cycle timer 0 rate, which its saved timing uses.
+    const bool legacyTimer0 = counters.get<Rcnts>().value[0].get<RcntRateDen>().value == 0;
     for (unsigned i = 0; i < 3; i++) {
+        if (i == 0 && legacyTimer0) continue;
         recalculateRate(i);
     }
 

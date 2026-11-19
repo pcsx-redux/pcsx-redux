@@ -35,14 +35,14 @@
 // (real | open-bus); both 1MB and 2MB fitments are valid and pass.
 TEST(TwoMBVram, BankProbe1MB) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/2mb-vram/bank-probe/bank-probe.ps-exe");
+                        "-loadexe", "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
 
 TEST(TwoMBVram, BankProbe2MB) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-2mbvram", "-loadexe", "src/mips/tests/2mb-vram/bank-probe/bank-probe.ps-exe");
+                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -53,7 +53,7 @@ TEST(TwoMBVram, BankProbe2MB) {
 // upper-bank texture sampling specifically. Requires the 2MB fitment.
 TEST(TwoMBVram, TexpageUpper) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-2mbvram", "-loadexe", "src/mips/tests/2mb-vram/texpage-upper/texpage-upper.ps-exe");
+                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/texpage-upper/texpage-upper.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -66,7 +66,7 @@ TEST(TwoMBVram, TexpageUpper) {
 // 2MB fitment with the bank gate open.
 TEST(TwoMBVram, TransferWrapY) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-2mbvram", "-loadexe", "src/mips/tests/2mb-vram/transfer-wrap-y/transfer-wrap-y.ps-exe");
+                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/transfer-wrap-y/transfer-wrap-y.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -77,7 +77,7 @@ TEST(TwoMBVram, TransferWrapY) {
 // fitment with the gate open.
 TEST(TwoMBVram, TransferHQuirk) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-2mbvram", "-loadexe", "src/mips/tests/2mb-vram/transfer-h-quirk/transfer-h-quirk.ps-exe");
+                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/transfer-h-quirk/transfer-h-quirk.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -87,7 +87,7 @@ TEST(TwoMBVram, TransferHQuirk) {
 // h1024 cases). The probe self-asserts exact_matches == eff_h per case.
 TEST(TwoMBVram, VramBlitY) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-2mbvram", "-loadexe", "src/mips/tests/2mb-vram/vram-blit-y/vram-blit-y.ps-exe");
+                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/vram-blit-y/vram-blit-y.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -98,7 +98,7 @@ TEST(TwoMBVram, VramBlitY) {
 // transfer-wrap-y, not counted here).
 TEST(TwoMBVram, VramTransfersY) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-2mbvram", "-loadexe", "src/mips/tests/2mb-vram/vram-transfers-y/vram-transfers-y.ps-exe");
+                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/vram-transfers-y/vram-transfers-y.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -108,7 +108,7 @@ TEST(TwoMBVram, VramTransfersY) {
 // The probe self-asserts that formula per case.
 TEST(TwoMBVram, DrawingAreaY) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-2mbvram", "-loadexe", "src/mips/tests/2mb-vram/drawing-area-y/drawing-area-y.ps-exe");
+                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/drawing-area-y/drawing-area-y.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -118,7 +118,7 @@ TEST(TwoMBVram, DrawingAreaY) {
 // NOT wrap on draw. Expected values are measured 573 silicon.
 TEST(TwoMBVram, DrawingOffsetY) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-2mbvram", "-loadexe", "src/mips/tests/2mb-vram/drawing-offset-y/drawing-offset-y.ps-exe");
+                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/drawing-offset-y/drawing-offset-y.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -128,7 +128,7 @@ TEST(TwoMBVram, DrawingOffsetY) {
 // Expected per-band counts are measured 573 silicon.
 TEST(TwoMBVram, PrimitivesCross) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-2mbvram", "-loadexe", "src/mips/tests/2mb-vram/primitives-cross/primitives-cross.ps-exe");
+                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/primitives-cross/primitives-cross.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -138,7 +138,7 @@ TEST(TwoMBVram, PrimitivesCross) {
 // drawn under.
 TEST(TwoMBVram, GateFlipQueued) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-2mbvram", "-loadexe", "src/mips/tests/2mb-vram/gate-flip-queued/gate-flip-queued.ps-exe");
+                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/gate-flip-queued/gate-flip-queued.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
 }
@@ -150,7 +150,7 @@ TEST(TwoMBVram, GateFlipQueued) {
 static bool haveDisplay() { return std::getenv("DISPLAY") || std::getenv("WAYLAND_DISPLAY"); }
 
 static int runOpenGLProbe(const char* name) {
-    std::string exe = std::string("src/mips/tests/2mb-vram/") + name + "/" + name + ".ps-exe";
+    std::string exe = std::string("src/mips/tests/gpu/2mb-vram/") + name + "/" + name + ".ps-exe";
     MainInvoker invoker("-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter", "-openglgpu",
                         "-2mbvram", "-loadexe", exe.c_str());
     return invoker.invoke();

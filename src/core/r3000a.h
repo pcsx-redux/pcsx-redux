@@ -309,6 +309,8 @@ class R3000Acpu {
     std::map<uint32_t, std::string> m_symbols;
 
     std::pair<const uint32_t, std::string> *findContainingSymbol(uint32_t addr);
+    static const std::pair<const uint32_t, std::string> *findContainingSymbol(
+        const std::map<uint32_t, std::string> &symbols, uint32_t addr);
     std::string *getSymbolAt(uint32_t addr);
 
     static int psxInit();
@@ -342,7 +344,6 @@ class R3000Acpu {
 
     void schedule(Schedule s_, uint32_t eCycle) {
         unsigned s = static_cast<unsigned>(s_);
-        PSXIRQ_LOG("Scheduling callback %08x at %08x\n", s, eCycle);
         const uint64_t cycle = m_regs.cycle;
         uint64_t target = cycle + uint64_t(double(eCycle) * m_scheduleScales[s]);
         m_regs.scheduleMask |= (1 << s);
@@ -354,7 +355,6 @@ class R3000Acpu {
 
     void unschedule(Schedule s_) {
         unsigned s = static_cast<unsigned>(s_);
-        PSXIRQ_LOG("Unscheduling callback %08x\n", s);
         m_regs.scheduleMask &= ~(1 << s);
     }
 
@@ -640,13 +640,11 @@ Formula One 2001
        every valid bit. The refill runs from the missed word to the end of the line, or to the end
        of its two-word half when BIU_CONFIG.IBLKSZ (bit 8) is clear, and sets the valid bits of the
        words it fetched. A fill entered at word 0 with the tag matching and some words invalid is
-       a full-line refill, as the nugget tests/icache suite measures; a tag-matching miss at words
+       a full-line refill, as the nugget tests/cpu/icache suite measures; a tag-matching miss at words
        1 to 3 refills from that word on, which is the same rule and is not measured on its own. */
     static constexpr uint32_t c_iCachePageMask = 0x1ffff000;
     uint32_t *iCacheTag(uint32_t addr) { return reinterpret_cast<uint32_t *>(m_regs.iCacheAddr) + (addr & 0xff0) / 4; }
-    uint32_t *iCacheLine(uint32_t addr) {
-        return reinterpret_cast<uint32_t *>(m_regs.iCacheCode) + (addr & 0xff0) / 4;
-    }
+    uint32_t *iCacheLine(uint32_t addr) { return reinterpret_cast<uint32_t *>(m_regs.iCacheCode) + (addr & 0xff0) / 4; }
 
     // Used by DMA into RAM, which drops the lines it overwrites. CPU stores do not get here.
     inline void flushICacheLine(uint32_t pc) {

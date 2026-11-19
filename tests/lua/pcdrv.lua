@@ -14,7 +14,6 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 local lu = require 'luaunit'
 local ffi = require 'ffi'
 
@@ -25,9 +24,7 @@ local NAME = 0x80140000
 local BUF = 0x80150000
 local FILENAME = 'pcdrv-savestate.bin'
 
-local function ram32(addr)
-    return ffi.cast('uint32_t*', PCSX.getMemPtr() + (addr - 0x80000000))
-end
+local function ram32(addr) return ffi.cast('uint32_t*', PCSX.getMemPtr() + (addr - 0x80000000)) end
 
 -- One stub per PCdrv call: break <code> ; jr ra ; nop. The handler skips the break and leaves
 -- its result in v1.
@@ -59,9 +56,7 @@ end
 local function creat() return pcdrv('creat', { NAME, 0 }, { { addr = NAME, data = FILENAME .. '\0' } }).v1 end
 local function open(mode) return pcdrv('open', { NAME, 0, mode }, { { addr = NAME, data = FILENAME .. '\0' } }).v1 end
 local function close(fd) return pcdrv('close', { fd }).v1 end
-local function write(fd, data)
-    return pcdrv('write', { 0, fd, #data, BUF }, { { addr = BUF, data = data } }).v1
-end
+local function write(fd, data) return pcdrv('write', { 0, fd, #data, BUF }, { { addr = BUF, data = data } }).v1 end
 local function read(fd, size)
     local r = pcdrv('read', { 0, fd, size, BUF }, nil, { { addr = BUF, size = size } })
     return r.out[1]:sub(1, r.v1)

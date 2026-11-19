@@ -78,6 +78,15 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\cputrace.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\binloader-symbols.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\profiler.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\openbios-fallback.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\hwevents.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -171,6 +180,15 @@
     <ClCompile Include="..\..\..\tests\spu\syncmix.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\spu\transferaddr.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\tests\spu\envelopeload.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\tests\spu\xastate.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\core\pad-config.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -198,6 +216,9 @@
     <ClCompile Include="..\..\..\tests\core\memeditor-route.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\core\callstacks-paths.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\multitap.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -217,6 +238,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\tests\spu\reverbstate.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\tests\spu\hardreset.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-threaded.cc">

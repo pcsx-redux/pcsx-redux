@@ -27,7 +27,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: OpenBIOS
-        path: src/mips/openbios/openbios.bin
+        path: |
+          src/mips/openbios/openbios.bin
+          src/mips/openbios/openbios.elf
     - name: Build tests
       run: |
         make -C src/mips/openbios -j 2 clean
@@ -37,7 +39,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: tests
-        path: '**/*.ps-exe'
+        path: |
+          **/*.ps-exe
+          src/mips/tests/tooling/profiler/profiler.elf
 
   macos-arm-build-and-test:
     runs-on: macos-15
@@ -60,15 +64,15 @@ jobs:
         name: tests
     - name: Test
       run: |
-        cp openbios.bin src/mips/openbios/
-        ./pcsx-redux -stdout -lua_stdout -testmode -no-gui-log -exec "dofile 'src/mips/tests/cdrom/create-test-iso.lua'"
+        cp openbios.bin openbios.elf src/mips/openbios/
+        ./pcsx-redux -stdout -lua_stdout -testmode -no-gui-log -exec "dofile 'src/mips/tests/cdrom/common/create-test-iso.lua'"
         ./pcsx-redux-tests
     - name: Bundle
       run: ./.github/scripts/create-app.sh
     - name: Create BUILD environment
       run: echo "BUILD=`echo ${GITHUB_SHA} | cut -c1-8`" >> $GITHUB_ENV
     - name: Injecting OpenBIOS
-      run: cp openbios.bin PCSX-Redux.app/Contents/Resources/share/pcsx-redux/resources
+      run: cp openbios.bin openbios.elf PCSX-Redux.app/Contents/Resources/share/pcsx-redux/resources
     - name: Install node
       uses: actions/setup-node@v4
       with:

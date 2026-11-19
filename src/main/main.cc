@@ -32,6 +32,7 @@
 #include <string>
 
 #include "core/arguments.h"
+#include "core/callprofiler.h"
 #include "core/cdrom.h"
 #include "core/gpu.h"
 #include "core/logger.h"
@@ -439,6 +440,17 @@ int pcsxMain(int argc, char **argv) {
             debugSettings.get<PCSX::Emulator::DebugSettings::WebServerPort>() = args.number("webserver-port").value();
         }
 
+        if (args.has("sio1-server")) {
+            debugSettings.get<PCSX::Emulator::DebugSettings::SIO1Server>() = true;
+        }
+        if (args.has("no-sio1-server")) {
+            debugSettings.get<PCSX::Emulator::DebugSettings::SIO1Server>() = false;
+        }
+
+        if (args.number("sio1-port")) {
+            debugSettings.get<PCSX::Emulator::DebugSettings::SIO1ServerPort>() = args.number("sio1-port").value();
+        }
+
         auto argPCdrvBase = args.value("pcdrvbase");
         if (args.has("pcdrv")) {
             debugSettings.get<PCSX::Emulator::DebugSettings::PCdrv>() = true;
@@ -537,6 +549,18 @@ runner.init({
     emulator->m_gpu->setLinearFiltering();
     emulator->reset();
 
+    // Left set only when the capture started, so the exit export goes by these rather
+    // than by whether the profiler is still running, as Lua may have stopped it.
+    auto profileOut = args.value("profile", "");
+    auto callgrindOut = args.value("callgrind", "");
+    if (!profileOut.empty() || !callgrindOut.empty()) {
+        if (!emulator->m_profiler->start()) {
+            fmt::print(stderr, "-profile and -callgrind need the interpreter; nothing will be profiled.\n");
+            profileOut.clear();
+            callgrindOut.clear();
+        }
+    }
+
     // Looking at setting up what to run exactly within the emulator, if requested.
     if (args.has("run")) system->resume();
     s_ui->m_exeToLoad.set(MAKEU8(args.value("loadexe", "").c_str()));
@@ -548,7 +572,22 @@ runner.init({
         // First, set up a closer. This makes sure that everything is shut down gracefully,
         // in the right order, once we exit the scope. This is because of how we're still
         // allowing exceptions to occur.
-        Cleaner cleaner([&emulator, &system, &exitCode, luacovEnabled, sigint, sigterm]() {
+        Cleaner cleaner([&emulator, &system, &exitCode, luacovEnabled, sigint, sigterm, &profileOut, &callgrindOut]() {
+            auto writeProfile = [](const std::string &path, const std::string &data, const char *option) {
+                if (path.empty()) return;
+                PCSX::IO<PCSX::File> out(new PCSX::PosixFile(path, PCSX::FileOps::TRUNCATE));
+                if (out->failed()) {
+                    fmt::print(stderr, "-{}: unable to create '{}'\n", option, path);
+                    return;
+                }
+                if (out->write(data.data(), data.size()) != ssize_t(data.size())) {
+                    fmt::print(stderr, "-{}: unable to write '{}'\n", option, path);
+                }
+            };
+            if (!profileOut.empty() || !callgrindOut.empty()) {
+                writeProfile(profileOut, emulator->m_profiler->serializePprof(), "profile");
+                writeProfile(callgrindOut, emulator->m_profiler->serializeCallgrind(), "callgrind");
+            }
             emulator->m_spu->close();
             emulator->m_cdrom->clearIso();
 
@@ -660,8 +699,80 @@ runner.init({
             // stays alive with everything intact. Nothing below runs on wasm -
             // no pause(), no Quitting signal - which is the honest shape for a
             // tab, since a tab is closed rather than quit.
+            //
+            // Pacing. Each Execute() is one emulated frame and the browser calls us once per
+            // display refresh, which is not the console's rate and may be anything. The main
+            // thread must not wait, so this is the desktop's audio throttle (psxcounters.cc,
+            // waitForGoal) turned inside out: a callback runs frames while the CPU is less than
+            // the SPU's lead ahead of what the audio device has played, and returns as soon as
+            // it is that far ahead. The lead is what keeps the device fed, so the mixer, which
+            // cannot mix past the CPU, always has a period's worth queued. Played frames already
+            // include turbo. While the device is not playing (a suspended AudioContext) the wall
+            // clock stands in for it. A gap of more than a quarter second past the lead either
+            // way (a slow host, a background tab, a save state, a reset) is not caught up: the
+            // clocks are realigned.
             static std::function<void()> s_frame;
-            s_frame = oneIteration;
+            s_frame = [oneIteration, system, emulator]() {
+                static bool s_aligned = false;
+                static bool s_deviceClock = false;
+                static int s_speed = 0;
+                static uint64_t s_cycleBase = 0;
+                static double s_clockBase = 0.0;
+                static uint32_t s_lastPlayed = 0;
+                static double s_lastPlayedMs = -1e9;
+                constexpr double c_sampleRate = 44100.0;
+                constexpr double c_deviceStallMs = 250.0;
+                constexpr int c_maxFramesPerCallback = 8;
+                // Catching up runs several emulated frames in one callback, but only while the
+                // callback stays short: on a machine that cannot emulate a frame in a display
+                // frame, eight in a row held the page for hundreds of milliseconds.
+                constexpr double c_callbackBudgetMs = 12.0;
+                const double callbackStart = emscripten_get_now();
+                for (int frame = 0; frame < c_maxFramesPerCallback; frame++) {
+                    if (!system->running() || system->hasPendingSaveStateLoad()) {
+                        s_aligned = false;
+                        if (frame == 0) oneIteration();
+                        return;
+                    }
+                    const double now = emscripten_get_now();
+                    if (frame > 0 && now - callbackStart > c_callbackBudgetMs) return;
+                    const uint32_t played = emulator->m_spu->getCurrentFrames();
+                    if (played != s_lastPlayed) {
+                        s_lastPlayed = played;
+                        s_lastPlayedMs = now;
+                    }
+                    const bool deviceClock = now - s_lastPlayedMs < c_deviceStallMs;
+                    // Samples on the master clock: the device's played count, or the wall clock
+                    // at the speed the device would be consuming them.
+                    const int speed = emulator->m_spu->getEffectiveSpeed();
+                    const double clock = deviceClock ? double(played) : now * c_sampleRate / 1000.0 * speed;
+                    const uint64_t cycle = emulator->m_cpu->m_regs.cycle;
+                    const double lead = emulator->m_spu->getLeadFrames();
+                    const double realign = lead + c_sampleRate / 4.0;
+                    // The wall clock is time times speed, so a new speed rescales all the time before
+                    // it as well: realign rather than run or skip that difference.
+                    if (!s_aligned || deviceClock != s_deviceClock || speed != s_speed || cycle < s_cycleBase) {
+                        s_aligned = true;
+                        s_deviceClock = deviceClock;
+                        s_speed = speed;
+                        s_cycleBase = cycle;
+                        s_clockBase = clock;
+                    }
+                    // The played count is 32 bits and wraps; the wrapped difference is still right.
+                    const double elapsed =
+                        deviceClock ? double(uint32_t(played - uint32_t(s_clockBase))) : clock - s_clockBase;
+                    const double emulated =
+                        double(cycle - s_cycleBase) * c_sampleRate / PCSX::Emulator::m_psxClockSpeed;
+                    const double ahead = emulated - elapsed;
+                    if (ahead > realign || ahead < -realign) {
+                        s_cycleBase = cycle;
+                        s_clockBase = clock;
+                    } else if (ahead > lead) {
+                        return;
+                    }
+                    oneIteration();
+                }
+            };
             emscripten_set_main_loop([]() { s_frame(); }, 0, false);
             cleaner.disarm();
             return 0;

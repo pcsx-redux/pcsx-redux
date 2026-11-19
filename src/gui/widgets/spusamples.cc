@@ -248,7 +248,8 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
           "the export measures it."));
     if (!m_overlayStatus.empty()) ImGui::TextUnformatted(m_overlayStatus.c_str());
 
-    const float tableHeight = ImGui::GetContentRegionAvail().y * 0.4f;
+    const bool showWaveform = m_selected && !m_waveform.empty();
+    const float tableHeight = ImGui::GetContentRegionAvail().y * (showWaveform ? 0.4f : 1.0f);
     if (ImGui::BeginTable(
             "SPUSamples", 10,
             ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit,
@@ -333,7 +334,7 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
         ImGui::EndTable();
     }
 
-    if (m_selected && !m_waveform.empty()) {
+    if (showWaveform) {
         auto it = m_samples.find(m_selectedStart);
         if (ImPlot::BeginPlot("##SPUWaveform", ImVec2(-1, -1))) {
             ImPlot::SetupAxes(_("Sample"), nullptr);

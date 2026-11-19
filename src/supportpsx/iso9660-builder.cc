@@ -117,7 +117,6 @@ PCSX::IEC60908b::MSF PCSX::ISO9660Builder::writeSectorAt(const uint8_t* sectorDa
     if (failed()) return {0, 0, 0};
     Slice slice;
     uint8_t* ptr;
-    static const uint8_t c_sync[12] = {0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00};
     uint32_t lba = msf.toLBA() - 150;
     switch (mode) {
         case IEC60908b::SectorMode::RAW:
@@ -126,7 +125,7 @@ PCSX::IEC60908b::MSF PCSX::ISO9660Builder::writeSectorAt(const uint8_t* sectorDa
         case IEC60908b::SectorMode::M2_RAW:
             slice.resize(IEC60908b::FRAMESIZE_RAW);
             ptr = slice.mutableData<uint8_t>();
-            memcpy(ptr, c_sync, sizeof(c_sync));
+            memcpy(ptr, IEC60908b::SYNC, sizeof(IEC60908b::SYNC));
             msf.toBCD(ptr + 12);
             ptr[15] = 2;
             memcpy(ptr + 16, sectorData, 2336);
@@ -135,7 +134,7 @@ PCSX::IEC60908b::MSF PCSX::ISO9660Builder::writeSectorAt(const uint8_t* sectorDa
         case IEC60908b::SectorMode::M2_FORM1:
             slice.resize(IEC60908b::FRAMESIZE_RAW);
             ptr = slice.mutableData<uint8_t>();
-            memcpy(ptr, c_sync, sizeof(c_sync));
+            memcpy(ptr, IEC60908b::SYNC, sizeof(IEC60908b::SYNC));
             msf.toBCD(ptr + 12);
             ptr[15] = 2;
             ptr[16] = ptr[20] = 0;
@@ -149,7 +148,7 @@ PCSX::IEC60908b::MSF PCSX::ISO9660Builder::writeSectorAt(const uint8_t* sectorDa
         case IEC60908b::SectorMode::M2_FORM2:
             slice.resize(IEC60908b::FRAMESIZE_RAW);
             ptr = slice.mutableData<uint8_t>();
-            memcpy(ptr, c_sync, sizeof(c_sync));
+            memcpy(ptr, IEC60908b::SYNC, sizeof(IEC60908b::SYNC));
             msf.toBCD(ptr + 12);
             ptr[15] = 2;
             ptr[16] = ptr[20] = 0;
@@ -213,12 +212,10 @@ void writeBothEndian16(uint8_t* buf, uint16_t val) {
 
 uint32_t ceilDiv(uint32_t a, uint32_t b) { return (a + b - 1) / b; }
 
-static const uint8_t c_sync[12] = {0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00};
-
 // Prepare a raw 2352-byte M2 Form 1 sector frame.
 void prepareM2F1Frame(uint8_t* frame, uint32_t lba, const uint8_t* data2048) {
     memset(frame, 0, 2352);
-    memcpy(frame, c_sync, 12);
+    memcpy(frame, PCSX::IEC60908b::SYNC, sizeof(PCSX::IEC60908b::SYNC));
     PCSX::IEC60908b::MSF msf(lba + 150);
     msf.toBCD(frame + 12);
     frame[15] = 2;  // mode 2
@@ -234,7 +231,7 @@ void prepareM2F1Frame(uint8_t* frame, uint32_t lba, const uint8_t* data2048) {
 // Prepare a raw M2F1 frame without computing EDC/ECC (for parallel processing).
 void prepareM2F1FrameNoECC(uint8_t* frame, uint32_t lba, const uint8_t* data2048) {
     memset(frame, 0, 2352);
-    memcpy(frame, c_sync, 12);
+    memcpy(frame, PCSX::IEC60908b::SYNC, sizeof(PCSX::IEC60908b::SYNC));
     PCSX::IEC60908b::MSF msf(lba + 150);
     msf.toBCD(frame + 12);
     frame[15] = 2;
@@ -249,7 +246,7 @@ void prepareM2F1FrameNoECC(uint8_t* frame, uint32_t lba, const uint8_t* data2048
 void prepareM2F2FrameNoECC(uint8_t* frame, uint32_t lba, const uint8_t* data2324, uint8_t fileNum = 0,
                            uint8_t channelNum = 0, uint8_t submode = 0x08, uint8_t codingInfo = 0) {
     memset(frame, 0, 2352);
-    memcpy(frame, c_sync, 12);
+    memcpy(frame, PCSX::IEC60908b::SYNC, sizeof(PCSX::IEC60908b::SYNC));
     PCSX::IEC60908b::MSF msf(lba + 150);
     msf.toBCD(frame + 12);
     frame[15] = 2;
@@ -265,7 +262,7 @@ void prepareM2F2FrameNoECC(uint8_t* frame, uint32_t lba, const uint8_t* data2324
 // helper only stamps sync, MSF, and the mode byte.
 void prepareM2RawFrame(uint8_t* frame, uint32_t lba, const uint8_t* data2336) {
     memset(frame, 0, 2352);
-    memcpy(frame, c_sync, 12);
+    memcpy(frame, PCSX::IEC60908b::SYNC, sizeof(PCSX::IEC60908b::SYNC));
     PCSX::IEC60908b::MSF msf(lba + 150);
     msf.toBCD(frame + 12);
     frame[15] = 2;

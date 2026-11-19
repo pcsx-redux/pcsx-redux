@@ -534,7 +534,6 @@ void PGXP_CPU_DebugOutput(uint32_t eOp, uint32_t instr, uint32_t numOps, uint32_
 #ifdef PGXP_TEST_OUTPUT_VALUES
         if ((test_flags[0] & test_flags[1] & VALID_01) != VALID_01)
 #endif  // PGXP_TEST_OUTPUT_VALUES
-            GTE_LOG("PGXP_Trace: %s %s|", szOutputBuffer, szInputBuffer);
     }
 #endif  // PGXP_OUTPUT_ALL
 }
