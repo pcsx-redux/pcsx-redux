@@ -15,7 +15,6 @@
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 local lu = require 'luaunit'
-local ffi = require 'ffi'
 
 TestPCdrvSaveState = {}
 
@@ -23,8 +22,6 @@ local CODE = 0x80100000
 local NAME = 0x80140000
 local BUF = 0x80150000
 local FILENAME = 'pcdrv-savestate.bin'
-
-local function ram32(addr) return ffi.cast('uint32_t*', PCSX.getMemPtr() + (addr - 0x80000000)) end
 
 -- One stub per PCdrv call: break <code> ; jr ra ; nop. The handler skips the break and leaves
 -- its result in v1.
@@ -40,10 +37,11 @@ end
 
 local function plantStubs()
     for name, addr in pairs(STUBS) do
-        local p = ram32(addr)
-        p[0] = bit.bor(bit.lshift(CALLS[name], 6), 0x0d)
-        p[1] = 0x03e00008
-        p[2] = 0x00000000
+        PCSX.Assembler.New():parse(string.format([[
+            break 0x%x
+            jr    $ra
+            nop
+        ]], CALLS[name])):compileToMemory(PCSX.getMemPtr(), addr, 0x80000000)
     end
 end
 
