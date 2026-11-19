@@ -108,6 +108,9 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-dma-dreq.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-dma-forced.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-irq.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
