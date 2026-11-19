@@ -143,6 +143,7 @@ TEST(LuaPCdrv, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.pcdrv"), 0); }
 TEST(LuaPCWrite, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.pcwrite"), 0); }
 TEST(LuaSaveStateBranchSlot, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sstate-branchslot"), 0); }
 TEST(LuaSaveStateSPUCnt, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sstate-spucnt"), 0); }
+TEST(LuaSIO1TxIrq, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sio1-txirq"), 0); }
 TEST(LuaSaveStateResult, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.sstate-result"), 0); }
 TEST(LuaSPULogger, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.spulogger"), 0); }
 TEST(LuaWebServer, Interpreter) {
