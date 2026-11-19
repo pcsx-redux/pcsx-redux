@@ -81,6 +81,7 @@ local function guestCode(send, base, reset)
             asm('ori $t1, $zero, 0x%x', b)
             asm('sb $t1, 0x1040($t0)')
             asm('lbu $t2, 0x1040($t0)')
+            asm('nop # load delay')
             asm('sb $t2, %d($t3)', n)
             n = n + 1
         end
