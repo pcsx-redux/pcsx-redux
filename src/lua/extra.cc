@@ -53,11 +53,11 @@ std::tuple<PCSX::File*, std::string> load(std::string_view name, std::string_vie
             auto& archive = *archivei;
             if (doRelative) {
                 file = archive.openFile(relativePath.string());
-                if (!file->failed()) return {file, relativePath.string()};
+                if (!file->failed()) return {file, relativePath.generic_string()};
                 delete file;
             }
             file = archive.openFile(absolutePath.string());
-            if (!file->failed()) return {file, absolutePath.string()};
+            if (!file->failed()) return {file, absolutePath.generic_string()};
             delete file;
         }
     } else {
@@ -67,20 +67,20 @@ std::tuple<PCSX::File*, std::string> load(std::string_view name, std::string_vie
             std::filesystem::path relativePath(archive.archiveFilename().parent_path() / name);
             relativePath = std::filesystem::weakly_canonical(relativePath);
             file = archive.openFile(relativePath.string());
-            if (!file->failed()) return {file, relativePath.string()};
+            if (!file->failed()) return {file, relativePath.generic_string()};
             delete file;
             file = archive.openFile(absolutePath.string());
-            if (!file->failed()) return {file, absolutePath.string()};
+            if (!file->failed()) return {file, absolutePath.generic_string()};
             delete file;
         }
     }
 
     if (doRelative) {
         file = new PCSX::PosixFile(relativePath);
-        if (!file->failed()) return {file, relativePath.string()};
+        if (!file->failed()) return {file, relativePath.generic_string()};
         delete file;
     }
-    return {new PCSX::PosixFile(absolutePath), absolutePath.string()};
+    return {new PCSX::PosixFile(absolutePath), absolutePath.generic_string()};
 }
 
 uint64_t djbHash(const char* str, size_t len) { return PCSX::djb::hash(str, len); }
