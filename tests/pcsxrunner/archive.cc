@@ -18,6 +18,9 @@
  ***************************************************************************/
 
 #include <filesystem>
+#include <initializer_list>
+#include <string_view>
+#include <utility>
 
 #include "gtest/gtest.h"
 #include "main/main.h"
@@ -149,4 +152,76 @@ TEST_F(ArchiveTest, test) {
 	MainInvoker invoker("-no-ui", "-testmode", "-interpreter", "-luacov", "-archive", "test2.zip");
 	int ret = invoker.invoke();
 	EXPECT_EQ(ret, 0);
+}
+
+class ArchiveRelativeTest : public ::testing::Test {
+  protected:
+    void writeZip(const char* path, std::initializer_list<std::pair<std::string_view, std::string_view>> entries) {
+        PCSX::IO<PCSX::File> out = new PCSX::PosixFile(path, PCSX::FileOps::TRUNCATE);
+        for (auto& [filename, contents] : entries) {
+            PCSX::LocalFileHeader header;
+            header.reset();
+            header.get<PCSX::Signature>().value = 0x04034b50;
+            header.get<PCSX::FilenameLength>().value = filename.size();
+            header.get<PCSX::CompressedSize>().value = contents.size();
+            header.get<PCSX::UncompressedSize>().value = contents.size();
+            header.serialize(out);
+            out->writeString(filename);
+            out->writeString(contents);
+        }
+        out->write<uint32_t>(0x06054b50);
+        out->close();
+    }
+    int run() {
+        MainInvoker invoker("-no-ui", "-testmode", "-interpreter", "-archive", "relative.zip");
+        return invoker.invoke();
+    }
+    void TearDown() override {
+        closeArchivesForTests();
+        std::filesystem::remove("relative.zip");
+        std::filesystem::remove_all("archive-test-moddir");
+    }
+    static constexpr std::string_view c_autoexec = R"(
+local success, result = pcall(function()
+    local r = Support.extra.dofile('archive-test-moddir/a.lua')
+    return r
+end)
+if success and result == 'from archive' then
+    PCSX.quit(0)
+else
+    print('relative load returned: ' .. tostring(result))
+    PCSX.quit(1)
+end
+)";
+};
+
+// A relative load inside an archive has to resolve inside the archive,
+// whatever happens to exist in the current directory.
+TEST_F(ArchiveRelativeTest, HostDirectoryOfTheSameName) {
+    std::filesystem::create_directories("archive-test-moddir");
+    writeZip("relative.zip", {{"archive-test-moddir/a.lua", "local r = Support.extra.dofile('b.lua')\nreturn r"},
+                              {"archive-test-moddir/b.lua", "return 'from archive'"},
+                              {"autoexec.lua", c_autoexec}});
+    EXPECT_EQ(run(), 0);
+}
+
+TEST_F(ArchiveRelativeTest, HostFileOfTheSameName) {
+    std::filesystem::create_directories("archive-test-moddir");
+    {
+        PCSX::IO<PCSX::File> out = new PCSX::PosixFile("archive-test-moddir/b.lua", PCSX::FileOps::TRUNCATE);
+        out->writeString("return 'from disk'");
+        out->close();
+    }
+    writeZip("relative.zip", {{"archive-test-moddir/a.lua", "local r = Support.extra.dofile('b.lua')\nreturn r"},
+                              {"archive-test-moddir/b.lua", "return 'from archive'"},
+                              {"autoexec.lua", c_autoexec}});
+    EXPECT_EQ(run(), 0);
+}
+
+// Forwarding to another file with a tail call still loads it next to the calling file.
+TEST_F(ArchiveRelativeTest, TailCall) {
+    writeZip("relative.zip", {{"archive-test-moddir/a.lua", "return Support.extra.dofile('b.lua')"},
+                              {"archive-test-moddir/b.lua", "return 'from archive'"},
+                              {"autoexec.lua", c_autoexec}});
+    EXPECT_EQ(run(), 0);
 }
