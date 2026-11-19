@@ -255,51 +255,19 @@ struct CDObserverScope {
     ~CDObserverScope() { PCSX::HWEvents::s_recordObserver = nullptr; }
 };
 
-// Boots the test disc through OpenBIOS and quits once the CPU runs inside the
-// disc's boot executable, as the cdrom disc boot test does.
-const char c_cdBoot[] = R"(
-PCSX.HWEvents.arm('CDROM', 'IRQ')
-local f = assert(io.open('src/mips/monitor/hosts/retail/monitor-retail.ps-exe', 'rb'))
-local exe = f:read('*a')
-f:close()
-local function u32(o)
-    local a, b, c, d = exe:byte(o + 1, o + 4)
-    return a + b * 0x100 + c * 0x10000 + d * 0x1000000
-end
-local tAddr, tSize = u32(0x18), u32(0x1c)
-local text = exe:sub(0x801, 0x800 + tSize)
-local frames = 0
-CDEventsListener = PCSX.Events.createEventListener('GPU::Vsync', function()
-    frames = frames + 1
-    local booted = false
-    local pc = PCSX.getRegisters().pc
-    if pc >= tAddr and pc < tAddr + tSize then
-        booted = ffi.string(PCSX.getMemPtr() + bit.band(tAddr, 0x1fffff), tSize) == text
-    end
-    if not booted and frames < 6000 then return end
-    local f = io.open(CDEventsOut, 'w')
-    local arr, n = PCSX.HWEvents.read()
-    local commands = 0
-    for i = 0, n - 1 do
-        if arr[i].type == PCSX.HWEvents.Types.CDCommand then commands = commands + 1 end
-    end
-    f:write(string.format('%d %d', PCSX.HWEvents.mask(), commands))
-    f:close()
-    PCSX.quit(booted and 0 or 1)
-end)
-)";
-
 }  // namespace
 
+// Boots the test disc through OpenBIOS and quits once the CPU runs inside the
+// disc's boot executable, as the cdrom disc boot test does.
 TEST(HWEvents, CDROMCommandsResponsesAndSectors) {
     CDObserverScope scope;
     auto luaOut = std::filesystem::temp_directory_path() / "pcsx-hwevents-cd.txt";
     std::filesystem::remove(luaOut);
     // MainInvoker probes each argument as a path, so the slash in the output path
     // has to come early.
-    std::string lua = std::string("CDEventsOut = '") + luaOut.generic_string() + "'\n" + c_cdBoot;
+    std::string lua = std::string("CDEventsOut = '") + luaOut.generic_string() + "'";
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-iso", "test.cue", "-exec", lua.c_str());
+                        "-iso", "test.cue", "-exec", lua.c_str(), "-dofile", "tests/lua/hwevents-cdrom.lua");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
     printf(
@@ -538,43 +506,11 @@ TEST(HWEvents, SaveAndLoadRoundTrip) {
     auto luaOut = dir / "pcsx-hwevents-save.txt";
     for (auto& p : {saved, bad, cut, luaOut}) std::filesystem::remove(p);
     // MainInvoker probes each argument as a path, so a slash comes early.
-    std::string lua = "-- /\nlocal saved, bad, cut, out = '" + saved.generic_string() + "', '" + bad.generic_string() +
-                      "', '" + cut.generic_string() + "', '" + luaOut.generic_string() + R"('
-PCSX.HWEvents.arm('IRQ', 'DMA')
-HWEventsSaveQuit = PCSX.Events.createEventListener('Quitting', function()
-    local before, n = PCSX.HWEvents.read()
-    local bytes = ffi.string(before, n * ffi.sizeof('PCSX_HWEvent'))
-    local wrote = PCSX.HWEvents.save(saved)
-    PCSX.HWEvents.clear()
-    local loaded = PCSX.HWEvents.load(saved)
-    local after, m = PCSX.HWEvents.read()
-    local same = m == n and ffi.string(after, m * ffi.sizeof('PCSX_HWEvent')) == bytes
-    local f = io.open(saved, 'rb')
-    local file = f:read('*a')
-    f:close()
-    f = io.open(bad, 'wb')
-    f:write('PCSXTRC' .. file:sub(8))
-    f:close()
-    f = io.open(cut, 'wb')
-    f:write(file:sub(1, #file - 16))
-    f:close()
-    local badRefused = not PCSX.HWEvents.load(bad) and PCSX.HWEvents.size() == 0
-    PCSX.HWEvents.load(saved)
-    local cutRefused = not PCSX.HWEvents.load(cut) and PCSX.HWEvents.size() == 0
-    -- A header that stops before the count field.
-    f = io.open(cut, 'wb')
-    f:write(file:sub(1, 16))
-    f:close()
-    PCSX.HWEvents.load(saved)
-    cutRefused = cutRefused and not PCSX.HWEvents.load(cut) and PCSX.HWEvents.size() == 0
-    f = io.open(out, 'w')
-    f:write(string.format('%d %d %s %s %s %s %s', n, #file, tostring(wrote), tostring(loaded), tostring(same),
-        tostring(badRefused), tostring(cutRefused)))
-    f:close()
-end)
-)";
+    std::string lua = "-- /\nsaved, bad, cut, out = '" + saved.generic_string() + "', '" + bad.generic_string() +
+                      "', '" + cut.generic_string() + "', '" + luaOut.generic_string() + "'";
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-exec", lua.c_str(), "-loadexe", "src/mips/tests/dma/dma/dma.ps-exe");
+                        "-exec", lua.c_str(), "-dofile", "tests/lua/hwevents-save-load.lua", "-loadexe",
+                        "src/mips/tests/dma/dma/dma.ps-exe");
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 0);
     std::ifstream in(luaOut);
