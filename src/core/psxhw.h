@@ -77,7 +77,7 @@ class HW {
             } else if constexpr (n == 3) {
                 dma3(madr, bcr, chcr);
             } else if constexpr (n == 4) {
-                dma4(madr, bcr, chcr);
+                if (dma4(madr, bcr, chcr)) return;
             } else if constexpr (n == 6) {
                 // The OTC leaves MADR and BCR as they were written.
                 dma6(madr, bcr, chcr);

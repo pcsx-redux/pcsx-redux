@@ -42,7 +42,10 @@ static inline void scheduleGPUOTCDMAIRQ(uint32_t eCycle) {
     PCSX::g_emulator->m_cpu->schedule(PCSX::Schedule::GPUOTCDMA, eCycle);
 }
 
-void dma4(uint32_t madr, uint32_t bcr, uint32_t chcr);
+// True when it left MADR and BCR as the transfer stopped, which dmaExec must not overwrite.
+bool dma4(uint32_t madr, uint32_t bcr, uint32_t chcr);
+// SPUCNT was written: a sync-1 DMA4 waiting between blocks goes on if the transfer mode now asks.
+void dma4Resume();
 void dma6(uint32_t madr, uint32_t bcr, uint32_t chcr);
 void spuInterrupt();
 void gpuotcInterrupt();

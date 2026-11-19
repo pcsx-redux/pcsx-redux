@@ -22,6 +22,7 @@
 #include <algorithm>
 
 #include "core/logger.h"
+#include "core/psxdma.h"
 #include "core/psxemulator.h"
 #include "core/r3000a.h"
 #include "core/spulogger.h"
@@ -349,6 +350,7 @@ void PCSX::SPU::impl::writeRegister(uint32_t reg, uint16_t val) {
             case H_SPUctrl:
                 m_ctrlShadow = val;
                 m_ctrlWritesPending++;
+                if (m_dmaWaiting) dma4Resume();
                 break;
 
             case H_SPUirqAddr:
