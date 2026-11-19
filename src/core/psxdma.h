@@ -46,6 +46,9 @@ static inline void scheduleGPUOTCDMAIRQ(uint32_t eCycle) {
 bool dma4(uint32_t madr, uint32_t bcr, uint32_t chcr);
 // SPUCNT was written: a sync-1 DMA4 waiting between blocks goes on if the transfer mode now asks.
 void dma4Resume();
+// A CHCR write cleared bit 24 on channel n: a sync-1 transfer waiting between blocks stops, so the next
+// start begins a new transfer.
+void dmaBusyCleared(unsigned n);
 void dma6(uint32_t madr, uint32_t bcr, uint32_t chcr);
 void spuInterrupt();
 void gpuotcInterrupt();

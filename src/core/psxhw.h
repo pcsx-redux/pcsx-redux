@@ -54,6 +54,7 @@ class HW {
             chcr = (chcr & 0x51000000) | 0x00000002;
         }
         mem->setCHCR<n>(chcr);
+        if (!(chcr & 0x01000000)) dmaBusyCleared(n);
         if ((chcr & 0x01000000) && mem->template isDMAEnabled<n>()) {
             uint32_t madr = mem->template getMADR<n>();
             auto &events = *g_emulator->m_hwEvents;

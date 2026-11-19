@@ -20,6 +20,7 @@
 #include "core/psxdma.h"
 
 #include "core/debug.h"
+#include "core/gpu.h"
 #include "core/spulogger.h"
 #include "spu/interface.h"
 
@@ -73,6 +74,16 @@ static bool dma4Sync1(uint32_t chcr) {
                 PCSX::g_emulator->m_cpu->Clear(addr, 1);
             }
         }
+        if (lands && PCSX::g_emulator->settings.get<PCSX::Emulator::SettingDebugSettings>()
+                         .get<PCSX::Emulator::DebugSettings::Debug>()) {
+            // A block that steps down covers bs words ending at madr.
+            const uint32_t low = (chcr & 2) ? madr - (bs - 1) * 4 : madr;
+            if (toSpu) {
+                PCSX::g_emulator->m_debug->checkDMAread(4, low, bs * 4);
+            } else {
+                PCSX::g_emulator->m_debug->checkDMAwrite(4, low, bs * 4);
+            }
+        }
         madr += bs * step;
         blocks--;
         moved++;
@@ -97,6 +108,11 @@ static bool dma4Sync1(uint32_t chcr) {
     scheduleSPUDMAIRQ(cycles ? cycles : 1);
     if (toSpu) spu->writeDMAEndsAt(PCSX::g_emulator->m_cpu->m_regs.cycle + cycles);
     return true;
+}
+
+void dmaBusyCleared(unsigned n) {
+    if (n == 2) PCSX::g_emulator->m_gpu->dmaStopped();
+    if (n == 4) PCSX::g_emulator->m_spu->setDMAWaiting(false);
 }
 
 void dma4Resume() {
