@@ -19,6 +19,7 @@
 
 #include <filesystem>
 #include <initializer_list>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -281,8 +282,9 @@ return 'from archive'
     EXPECT_EQ(run(), 0);
 }
 
-// A file loaded from disk resolves "../" through the filesystem: from a symlinked directory, the parent
-// is the link target's parent, not the directory holding the link.
+// A file loaded from disk resolves "../" the way the host filesystem does. From a symlinked directory
+// on POSIX systems that is next to the link target; Windows path parsing collapses ".." before
+// following links, so there it is next to the link. Either way it matches opening the path directly.
 TEST_F(ArchiveFilesTest, DiskFallbackThroughSymlink) {
     std::filesystem::create_directories("archive-test-moddir/real/inner");
     std::error_code ec;
@@ -297,18 +299,29 @@ TEST_F(ArchiveFilesTest, DiskFallbackThroughSymlink) {
     writeDiskFile("archive-test-moddir/real/inner/a.lua", "local r = Support.extra.dofile('../b.lua')\nreturn r");
     writeDiskFile("archive-test-moddir/real/b.lua", "return 'through the link'");
     writeDiskFile("archive-test-moddir/b.lua", "return 'next to the link'");
-    writeZip("files.zip", {{"autoexec.lua", R"(
+    std::string expected;
+    {
+        PCSX::IO<PCSX::File> in = new PCSX::PosixFile("archive-test-moddir/link/../b.lua");
+        ASSERT_FALSE(in->failed());
+        expected = in->readString(in->size());
+    }
+#ifndef _WIN32
+    EXPECT_EQ(expected, "return 'through the link'");
+#endif
+    expected = expected.substr(std::string_view("return ").size());
+    std::string autoexec = R"(
 local success, result = pcall(function()
     local r = Support.extra.dofile('archive-test-moddir/link/a.lua')
     return r
 end)
-if success and result == 'through the link' then
+if success and result == )" + expected + R"( then
     PCSX.quit(0)
 else
     print('archive-test-moddir/link/a.lua returned: ' .. tostring(result))
     PCSX.quit(1)
 end
-)"}});
+)";
+    writeZip("files.zip", {{"autoexec.lua", autoexec}});
     EXPECT_EQ(run(), 0);
 }
 
