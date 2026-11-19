@@ -1,43 +1,11 @@
-local ram = ffi.cast('uint32_t*', PCSX.getMemPtr())
-
-local function varint(s, pos)
-    local v, mul = 0, 1
-    while true do
-        local b = s:byte(pos)
-        pos = pos + 1
-        v = v + bit.band(b, 0x7f) * mul
-        if b < 0x80 then return v, pos end
-        mul = mul * 128
-    end
-end
-
-local function field(s, wanted)
-    local pos = 1
-    while pos <= #s do
-        local key
-        key, pos = varint(s, pos)
-        local num, wt = math.floor(key / 8), key % 8
-        local payload
-        if wt == 0 then
-            payload, pos = varint(s, pos)
-        elseif wt == 2 then
-            local len
-            len, pos = varint(s, pos)
-            payload = s:sub(pos, pos + len - 1)
-            pos = pos + len
-        elseif wt == 1 then
-            pos = pos + 8
-        elseif wt == 5 then
-            pos = pos + 4
-        else
-            error('wire type ' .. wt)
-        end
-        if num == wanted then return payload end
-    end
-end
+local pb = require 'pb'
+local protoc = require 'protoc'
+local schema = protoc.new()
+assert(schema:load(PCSX.getSaveStateProtoSchema(), 'savestate.proto'))
+pb.option('int64_as_number')
 
 local function displayMode(s)
-    local control = field(field(s, 5), 2)
+    local control = pb.decode('SaveState', s).gpu.control
     local b1, b2, b3, b4 = control:byte(8 * 4 + 1, 8 * 4 + 4)
     return b1 + b2 * 0x100 + b3 * 0x10000 + b4 * 0x1000000
 end
@@ -55,13 +23,15 @@ local first
 DisplayModeSaveStateListener = PCSX.Events.createEventListener('GPU::Vsync', function()
     frames = frames + 1
     if frames == 30 then
-        local i = 0x100000 / 4
-        ram[i] = 0x3c081f80 -- lui $t0, 0x1f80
-        ram[i + 1] = 0x3c090800 -- lui $t1, 0x0800
-        ram[i + 2] = 0x35290027 -- ori $t1, $t1, 0x0027
-        ram[i + 3] = 0xad091814 -- sw $t1, 0x1814($t0)
-        ram[i + 4] = 0x1000ffff -- b .
-        ram[i + 5] = 0
+        local asm = string.format([[
+            lui $t0, 0x1f80
+            lui $t1, 0x%04x
+            ori $t1, $t1, 0x%04x
+            sw $t1, 0x1814($t0) # GP1
+            b -1
+            nop
+        ]], bit.rshift(mode, 16), bit.band(mode, 0xffff))
+        PCSX.Assembler.New():parse(asm):compileToMemory(PCSX.getMemPtr(), 0x80100000, 0x80000000)
         PCSX.invalidateCache()
         PCSX.pauseEmulator()
         local timer = luv.new_timer()
