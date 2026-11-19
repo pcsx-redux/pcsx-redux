@@ -38,4 +38,17 @@ jobs:
           xvfb-run ./pcsx-redux -stdout -lua_stdout -testmode -no-gui-log -exec "dofile 'src/mips/tests/cdrom/common/create-test-iso.lua'"
       - name: Test
         run: |
+          export GTEST_OUTPUT=xml:${TEST_RESULTS}/
+          mkdir -p $TEST_RESULTS
           xvfb-run ./pcsx-redux-tests
+      - name: Test summary
+        if: always()
+        run: python3 ./.github/scripts/test-summary.py "$TEST_RESULTS" "Tests, UBSan" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-ubsan
+          path: ${{ env.TEST_RESULTS }}
+          if-no-files-found: ignore
+          retention-days: 7

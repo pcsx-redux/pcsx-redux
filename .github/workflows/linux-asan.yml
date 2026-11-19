@@ -41,4 +41,17 @@ jobs:
           # doesn't reclaim it; telling it there is no session bus avoids the attempt.
           DBUS_SESSION_BUS_ADDRESS: "disabled:"
         run: |
+          export GTEST_OUTPUT=xml:${TEST_RESULTS}/
+          mkdir -p $TEST_RESULTS
           xvfb-run ./pcsx-redux-tests
+      - name: Test summary
+        if: always()
+        run: python3 ./.github/scripts/test-summary.py "$TEST_RESULTS" "Tests, ASan" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-asan
+          path: ${{ env.TEST_RESULTS }}
+          if-no-files-found: ignore
+          retention-days: 7
