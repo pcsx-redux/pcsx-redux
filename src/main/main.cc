@@ -26,6 +26,7 @@
 #endif
 
 #include <csignal>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <map>
@@ -35,6 +36,7 @@
 #include "core/callprofiler.h"
 #include "core/cdrom.h"
 #include "core/gpu.h"
+#include "core/guest-command.h"
 #include "core/logger.h"
 #include "core/psxemulator.h"
 #include "core/r3000a.h"
@@ -566,6 +568,20 @@ runner.init({
     s_ui->m_exeToLoad.set(MAKEU8(args.value("loadexe", "").c_str()));
     if (s_ui->m_exeToLoad.empty()) s_ui->m_exeToLoad.set(MAKEU8(args.value("exe", "").c_str()));
 
+    // A test run with PCSX_TEST_REPORT_DIR set keeps what the guest writes through
+    // PCSX_CMD_REPORT_WRITE, named after the executable and the CPU core.
+    if (const char *reportDir = std::getenv("PCSX_TEST_REPORT_DIR"); reportDir && *reportDir && args.has("testmode")) {
+        std::filesystem::path exe = args.value("loadexe", args.value("exe", ""));
+        std::string name = exe.empty() ? "pcsx-redux" : exe.stem().string();
+        name += emuSettings.get<PCSX::Emulator::SettingDynarec>() ? ".dynarec" : ".interpreter";
+        std::filesystem::path dir = std::filesystem::path(reportDir) / "guest";
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        auto report = dir / (name + ".xml");
+        for (unsigned n = 2; std::filesystem::exists(report); n++) report = dir / fmt::format("{}.{}.xml", name, n);
+        PCSX::GuestCommand::setReportPath(report);
+    }
+
     // And finally, let's run things.
     int exitCode = 0;
     {
@@ -602,6 +618,7 @@ runner.init({
                 L.load("(require 'luacov.runner').shutdown()", "internal:luacov-shutdown.lua");
             }
 
+            PCSX::GuestCommand::closeReport();
             delete emulator;
             PCSX::g_emulator = nullptr;
 
