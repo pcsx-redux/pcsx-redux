@@ -155,6 +155,7 @@ TEST(LuaIsoBuilder, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.isobuilder
 TEST(LuaIsoBuilder, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.isobuilder"), 0); }
 TEST(LuaMds, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.mds"), 0); }
 TEST(LuaCuePregap, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.cuepregap"), 0); }
+TEST(LuaAssembler, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.assembler"), 0); }
 TEST(LuaBinary, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.binary"), 0); }
 TEST(LuaCDRomApi, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.cdromapi"), 0); }
 
