@@ -232,24 +232,26 @@ void PCSX::SIO1::receiveCallback() {
 void PCSX::SIO1::transmitData() {
     switch (m_sio1Mode) {
         case SIO1Mode::Protobuf:
-            if (fifoError()) return;
-            sendDataMessage();
+            if (!fifoError()) sendDataMessage();
             break;
         case SIO1Mode::Raw:
             // Running out of incoming data does not stop the peer from reading what we send.
-            if (!m_sio1fifo || m_sio1fifo->failed()) return;
-            m_sio1fifo->write<uint8_t>(m_regs.data);
+            if (m_sio1fifo && !m_sio1fifo->failed()) m_sio1fifo->write<uint8_t>(m_regs.data);
             break;
     }
 
-    if (m_regs.control & CR_TXIRQEN) {
-        if (m_regs.status & SR_TXRDY || m_regs.status & SR_TXRDY2) {
-            if (!(m_regs.status & SR_IRQ)) {
-                scheduleInterrupt(m_cycleCount);
-                m_regs.status |= SR_IRQ;
-            }
-        }
-    }
+    // The byte counts as in flight until the scheduled interrupt, which stands for STAT.0 rising
+    // once the start bit is out. An ack in that window sticks until then.
+    if (m_regs.control & CR_TXIRQEN) scheduleInterrupt(m_cycleCount);
+}
+
+// The TX interrupt follows the ready flags: it is raised while TXIEN is set and STAT.0 or STAT.2
+// is set, whether or not a byte was ever written or anything is connected, and an ack does not
+// clear it while that holds and no byte is in flight.
+bool PCSX::SIO1::txInterruptPending() {
+    if (!(m_regs.control & CR_TXIRQEN)) return false;
+    if (m_regs.status & SR_IRQ) return false;
+    return m_regs.status & (SR_TXRDY | SR_TXRDY2);
 }
 
 bool PCSX::SIO1::isTransmitReady() {
@@ -320,8 +322,14 @@ void PCSX::SIO1::writeCtrl16(uint16_t v) {
         }
     }
 
+    if (txInterruptPending() && !g_emulator->m_cpu->isScheduled(Schedule::SIO1)) {
+        g_emulator->m_mem->setIRQ(IRQ8_SIO);
+        m_regs.status |= SR_IRQ;
+    }
+
     if (m_sio1Mode == SIO1Mode::Protobuf) sendFlowControlMessage();
     g_emulator->m_mem->writeHardwareRegister<0x105a, uint16_t>(m_regs.control);
+    g_emulator->m_mem->writeHardwareRegister<0x1054>(m_regs.status);
 }
 
 void PCSX::SIO1::writeData8(uint8_t v) {
