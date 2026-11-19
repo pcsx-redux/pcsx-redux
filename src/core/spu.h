@@ -70,6 +70,11 @@ class SPUInterface {
     // Current sound-RAM transfer cursor, as set by 1F801DA6h and advanced by every transfer.
     // Read it before handing a DMA off, since the transfer is what moves it.
     virtual uint32_t getTransferAddr() = 0;
+    // SPUCNT as the CPU last wrote it.
+    virtual uint16_t getCtrl() = 0;
+    // A sync-1 DMA4 holding its remaining blocks in MADR/BCR until SPUCNT's transfer mode asks for them.
+    virtual bool getDMAWaiting() = 0;
+    virtual void setDMAWaiting(bool) = 0;
     virtual void resetCaptureBuffer() = 0;
     virtual json getCfg() = 0;
     virtual void setCfg(const json &j) = 0;
