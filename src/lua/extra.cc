@@ -43,8 +43,10 @@ std::tuple<PCSX::File*, std::string> load(std::string_view name, std::string_vie
     }
     std::filesystem::path fromPath(from);
     std::filesystem::path absolutePath(name);
+    // Archive member names are not filesystem paths, so they are normalised lexically: what exists on
+    // disk must not change them. The on-disk fallback resolves through the filesystem, symlinks included.
     std::filesystem::path relativePath(fromPath.parent_path() / name);
-    relativePath = relativePath.lexically_normal();
+    std::filesystem::path relativeMember = relativePath.lexically_normal();
 
     PCSX::File* file = nullptr;
 
@@ -52,8 +54,8 @@ std::tuple<PCSX::File*, std::string> load(std::string_view name, std::string_vie
         for (auto archivei = s_archives.rbegin(); archivei != s_archives.rend(); archivei++) {
             auto& archive = *archivei;
             if (doRelative) {
-                file = archive.openFile(relativePath.string());
-                if (!file->failed()) return {file, relativePath.generic_string()};
+                file = archive.openFile(relativeMember.string());
+                if (!file->failed()) return {file, relativeMember.generic_string()};
                 delete file;
             }
             file = archive.openFile(absolutePath.string());
@@ -64,10 +66,9 @@ std::tuple<PCSX::File*, std::string> load(std::string_view name, std::string_vie
         for (auto archivei = s_archives.rbegin(); archivei != s_archives.rend(); archivei++) {
             auto& archive = *archivei;
             std::filesystem::path fromPath(from);
-            std::filesystem::path relativePath(archive.archiveFilename().parent_path() / name);
-            relativePath = std::filesystem::weakly_canonical(relativePath);
-            file = archive.openFile(relativePath.string());
-            if (!file->failed()) return {file, relativePath.generic_string()};
+            std::filesystem::path relativeMember((archive.archiveFilename().parent_path() / name).lexically_normal());
+            file = archive.openFile(relativeMember.string());
+            if (!file->failed()) return {file, relativeMember.generic_string()};
             delete file;
             file = archive.openFile(absolutePath.string());
             if (!file->failed()) return {file, absolutePath.generic_string()};
@@ -76,6 +77,7 @@ std::tuple<PCSX::File*, std::string> load(std::string_view name, std::string_vie
     }
 
     if (doRelative) {
+        relativePath = std::filesystem::weakly_canonical(relativePath);
         file = new PCSX::PosixFile(relativePath);
         if (!file->failed()) return {file, relativePath.generic_string()};
         delete file;

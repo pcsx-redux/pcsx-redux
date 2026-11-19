@@ -280,3 +280,34 @@ return 'from archive'
                            {"autoexec.lua", c_runA}});
     EXPECT_EQ(run(), 0);
 }
+
+// A file loaded from disk resolves "../" through the filesystem: from a symlinked directory, the parent
+// is the link target's parent, not the directory holding the link.
+TEST_F(ArchiveFilesTest, DiskFallbackThroughSymlink) {
+    std::filesystem::create_directories("archive-test-moddir/real/inner");
+    std::error_code ec;
+    std::filesystem::create_directory_symlink("real/inner", "archive-test-moddir/link", ec);
+    // Creating symlinks on Windows needs a privilege or developer mode, which CI may not have.
+    if (ec) GTEST_SKIP() << "cannot create a directory symlink here: " << ec.message();
+    auto writeDiskFile = [](const char* path, std::string_view contents) {
+        PCSX::IO<PCSX::File> out = new PCSX::PosixFile(path, PCSX::FileOps::TRUNCATE);
+        out->writeString(contents);
+        out->close();
+    };
+    writeDiskFile("archive-test-moddir/real/inner/a.lua", "local r = Support.extra.dofile('../b.lua')\nreturn r");
+    writeDiskFile("archive-test-moddir/real/b.lua", "return 'through the link'");
+    writeDiskFile("archive-test-moddir/b.lua", "return 'next to the link'");
+    writeZip("files.zip", {{"autoexec.lua", R"(
+local success, result = pcall(function()
+    local r = Support.extra.dofile('archive-test-moddir/link/a.lua')
+    return r
+end)
+if success and result == 'through the link' then
+    PCSX.quit(0)
+else
+    print('archive-test-moddir/link/a.lua returned: ' .. tostring(result))
+    PCSX.quit(1)
+end
+)"}});
+    EXPECT_EQ(run(), 0);
+}
