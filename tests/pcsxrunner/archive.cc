@@ -154,7 +154,7 @@ TEST_F(ArchiveTest, test) {
 	EXPECT_EQ(ret, 0);
 }
 
-class ArchiveRelativeTest : public ::testing::Test {
+class ArchiveFilesTest : public ::testing::Test {
   protected:
     void writeZip(const char* path, std::initializer_list<std::pair<std::string_view, std::string_view>> entries) {
         PCSX::IO<PCSX::File> out = new PCSX::PosixFile(path, PCSX::FileOps::TRUNCATE);
@@ -173,15 +173,17 @@ class ArchiveRelativeTest : public ::testing::Test {
         out->close();
     }
     int run() {
-        MainInvoker invoker("-no-ui", "-testmode", "-interpreter", "-archive", "relative.zip");
+        MainInvoker invoker("-no-ui", "-testmode", "-interpreter", "-archive", "files.zip");
         return invoker.invoke();
     }
     void TearDown() override {
         closeArchivesForTests();
-        std::filesystem::remove("relative.zip");
+        std::filesystem::remove("files.zip");
+        std::filesystem::remove("files-inner.zip");
         std::filesystem::remove_all("archive-test-moddir");
     }
-    static constexpr std::string_view c_autoexec = R"(
+    // Runs archive-test-moddir/a.lua and expects it to return 'from archive'.
+    static constexpr std::string_view c_runA = R"(
 local success, result = pcall(function()
     local r = Support.extra.dofile('archive-test-moddir/a.lua')
     return r
@@ -189,7 +191,7 @@ end)
 if success and result == 'from archive' then
     PCSX.quit(0)
 else
-    print('relative load returned: ' .. tostring(result))
+    print('archive-test-moddir/a.lua returned: ' .. tostring(result))
     PCSX.quit(1)
 end
 )";
@@ -197,31 +199,84 @@ end
 
 // A relative load inside an archive has to resolve inside the archive,
 // whatever happens to exist in the current directory.
-TEST_F(ArchiveRelativeTest, HostDirectoryOfTheSameName) {
+TEST_F(ArchiveFilesTest, HostDirectoryOfTheSameName) {
     std::filesystem::create_directories("archive-test-moddir");
-    writeZip("relative.zip", {{"archive-test-moddir/a.lua", "local r = Support.extra.dofile('b.lua')\nreturn r"},
-                              {"archive-test-moddir/b.lua", "return 'from archive'"},
-                              {"autoexec.lua", c_autoexec}});
+    writeZip("files.zip", {{"archive-test-moddir/a.lua", "local r = Support.extra.dofile('b.lua')\nreturn r"},
+                           {"archive-test-moddir/b.lua", "return 'from archive'"},
+                           {"autoexec.lua", c_runA}});
     EXPECT_EQ(run(), 0);
 }
 
-TEST_F(ArchiveRelativeTest, HostFileOfTheSameName) {
+TEST_F(ArchiveFilesTest, HostFileOfTheSameName) {
     std::filesystem::create_directories("archive-test-moddir");
     {
         PCSX::IO<PCSX::File> out = new PCSX::PosixFile("archive-test-moddir/b.lua", PCSX::FileOps::TRUNCATE);
         out->writeString("return 'from disk'");
         out->close();
     }
-    writeZip("relative.zip", {{"archive-test-moddir/a.lua", "local r = Support.extra.dofile('b.lua')\nreturn r"},
-                              {"archive-test-moddir/b.lua", "return 'from archive'"},
-                              {"autoexec.lua", c_autoexec}});
+    writeZip("files.zip", {{"archive-test-moddir/a.lua", "local r = Support.extra.dofile('b.lua')\nreturn r"},
+                           {"archive-test-moddir/b.lua", "return 'from archive'"},
+                           {"autoexec.lua", c_runA}});
     EXPECT_EQ(run(), 0);
 }
 
 // Forwarding to another file with a tail call still loads it next to the calling file.
-TEST_F(ArchiveRelativeTest, TailCall) {
-    writeZip("relative.zip", {{"archive-test-moddir/a.lua", "return Support.extra.dofile('b.lua')"},
-                              {"archive-test-moddir/b.lua", "return 'from archive'"},
-                              {"autoexec.lua", c_autoexec}});
+TEST_F(ArchiveFilesTest, TailCall) {
+    writeZip("files.zip", {{"archive-test-moddir/a.lua", "return Support.extra.dofile('b.lua')"},
+                           {"archive-test-moddir/b.lua", "return 'from archive'"},
+                           {"autoexec.lua", c_runA}});
+    EXPECT_EQ(run(), 0);
+}
+
+// loadfile and open, with a path going up a directory first.
+TEST_F(ArchiveFilesTest, LoadfileAndParentPath) {
+    writeZip("files.zip", {{"archive-test-moddir/a.lua", R"(
+local f = Support.extra.loadfile('../other/b.lua')
+local data = Support.extra.open('../other/data.txt')
+local r = f() .. ' ' .. tostring(data:read(data:size()))
+if r ~= 'from archive and data' then error('got ' .. r) end
+return 'from archive'
+)"},
+                           {"other/b.lua", "return 'from archive and'"},
+                           {"other/data.txt", "data"},
+                           {"autoexec.lua", c_runA}});
+    EXPECT_EQ(run(), 0);
+}
+
+// An archive's autoexec runs once when it is mounted, and not again when its files are used.
+TEST_F(ArchiveFilesTest, AutoexecRunsOnce) {
+    writeZip("files-inner.zip", {{"autoexec.lua", "autoexecRuns = (autoexecRuns or 0) + 1"},
+                                 {"lib/b.lua", "return 'from archive'"}});
+    writeZip("files.zip", {{"archive-test-moddir/a.lua", R"(
+Support.extra.addArchive('files-inner.zip')
+local r = Support.extra.dofile('lib/b.lua')
+Support.extra.dofile('lib/b.lua')
+if autoexecRuns ~= 1 then error('autoexec ran ' .. tostring(autoexecRuns) .. ' times') end
+return r
+)"},
+                           {"autoexec.lua", c_runA}});
+    EXPECT_EQ(run(), 0);
+}
+
+// Error messages name the archived file: missing files, runtime errors, syntax errors.
+TEST_F(ArchiveFilesTest, ErrorMessages) {
+    writeZip("files.zip", {{"archive-test-moddir/a.lua", R"(
+local function expect(msg, needle)
+    if not tostring(msg):find(needle, 1, true) then error('"' .. tostring(msg) .. '" does not mention "' .. needle .. '"') end
+end
+local ok, msg = pcall(Support.extra.dofile, 'nothere.lua')
+if ok then error('nothere.lua loaded') end
+expect(msg, 'nothere.lua')
+ok, msg = pcall(function() local r = Support.extra.dofile('boom.lua') return r end)
+if ok then error('boom.lua did not fail') end
+expect(msg, 'archive-test-moddir/boom.lua:2:')
+local f, err = Support.extra.loadfile('broken.lua')
+if f then error('broken.lua compiled') end
+expect(err, 'archive-test-moddir/broken.lua:1:')
+return 'from archive'
+)"},
+                           {"archive-test-moddir/boom.lua", "local x = 1\nerror('boom')\n"},
+                           {"archive-test-moddir/broken.lua", "this is not lua\n"},
+                           {"autoexec.lua", c_runA}});
     EXPECT_EQ(run(), 0);
 }

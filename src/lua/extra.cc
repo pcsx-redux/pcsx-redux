@@ -44,7 +44,7 @@ std::tuple<PCSX::File*, std::string> load(std::string_view name, std::string_vie
     std::filesystem::path fromPath(from);
     std::filesystem::path absolutePath(name);
     std::filesystem::path relativePath(fromPath.parent_path() / name);
-    relativePath = std::filesystem::weakly_canonical(relativePath);
+    relativePath = relativePath.lexically_normal();
 
     PCSX::File* file = nullptr;
 
@@ -84,6 +84,19 @@ std::tuple<PCSX::File*, std::string> load(std::string_view name, std::string_vie
 }
 
 uint64_t djbHash(const char* str, size_t len) { return PCSX::djb::hash(str, len); }
+
+// The file a relative name is resolved against. Normally the caller's own chunk, read off the stack. The
+// Lua wrappers also pass the file they are currently running and the chunk that loaded it: when the
+// caller seen on the stack is that loader, or isn't a file at all, the running file forwarded with a
+// tail call and lost its own frame, so the running file is the right base.
+std::string relativeBase(PCSX::Lua L, const std::string& caller) {
+    if (L.gettop() < 3 || !L.isstring(2) || !L.isstring(3)) return caller;
+    auto running = L.tostring(2);
+    auto loader = L.tostring(3);
+    if (caller.empty() || (caller[0] != '@') || (caller == loader)) return "@" + running;
+    return caller;
+}
+
 
 template <typename T, size_t S>
 void registerSymbol(PCSX::Lua L, const char (&name)[S], const T ptr) {
@@ -206,10 +219,10 @@ void PCSX::LuaFFI::open_extra(Lua L) {
         [](lua_State* L_) -> int {
             Lua L(L_);
             auto ar = L.getinfo("S", 2);
-            auto name = L.tostring();
+            auto name = L.tostring(1);
             IO<File> file;
             std::string actualName;
-            std::tie(file, actualName) = load(name, ar.has_value() ? ar->source : "");
+            std::tie(file, actualName) = load(name, relativeBase(L, ar.has_value() ? ar->source : ""));
             L.push(new LuaFile(file));
             return 1;
         },
@@ -219,14 +232,16 @@ void PCSX::LuaFFI::open_extra(Lua L) {
         [](lua_State* L_) -> int {
             Lua L(L_);
             auto ar = L.getinfo("S", 2);
-            auto name = L.tostring();
+            auto name = L.tostring(1);
+            std::string caller = ar.has_value() ? ar->source : "";
             IO<File> file;
             std::string actualName;
-            std::tie(file, actualName) = load(name, ar.has_value() ? ar->source : "");
+            std::tie(file, actualName) = load(name, relativeBase(L, caller));
             if (file->failed()) return L.error("Unable to locate file %s", name.c_str());
             L.push(file->readString(file->size()));
             L.push(actualName);
-            return 2;
+            L.push(caller);
+            return 3;
         },
         -1);
     L.pop();
