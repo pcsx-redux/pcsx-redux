@@ -354,3 +354,16 @@ return r
                            {"autoexec.lua", c_runA}});
     EXPECT_EQ(run(), 0);
 }
+
+// Names used by an archive's autoexec resolve from the archive root, not next to the file that mounted it.
+TEST_F(ArchiveFilesTest, AutoexecFromAMountingFile) {
+    writeZip("files-inner.zip", {{"autoexec.lua", "autoexecGot = Support.extra.dofile('init.lua')"},
+                                 {"init.lua", "return 'from archive'"},
+                                 {"archive-test-moddir/init.lua", "return 'next to the mounting file'"}});
+    writeZip("files.zip", {{"archive-test-moddir/a.lua", R"(
+Support.extra.addArchive('files-inner.zip')
+return autoexecGot
+)"},
+                           {"autoexec.lua", c_runA}});
+    EXPECT_EQ(run(), 0);
+}
