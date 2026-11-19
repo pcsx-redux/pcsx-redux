@@ -241,8 +241,11 @@ void PCSX::SIO1::transmitData() {
     }
 
     // The byte counts as in flight until the scheduled interrupt, which stands for STAT.0 rising
-    // once the start bit is out. An ack in that window sticks until then.
-    if (m_regs.control & CR_TXIRQEN) scheduleInterrupt(m_cycleCount);
+    // once the start bit is out. An ack in that window sticks until then. A write while a byte
+    // is already in flight keeps the first byte's deadline.
+    if ((m_regs.control & CR_TXIRQEN) && !g_emulator->m_cpu->isScheduled(Schedule::SIO1)) {
+        scheduleInterrupt(m_cycleCount);
+    }
 }
 
 // The TX interrupt follows the ready flags: it is raised while TXIEN is set and STAT.0 or STAT.2
