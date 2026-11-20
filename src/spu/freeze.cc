@@ -82,6 +82,7 @@ void PCSX::SPU::impl::save(SaveStates::SPU &spu) {
     spu.get<SaveStates::SPUStat>().value = spuStat;
     spu.get<SaveStates::SPUEndx>().value = spuEndx;
     spu.get<SaveStates::SPUWriteDMALandedCycle>().value = m_writeDMALandedCycle;
+    spu.get<SaveStates::SPUDMAWaiting>().value = m_dmaWaiting;
     spu.get<SaveStates::SPUMainVolWritten>().value = mixVolumeWrittenMask();
 
     m_noise.saveTo(spu.get<SaveStates::SPUNoiseClock>(), spu.get<SaveStates::SPUNoiseCount>(),
@@ -186,6 +187,7 @@ void PCSX::SPU::impl::load(const SaveStates::SPU &spu) {
     spuEndx = spu.get<SaveStates::SPUEndx>().value & 0xffffff;
     // Older states lack it and load as 0, bits 7 and 9 low.
     m_writeDMALandedCycle = spu.get<SaveStates::SPUWriteDMALandedCycle>().value;
+    m_dmaWaiting = spu.get<SaveStates::SPUDMAWaiting>().value;
 
     // Older states lack the XA resampler and the CD feed cycle, and load them as an SPU just opened
     // has them.

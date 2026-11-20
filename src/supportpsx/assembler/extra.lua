@@ -54,25 +54,25 @@ PCSX.Assembler.Internals.specialInstructions = {
     sllv = function(args)
         if #args < 2 or #args > 3 then error('sllv takes two or three arguments') end
         if #args == 2 then
-            return { base = 0x00000004, rd = checkGPR(args[1]), rt = checkGPR(args[1]), imm5 = checkImm5(args[2], 2) }
+            return { base = 0x00000004, rd = checkGPR(args[1]), rt = checkGPR(args[1]), rs = checkGPR(args[2]) }
         end
-        return { base = 0x00000004, rd = checkGPR(args[1]), rt = checkGPR(args[2]), imm5 = checkImm5(args[3], 3) }
+        return { base = 0x00000004, rd = checkGPR(args[1]), rt = checkGPR(args[2]), rs = checkGPR(args[3]) }
     end,
 
     srlv = function(args)
         if #args < 2 or #args > 3 then error('srlv takes two or three arguments') end
         if #args == 2 then
-            return { base = 0x00000006, rd = checkGPR(args[1]), rt = checkGPR(args[1]), imm5 = checkImm5(args[2], 2) }
+            return { base = 0x00000006, rd = checkGPR(args[1]), rt = checkGPR(args[1]), rs = checkGPR(args[2]) }
         end
-        return { base = 0x00000006, rd = checkGPR(args[1]), rt = checkGPR(args[2]), imm5 = checkImm5(args[3], 3) }
+        return { base = 0x00000006, rd = checkGPR(args[1]), rt = checkGPR(args[2]), rs = checkGPR(args[3]) }
     end,
 
     srav = function(args)
         if #args < 2 or #args > 3 then error('srav takes two or three arguments') end
         if #args == 2 then
-            return { base = 0x00000007, rd = checkGPR(args[1]), rt = checkGPR(args[1]), imm5 = checkImm5(args[2], 2) }
+            return { base = 0x00000007, rd = checkGPR(args[1]), rt = checkGPR(args[1]), rs = checkGPR(args[2]) }
         end
-        return { base = 0x00000007, rd = checkGPR(args[1]), rt = checkGPR(args[2]), imm5 = checkImm5(args[3], 3) }
+        return { base = 0x00000007, rd = checkGPR(args[1]), rt = checkGPR(args[2]), rs = checkGPR(args[3]) }
     end,
 
     jr = function(args)

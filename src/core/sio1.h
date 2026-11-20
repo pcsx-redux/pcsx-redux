@@ -63,7 +63,6 @@ class SIO1 {
     /*
      * TODO:
      * STAT Baudrate timer
-     * Implement TX interrupts
      * Implement DSR interrupts
      * Add/verify cases for all R/W functions exist in psxhw.cpp
      */
@@ -255,7 +254,7 @@ class SIO1 {
         CR_RXIRQMODE = 0x0100,  // FIFO byte count, need to implement
         CR_TXIRQEN = 0x0400,
         CR_RXIRQEN = 0x0800,
-        CR_DSRIRQEN = 0x0400,
+        CR_DSRIRQEN = 0x1000,
     };
 
     enum {
@@ -275,6 +274,7 @@ class SIO1 {
     void loadResetValues();
     void transmitData();
     bool isTransmitReady();
+    bool txInterruptPending();
 
     IO<File> m_fifo;
     IO<File> m_sio1fifo;

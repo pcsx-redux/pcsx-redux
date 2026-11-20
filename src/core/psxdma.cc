@@ -20,6 +20,7 @@
 #include "core/psxdma.h"
 
 #include "core/debug.h"
+#include "core/gpu.h"
 #include "core/spulogger.h"
 #include "spu/interface.h"
 
@@ -29,7 +30,113 @@ void spuInterrupt() {
     mem->dmaInterrupt<4>();
 }
 
-void dma4(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // SPU
+// The SPU asks for a sync-1 DMA4 block while SPUCNT's transfer mode is DMA write (2) for a
+// transfer into sound RAM, or DMA read (3) for one out of it.
+static bool spuRequests(uint32_t chcr) {
+    const unsigned mode = (PCSX::g_emulator->m_spu->getCtrl() >> 4) & 3;
+    return (chcr & 1) ? mode == 2 : mode == 3;
+}
+
+// Moves the blocks left in BCR from MADR one at a time, re-reading direction and step from CHCR, so
+// MADR and BCR rewritten while the channel waited between blocks take effect. A forced block (CHCR
+// bit 28) taken while the transfer mode does not ask for it is read from RAM, MADR moves past it,
+// and none of it reaches sound RAM (SCPH-1000, 5501, 7001).
+static bool dma4Sync1(uint32_t chcr) {
+    auto &mem = PCSX::g_emulator->m_mem;
+    auto &spu = PCSX::g_emulator->m_spu;
+    // As in HW::dmaExec: MSAN addresses stay as they are, anything else wraps into RAM.
+    auto physical = [&](uint32_t addr) -> uint32_t {
+        return (mem->msanInitialized() && PCSX::Memory::inMsanRange(addr)) ? (addr & 0xfffffffc) : (addr & 0x7ffffc);
+    };
+    uint32_t madr = physical(mem->getMADR<4>());
+    const uint32_t bcr = mem->getBCR<4>();
+    const uint32_t bs = bcr & 0xffff;
+    uint32_t blocks = bcr >> 16;
+    const uint32_t step = (chcr & 2) ? uint32_t(-4) : 4u;
+    const bool toSpu = chcr & 1;
+    uint32_t moved = 0;
+    spu->setDMAWaiting(false);
+
+    auto block = [&](bool lands) {
+        if (lands) {
+            PCSX::g_emulator->m_spuLogger->log(toSpu ? PCSX::SPULogger::Kind::DMAWrite : PCSX::SPULogger::Kind::DMARead,
+                                               spu->getTransferAddr(), bs * 4, madr);
+        }
+        for (uint32_t i = 0; lands && i < bs; i++) {
+            const uint32_t addr = physical(madr + i * step);
+            uint16_t *p = mem->getPointer<uint16_t>(addr);
+            if (!p) continue;
+            if (toSpu) {
+                spu->writeDMAMem(p, 2);
+            } else {
+                spu->readDMAMem(p, 2);
+                mem->msanDmaWrite(addr, 4);
+                PCSX::g_emulator->m_cpu->Clear(addr, 1);
+            }
+        }
+        if (lands && PCSX::g_emulator->settings.get<PCSX::Emulator::SettingDebugSettings>()
+                         .get<PCSX::Emulator::DebugSettings::Debug>()) {
+            // A block that steps down covers bs words ending at madr.
+            const uint32_t low = (chcr & 2) ? madr - (bs - 1) * 4 : madr;
+            if (toSpu) {
+                PCSX::g_emulator->m_debug->checkDMAread(4, low, bs * 4);
+            } else {
+                PCSX::g_emulator->m_debug->checkDMAwrite(4, low, bs * 4);
+            }
+        }
+        madr += bs * step;
+        blocks--;
+        moved++;
+    };
+
+    if (chcr & 0x10000000) {
+        mem->setCHCR<4>(chcr & ~0x10000000);
+        if (blocks && bs) block(spuRequests(chcr));
+    }
+    while (blocks && bs) {
+        if (!spuRequests(chcr)) {
+            mem->setMADR<4>(madr);
+            mem->setBCR<4>((blocks << 16) | bs);
+            spu->setDMAWaiting(true);
+            return true;
+        }
+        block(true);
+    }
+    mem->setMADR<4>(madr);
+    mem->setBCR<4>(bs);
+    const uint32_t cycles = moved * bs / 2;
+    scheduleSPUDMAIRQ(cycles ? cycles : 1);
+    if (toSpu) spu->writeDMAEndsAt(PCSX::g_emulator->m_cpu->m_regs.cycle + cycles);
+    return true;
+}
+
+void dmaBusyCleared(unsigned n) {
+    if (n == 2) PCSX::g_emulator->m_gpu->dmaStopped();
+    if (n == 4) PCSX::g_emulator->m_spu->setDMAWaiting(false);
+}
+
+void dma4Resume() {
+    auto &mem = PCSX::g_emulator->m_mem;
+    auto &spu = PCSX::g_emulator->m_spu;
+    if (!spu->getDMAWaiting()) return;
+    const uint32_t chcr = mem->getCHCR<4>();
+    if (!(chcr & 0x01000000)) {
+        spu->setDMAWaiting(false);
+        return;
+    }
+    // A busy channel that DPCR has disabled keeps waiting.
+    if (!mem->isDMAEnabled<4>() || !spuRequests(chcr)) return;
+    dma4Sync1(chcr);
+}
+
+bool dma4(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // SPU
+    // A CHCR write that keeps bit 24 while the channel waits between blocks does not start a new
+    // transfer: the remaining blocks take its direction and step when the transfer mode asks.
+    if (PCSX::g_emulator->m_spu->getDMAWaiting()) return true;
+    // Sync 1 that is forced (bit 28), steps backwards (bit 1), or that the SPU is not asking for yet.
+    if ((chcr & 0x00000600) == 0x00000200 && ((chcr & 0x10000002) || !spuRequests(chcr))) {
+        return dma4Sync1(chcr);
+    }
     uint16_t *ptr = PCSX::g_emulator->m_mem->getPointer<uint16_t>(madr);
     uint32_t size;
 
@@ -58,7 +165,7 @@ void dma4(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // SPU
                 scheduleSPUDMAIRQ(cycles);
                 PCSX::g_emulator->m_spu->writeDMAEndsAt(PCSX::g_emulator->m_cpu->m_regs.cycle + cycles);
             }
-            return;
+            return false;
 
         case 0x01000200:  // spu to cpu transfer
             if (ptr == nullptr) {
@@ -81,13 +188,14 @@ void dma4(uint32_t madr, uint32_t bcr, uint32_t chcr) {  // SPU
             // Experimental burst dma transfer (0.333x max)
             scheduleSPUDMAIRQ((bcr >> 16) * (bcr & 0xffff) / 3);
 #endif
-            return;
+            return false;
 
         default:
             break;
     }
 
     spuInterrupt();
+    return false;
 }
 
 void dma6(uint32_t madr, uint32_t bcr, uint32_t chcr) {

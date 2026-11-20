@@ -22,6 +22,7 @@
 #include <algorithm>
 
 #include "core/logger.h"
+#include "core/psxdma.h"
 #include "core/psxemulator.h"
 #include "core/r3000a.h"
 #include "core/spulogger.h"
@@ -349,6 +350,7 @@ void PCSX::SPU::impl::writeRegister(uint32_t reg, uint16_t val) {
             case H_SPUctrl:
                 m_ctrlShadow = val;
                 m_ctrlWritesPending++;
+                if (m_dmaWaiting) dma4Resume();
                 break;
 
             case H_SPUirqAddr:
@@ -755,9 +757,14 @@ uint16_t PCSX::SPU::impl::readRegister(uint32_t reg) {
             // batch at a time (spu.cc, capBufVoiceIndex), so an edge it publishes can
             // sit up to 45 samples from the true 0x100-sample boundary.
             // Bit 6 (the IRQ9 flag) is the mixer's. If a CTRL write, which may be the acknowledge
-            // that clears it, has not reached the mixer yet, wait for it. Otherwise SPUSTAT is
-            // polled freely.
-            if (m_ctrlWritesPending.load()) catchUp(readerCycle());
+            // that clears it, has not reached the mixer yet, wait for it. While IRQ9 is enabled and
+            // the flag is clear, wait for the mixer too: the flag has to rise at the cycle the voice
+            // reaches the IRQ address, not whenever the mixer thread gets there in host time.
+            // Otherwise SPUSTAT is polled freely.
+            if (m_ctrlWritesPending.load() ||
+                ((readCtrl() & ControlFlags::IRQEnable) && !(spuStat & StatusFlags::IRQFlag))) {
+                catchUp(readerCycle());
+            }
             const uint64_t half = cycleToSample(readerCycle()) % kCaptureRegionSamples;
             uint16_t stat = (spuStat & ~StatusFlags::SPUModeMask) | (readCtrl() & StatusFlags::SPUModeMask);
             if (half & kCaptureHalfMarker) {
