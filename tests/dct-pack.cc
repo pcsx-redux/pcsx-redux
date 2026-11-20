@@ -426,5 +426,3 @@ TEST(DctOrder, theDefaultIsColumnMajor) {
     EXPECT_EQ(byDefault, column);
     EXPECT_NE(byDefault, raster);
 }
-
-TEST(DctPack, temporaryFailureForTheSummaryTable) { EXPECT_EQ(1, 2) << "deliberate, reverted before merge"; }
