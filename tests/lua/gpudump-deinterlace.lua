@@ -70,7 +70,7 @@ function GPUDumpDeinterlace(DEINTERLACE)
             srl   $t1, $t1, 31
             sll   $t1, $t1, 3
             ori   $t2, $zero, 0xff
-            nop                       # 0x801000cc: sllv $t2, $t2, $t1, patched in below
+            sllv  $t2, $t2, $t1
             or    $t2, $t2, $t5
             sw    $t2, 0x1810($t0)
             sw    $zero, 0x1810($t0)
@@ -78,9 +78,6 @@ function GPUDumpDeinterlace(DEINTERLACE)
             b     -11
             nop
         ]]):compileToMemory(PCSX.getMemPtr(), 0x80100000, 0x80000000)
-        -- The assembler's sllv takes a shift amount where rs goes, so it cannot encode sllv with a
-        -- register: write 0x012a5004 (sllv $t2, $t2, $t1) over the placeholder nop by hand.
-        ffi.cast('uint32_t*', PCSX.getMemPtr())[0xcc / 4 + 0x100000 / 4] = 0x012a5004
         PCSX.invalidateCache()
         PCSX.pauseEmulator()
         local timer = luv.new_timer()
