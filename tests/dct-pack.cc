@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 
+#include <string>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -383,6 +384,92 @@ TEST(DctContainer, bsRoundTripsAndRefusesWhatItCannotExpress) {
         EXPECT_TRUE(r.failed) << "BS version " << int(v) << " should be refused";
         EXPECT_TRUE(out.empty());
     }
+}
+
+// BS v1/v2 end the frame with an End of Frame code after the last block's EOB:
+// the 10-bit value 0x1FF read in the DC slot of a block that does not exist.
+// psx-spx, "DC v1/v2/ea": `0111111111        End of Frame (+1FFh, that, in place of Cr)`.
+// Retail decoders loop on it rather than on a block count - Mega Man X4's player
+// overran and crashed on frames without it - and every retail v2 frame measured
+// ends `10 0111111111` (EOB, then the end code), zero-padded to a 32-bit word.
+TEST(DctContainer, bsFrameEndsWithTheEndOfFrameCode) {
+    Transformed t;
+    std::vector<uint16_t> stream;
+    auto packed = PCSX::DCT::pack(t.coeffs, t.shape, {}, 8, stream);
+    ASSERT_FALSE(packed.failed);
+    std::vector<uint8_t> bs;
+    auto wrapped = PCSX::DCT::toContainer(stream, PCSX::DCT::Container::Bs, bs);
+    ASSERT_FALSE(wrapped.failed) << (wrapped.error ? wrapped.error : "");
+    ASSERT_EQ(bs.size() % 4, 0u);
+    ASSERT_GT(bs.size(), 8u);
+
+    // The payload as bits, 16-bit little-endian units read MSB first.
+    std::string bits;
+    for (size_t k = 8; k + 1 < bs.size(); k += 2) {
+        const uint16_t hw = bs[k] | (bs[k + 1] << 8);
+        for (int b = 15; b >= 0; b--) bits.push_back(((hw >> b) & 1) ? '1' : '0');
+    }
+    // The end code finishes on a 1, so everything after the last 1 is padding.
+    const size_t lastOne = bits.find_last_of('1');
+    ASSERT_NE(lastOne, std::string::npos);
+    ASSERT_GE(lastOne, 11u);
+    EXPECT_EQ(bits.substr(lastOne - 11, 12), "100111111111")
+        << "the last block's EOB must be followed by the 10-bit end-of-frame code 0x1FF";
+    // Padded with zeros to the next 32-bit word and no further, like retail.
+    EXPECT_LT(bits.size() - (lastOne + 1), 32u) << "more than a word of padding after the end code";
+
+    // And the round trip is untouched by it.
+    std::vector<uint16_t> back;
+    auto un = PCSX::DCT::fromContainer(bs, PCSX::DCT::Container::Bs, back);
+    ASSERT_FALSE(un.failed) << (un.error ? un.error : "");
+    EXPECT_EQ(back, stream);
+    EXPECT_EQ(un.blocks, t.shape.blockCount);
+
+    // fromContainer stops AT the end code rather than relying on what follows it:
+    // retail pads with zeros, 0xFF or garbage. Plant garbage that DOES decode - an
+    // EOB right after the end code, so a reader that runs past it turns the code
+    // into one more block with DC 0x1FF - and the decode must not change.
+    std::vector<uint8_t> garbage = bs;
+    for (int k = 0; k < 4; k++) garbage.push_back(0);
+    const size_t eobBit = lastOne + 1;  // "10": set this bit, the 0 after it is already there
+    garbage[8 + (eobBit >> 4) * 2 + ((eobBit & 15) < 8 ? 1 : 0)] |= static_cast<uint8_t>(1u << (7 - (eobBit & 7)));
+    std::vector<uint16_t> garbageBack;
+    auto gr = PCSX::DCT::fromContainer(garbage, PCSX::DCT::Container::Bs, garbageBack);
+    ASSERT_FALSE(gr.failed) << (gr.error ? gr.error : "");
+    EXPECT_EQ(garbageBack, stream) << "bits after the end code must not be decoded";
+    EXPECT_EQ(gr.blocks, t.shape.blockCount);
+}
+
+// 0x1FF in the DC slot IS the end code in v1/v2, so a block whose DC clamps to +511
+// cannot be written as is: a retail player would stop the frame there. psx-spx gives
+// the v1/v2 DC range as -200h..+1FEh. The writer saturates it to 0x1FE, one DC step.
+TEST(DctContainer, bsNeverWritesADcThatReadsAsTheEndCode) {
+    std::vector<uint16_t> rl;
+    const uint16_t q = 8 << 10;
+    rl.push_back(q | 0x1ff);  // block 0: DC +511, no AC
+    rl.push_back(0xfe00);
+    rl.push_back(q | 0x010);  // block 1: an ordinary block after it
+    rl.push_back(0x0401);
+    rl.push_back(0xfe00);
+    while (rl.size() & 0x3f) rl.push_back(0xfe00);
+
+    std::vector<uint8_t> bs;
+    auto wrapped = PCSX::DCT::toContainer(rl, PCSX::DCT::Container::Bs, bs);
+    ASSERT_FALSE(wrapped.failed) << (wrapped.error ? wrapped.error : "");
+    EXPECT_EQ(wrapped.blocks, 2u);
+    // The first ten payload bits are block 0's DC.
+    ASSERT_GE(bs.size(), 10u);
+    const uint32_t dc0 = ((bs[8] | (bs[9] << 8)) >> 6) & 0x3ff;
+    EXPECT_NE(dc0, 0x1ffu) << "a DC of 0x1FF ends the frame on retail decoders";
+    EXPECT_EQ(dc0, 0x1feu);
+
+    std::vector<uint16_t> back;
+    auto un = PCSX::DCT::fromContainer(bs, PCSX::DCT::Container::Bs, back);
+    ASSERT_FALSE(un.failed) << (un.error ? un.error : "");
+    EXPECT_EQ(un.blocks, 2u) << "both blocks must survive, not stop at block 0";
+    std::vector<uint16_t> expect = rl;
+    expect[0] = q | 0x1fe;
+    EXPECT_EQ(back, expect);
 }
 
 // Retail STR walks 16-pixel columns top to bottom, so that is the default, and
