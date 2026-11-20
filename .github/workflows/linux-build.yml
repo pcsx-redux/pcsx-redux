@@ -111,8 +111,20 @@ jobs:
       - name: Test
         run: |
           export GTEST_OUTPUT=xml:${TEST_RESULTS}/
+          export PCSX_TEST_REPORT_DIR=${TEST_RESULTS}
           mkdir -p $TEST_RESULTS
           xvfb-run catchsegv ./pcsx-redux-tests
+      - name: Test summary
+        if: always()
+        run: python3 ./.github/scripts/test-summary.py "$TEST_RESULTS" "Tests, Linux ${{ matrix.arch }}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-linux-${{ matrix.arch }}
+          path: /tmp/test-results
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Deploy
         if: github.event_name == 'push'
         env:
