@@ -525,7 +525,7 @@ local function readWholeFile(path)
         f:close()
         return nil, 'cannot open ' .. path
     end
-    local data = tostring(f:readAt(f:size(), 0))
+    local data = tostring(f:readWhole())
     f:close()
     return data
 end
