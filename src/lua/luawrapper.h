@@ -250,6 +250,8 @@ class Lua {
         return ar;
     }
 
+    void interrupt();
+
   private:
     lua_State* L;
 };
