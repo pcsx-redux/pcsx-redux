@@ -19,9 +19,9 @@
 
 #include "lua/luawrapper.h"
 
-#include "core/system.h"
-
 #include <assert.h>
+
+#include "core/system.h"
 
 static int callwrap(lua_State* raw, lua_CFunction func) {
     PCSX::Lua L(raw);
