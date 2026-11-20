@@ -21,6 +21,7 @@
 
 #include <filesystem>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 #include "lua-protobuf/pb.h"
@@ -34,7 +35,7 @@
 namespace {
 
 std::vector<PCSX::ZipArchive> s_archives;
-PCSX::File* load(std::string_view name, std::string_view from, bool inArchives = true) {
+std::tuple<PCSX::File*, std::string> load(std::string_view name, std::string_view from, bool inArchives = true) {
     bool doRelative = false;
     if (!from.empty() && (from[0] == '@')) {
         from = from.substr(1);
@@ -42,8 +43,10 @@ PCSX::File* load(std::string_view name, std::string_view from, bool inArchives =
     }
     std::filesystem::path fromPath(from);
     std::filesystem::path absolutePath(name);
+    // Archive member names are not filesystem paths, so they are normalised lexically: what exists on
+    // disk must not change them. The on-disk fallback resolves through the filesystem, symlinks included.
     std::filesystem::path relativePath(fromPath.parent_path() / name);
-    relativePath = std::filesystem::weakly_canonical(relativePath);
+    std::filesystem::path relativeMember = relativePath.lexically_normal();
 
     PCSX::File* file = nullptr;
 
@@ -51,38 +54,46 @@ PCSX::File* load(std::string_view name, std::string_view from, bool inArchives =
         for (auto archivei = s_archives.rbegin(); archivei != s_archives.rend(); archivei++) {
             auto& archive = *archivei;
             if (doRelative) {
-                file = archive.openFile(relativePath.string());
-                if (!file->failed()) return file;
+                file = archive.openFile(relativeMember.string());
+                if (!file->failed()) return {file, relativeMember.generic_string()};
                 delete file;
             }
             file = archive.openFile(absolutePath.string());
-            if (!file->failed()) return file;
+            if (!file->failed()) return {file, absolutePath.generic_string()};
             delete file;
         }
     } else {
         for (auto archivei = s_archives.rbegin(); archivei != s_archives.rend(); archivei++) {
             auto& archive = *archivei;
             std::filesystem::path fromPath(from);
-            std::filesystem::path relativePath(archive.archiveFilename().parent_path() / name);
-            relativePath = std::filesystem::weakly_canonical(relativePath);
-            file = archive.openFile(relativePath.string());
-            if (!file->failed()) return file;
+            std::filesystem::path relativeMember((archive.archiveFilename().parent_path() / name).lexically_normal());
+            file = archive.openFile(relativeMember.string());
+            if (!file->failed()) return {file, relativeMember.generic_string()};
             delete file;
             file = archive.openFile(absolutePath.string());
-            if (!file->failed()) return file;
+            if (!file->failed()) return {file, absolutePath.generic_string()};
             delete file;
         }
     }
 
     if (doRelative) {
+        relativePath = std::filesystem::weakly_canonical(relativePath);
         file = new PCSX::PosixFile(relativePath);
-        if (!file->failed()) return file;
+        if (!file->failed()) return {file, relativePath.generic_string()};
         delete file;
     }
-    return new PCSX::PosixFile(absolutePath);
+    return {new PCSX::PosixFile(absolutePath), absolutePath.generic_string()};
 }
 
 uint64_t djbHash(const char* str, size_t len) { return PCSX::djb::hash(str, len); }
+
+// The file a relative name is resolved against: the caller's own chunk, read off the stack, unless the
+// Lua wrapper passes the running file explicitly because the caller forwarded with a tail call.
+std::string relativeBase(PCSX::Lua L, const std::string& caller) {
+    if (L.gettop() >= 2 && L.isstring(2)) return "@" + L.tostring(2);
+    return caller;
+}
+
 
 template <typename T, size_t S>
 void registerSymbol(PCSX::Lua L, const char (&name)[S], const T ptr) {
@@ -105,6 +116,8 @@ void registerAllSymbols(PCSX::Lua L) {
 }
 
 }  // namespace
+
+void closeArchivesForTests() { s_archives.clear(); }
 
 PCSX::ZipArchive& PCSX::LuaFFI::addArchive(Lua L, IO<File> file) {
     auto& newArchive = s_archives.emplace_back(file);
@@ -188,7 +201,9 @@ void PCSX::LuaFFI::open_extra(Lua L) {
             Lua L(L_);
             auto ar = L.getinfo("S");
             auto name = L.tostring();
-            IO<File> file = load(name, ar.has_value() ? ar->source : "");
+            IO<File> file;
+            std::string actualName;
+            std::tie(file, actualName) = load(name, ar.has_value() ? ar->source : "");
             if (file->failed()) return L.error("Unable to locate archive file");
             addArchive(L, file);
             return 0;
@@ -201,8 +216,10 @@ void PCSX::LuaFFI::open_extra(Lua L) {
         [](lua_State* L_) -> int {
             Lua L(L_);
             auto ar = L.getinfo("S", 2);
-            auto name = L.tostring();
-            IO<File> file = load(name, ar.has_value() ? ar->source : "");
+            auto name = L.tostring(1);
+            IO<File> file;
+            std::string actualName;
+            std::tie(file, actualName) = load(name, relativeBase(L, ar.has_value() ? ar->source : ""));
             L.push(new LuaFile(file));
             return 1;
         },
@@ -212,11 +229,14 @@ void PCSX::LuaFFI::open_extra(Lua L) {
         [](lua_State* L_) -> int {
             Lua L(L_);
             auto ar = L.getinfo("S", 2);
-            auto name = L.tostring();
-            IO<File> file = load(name, ar.has_value() ? ar->source : "");
-            if (file->failed()) return L.error("Unable to locate file");
+            auto name = L.tostring(1);
+            IO<File> file;
+            std::string actualName;
+            std::tie(file, actualName) = load(name, relativeBase(L, ar.has_value() ? ar->source : ""));
+            if (file->failed()) return L.error("Unable to locate file %s", name.c_str());
             L.push(file->readString(file->size()));
-            return 1;
+            L.push(actualName);
+            return 2;
         },
         -1);
     L.pop();

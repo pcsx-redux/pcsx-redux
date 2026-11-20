@@ -26,37 +26,8 @@ SOFTWARE.
 
 #include "support/zip.h"
 
-#include "support/binstruct.h"
-#include "support/typestring-wrapper.h"
 #include "support/zfile.h"
-
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt32, TYPESTRING("Signature")> Signature;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt16, TYPESTRING("MadeByVersion")> MadeByVersion;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt16, TYPESTRING("MinVersion")> MinVersion;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt16, TYPESTRING("GPFlag")> GPFlag;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt16, TYPESTRING("CompressionMethod")> CompressionMethod;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt16, TYPESTRING("FileTime")> FileTime;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt16, TYPESTRING("FileDate")> FileDate;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt32, TYPESTRING("CRC32")> CRC32;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt32, TYPESTRING("CompressedSize")> CompressedSize;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt32, TYPESTRING("UncompressedSize")> UncompressedSize;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt16, TYPESTRING("FilenameLength")> FilenameLength;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt16, TYPESTRING("ExtraFieldLength")> ExtraFieldLength;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt16, TYPESTRING("CommentLength")> CommentLength;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt16, TYPESTRING("DiskNumberStart")> DiskNumberStart;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt16, TYPESTRING("InternalFileAttributes")> InternalFileAttributes;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt32, TYPESTRING("ExternalFileAttributes")> ExternalFileAttributes;
-typedef PCSX::BinStruct::Field<PCSX::BinStruct::UInt32, TYPESTRING("RelativeOffsetOfLocalHeader")>
-    RelativeOffsetOfLocalHeader;
-typedef PCSX::BinStruct::Struct<TYPESTRING("LocalFileHeader"), Signature, MinVersion, GPFlag, CompressionMethod,
-                                FileTime, FileDate, CRC32, CompressedSize, UncompressedSize, FilenameLength,
-                                ExtraFieldLength>
-    LocalFileHeader;
-typedef PCSX::BinStruct::Struct<TYPESTRING("CentralDirectoryFileHeader"), Signature, MadeByVersion, MinVersion, GPFlag,
-                                CompressionMethod, FileTime, FileDate, CRC32, CompressedSize, UncompressedSize,
-                                FilenameLength, ExtraFieldLength, CommentLength, DiskNumberStart,
-                                InternalFileAttributes, ExternalFileAttributes, RelativeOffsetOfLocalHeader>
-    CentralDirectoryFileHeader;
+#include "support/zip-internal.h"
 
 PCSX::ZipArchive::ZipArchive(IO<File> file) : m_file(file) {
     file->rSeek(0);
