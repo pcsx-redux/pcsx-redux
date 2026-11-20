@@ -157,6 +157,12 @@ Some extra functions are bound to Lua beyond the API listed above:
   viewport. Basically, each viewport is a physical window from the operating
   system, and it can contain one or more ImGui windows.
 
+  - `imgui.extra.InputTextMultiline(label, text, [width, height, [flags]])` draws a
+  multi-line text box over a Lua string. It returns whether the text changed and
+  the new text. `width` and `height` default to 0, which lets ImGui pick a size; a
+  negative value fills the available space minus that amount. `flags` are
+  `ImGuiInputTextFlags`.
+
   - `imgui.extra.getViewportFlags(id)` will return the viewport flags for the
   specified viewport. The viewport flags are of the type `ImGuiViewportFlags_`
   in the ImGui C++ API, and is a bitmask of flags, which are exposed as
