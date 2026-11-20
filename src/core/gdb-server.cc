@@ -885,13 +885,20 @@ void PCSX::GdbClient::processCommand() {
     } else if (StringsHelpers::startsWith(m_cmd, "qRcmd,")) {
         // this is the "monitor" command
         size_t len = m_cmd.length() - 6;
+        if (len & 1) {
+            write("E01");
+            return;
+        }
         std::string monitor;
         monitor.reserve(len / 2);
         for (size_t i = 0; i < len; i += 2) {
-            char c = fromHexChar(m_cmd[i + 6]);
-            c <<= 4;
-            c |= fromHexChar(m_cmd[i + 7]);
-            monitor += c;
+            int hi = fromHexChar(m_cmd[i + 6]);
+            int lo = fromHexChar(m_cmd[i + 7]);
+            if ((hi < 0) || (lo < 0)) {
+                write("E01");
+                return;
+            }
+            monitor += char((hi << 4) | lo);
         }
         processMonitorCommand(monitor);
     } else if (StringsHelpers::startsWith(m_cmd, qXferMemMap) &&
@@ -912,6 +919,10 @@ void PCSX::GdbClient::processCommand() {
 
 void PCSX::GdbClient::processMonitorCommand(const std::string& cmd) {
     auto words = StringsHelpers::split(cmd, " ");
+    if (words.empty()) {
+        write("OK");
+        return;
+    }
     if (words[0] == "reset") {
         bool hard = false;
         bool halt = false;

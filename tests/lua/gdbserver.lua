@@ -135,3 +135,13 @@ function TestGdbServer:test_multiprocess_detach()
     disconnect()
     lu.assertEquals(request('p4'):len(), 8)
 end
+
+-- An empty monitor command is answered like an unknown one, and a hex payload that does not
+-- decode is an error.
+function TestGdbServer:test_empty_monitor_command()
+    lu.assertEquals(request('qRcmd,'), 'OK')
+    lu.assertEquals(request('qRcmd,20'), 'OK')
+    lu.assertEquals(request('qRcmd,7'), 'E01')
+    lu.assertEquals(request('qRcmd,7z'), 'E01')
+    lu.assertEquals(request('p4'):len(), 8)
+end
