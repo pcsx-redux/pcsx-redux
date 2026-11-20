@@ -5,7 +5,7 @@ local protoc = require 'protoc'
 -- The state's own schema, so the state can be read and edited as a table.
 local schema = protoc.new()
 assert(schema:load(PCSX.getSaveStateProtoSchema(), 'savestate.proto'))
-pb.option('int64_as_number')
+pb.option('int64_as_string')
 
 local function decode(s) return pb.decode('SaveState', s) end
 

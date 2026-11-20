@@ -110,7 +110,7 @@ local pb = require 'pb'
 local protoc = require 'protoc'
 local schema = protoc.new()
 assert(schema:load(PCSX.getSaveStateProtoSchema(), 'savestate.proto'))
-pb.option('int64_as_number')
+pb.option('int64_as_string')
 local function decode(s) return pb.decode('SaveState', s) end
 -- The same state as a build from before SIO1 was saved would have written it.
 local function stripSIO1(s)

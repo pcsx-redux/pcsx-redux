@@ -20,7 +20,7 @@ local pb = require 'pb'
 local protoc = require 'protoc'
 local schema = protoc.new()
 assert(schema:load(PCSX.getSaveStateProtoSchema(), 'savestate.proto'))
-pb.option('int64_as_number')
+pb.option('int64_as_string')
 
 -- The same state as a build from before the pad messages existed would have written it.
 local function stripPads(s)

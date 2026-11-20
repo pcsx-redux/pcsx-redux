@@ -2,7 +2,7 @@ local pb = require 'pb'
 local protoc = require 'protoc'
 local schema = protoc.new()
 assert(schema:load(PCSX.getSaveStateProtoSchema(), 'savestate.proto'))
-pb.option('int64_as_number')
+pb.option('int64_as_string')
 
 local function gpustat(s) return pb.decode('SaveState', s).gpu.status end
 
