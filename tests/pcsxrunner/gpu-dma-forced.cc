@@ -24,8 +24,7 @@
 // channel then waits for GP1(04h)=2, and a CHCR rewritten while it waits applies to the remaining
 // blocks. ret == 0 means every arm the emulator runs passed.
 static int runSuite(const char* cpu, const char* exe) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", cpu, "-loadexe",
-                        exe);
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", cpu, "-loadexe", exe);
     return invoker.invoke();
 }
 

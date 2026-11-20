@@ -48,14 +48,20 @@ end
 
 local function plant(words)
     local i = code
-    ram[i] = 0x3c081f80 i = i + 1 -- lui $t0, 0x1f80
+    ram[i] = 0x3c081f80
+    i = i + 1 -- lui $t0, 0x1f80
     for _, w in ipairs(words) do
-        ram[i] = 0x3c090000 + bit.rshift(w, 16) i = i + 1 -- lui $t1, hi
-        ram[i] = 0x35290000 + bit.band(w, 0xffff) i = i + 1 -- ori $t1, $t1, lo
-        ram[i] = 0xad091810 i = i + 1 -- sw $t1, 0x1810($t0)
+        ram[i] = 0x3c090000 + bit.rshift(w, 16)
+        i = i + 1 -- lui $t1, hi
+        ram[i] = 0x35290000 + bit.band(w, 0xffff)
+        i = i + 1 -- ori $t1, $t1, lo
+        ram[i] = 0xad091810
+        i = i + 1 -- sw $t1, 0x1810($t0)
     end
-    ram[i] = 0x1000ffff i = i + 1 -- b .
-    ram[i] = 0 i = i + 1
+    ram[i] = 0x1000ffff
+    i = i + 1 -- b .
+    ram[i] = 0
+    i = i + 1
     PCSX.invalidateCache()
     PCSX.pauseEmulator()
     local timer = luv.new_timer()
@@ -116,8 +122,8 @@ GpustatSaveStateListener = PCSX.Events.createEventListener('GPU::Vsync', functio
         local after = pixels()
         for i, p in ipairs(probes) do
             if after[i] ~= control[i] then
-                print(string.format('drawing environment lost across save/load: (%d,%d) %04x, expected %04x',
-                                    p[1], p[2], after[i], control[i]))
+                print(string.format('drawing environment lost across save/load: (%d,%d) %04x, expected %04x', p[1],
+                                    p[2], after[i], control[i]))
                 PCSX.quit(4)
                 return
             end

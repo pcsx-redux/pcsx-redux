@@ -94,7 +94,6 @@ std::string relativeBase(PCSX::Lua L, const std::string& caller) {
     return caller;
 }
 
-
 template <typename T, size_t S>
 void registerSymbol(PCSX::Lua L, const char (&name)[S], const T ptr) {
     L.push<S>(name);
