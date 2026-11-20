@@ -107,74 +107,65 @@ class MemoryObserver {
      */
 
 #ifdef MEMORY_OBSERVER_X86
+    // The pattern of a buffer is the set of byte equalities between every pair of its positions. The AVX2 search
+    // gets it by comparing the buffer against all of its rotations. A 256-bit register holds 32 / bufferSize copies
+    // of the buffer, and each copy is compared against a different rotation, so bufferSize rotations (rotation 0
+    // included) take bufferSize * bufferSize / 32 registers. _mm256_shuffle_epi8 only indexes within a 128-bit lane,
+    // which holds whole copies for both supported sizes.
     template <int bufferSize>
-    AVX2_FUNC static __m256i avx2_getShuffleResultsFor(const std::array<uint8_t, bufferSize>& buffer,
-                                                       std::array<uint8_t, 32>& extendedBuffer, int mask) {
+    static constexpr int c_avx2ShuffleCount = bufferSize * bufferSize / 32;
+
+    template <int bufferSize>
+    static constexpr auto c_avx2ShuffleMasks = [] {
+        constexpr int copiesPerRegister = 32 / bufferSize;
+        std::array<std::array<uint8_t, 32>, c_avx2ShuffleCount<bufferSize>> masks{};
+        for (int reg = 0; reg < c_avx2ShuffleCount<bufferSize>; ++reg) {
+            for (int copy = 0; copy < copiesPerRegister; ++copy) {
+                const int rotation = reg * copiesPerRegister + copy;
+                const int laneOffset = (copy * bufferSize) % 16;
+                for (int i = 0; i < bufferSize; ++i) {
+                    masks[reg][copy * bufferSize + i] = laneOffset + (i + rotation) % bufferSize;
+                }
+            }
+        }
+        return masks;
+    }();
+
+    template <int bufferSize>
+    AVX2_FUNC static std::array<__m256i, c_avx2ShuffleCount<bufferSize>> avx2_getShuffleResultsFor(
+        const uint8_t* buffer) {
         static_assert(bufferSize == 8 || bufferSize == 16);
 
+        alignas(32) std::array<uint8_t, 32> extendedBuffer;
         for (auto j = 0u; j < (32 / bufferSize); ++j) {
-            std::memcpy(&extendedBuffer[j * bufferSize], &buffer[0], bufferSize);
+            std::memcpy(&extendedBuffer[j * bufferSize], buffer, bufferSize);
         }
-        const auto copies = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(extendedBuffer.data()));
+        const auto copies = _mm256_load_si256(reinterpret_cast<const __m256i*>(extendedBuffer.data()));
 
-        switch (mask) {
-            case 0: {
-                const auto firstShuffleMask = _mm256_set_epi8(3, 2, 1, 0, 7, 6, 5, 4, 2, 1, 0, 7, 6, 5, 4, 3, 1, 0, 7,
-                                                              6, 5, 4, 3, 2, 0, 7, 6, 5, 4, 3, 2, 1);
-                const auto firstShuffle = _mm256_shuffle_epi8(copies, firstShuffleMask);
-                return _mm256_cmpeq_epi8(copies, firstShuffle);
-            }
-            case 1: {
-                const auto secondShuffleMask = _mm256_set_epi8(7, 6, 5, 4, 3, 2, 1, 0, 6, 5, 4, 3, 2, 1, 0, 7, 5, 4, 3,
-                                                               2, 1, 0, 7, 6, 4, 3, 2, 1, 0, 7, 6, 5);
-                const auto secondShuffle = _mm256_shuffle_epi8(copies, secondShuffleMask);
-                return _mm256_cmpeq_epi8(copies, secondShuffle);
-            }
-            case 2: {
-                assert(bufferSize == 16);
-                const auto thirdShuffleMask = _mm256_set_epi8(11, 10, 9, 8, 7, 6, 5, 4, 10, 9, 8, 7, 6, 5, 4, 3, 9, 8,
-                                                              7, 6, 5, 4, 3, 2, 8, 7, 6, 5, 4, 3, 2, 1);
-                const auto thirdShuffle = _mm256_shuffle_epi8(copies, thirdShuffleMask);
-                return _mm256_cmpeq_epi8(copies, thirdShuffle);
-            }
-            case 3: {
-                assert(bufferSize == 16);
-                const auto fourthShuffleMask =
-                    _mm256_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 14, 13, 12, 11, 10, 9, 8, 7, 13, 12, 11, 10, 9, 8, 7,
-                                    6, 12, 11, 10, 9, 8, 7, 6, 5);
-                const auto fourthShuffle = _mm256_shuffle_epi8(copies, fourthShuffleMask);
-                return _mm256_cmpeq_epi8(copies, fourthShuffle);
-            }
-            default:
-                return _mm256_setzero_si256();
+        std::array<__m256i, c_avx2ShuffleCount<bufferSize>> results;
+        for (int i = 0; i < c_avx2ShuffleCount<bufferSize>; ++i) {
+            const auto mask =
+                _mm256_loadu_si256(reinterpret_cast<const __m256i*>(c_avx2ShuffleMasks<bufferSize>[i].data()));
+            results[i] = _mm256_cmpeq_epi8(copies, _mm256_shuffle_epi8(copies, mask));
         }
+        return results;
     }
 
+    // Only called with a sequence exactly bufferSize long: a shorter one would compare the bytes after it too.
     template <int bufferSize>
     AVX2_FUNC void simd_populateAddressList(const uint8_t* memData, uint32_t memBase, uint32_t memSize) {
         static_assert(bufferSize == 8 || bufferSize == 16);
 
-        alignas(32) auto buffer = std::array<uint8_t, bufferSize>{};
-        alignas(32) auto extendedBuffer = std::array<uint8_t, 32>{};
-
-        const auto sequenceSize = m_sequenceSize;
-        std::copy_n(m_sequence, sequenceSize, buffer.data());
-        auto patternShuffleResults =
-            std::vector<__m256i>{avx2_getShuffleResultsFor<bufferSize>(buffer, extendedBuffer, 0),
-                                 avx2_getShuffleResultsFor<bufferSize>(buffer, extendedBuffer, 1)};
-        if constexpr (bufferSize == 16) {
-            patternShuffleResults.push_back(avx2_getShuffleResultsFor<bufferSize>(buffer, extendedBuffer, 2));
-            patternShuffleResults.push_back(avx2_getShuffleResultsFor<bufferSize>(buffer, extendedBuffer, 3));
-        }
+        const auto patternShuffleResults =
+            avx2_getShuffleResultsFor<bufferSize>(reinterpret_cast<const uint8_t*>(m_sequence));
 
         m_addresses.clear();
-        for (auto i = 0u; i + sequenceSize <= memSize; i += m_step) {
-            std::copy_n(memData + i, sequenceSize, buffer.data());
+        for (auto i = 0u; i + bufferSize <= memSize; i += m_step) {
+            const auto memoryShuffleResults = avx2_getShuffleResultsFor<bufferSize>(memData + i);
 
             bool allEqual = true;
             for (auto j = 0u; j < patternShuffleResults.size(); ++j) {
-                allEqual = all_equal(_mm256_cmpeq_epi8(
-                    patternShuffleResults[j], avx2_getShuffleResultsFor<bufferSize>(buffer, extendedBuffer, j)));
+                allEqual = all_ones(_mm256_cmpeq_epi8(patternShuffleResults[j], memoryShuffleResults[j]));
                 if (!allEqual) {
                     break;
                 }
@@ -185,7 +176,7 @@ class MemoryObserver {
             }
         }
     }
-    AVX2_FUNC static bool all_equal(__m256i input);
+    AVX2_FUNC static bool all_ones(__m256i input) { return _mm256_movemask_epi8(input) == -1; }
 #else
     template <int bufferSize>
     void simd_populateAddressList(const uint8_t* memData, uint32_t memBase, uint32_t memSize) {
