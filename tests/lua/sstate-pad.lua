@@ -13,89 +13,43 @@
 --   You should have received a copy of the GNU General Public License
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
-local ram = ffi.cast('uint32_t*', PCSX.getMemPtr())
 local bytes = ffi.cast('uint8_t*', PCSX.getMemPtr())
-local code = 0x100000 / 4
 
-local function varint(s, pos)
-    local v, mul = 0, 1
-    while true do
-        local b = s:byte(pos)
-        pos = pos + 1
-        v = v + bit.band(b, 0x7f) * mul
-        if b < 0x80 then return v, pos end
-        mul = mul * 128
-    end
-end
-
-local function encodeVarint(v)
-    local out = {}
-    while v >= 0x80 do
-        out[#out + 1] = string.char(bit.bor(v % 128, 0x80))
-        v = math.floor(v / 128)
-    end
-    out[#out + 1] = string.char(v)
-    return table.concat(out)
-end
-
--- Splits a message into { num, wt, key, payload } records.
-local function records(s)
-    local out = {}
-    local pos = 1
-    while pos <= #s do
-        local start = pos
-        local key
-        key, pos = varint(s, pos)
-        local num, wt = math.floor(key / 8), key % 8
-        local payload
-        if wt == 0 then
-            payload, pos = varint(s, pos)
-        elseif wt == 2 then
-            local len
-            len, pos = varint(s, pos)
-            payload = s:sub(pos, pos + len - 1)
-            pos = pos + len
-        elseif wt == 1 then
-            payload = s:sub(pos, pos + 7)
-            pos = pos + 8
-        elseif wt == 5 then
-            payload = s:sub(pos, pos + 3)
-            pos = pos + 4
-        else
-            error('wire type ' .. wt)
-        end
-        out[#out + 1] = { num = num, wt = wt, raw = s:sub(start, pos - 1), payload = payload, key = key }
-    end
-    return out
-end
-
-local function field(s, wanted)
-    if not s then return nil end
-    for _, r in ipairs(records(s)) do if r.num == wanted then return r.payload end end
-end
-
--- Field numbers of pad1 and pad2 inside the SIO message (sstate.h).
-local PAD1, PAD2 = 81, 82
+-- The state's own schema, so the state can be read and edited as a table.
+local pb = require 'pb'
+local protoc = require 'protoc'
+local schema = protoc.new()
+assert(schema:load(PCSX.getSaveStateProtoSchema(), 'savestate.proto'))
+pb.option('int64_as_string')
 
 -- The same state as a build from before the pad messages existed would have written it.
 local function stripPads(s)
-    local out = {}
-    for _, r in ipairs(records(s)) do
-        if r.num == 7 then
-            local inner = {}
-            for _, ir in ipairs(records(r.payload)) do
-                if ir.num ~= PAD1 and ir.num ~= PAD2 then inner[#inner + 1] = ir.raw end
-            end
-            local body = table.concat(inner)
-            out[#out + 1] = encodeVarint(r.key) .. encodeVarint(#body) .. body
-        else
-            out[#out + 1] = r.raw
-        end
-    end
-    return table.concat(out)
+    local state = pb.decode('SaveState', s)
+    state.sio.pad1 = nil
+    state.sio.pad2 = nil
+    return pb.encode('SaveState', state)
 end
 
-local function padField(s, num) return field(field(field(s, 7), PAD1), num) or 0 end
+-- PadTransfer fields 2 to 10 (sstate.h), by field number.
+local PAD_FIELDS = {
+    [2] = 'cmd',
+    [3] = 'config_mode',
+    [4] = 'analog_mode',
+    [5] = 'buffer_len',
+    [6] = 'current_byte',
+    [7] = 'buffer',
+    [8] = 'motor_mapping',
+    [9] = 'config_commands_used',
+    [10] = 'old_method_latch',
+}
+
+local function padField(s, num)
+    local sio = pb.decode('SaveState', s).sio
+    local pad = sio and sio.pad1
+    local v = pad and pad[PAD_FIELDS[num]]
+    if v == nil or v == false then return 0 end
+    return v
+end
 
 local function toSlice(s)
     local slice = Support.File.createEmptySlice()
@@ -107,38 +61,38 @@ end
 -- Sends the given bytes to the selected port through SIO0 and stores the replies at base.
 -- A -1 in the list drops and raises the select line, which starts a new transfer; reset
 -- also empties the receive FIFO first.
-local function plant(send, base, reset)
-    local i = code
-    local function emit(w)
-        ram[i] = w
-        i = i + 1
-    end
-    local function reselect()
-        emit(0xa500104a) -- sh $zero, 0x104a($t0)
-        emit(0x34091003) -- ori $t1, $zero, 0x1003
-        emit(0xa509104a) -- sh $t1, 0x104a($t0)
-    end
-    emit(0x3c081f80) -- lui $t0, 0x1f80
-    emit(0x3c0b0000 + bit.rshift(base, 16)) -- lui $t3, hi
-    emit(0x356b0000 + bit.band(base, 0xffff)) -- ori $t3, $t3, lo
+local function guestCode(send, base, reset)
+    local lines = {}
+    local function asm(fmt, ...) lines[#lines + 1] = string.format(fmt, ...) end
+    asm('lui $t0, 0x1f80')
+    asm('lui $t3, 0x%x', bit.rshift(base, 16))
+    asm('ori $t3, $t3, 0x%x', bit.band(base, 0xffff))
     if reset then
-        emit(0x34090040) -- ori $t1, $zero, 0x40
-        emit(0xa509104a) -- sh $t1, 0x104a($t0)
+        asm('ori $t1, $zero, 0x40')
+        asm('sh $t1, 0x104a($t0)')
     end
     local n = 0
     for _, b in ipairs(send) do
         if b < 0 then
-            reselect()
+            asm('sh $zero, 0x104a($t0)')
+            asm('ori $t1, $zero, 0x1003')
+            asm('sh $t1, 0x104a($t0)')
         else
-            emit(0x34090000 + b) -- ori $t1, $zero, b
-            emit(0xa1091040) -- sb $t1, 0x1040($t0)
-            emit(0x910a1040) -- lbu $t2, 0x1040($t0)
-            emit(0xa16a0000 + n) -- sb $t2, n($t3)
+            asm('ori $t1, $zero, 0x%x', b)
+            asm('sb $t1, 0x1040($t0)')
+            asm('lbu $t2, 0x1040($t0)')
+            asm('nop # load delay')
+            asm('sb $t2, %d($t3)', n)
             n = n + 1
         end
     end
-    emit(0x1000ffff) -- b .
-    emit(0)
+    asm('b -1')
+    asm('nop')
+    return table.concat(lines, '\n')
+end
+
+local function plant(send, base, reset)
+    PCSX.Assembler.New():parse(guestCode(send, base, reset)):compileToMemory(PCSX.getMemPtr(), 0x80100000, 0x80000000)
     PCSX.invalidateCache()
     PCSX.pauseEmulator()
     local timer = luv.new_timer()

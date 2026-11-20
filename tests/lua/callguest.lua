@@ -27,16 +27,18 @@ local function ram32(addr) return ffi.cast('uint32_t*', PCSX.getMemPtr() + (addr
 
 local function ram8(addr) return ffi.cast('uint8_t*', PCSX.getMemPtr() + (addr - 0x80000000)) end
 
-local function poke(addr, words)
-    local p = ram32(addr)
-    for i, w in ipairs(words) do p[i - 1] = w end
-end
+local function assemble(addr, code) PCSX.Assembler.New():parse(code):compileToMemory(PCSX.getMemPtr(), addr, 0x80000000) end
+
+local RETURN = [[
+    jr    $ra
+    nop
+]]
 
 local function writeLutMapped() return ffi.cast('void**', PCSX.getWriteLUT())[0x8000] ~= nil end
 
 -- The recompilers can't stop on an arbitrary pc, so under them callGuest must refuse.
 local function interpreter()
-    poke(CODE, { 0x03e00008, 0x00000000 }) -- jr ra ; nop
+    assemble(CODE, RETURN)
     local ok, err = pcall(PCSX.callGuest, { pc = CODE })
     if ok then return true end
     lu.assertStrContains(tostring(err), 'needs the interpreter')
@@ -46,7 +48,14 @@ end
 -- A cold machine boots with the caches isolated, which nulls the RAM write LUT and makes
 -- every guest store vanish. This is the BIOS reset code's BIU write; it's what makes stores land.
 local function enableStores()
-    poke(CODE, { 0x3c080001, 0x3508e988, 0x3c01fffe, 0xac280130, 0x03e00008, 0x00000000 })
+    assemble(CODE, [[
+        lui   $t0, 0x0001
+        ori   $t0, $t0, 0xe988
+        lui   $at, 0xfffe
+        sw    $t0, 0x130($at)
+        jr    $ra
+        nop
+    ]])
     local r = PCSX.callGuest { pc = CODE }
     lu.assertEquals(r.status, 'returned')
     lu.assertFalse(r.storesDropped)
@@ -56,7 +65,7 @@ function TestCallGuest:test_refuses_without_interpreter() if interpreter() then 
 
 function TestCallGuest:test_stores_dropped_tracks_the_write_lut()
     if not interpreter() then lu.skip('needs the interpreter') end
-    poke(CODE, { 0x03e00008, 0x00000000 }) -- jr ra ; nop
+    assemble(CODE, RETURN)
     local mapped = writeLutMapped()
     local r = PCSX.callGuest { pc = CODE }
     lu.assertEquals(r.storesDropped, not mapped)
@@ -70,7 +79,10 @@ function TestCallGuest:test_returns_value_and_restores_cpu()
     regs.GPR.n.t0 = 0x12345678
     regs.GPR.n.ra = 0xdeadbee0
     local pcBefore = regs.pc
-    poke(CODE, { 0x03e00008, 0x00851021 }) -- jr ra ; addu v0,a0,a1
+    assemble(CODE, [[
+        jr    $ra
+        addu  $v0, $a0, $a1
+    ]])
     local r = PCSX.callGuest { pc = CODE, args = { 40, 2 } }
     lu.assertEquals(r.status, 'returned')
     lu.assertEquals(r.v0, 42)
@@ -85,7 +97,12 @@ function TestCallGuest:test_fifth_argument_goes_on_the_stack()
     if not interpreter() then lu.skip('needs the interpreter') end
     -- The fifth argument is written through the bus, so on a cold machine it would vanish.
     enableStores()
-    poke(CODE, { 0x8fa20010, 0x00000000, 0x03e00008, 0x00000000 }) -- lw v0,16(sp) ; nop ; jr ra ; nop
+    assemble(CODE, [[
+        lw    $v0, 16($sp)
+        nop
+        jr    $ra
+        nop
+    ]])
     local r = PCSX.callGuest { pc = CODE, args = { 1, 2, 3, 4, 0xcafe } }
     lu.assertEquals(r.status, 'returned')
     lu.assertEquals(r.v0, 0xcafe)
@@ -95,7 +112,10 @@ end
 function TestCallGuest:test_load_in_the_return_delay_slot_lands()
     if not interpreter() then lu.skip('needs the interpreter') end
     ram32(SRC)[0] = 0xbeef
-    poke(CODE, { 0x03e00008, 0x8c820000 }) -- jr ra ; lw v0,0(a0)
+    assemble(CODE, [[
+        jr    $ra
+        lw    $v0, 0($a0)
+    ]])
     local r = PCSX.callGuest { pc = CODE, args = { SRC } }
     lu.assertEquals(r.status, 'returned')
     lu.assertEquals(r.v0, 0xbeef)
@@ -105,7 +125,10 @@ function TestCallGuest:test_runaway_callee_runs_out_of_cycles()
     if not interpreter() then lu.skip('needs the interpreter') end
     local regs = PCSX.getRegisters()
     local pcBefore = regs.pc
-    poke(CODE, { 0x1000ffff, 0x00000000 }) -- b . ; nop
+    assemble(CODE, [[
+        b     -1
+        nop
+    ]])
     local r = PCSX.callGuest { pc = CODE, cycles = 10000 }
     lu.assertEquals(r.status, 'cycles')
     lu.assertTrue(r.pc == CODE or r.pc == CODE + 4)
@@ -116,7 +139,12 @@ function TestCallGuest:test_faulting_callee_reports_the_exception()
     if not interpreter() then lu.skip('needs the interpreter') end
     local regs = PCSX.getRegisters()
     local pcBefore = regs.pc
-    poke(CODE, { 0x8c020001, 0x00000000, 0x03e00008, 0x00000000 }) -- lw v0,1(zero) ; nop ; jr ra ; nop
+    assemble(CODE, [[
+        lw    $v0, 1($zero)
+        nop
+        jr    $ra
+        nop
+    ]])
     local r = PCSX.callGuest { pc = CODE }
     lu.assertEquals(r.status, 'exception')
     lu.assertEquals(r.exceptionCode, 4) -- AdEL
@@ -132,9 +160,14 @@ function TestCallGuest:test_nested_call_is_refused()
     if not interpreter() then lu.skip('needs the interpreter') end
     enableStores()
     local INNER = CODE + 0x100
-    -- lui t0,0x1f80 ; li t1,1 ; sb t1,0x2081(t0) ; jr ra ; li v0,7
-    poke(CODE, { 0x3c081f80, 0x24090001, 0xa1092081, 0x03e00008, 0x24020007 })
-    poke(INNER, { 0x03e00008, 0x00000000 }) -- jr ra ; nop
+    assemble(CODE, [[
+        lui   $t0, 0x1f80
+        addiu $t1, $zero, 1
+        sb    $t1, 0x2081($t0)
+        jr    $ra
+        addiu $v0, $zero, 7
+    ]])
+    assemble(INNER, RETURN)
     local hits, ok, err = 0
     local savedSlot = PCSX.execSlots[1]
     PCSX.execSlots[1] = function()
@@ -163,16 +196,16 @@ function TestCallGuest:test_rejects_bad_arguments()
 end
 
 -- memcpy(a1, a0, a2) a byte at a time.
-local COPIER = {
-    0x90880000, -- loop: lbu t0,0(a0)
-    0x24c6ffff, --       addiu a2,a2,-1
-    0xa0a80000, --       sb t0,0(a1)
-    0x24840001, --       addiu a0,a0,1
-    0x14c0fffb, --       bnez a2,loop
-    0x24a50001, --       addiu a1,a1,1
-    0x03e00008, --       jr ra
-    0x00000000, --       nop
-}
+local COPIER = [[
+    lbu   $t0, 0($a0)       # loop:
+    addiu $a2, $a2, -1
+    sb    $t0, 0($a1)
+    addiu $a0, $a0, 1
+    bne   $a2, $zero, -5    # loop
+    addiu $a1, $a1, 1
+    jr    $ra
+    nop
+]]
 
 local function payload(n)
     local t = {}
@@ -183,7 +216,7 @@ end
 function TestCallGuest:test_stage_fetch_without_isolation_keeps_the_writes()
     if not interpreter() then lu.skip('needs the interpreter') end
     enableStores()
-    poke(CODE, COPIER)
+    assemble(CODE, COPIER)
     local data = payload(256)
     ffi.fill(ram8(DST), 256, 0)
     local r = PCSX.callGuest {
@@ -203,7 +236,7 @@ end
 function TestCallGuest:test_fetch_returns_every_range_in_order()
     if not interpreter() then lu.skip('needs the interpreter') end
     enableStores()
-    poke(CODE, COPIER)
+    assemble(CODE, COPIER)
     local data = payload(256)
     ffi.fill(ram8(DST), 256, 0)
     local r = PCSX.callGuest {
@@ -222,7 +255,7 @@ end
 function TestCallGuest:test_ram_isolation_rolls_back_writes_and_staging()
     if not interpreter() then lu.skip('needs the interpreter') end
     enableStores()
-    poke(CODE, COPIER)
+    assemble(CODE, COPIER)
     local data = payload(256)
     local srcBefore = string.rep('S', 256)
     local dstBefore = string.rep('D', 256)
@@ -247,7 +280,7 @@ end
 function TestCallGuest:test_full_isolation_rolls_back_writes_and_staging()
     if not interpreter() then lu.skip('needs the interpreter') end
     enableStores()
-    poke(CODE, COPIER)
+    assemble(CODE, COPIER)
     local data = payload(64)
     local srcBefore = string.rep('G', 64)
     local dstBefore = string.rep('F', 64)
@@ -270,7 +303,12 @@ end
 function TestCallGuest:test_isolation_rolls_back_stack_arguments()
     if not interpreter() then lu.skip('needs the interpreter') end
     enableStores()
-    poke(CODE, { 0x8fa20010, 0x00000000, 0x03e00008, 0x00000000 }) -- lw v0,16(sp) ; nop ; jr ra ; nop
+    assemble(CODE, [[
+        lw    $v0, 16($sp)
+        nop
+        jr    $ra
+        nop
+    ]])
     -- A 24-byte frame under sp = 0x801ffe00 puts the fifth argument at 0x801ffdf8.
     local slot = ram32(0x801ffdf8)
     for _, mode in ipairs({ 'ram', 'full' }) do
@@ -285,7 +323,7 @@ end
 function TestCallGuest:test_bad_fetch_leaves_the_machine_alone()
     if not interpreter() then lu.skip('needs the interpreter') end
     enableStores()
-    poke(CODE, COPIER)
+    assemble(CODE, COPIER)
     local srcBefore = string.rep('H', 16)
     local dstBefore = string.rep('I', 16)
     ffi.copy(ram8(SRC), srcBefore, 16)
@@ -305,14 +343,24 @@ end
 
 function TestCallGuest:test_hardware_access_is_counted()
     if not interpreter() then lu.skip('needs the interpreter') end
-    -- lui at,0x1f80 ; lw v0,0x1070(at) ; nop ; jr ra ; nop
-    poke(CODE, { 0x3c011f80, 0x8c221070, 0x00000000, 0x03e00008, 0x00000000 })
+    assemble(CODE, [[
+        lui   $at, 0x1f80
+        lw    $v0, 0x1070($at)
+        nop
+        jr    $ra
+        nop
+    ]])
     local r = PCSX.callGuest { pc = CODE, isolate = 'ram' }
     lu.assertEquals(r.status, 'returned')
     lu.assertTrue(r.nonRamAccesses > 0)
     -- And the scratchpad, which a RAM snapshot covers, doesn't count.
-    -- lui at,0x1f80 ; lw v0,0x10(at) ; nop ; jr ra ; nop
-    poke(CODE, { 0x3c011f80, 0x8c220010, 0x00000000, 0x03e00008, 0x00000000 })
+    assemble(CODE, [[
+        lui   $at, 0x1f80
+        lw    $v0, 0x10($at)
+        nop
+        jr    $ra
+        nop
+    ]])
     r = PCSX.callGuest { pc = CODE, isolate = 'ram' }
     lu.assertEquals(r.nonRamAccesses, 0)
 end
@@ -331,7 +379,7 @@ function TestCallGuest:test_restore_state_survives_a_guest_call()
     PCSX.captureState()
     word[0] = 0x44444444
     if interpreter() then
-        poke(CODE, { 0x03e00008, 0x00000000 }) -- jr ra ; nop
+        assemble(CODE, RETURN)
         lu.assertEquals(PCSX.callGuest({ pc = CODE, isolate = 'full' }).status, 'returned')
     end
     PCSX.restoreState()
@@ -342,7 +390,11 @@ end
 -- state load, it has to wait for the main loop rather than swap the state under that frame.
 function TestCallGuest:test_restore_state_waits_for_the_main_loop()
     local loop = CODE + 0x200
-    poke(loop, { 0x08000000 + ((loop & 0x0fffffff) >> 2), 0x00000000 }) -- j loop ; nop
+    -- j takes the address within the 256MB segment.
+    assemble(loop, string.format([[
+        j     0x%08x
+        nop
+    ]], loop & 0x0fffffff))
     PCSX.invalidateCache()
     PCSX.getRegisters().pc = loop
     local word = ram32(0x801f0010)

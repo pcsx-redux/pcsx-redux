@@ -39,18 +39,20 @@ local function assembler()
     end
     function a.lhu(reg) return store('lhu', reg) end
     function a.lbu(reg) return store('lbu', reg) end
-    -- Ack the IRQ flags, write one TX byte and count loop turns until I_STAT bit 8 rises.
+    -- Write one TX byte, ack the IRQ flags while it is in flight (with TX interrupts enabled and
+    -- the transmitter idle, the interrupt is raised again as soon as it is acked), and count loop
+    -- turns until I_STAT bit 8 rises.
     function a.timeTx(ctrlAck, data)
         a.asm('lw $t1, 0x1074($t0)') -- I_MASK
         a.asm('nop')
         a.asm('andi $t1, $t1, 0xfeff')
         a.asm('sw $t1, 0x1074($t0)')
+        a.sb(0x1050, data)
         a.sh(0x105a, ctrlAck)
         a.asm('li $t1, 0xfffffeff')
         a.asm('sw $t1, 0x1070($t0)') -- ack I_STAT bit 8
         a.asm('li $t2, 0')
         a.asm('li $t4, 0x200000')
-        a.sb(0x1050, data)
         a.asm('lw $t1, 0x1070($t0)') -- loop: I_STAT
         a.asm('nop')
         a.asm('andi $t1, $t1, 0x100')
@@ -108,7 +110,7 @@ local pb = require 'pb'
 local protoc = require 'protoc'
 local schema = protoc.new()
 assert(schema:load(PCSX.getSaveStateProtoSchema(), 'savestate.proto'))
-pb.option('int64_as_number')
+pb.option('int64_as_string')
 local function decode(s) return pb.decode('SaveState', s) end
 -- The same state as a build from before SIO1 was saved would have written it.
 local function stripSIO1(s)

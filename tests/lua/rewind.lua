@@ -21,6 +21,8 @@ TestRewind = {}
 
 local function ram32(offset) return ffi.cast('uint32_t*', PCSX.getMemPtr() + offset) end
 
+local function asm(addr, code) PCSX.Assembler.New():parse(code):compileToMemory(PCSX.getMemPtr(), addr, 0x80000000) end
+
 function TestRewind:test_empty()
     while PCSX.getRewindStateCount() > 0 do PCSX.rewindState() end
     lu.assertFalse(PCSX.rewindState())
@@ -85,11 +87,12 @@ end
 -- Runs a few guest instructions that open a stack frame and spill ra, so the machine holds a
 -- real call stack, then parks the cpu in a loop.
 local function runIntoCallStack()
-    local code = ram32(0x100000)
-    code[0] = 0x27bdffe0 -- addiu sp, sp, -32
-    code[1] = 0xafbf001c -- sw ra, 28(sp)
-    code[2] = 0x08040002 -- j 0x80100008
-    code[3] = 0x00000000 -- nop
+    asm(0x80100000, [[
+        addiu $sp, $sp, -32
+        sw $ra, 28($sp)
+        j 0x100008 # 0x80100008
+        nop
+    ]])
     PCSX.invalidateCache()
     local regs = PCSX.getRegisters()
     regs.GPR.n.sp = 0x801fff00
@@ -164,9 +167,10 @@ end
 function TestRewind:test_rewind_from_a_load_listener()
     while PCSX.getRewindStateCount() > 0 do PCSX.rewindState() end
     -- Park the cpu in a loop before taking the snapshots, so it runs on from there after a rewind.
-    local code = ram32(0x100300)
-    code[0] = 0x080400c0 -- j 0x80100300
-    code[1] = 0x00000000 -- nop
+    asm(0x80100300, [[
+        j 0x100300 # 0x80100300
+        nop
+    ]])
     PCSX.invalidateCache()
     PCSX.getRegisters().pc = 0x80100300
     local word = ram32(0x1f0008)
@@ -193,10 +197,11 @@ end
 function TestRewind:test_vsync_rewind_waits_for_the_main_loop()
     while PCSX.getRewindStateCount() > 0 do PCSX.rewindState() end
     -- The guest counts in t1; registers come back with a rewind like the rest of the machine.
-    local code = ram32(0x100200)
-    code[0] = 0x25290001 -- addiu t1, t1, 1
-    code[1] = 0x08040080 -- j 0x80100200
-    code[2] = 0x00000000 -- nop
+    asm(0x80100200, [[
+        addiu $t1, $t1, 1
+        j 0x100200 # 0x80100200
+        nop
+    ]])
     PCSX.invalidateCache()
     local regs = PCSX.getRegisters()
     regs.GPR.n.t1 = 0
@@ -254,12 +259,13 @@ end
 
 -- Runs guest code that points the SPU transfer address into sound RAM, then pauses on a vsync.
 local function runIntoSpuTransferAddress()
-    local code = ram32(0x100400)
-    code[0] = 0x3c081f80 -- lui t0, 0x1f80
-    code[1] = 0x34090100 -- ori t1, zero, 0x100
-    code[2] = 0xa5091da6 -- sh t1, 0x1da6(t0)
-    code[3] = 0x08040103 -- j 0x8010040c
-    code[4] = 0x00000000 -- nop
+    asm(0x80100400, [[
+        lui $t0, 0x1f80
+        ori $t1, $zero, 0x100
+        sh $t1, 0x1da6($t0)
+        j 0x10040c # 0x8010040c
+        nop
+    ]])
     PCSX.invalidateCache()
     PCSX.getRegisters().pc = 0x80100400
     local co = coroutine.running()

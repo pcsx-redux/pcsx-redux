@@ -74,6 +74,35 @@ local function readAtToSlice(self, size, pos)
                                                                   C.readFileAtToSlice, self._wrapper, size, pos))
 end
 
+-- Returns the whole file as a new Slice; tostring() it to get a Lua string. An empty file gives an empty Slice.
+-- A seekable file is read from offset 0 to its end, and its read cursor does not move; when size() cannot tell
+-- (a zReader opened without a size), it is read in chunks until a read comes back empty. A stream that cannot
+-- seek is read from its read cursor until a read comes back empty, which consumes it; on a live stream such as
+-- a uvFifo, that is only what has arrived so far. A failed file raises an error, as read() and size() do.
+local function readWhole(self)
+    if self:failed() then error('File::readWhole: the file is a failed file') end
+    local seekable = self:seekable()
+    if seekable then
+        local known, size = pcall(self.size, self)
+        if known then return self:readAtToSlice(size, 0) end
+    end
+    local out = Support.File.buffer()
+    local pos = 0
+    while true do
+        local chunk
+        if seekable then
+            chunk = self:readAtToSlice(65536, pos)
+        else
+            chunk = self:readToSlice(65536)
+        end
+        local got = chunk.size
+        if got == 0 then break end
+        pos = pos + got
+        out:writeMoveSlice(chunk)
+    end
+    return out:readAtToSlice(out:size(), 0)
+end
+
 local function write(self, data, size)
     if type(data) == 'cdata' and size == nil and ffi.typeof(data) == Support.File._LuaBuffer then
         return Support.extra.safeFFI('File::write(C.writeFileBuffer)', C.writeFileBuffer, self._wrapper,
@@ -191,6 +220,7 @@ local function createFileWrapper(wrapper)
         readToSlice = readToSlice,
         readAt = readAt,
         readAtToSlice = readAtToSlice,
+        readWhole = readWhole,
         gets = function(self) return Support._internal.readFileGets(self._wrapper) end,
         write = write,
         writeAt = writeAt,

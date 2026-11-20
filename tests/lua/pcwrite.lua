@@ -25,13 +25,13 @@ local TARGET = CODE + 0x80
 
 local function ram32(addr) return ffi.cast('uint32_t*', PCSX.getMemPtr() + (addr - 0x80000000)) end
 
-local function poke(addr, words)
-    local p = ram32(addr)
-    for i, w in ipairs(words) do p[i - 1] = w end
+-- Assembles the format string at addr. j/jal take the byte address inside the 256MB segment,
+-- so jump targets are passed through seg().
+local function asm(addr, fmt, ...)
+    PCSX.Assembler.New():parse(string.format(fmt, ...)):compileToMemory(PCSX.getMemPtr(), addr, 0x80000000)
 end
 
-local function j(addr) return 0x08000000 + bit.rshift(bit.band(addr, 0x0fffffff), 2) end
-local function jal(addr) return 0x0c000000 + bit.rshift(bit.band(addr, 0x0fffffff), 2) end
+local function seg(addr) return bit.band(addr, 0x0fffffff) end
 
 -- Same as in rewind.lua: hand control back once the cpu has unwound out of Execute().
 local function resumeFromMainLoop(co)
@@ -64,9 +64,20 @@ end
 -- where execution has to go: the pending branch must not run the new pc as its delay slot
 -- and then jump to its own target anyway.
 function TestPCWrite:test_write_in_delay_slot_drops_pending_branch()
-    poke(CODE, { jal(TARGET), 0x00000000 })
-    poke(ALT, { 0x24081234, j(ALT + 4), 0x00000000 }) -- addiu t0, zero, 0x1234 ; park
-    poke(TARGET, { 0x24095678, j(TARGET + 4), 0x00000000 }) -- addiu t1, zero, 0x5678 ; park
+    asm(CODE, [[
+        jal   0x%x
+        nop
+    ]], seg(TARGET))
+    asm(ALT, [[
+        addiu $t0, $zero, 0x1234
+        j     0x%x  # park
+        nop
+    ]], seg(ALT + 4))
+    asm(TARGET, [[
+        addiu $t1, $zero, 0x5678
+        j     0x%x  # park
+        nop
+    ]], seg(TARGET + 4))
     PCSX.invalidateCache()
     local regs = PCSX.getRegisters()
     regs.GPR.n.t0 = 0
@@ -113,11 +124,13 @@ end
 function TestPCWrite:test_gpr_write_drops_pending_load()
     local DATA = CODE + 0x100
     ram32(DATA)[0] = 0xaaaaaaaa
-    poke(CODE, {
-        0x3c010000 + bit.rshift(DATA, 16), -- lui at, hi(DATA)
-        0x8c280000 + bit.band(DATA, 0xffff), -- lw t0, lo(DATA)(at)
-        0x00000000, j(CODE + 12), 0x00000000,
-    })
+    asm(CODE, [[
+        lui   $at, 0x%x
+        lw    $t0, 0x%x($at)
+        nop
+        j     0x%x
+        nop
+    ]], bit.rshift(DATA, 16), bit.band(DATA, 0xffff), seg(CODE + 12))
     PCSX.invalidateCache()
     local regs = PCSX.getRegisters()
     regs.GPR.n.t0 = 0
