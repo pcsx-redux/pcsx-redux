@@ -145,3 +145,11 @@ function TestGdbServer:test_empty_monitor_command()
     lu.assertEquals(request('qRcmd,7z'), 'E01')
     lu.assertEquals(request('p4'):len(), 8)
 end
+
+-- Reading a qXfer document from past its end is an empty last chunk.
+function TestGdbServer:test_qxfer_offset_past_end()
+    local doc = request('qXfer:threads:read::0,1000')
+    lu.assertEquals(doc:sub(1, 1), 'l')
+    lu.assertEquals(request('qXfer:threads:read::' .. string.format('%x', #doc - 1) .. ',1000'), 'l')
+    lu.assertEquals(request('qXfer:threads:read::1000,100'), 'l')
+end
