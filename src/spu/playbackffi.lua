@@ -176,9 +176,8 @@ local function getSource(source)
     if type(source) == 'table' then
         if source._type == 'Slice' then return source.data, source.size, source end
         if source._type == 'File' then
-            -- Reads the whole file, without moving its read cursor.
-            local buf = source:readAt(source:size(), 0)
-            return buf.data, #buf, buf
+            local slice = source:readWhole()
+            return slice.data, slice.size, slice
         end
     end
     fail('the first argument must be a string, a LuaBuffer, a File, or a Slice')
