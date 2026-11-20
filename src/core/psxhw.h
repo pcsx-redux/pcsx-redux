@@ -54,6 +54,7 @@ class HW {
             chcr = (chcr & 0x51000000) | 0x00000002;
         }
         mem->setCHCR<n>(chcr);
+        if (!(chcr & 0x01000000)) dmaBusyCleared(n);
         if ((chcr & 0x01000000) && mem->template isDMAEnabled<n>()) {
             uint32_t madr = mem->template getMADR<n>();
             auto &events = *g_emulator->m_hwEvents;
@@ -77,7 +78,7 @@ class HW {
             } else if constexpr (n == 3) {
                 dma3(madr, bcr, chcr);
             } else if constexpr (n == 4) {
-                dma4(madr, bcr, chcr);
+                if (dma4(madr, bcr, chcr)) return;
             } else if constexpr (n == 6) {
                 // The OTC leaves MADR and BCR as they were written.
                 dma6(madr, bcr, chcr);
