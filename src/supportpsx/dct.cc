@@ -564,6 +564,8 @@ constexpr VlcCode c_vlcRun[32][40] = {
      {0, 0},     {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
 };
 constexpr VlcCode c_vlcEob = {0x2, 2};
+// The v1/v2 End of Frame code: this value in a block's raw 10-bit DC slot.
+constexpr uint32_t c_bsEndOfFrame = 0x1ff;
 constexpr VlcCode c_vlcEsc = {0x1, 6};
 
 // MSB-first into a 16-bit accumulator, flushed LOW BYTE FIRST. Sony's "coded bit
@@ -965,7 +967,11 @@ PCSX::DCT::ContainerResult PCSX::DCT::toContainer(std::span<const uint16_t> rl, 
     BitWriter bw(out);
     i = 0;
     for (uint32_t b = 0; b < r.blocks; b++) {
-        bw.put(rl[i] & 0x3ff, 10);  // DC, raw 10 bits in v2
+        // DC, raw 10 bits in v2. 0x1FF in this slot is the End of Frame code, so a
+        // DC clamped to +511 saturates to +510 instead: psx-spx gives the v1/v2 DC
+        // range as -200h..+1FEh, and a retail player stops the frame at a 0x1FF.
+        const uint32_t dc = rl[i] & 0x3ff;
+        bw.put(dc == c_bsEndOfFrame ? c_bsEndOfFrame - 1 : dc, 10);
         i++;
         while (rl[i] != 0xfe00) {
             const int run = (rl[i] >> 10) & 0x3f;
@@ -994,6 +1000,13 @@ PCSX::DCT::ContainerResult PCSX::DCT::toContainer(std::span<const uint16_t> rl, 
         bw.put(c_vlcEob.code, c_vlcEob.bits);
         i++;
     }
+    // End of Frame: 0x1FF where the next block's raw DC would be. psx-spx, "DC
+    // v1/v2/ea": `0111111111  End of Frame (+1FFh, that, in place of Cr)`. Retail
+    // players loop until they read it rather than counting blocks, so a frame
+    // without it runs them off the end of the bitstream. Retail v2 frames end
+    // `10 0111111111` then zeros to a 32-bit word, and the header's length counts
+    // run-level only: the code is not a word.
+    bw.put(c_bsEndOfFrame, 10);
     bw.finish();
     // BS payload is a whole number of 32-bit words.
     while (out.size() & 3) out.push_back(0);
@@ -1196,6 +1209,10 @@ PCSX::DCT::ContainerResult PCSX::DCT::fromContainer(std::span<const uint8_t> in,
             if (++blockInMacroblock == 6) blockInMacroblock = 0;
         }
         if (br.overrun) break;
+        // End of Frame. Stop on it rather than decoding whatever pads the frame -
+        // zeros, 0xFF or garbage on retail discs. v3's code matches no size code
+        // and so already ends the loop above.
+        if (!deltaDc && dc == c_bsEndOfFrame) break;
         rl.push_back(static_cast<uint16_t>(((quant & 0x3f) << 10) | (dc & 0x3ff)));
         bool closed = false;
         while (!closed) {
