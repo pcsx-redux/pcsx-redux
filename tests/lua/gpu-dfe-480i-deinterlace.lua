@@ -1,25 +1,78 @@
 -- Called from the test's -exec: -dofile runs before any -exec, so a parameter set there would
 -- not be visible to this file's top level.
 function GPUDFE480iDeinterlace(DEINTERLACE)
-    local ram = ffi.cast('uint32_t*', PCSX.getMemPtr())
     PCSX.settings.emulator.Deinterlace = DEINTERLACE
 
-    local function plant(writes)
-        local i = 0x100000 / 4
-        ram[i] = 0x3c081f80
-        i = i + 1 -- lui $t0, 0x1f80
-        for _, w in ipairs(writes) do
-            ram[i] = 0x3c090000 + bit.rshift(w[2], 16)
-            i = i + 1 -- lui $t1, hi
-            ram[i] = 0x35290000 + bit.band(w[2], 0xffff)
-            i = i + 1 -- ori $t1, $t1, lo
-            ram[i] = 0xad090000 + w[1]
-            i = i + 1 -- sw $t1, w[1]($t0)
-        end
-        ram[i] = 0x1000ffff
-        i = i + 1 -- b .
-        ram[i] = 0
-        i = i + 1
+    local function plant()
+        PCSX.Assembler.New():parse([[
+            lui   $t0, 0x1f80
+            # GP1(00h) reset
+            lui   $t1, 0x0000
+            ori   $t1, $t1, 0x0000
+            sw    $t1, 0x1814($t0)
+            # GP1(06h) horizontal display range
+            lui   $t1, 0x06c6
+            ori   $t1, $t1, 0x0260
+            sw    $t1, 0x1814($t0)
+            # GP1(07h) vertical display range
+            lui   $t1, 0x0704
+            ori   $t1, $t1, 0x0010
+            sw    $t1, 0x1814($t0)
+            # GP1(05h) display start 0,0
+            lui   $t1, 0x0500
+            ori   $t1, $t1, 0x0000
+            sw    $t1, 0x1814($t0)
+            # GP1(08h) 640x480 interlaced
+            lui   $t1, 0x0800
+            ori   $t1, $t1, 0x0027
+            sw    $t1, 0x1814($t0)
+            # GP1(03h) display on
+            lui   $t1, 0x0300
+            ori   $t1, $t1, 0x0000
+            sw    $t1, 0x1814($t0)
+            # GP0(E3h) drawing area top left 0,0
+            lui   $t1, 0xe300
+            ori   $t1, $t1, 0x0000
+            sw    $t1, 0x1810($t0)
+            # GP0(E4h) drawing area bottom right 639,479
+            lui   $t1, 0xe407
+            ori   $t1, $t1, 0x7e7f
+            sw    $t1, 0x1810($t0)
+            # GP0(E5h) drawing offset 0,0
+            lui   $t1, 0xe500
+            ori   $t1, $t1, 0x0000
+            sw    $t1, 0x1810($t0)
+            # GP0(E1h) DFE set
+            lui   $t1, 0xe100
+            ori   $t1, $t1, 0x0400
+            sw    $t1, 0x1810($t0)
+            # GP0(02h) fill black at 0,0, 640x480
+            lui   $t1, 0x0200
+            ori   $t1, $t1, 0x0000
+            sw    $t1, 0x1810($t0)
+            lui   $t1, 0x0000
+            ori   $t1, $t1, 0x0000
+            sw    $t1, 0x1810($t0)
+            lui   $t1, 0x01e0
+            ori   $t1, $t1, 0x0280
+            sw    $t1, 0x1810($t0)
+            # GP0(E1h) DFE clear
+            lui   $t1, 0xe100
+            ori   $t1, $t1, 0x0000
+            sw    $t1, 0x1810($t0)
+            # GP0(60h) white rectangle at 0,0, 640x480
+            lui   $t1, 0x60ff
+            ori   $t1, $t1, 0xffff
+            sw    $t1, 0x1810($t0)
+            lui   $t1, 0x0000
+            ori   $t1, $t1, 0x0000
+            sw    $t1, 0x1810($t0)
+            lui   $t1, 0x01e0
+            ori   $t1, $t1, 0x0280
+            sw    $t1, 0x1810($t0)
+            b     -1
+            nop
+        ]]):compileToMemory(PCSX.getMemPtr(), 0x80100000, 0x80000000)
         PCSX.invalidateCache()
         PCSX.pauseEmulator()
         local timer = luv.new_timer()
@@ -30,19 +83,11 @@ function GPUDFE480iDeinterlace(DEINTERLACE)
         end)
     end
 
-    local GP0, GP1 = 0x1810, 0x1814
-    local writes = {
-        { GP1, 0x00000000 }, { GP1, 0x06c60260 }, { GP1, 0x07040010 }, { GP1, 0x05000000 }, { GP1, 0x08000027 },
-        { GP1, 0x03000000 }, { GP0, 0xe3000000 }, { GP0, 0xe4077e7f }, { GP0, 0xe5000000 }, { GP0, 0xe1000400 },
-        { GP0, 0x02000000 }, { GP0, 0x00000000 }, { GP0, 0x01e00280 }, { GP0, 0xe1000000 }, { GP0, 0x60ffffff },
-        { GP0, 0x00000000 }, { GP0, 0x01e00280 },
-    }
-
     local frames = 0
     DeinterlaceListener = PCSX.Events.createEventListener('GPU::Vsync', function()
         frames = frames + 1
         if frames == 30 then
-            plant(writes)
+            plant()
         elseif frames == 34 then
             local vram = tostring(PCSX.GPU.getVRAM())
             local rows = { [0] = 0, [1] = 0 }

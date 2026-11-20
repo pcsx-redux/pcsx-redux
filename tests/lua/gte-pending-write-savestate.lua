@@ -1,21 +1,34 @@
 local ram = ffi.cast('uint32_t*', PCSX.getMemPtr())
-local base = 0x100000 / 4
 local out = 0x100100 / 4
-local code = {
-    -- 0x80100000: toggle t0, jump with MTC2 t0, IR1 in the delay slot
-    0x39080001, 0x08040004, 0x48884800, 0x00000000,
-    -- 0x80100010: MFC2 t1, IR1 three instructions after the write, loop if it matches
-    0x00000000, 0x00000000, 0x48094800, 0x00000000, 0x15280004, 0x00000000, 0x08040000, 0x00000000,
-    -- 0x80100034: mismatch, store t0 to 0x80100100 forever
-    0x00000000, 0x3c0a8010, 0xad480100, 0x0804000d, 0x00000000,
-}
+local code = [[
+    # 0x80100000: toggle t0, jump with MTC2 t0, IR1 in the delay slot
+    xori  $t0, $t0, 1
+    j     0x100010
+    mtc2  $t0, $ir1
+    nop
+    # 0x80100010: MFC2 t1, IR1 three instructions after the write, loop if it matches
+    nop
+    nop
+    mfc2  $t1, $ir1
+    nop
+    bne   $t1, $t0, @0x80100034
+    nop
+    j     0x100000
+    nop
+    nop
+    # 0x80100034: mismatch, store t0 to 0x80100100 forever
+    lui   $t2, 0x8010
+    sw    $t0, 0x100($t2)
+    j     0x100034
+    nop
+]]
 local sentinel = 0xdeadbeef
 local frames, state, saveFrame, tries = 0, nil, nil, 0
 GtePendingListener = PCSX.Events.createEventListener('GPU::Vsync', function()
     frames = frames + 1
     local r = PCSX.getRegisters()
     if frames == 120 then
-        for i, w in ipairs(code) do ram[base + i - 1] = w end
+        PCSX.Assembler.New():parse(code):compileToMemory(PCSX.getMemPtr(), 0x80100000, 0x80000000)
         ram[out] = sentinel
         r.GPR.n.t0 = 0x10
         r.pc = 0x80100000

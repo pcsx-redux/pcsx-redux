@@ -1,43 +1,10 @@
-local ram = ffi.cast('uint32_t*', PCSX.getMemPtr())
-local code = 0x100000 / 4
+local pb = require 'pb'
+local protoc = require 'protoc'
+local schema = protoc.new()
+assert(schema:load(PCSX.getSaveStateProtoSchema(), 'savestate.proto'))
+pb.option('int64_as_string')
 
-local function varint(s, pos)
-    local v, mul = 0, 1
-    while true do
-        local b = s:byte(pos)
-        pos = pos + 1
-        v = v + bit.band(b, 0x7f) * mul
-        if b < 0x80 then return v, pos end
-        mul = mul * 128
-    end
-end
-
-local function field(s, wanted)
-    local pos = 1
-    while pos <= #s do
-        local key
-        key, pos = varint(s, pos)
-        local num, wt = math.floor(key / 8), key % 8
-        local payload
-        if wt == 0 then
-            payload, pos = varint(s, pos)
-        elseif wt == 2 then
-            local len
-            len, pos = varint(s, pos)
-            payload = s:sub(pos, pos + len - 1)
-            pos = pos + len
-        elseif wt == 1 then
-            pos = pos + 8
-        elseif wt == 5 then
-            pos = pos + 4
-        else
-            error('wire type ' .. wt)
-        end
-        if num == wanted then return payload end
-    end
-end
-
-local function gpustat(s) return field(field(s, 5), 1) end
+local function gpustat(s) return pb.decode('SaveState', s).gpu.status end
 
 local function toSlice(s)
     local slice = Support.File.createEmptySlice()
@@ -47,21 +14,15 @@ local function toSlice(s)
 end
 
 local function plant(words)
-    local i = code
-    ram[i] = 0x3c081f80
-    i = i + 1 -- lui $t0, 0x1f80
+    local lines = { 'lui $t0, 0x1f80' }
     for _, w in ipairs(words) do
-        ram[i] = 0x3c090000 + bit.rshift(w, 16)
-        i = i + 1 -- lui $t1, hi
-        ram[i] = 0x35290000 + bit.band(w, 0xffff)
-        i = i + 1 -- ori $t1, $t1, lo
-        ram[i] = 0xad091810
-        i = i + 1 -- sw $t1, 0x1810($t0)
+        lines[#lines + 1] = string.format('lui $t1, 0x%04x', bit.rshift(w, 16))
+        lines[#lines + 1] = string.format('ori $t1, $t1, 0x%04x', bit.band(w, 0xffff))
+        lines[#lines + 1] = 'sw $t1, 0x1810($t0)' -- GP0
     end
-    ram[i] = 0x1000ffff
-    i = i + 1 -- b .
-    ram[i] = 0
-    i = i + 1
+    lines[#lines + 1] = 'b -1'
+    lines[#lines + 1] = 'nop'
+    PCSX.Assembler.New():parse(table.concat(lines, '\n')):compileToMemory(PCSX.getMemPtr(), 0x80100000, 0x80000000)
     PCSX.invalidateCache()
     PCSX.pauseEmulator()
     local timer = luv.new_timer()
