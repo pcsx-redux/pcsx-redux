@@ -162,6 +162,7 @@
     <ClCompile Include="..\..\src\core\luaiso.cc" />
     <ClCompile Include="..\..\src\core\mdec-decoder.cc" />
     <ClCompile Include="..\..\src\core\mdec.cc" />
+    <ClCompile Include="..\..\src\core\mdeclua.cc" />
     <ClCompile Include="..\..\src\core\memorycard.cc" />
     <ClCompile Include="..\..\src\core\OpenGL_GPU\gpu_opengl.cc" />
     <ClCompile Include="..\..\src\core\pad.cc" />
@@ -236,6 +237,7 @@
     <ClInclude Include="..\..\src\core\luaiso.h" />
     <ClInclude Include="..\..\src\core\mdec-decoder.h" />
     <ClInclude Include="..\..\src\core\mdec.h" />
+    <ClInclude Include="..\..\src\core\mdeclua.h" />
     <ClInclude Include="..\..\src\core\memorycard.h" />
     <ClInclude Include="..\..\src\core\OpenGL_GPU\gpu_opengl.h" />
     <ClInclude Include="..\..\src\core\pad.h" />
@@ -265,6 +267,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\src\core\isoffi.lua" />
+    <None Include="..\..\src\core\mdecffi.lua" />
     <None Include="..\..\src\core\pcsxffi.lua" />
     <None Include="packages.config" />
   </ItemGroup>

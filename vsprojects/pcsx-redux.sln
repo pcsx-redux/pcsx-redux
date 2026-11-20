@@ -127,6 +127,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Lua", "Lua", "{394627A0-57E
 		..\tests\lua\hwevents-cdrom.lua = ..\tests\lua\hwevents-cdrom.lua
 		..\tests\lua\hwevents-save-load.lua = ..\tests\lua\hwevents-save-load.lua
 		..\tests\lua\isobuilder.lua = ..\tests\lua\isobuilder.lua
+		..\tests\lua\mdec.lua = ..\tests\lua\mdec.lua
 		..\tests\lua\mds.lua = ..\tests\lua\mds.lua
 		..\tests\lua\openbios-fallback.lua = ..\tests\lua\openbios-fallback.lua
 		..\tests\lua\pcdrv.lua = ..\tests\lua\pcdrv.lua
