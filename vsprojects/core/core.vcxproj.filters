@@ -43,6 +43,9 @@
     <ClCompile Include="..\..\src\core\mdec.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\core\mdeclua.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\core\pad.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -282,6 +285,9 @@
     <ClInclude Include="..\..\src\core\mdec.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\core\mdeclua.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\core\logger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -415,6 +421,9 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include="..\..\src\core\isoffi.lua">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="..\..\src\core\mdecffi.lua">
       <Filter>Source Files</Filter>
     </None>
   </ItemGroup>

@@ -111,6 +111,56 @@ PCSX::DCT::Frame PCSX::STR::Planes::frame() const {
     return f;
 }
 
+PCSX::STR::FrameResult PCSX::STR::encodeFrame(DCT::Encoder &encoder, const Planes &planes, const Settings &settings,
+                                              size_t budget, std::vector<uint8_t> &bs) {
+    FrameResult result;
+    auto fail = [&](FrameResult::Failure failure, std::string error) {
+        result.failed = true;
+        result.failure = failure;
+        result.error = std::move(error);
+        return result;
+    };
+    std::vector<int16_t> coefficients(DCT::requiredCoefficientCount(planes.width, planes.height));
+    const auto shape = encoder.submit(planes.frame(), coefficients).get();
+    if (shape.failed) return fail(FrameResult::Failure::Dct, "the DCT stage refused it");
+    std::vector<uint16_t> stream;
+    int q = 1;
+    unsigned runLevel = 0;
+    bool runLevelOver = false;
+    for (; q <= 63; q++) {
+        stream.clear();
+        if (DCT::pack(coefficients, shape, settings.quant, q, stream).failed) {
+            return fail(FrameResult::Failure::Pack, "the packing stage refused it");
+        }
+        // The run-level a player decodes, as the BS header counts it: 32-bit words of the stream padded to 64
+        // halfwords, in a 16-bit field. A frame over that field or the player's limit is coarsened, as one over
+        // its budget is.
+        runLevel = static_cast<unsigned>((stream.size() + 0x3f) & ~size_t(0x3f));
+        runLevelOver = runLevel > c_bsMostRunLevel || (settings.rlHalfwords && runLevel > settings.rlHalfwords);
+        if (runLevelOver) continue;
+        const auto wrap = DCT::toContainer(stream, DCT::Container::Bs, bs);
+        if (wrap.failed) return fail(FrameResult::Failure::Container, wrap.error);
+        if (!budget || bs.size() <= budget) break;
+    }
+    result.runLevel = runLevel;
+    if (q > 63 && runLevelOver) {
+        // Only a smaller picture decodes to less; a larger budget does not help.
+        // Past the header's count, no player's buffer helps; under it, the player's limit is what it missed.
+        const bool header = runLevel > c_bsMostRunLevel;
+        return fail(FrameResult::Failure::RunLevel,
+                    fmt::format("decodes to {} run-level halfwords even at q_scale 63, more than {}: lower the size{}",
+                                runLevel,
+                                header ? fmt::format("a BS header counts ({})", c_bsMostRunLevel)
+                                       : fmt::format("rlHalfwords ({})", settings.rlHalfwords),
+                                header ? "" : ", or raise rlHalfwords for a player with a larger buffer"));
+    }
+    if (q > 63) {
+        return fail(FrameResult::Failure::Budget, fmt::format("does not fit {} bytes even at q_scale 63", budget));
+    }
+    result.qScale = q;
+    return result;
+}
+
 std::string PCSX::STR::check(const Settings &settings) {
     const unsigned fps = settings.fps, speed = settings.speed, channels = settings.channels, rate = settings.rate;
     if (fps < 1 || fps > 60) return "the frame rate is 1..60";
@@ -151,8 +201,6 @@ PCSX::STR::Result PCSX::STR::encode(const Settings &settings, const FrameSource 
     xa.reset(ADPCM::Encoder::Mode::XA);
 
     Planes planes;
-    std::vector<int16_t> coefficients;
-    std::vector<uint16_t> stream;
     std::vector<uint8_t> bs;  // the frame being cut into sectors
     unsigned carry = 0, chunk = 0, chunks = 0, qsum = 0;
     uint32_t bytesUsed = 0;
@@ -173,55 +221,26 @@ PCSX::STR::Result PCSX::STR::encode(const Settings &settings, const FrameSource 
                                 planes.height, result.width, result.height);
             return -1;
         }
-        coefficients.resize(DCT::requiredCoefficientCount(planes.width, planes.height));
-        const auto shape = encoder.submit(planes.frame(), coefficients).get();
-        if (shape.failed) {
-            error = fmt::format("frame {}: the DCT stage refused it", number);
-            return -1;
-        }
         carry += num;
         chunks = carry / den;
         carry %= den;
-        int q = 1;
-        unsigned runLevel = 0;
-        bool runLevelOver = false;
-        for (; q <= 63; q++) {
-            stream.clear();
-            if (DCT::pack(coefficients, shape, settings.quant, q, stream).failed) {
-                error = fmt::format("frame {}: the packing stage refused it", number);
+        const auto coded = encodeFrame(encoder, planes, settings, chunks * 2016u, bs);
+        switch (coded.failure) {
+            case FrameResult::Failure::None:
+                break;
+            case FrameResult::Failure::RunLevel:
+                error = fmt::format("frame {} {}", number, coded.error);
                 return -1;
-            }
-            // The run-level a player decodes, as the BS header counts it: 32-bit words of the stream padded to 64
-            // halfwords, in a 16-bit field. A frame over that field or the player's limit is coarsened, as one over
-            // its sectors is, rather than ending the movie.
-            runLevel = static_cast<unsigned>((stream.size() + 0x3f) & ~size_t(0x3f));
-            runLevelOver = runLevel > c_bsMostRunLevel || (settings.rlHalfwords && runLevel > settings.rlHalfwords);
-            if (runLevelOver) continue;
-            const auto wrap = DCT::toContainer(stream, DCT::Container::Bs, bs);
-            if (wrap.failed) {
-                error = fmt::format("frame {}: {}", number, wrap.error);
+            case FrameResult::Failure::Budget:
+                error = fmt::format(
+                    "frame {} does not fit its {} sectors even at q_scale 63: lower the size or the frame rate{}",
+                    number, chunks, speed == 1 ? ", or stream it at double speed" : "");
                 return -1;
-            }
-            if (bs.size() <= chunks * 2016u) break;
+            default:
+                error = fmt::format("frame {}: {}", number, coded.error);
+                return -1;
         }
-        if (q > 63 && runLevelOver) {
-            // Only a smaller picture decodes to less; more sectors do not help.
-            // Past the header's count, no player's buffer helps; under it, the player's limit is what it missed.
-            const bool header = runLevel > c_bsMostRunLevel;
-            error = fmt::format(
-                "frame {} decodes to {} run-level halfwords even at q_scale 63, more than {}: lower the size{}", number,
-                runLevel,
-                header ? fmt::format("a BS header counts ({})", c_bsMostRunLevel)
-                       : fmt::format("rlHalfwords ({})", settings.rlHalfwords),
-                header ? "" : ", or raise rlHalfwords for a player with a larger buffer");
-            return -1;
-        }
-        if (q > 63) {
-            error = fmt::format(
-                "frame {} does not fit its {} sectors even at q_scale 63: lower the size or the frame rate{}", number,
-                chunks, speed == 1 ? ", or stream it at double speed" : "");
-            return -1;
-        }
+        const int q = coded.qScale;
         result.mostRunLevel = std::max(result.mostRunLevel, 2u * (bs[0] | (bs[1] << 8)));
         qsum += q;
         result.worstQScale = std::max(result.worstQScale, q);

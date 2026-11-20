@@ -89,6 +89,8 @@ TEST(LuaFile, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.file"), 0); }
 TEST(LuaFile, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.file"), 0); }
 TEST(LuaAdpcm, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.adpcm"), 0); }
 TEST(LuaAdpcm, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.adpcm"), 0); }
+TEST(LuaMdec, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.mdec"), 0); }
+TEST(LuaMdec, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.mdec"), 0); }
 TEST(LuaAudioPlayback, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.audioplayback"), 0); }
 TEST(LuaCallGuest, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.callguest"), 0); }
 TEST(LuaCallGuest, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.callguest"), 0); }

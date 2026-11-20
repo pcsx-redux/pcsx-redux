@@ -85,6 +85,22 @@ struct Result {
     int worstQScale = 0;
 };
 
+struct FrameResult {
+    enum class Failure { None, Dct, Pack, Container, RunLevel, Budget };
+    bool failed = false;
+    Failure failure = Failure::None;
+    std::string error;
+    int qScale = 0;         // the q_scale the frame is coded at
+    unsigned runLevel = 0;  // halfwords the frame decodes to, padded to 64 as the BS header counts them
+};
+
+// Codes one frame to BS v2 in `bs` at the lowest q_scale whose frame is at most
+// `budget` bytes, 0 for no budget, and decodes to no more run-level than
+// `settings.rlHalfwords` and a BS header count. Of the settings, only rlHalfwords
+// and quant count; the transform is the encoder's.
+FrameResult encodeFrame(DCT::Encoder &encoder, const Planes &planes, const Settings &settings, size_t budget,
+                        std::vector<uint8_t> &bs);
+
 // What is wrong with `settings`, or an empty string when encode() takes them.
 std::string check(const Settings &settings);
 
