@@ -44,12 +44,24 @@ V4SaveStateListener = PCSX.Events.createEventListener('GPU::Vsync', function()
         ram[marker] = 0xdeadbeef
         PCSX.loadSaveState(toSlice(v4))
     elseif frames == 62 then
-        if ram[marker] ~= 0x12345678 then print('v4 save state did not load') PCSX.quit(1) return end
-        if not upperBankIsOpenBus() then print('v4 load wrote the upper VRAM bank') PCSX.quit(2) return end
+        if ram[marker] ~= 0x12345678 then
+            print('v4 save state did not load')
+            PCSX.quit(1)
+            return
+        end
+        if not upperBankIsOpenBus() then
+            print('v4 load wrote the upper VRAM bank')
+            PCSX.quit(2)
+            return
+        end
         ram[marker] = 0xdeadbeef
         PCSX.loadSaveState(toSlice(v5))
     elseif frames == 64 then
-        if ram[marker] ~= 0x12345678 then print('v5 save state did not load') PCSX.quit(3) return end
+        if ram[marker] ~= 0x12345678 then
+            print('v5 save state did not load')
+            PCSX.quit(3)
+            return
+        end
         PCSX.quit(0)
     end
 end)

@@ -83,8 +83,8 @@ GpustatSaveStateListener = PCSX.Events.createEventListener('GPU::Vsync', functio
         local after = pixels()
         for i, p in ipairs(probes) do
             if after[i] ~= control[i] then
-                print(string.format('drawing environment lost across save/load: (%d,%d) %04x, expected %04x',
-                                    p[1], p[2], after[i], control[i]))
+                print(string.format('drawing environment lost across save/load: (%d,%d) %04x, expected %04x', p[1],
+                                    p[2], after[i], control[i]))
                 PCSX.quit(4)
                 return
             end

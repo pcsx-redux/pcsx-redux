@@ -93,7 +93,9 @@ function GPUDFE480iDeinterlace(DEINTERLACE)
             local rows = { [0] = 0, [1] = 0 }
             for y = 0, 479 do
                 local o = y * 2048 + 1
-                if bit.band(vram:byte(o) + vram:byte(o + 1) * 256, 0x7fff) ~= 0 then rows[y % 2] = rows[y % 2] + 1 end
+                if bit.band(vram:byte(o) + vram:byte(o + 1) * 256, 0x7fff) ~= 0 then
+                    rows[y % 2] = rows[y % 2] + 1
+                end
             end
             print(string.format('even rows %d, odd rows %d', rows[0], rows[1]))
             if DEINTERLACE then

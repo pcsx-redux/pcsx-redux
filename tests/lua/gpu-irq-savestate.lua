@@ -34,16 +34,29 @@ IRQ1SaveStateListener = PCSX.Events.createEventListener('GPU::Vsync', function()
         ram[out] = sentinel
         PCSX.getRegisters().pc = 0x80100000
     elseif frames == 122 then
-        if not irq1() then print('IRQ1 never raised') PCSX.quit(2) return end
+        if not irq1() then
+            print('IRQ1 never raised')
+            PCSX.quit(2)
+            return
+        end
         state = PCSX.createSaveState()
         ram[out] = sentinel
         PCSX.getRegisters().pc = 0x80100040
     elseif frames == 124 then
-        if ram[out] == sentinel or irq1() then print('GP1(02h) did not ack IRQ1') PCSX.quit(3) return end
+        if ram[out] == sentinel or irq1() then
+            print('GP1(02h) did not ack IRQ1')
+            PCSX.quit(3)
+            return
+        end
         PCSX.loadSaveState(state)
     elseif frames == 125 then
         ram[out] = sentinel
     elseif frames == 127 then
-        if irq1() then PCSX.quit(0) else print('IRQ1 lost across the save state') PCSX.quit(1) end
+        if irq1() then
+            PCSX.quit(0)
+        else
+            print('IRQ1 lost across the save state')
+            PCSX.quit(1)
+        end
     end
 end)

@@ -59,4 +59,4 @@ typedef PCSX::BinStruct::Struct<TYPESTRING("CentralDirectoryFileHeader"), Signat
                                 InternalFileAttributes, ExternalFileAttributes, RelativeOffsetOfLocalHeader>
     CentralDirectoryFileHeader;
 
-}
+}  // namespace PCSX

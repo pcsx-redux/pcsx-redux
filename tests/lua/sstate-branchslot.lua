@@ -23,9 +23,7 @@ local PARK = CODE + 0x100
 
 -- Assembles guest code at addr. Branches take an absolute target as @addr; j takes the
 -- address's low 28 bits.
-local function asm(addr, code)
-    PCSX.Assembler.New():parse(code):compileToMemory(PCSX.getMemPtr(), addr, 0x80000000)
-end
+local function asm(addr, code) PCSX.Assembler.New():parse(code):compileToMemory(PCSX.getMemPtr(), addr, 0x80000000) end
 
 local function jPark() return string.format('j 0x%x', bit.band(PARK, 0x0fffffff)) end
 

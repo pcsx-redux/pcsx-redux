@@ -27,9 +27,7 @@ local function ram32(addr) return ffi.cast('uint32_t*', PCSX.getMemPtr() + (addr
 
 local function ram8(addr) return ffi.cast('uint8_t*', PCSX.getMemPtr() + (addr - 0x80000000)) end
 
-local function assemble(addr, code)
-    PCSX.Assembler.New():parse(code):compileToMemory(PCSX.getMemPtr(), addr, 0x80000000)
-end
+local function assemble(addr, code) PCSX.Assembler.New():parse(code):compileToMemory(PCSX.getMemPtr(), addr, 0x80000000) end
 
 local RETURN = [[
     jr    $ra

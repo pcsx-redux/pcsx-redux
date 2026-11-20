@@ -100,9 +100,14 @@ function GPUDumpDeinterlace(DEINTERLACE)
             local o = y * 2048 + 1
             local c = bit.band(vram:byte(o) + vram:byte(o + 1) * 256, 0x7fff)
             local p = y % 2
-            if colors[p] == nil then colors[p] = c elseif colors[p] ~= c then mixed = true end
+            if colors[p] == nil then
+                colors[p] = c
+            elseif colors[p] ~= c then
+                mixed = true
+            end
         end
-        print(string.format('%s: even rows %04x, odd rows %04x%s', what, colors[0], colors[1], mixed and ', mixed' or ''))
+        print(
+            string.format('%s: even rows %04x, odd rows %04x%s', what, colors[0], colors[1], mixed and ', mixed' or ''))
         return not mixed and colors[0] ~= 0 and colors[1] ~= 0 and colors[0] ~= colors[1]
     end
 

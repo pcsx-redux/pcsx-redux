@@ -43,13 +43,29 @@ CDRomFlagsListener = PCSX.Events.createEventListener('GPU::Vsync', function()
         PCSX.loadSaveState(toSlice(withFlags(base, true)))
     elseif frames == 61 then
         local s = tostring(PCSX.createSaveState())
-        if flag(s, 'sectorReadSinceSeek') ~= 1 then print('sectorReadSinceSeek lost across the save state') PCSX.quit(1) return end
-        if flag(s, 'scexCountersReset') ~= 1 then print('scexCountersReset lost across the save state') PCSX.quit(2) return end
+        if flag(s, 'sectorReadSinceSeek') ~= 1 then
+            print('sectorReadSinceSeek lost across the save state')
+            PCSX.quit(1)
+            return
+        end
+        if flag(s, 'scexCountersReset') ~= 1 then
+            print('scexCountersReset lost across the save state')
+            PCSX.quit(2)
+            return
+        end
         PCSX.loadSaveState(toSlice(withFlags(base, false)))
     elseif frames == 62 then
         local s = tostring(PCSX.createSaveState())
-        if flag(s, 'sectorReadSinceSeek') ~= 0 then print('sectorReadSinceSeek survived a state without it') PCSX.quit(3) return end
-        if flag(s, 'scexCountersReset') ~= 0 then print('scexCountersReset survived a state without it') PCSX.quit(4) return end
+        if flag(s, 'sectorReadSinceSeek') ~= 0 then
+            print('sectorReadSinceSeek survived a state without it')
+            PCSX.quit(3)
+            return
+        end
+        if flag(s, 'scexCountersReset') ~= 0 then
+            print('scexCountersReset survived a state without it')
+            PCSX.quit(4)
+            return
+        end
         PCSX.quit(0)
     end
 end)

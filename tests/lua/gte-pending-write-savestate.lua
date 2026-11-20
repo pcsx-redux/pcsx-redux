@@ -34,14 +34,24 @@ GtePendingListener = PCSX.Events.createEventListener('GPU::Vsync', function()
         r.pc = 0x80100000
     elseif frames > 121 and not state then
         tries = tries + 1
-        if ram[out] ~= sentinel then PCSX.quit(4) return end
+        if ram[out] ~= sentinel then
+            PCSX.quit(4)
+            return
+        end
         if r.CP2D.r[9] ~= r.GPR.n.t0 then
             state = PCSX.createSaveState()
             saveFrame = frames
-        elseif tries > 300 then PCSX.quit(5) return end
+        elseif tries > 300 then
+            PCSX.quit(5)
+            return
+        end
     elseif state and frames == saveFrame + 1 then
         PCSX.loadSaveState(state)
     elseif state and frames == saveFrame + 4 then
-        if ram[out] == sentinel then PCSX.quit(0) else PCSX.quit(1) end
+        if ram[out] == sentinel then
+            PCSX.quit(0)
+        else
+            PCSX.quit(1)
+        end
     end
 end)
