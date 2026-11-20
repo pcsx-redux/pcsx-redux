@@ -6,11 +6,9 @@ function GPUDumpDeinterlace(DEINTERLACE)
 
     local GP0, GP1 = 0x1810, 0x1814
     local writes = {
-        { GP1, 0x00000000 }, { GP1, 0x06c60260 }, { GP1, 0x07040010 }, { GP1, 0x05000000 },
-        { GP1, 0x08000027 }, { GP1, 0x03000000 },
-        { GP0, 0xe3000000 }, { GP0, 0xe4077e7f }, { GP0, 0xe5000000 },
-        { GP0, 0xe1000400 }, { GP0, 0x02000000 }, { GP0, 0x00000000 }, { GP0, 0x01e00280 },
-        { GP0, 0xe1000000 },
+        { GP1, 0x00000000 }, { GP1, 0x06c60260 }, { GP1, 0x07040010 }, { GP1, 0x05000000 }, { GP1, 0x08000027 },
+        { GP1, 0x03000000 }, { GP0, 0xe3000000 }, { GP0, 0xe4077e7f }, { GP0, 0xe5000000 }, { GP0, 0xe1000400 },
+        { GP0, 0x02000000 }, { GP0, 0x00000000 }, { GP0, 0x01e00280 }, { GP0, 0xe1000000 },
     }
     local loop = {
         0x3c0c01e0, 0x358c0280, 0x3c0d6000, -- $t4 = 0x01e00280, $t5 = 0x60000000
@@ -30,13 +28,20 @@ function GPUDumpDeinterlace(DEINTERLACE)
 
     local function plant()
         local i = 0x100000 / 4
-        ram[i] = 0x3c081f80 i = i + 1 -- lui $t0, 0x1f80
+        ram[i] = 0x3c081f80
+        i = i + 1 -- lui $t0, 0x1f80
         for _, w in ipairs(writes) do
-            ram[i] = 0x3c090000 + bit.rshift(w[2], 16) i = i + 1 -- lui $t1, hi
-            ram[i] = 0x35290000 + bit.band(w[2], 0xffff) i = i + 1 -- ori $t1, $t1, lo
-            ram[i] = 0xad090000 + w[1] i = i + 1 -- sw $t1, w[1]($t0)
+            ram[i] = 0x3c090000 + bit.rshift(w[2], 16)
+            i = i + 1 -- lui $t1, hi
+            ram[i] = 0x35290000 + bit.band(w[2], 0xffff)
+            i = i + 1 -- ori $t1, $t1, lo
+            ram[i] = 0xad090000 + w[1]
+            i = i + 1 -- sw $t1, w[1]($t0)
         end
-        for _, w in ipairs(loop) do ram[i] = w i = i + 1 end
+        for _, w in ipairs(loop) do
+            ram[i] = w
+            i = i + 1
+        end
         PCSX.invalidateCache()
         PCSX.pauseEmulator()
         local timer = luv.new_timer()
@@ -56,9 +61,14 @@ function GPUDumpDeinterlace(DEINTERLACE)
             local o = y * 2048 + 1
             local c = bit.band(vram:byte(o) + vram:byte(o + 1) * 256, 0x7fff)
             local p = y % 2
-            if colors[p] == nil then colors[p] = c elseif colors[p] ~= c then mixed = true end
+            if colors[p] == nil then
+                colors[p] = c
+            elseif colors[p] ~= c then
+                mixed = true
+            end
         end
-        print(string.format('%s: even rows %04x, odd rows %04x%s', what, colors[0], colors[1], mixed and ', mixed' or ''))
+        print(
+            string.format('%s: even rows %04x, odd rows %04x%s', what, colors[0], colors[1], mixed and ', mixed' or ''))
         return not mixed and colors[0] ~= 0 and colors[1] ~= 0 and colors[0] ~= colors[1]
     end
 

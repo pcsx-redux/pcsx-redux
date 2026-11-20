@@ -20,9 +20,7 @@ CDEventsListener = PCSX.Events.createEventListener('GPU::Vsync', function()
     local f = io.open(CDEventsOut, 'w')
     local arr, n = PCSX.HWEvents.read()
     local commands = 0
-    for i = 0, n - 1 do
-        if arr[i].type == PCSX.HWEvents.Types.CDCommand then commands = commands + 1 end
-    end
+    for i = 0, n - 1 do if arr[i].type == PCSX.HWEvents.Types.CDCommand then commands = commands + 1 end end
     f:write(string.format('%d %d', PCSX.HWEvents.mask(), commands))
     f:close()
     PCSX.quit(booted and 0 or 1)

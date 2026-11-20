@@ -69,9 +69,7 @@ local function withFlags(s, set)
     for _, f in ipairs(top) do
         if f[1] == 15 then
             local kept = {}
-            for _, c in ipairs(fields(f[4])) do
-                if c[1] ~= 50 and c[1] ~= 51 then kept[#kept + 1] = c end
-            end
+            for _, c in ipairs(fields(f[4])) do if c[1] ~= 50 and c[1] ~= 51 then kept[#kept + 1] = c end end
             if set then
                 kept[#kept + 1] = { 50, 0, putvarint(50 * 8), '\1' }
                 kept[#kept + 1] = { 51, 0, putvarint(51 * 8), '\1' }
@@ -85,11 +83,7 @@ end
 -- The value of CDRom field n, 0 if absent.
 local function flag(s, n)
     for _, f in ipairs(fields(s)) do
-        if f[1] == 15 then
-            for _, c in ipairs(fields(f[4])) do
-                if c[1] == n then return (varint(c[4], 1)) end
-            end
-        end
+        if f[1] == 15 then for _, c in ipairs(fields(f[4])) do if c[1] == n then return (varint(c[4], 1)) end end end
     end
     return 0
 end
@@ -110,13 +104,29 @@ CDRomFlagsListener = PCSX.Events.createEventListener('GPU::Vsync', function()
         PCSX.loadSaveState(toSlice(withFlags(base, true)))
     elseif frames == 61 then
         local s = tostring(PCSX.createSaveState())
-        if flag(s, 50) ~= 1 then print('sectorReadSinceSeek lost across the save state') PCSX.quit(1) return end
-        if flag(s, 51) ~= 1 then print('scexCountersReset lost across the save state') PCSX.quit(2) return end
+        if flag(s, 50) ~= 1 then
+            print('sectorReadSinceSeek lost across the save state')
+            PCSX.quit(1)
+            return
+        end
+        if flag(s, 51) ~= 1 then
+            print('scexCountersReset lost across the save state')
+            PCSX.quit(2)
+            return
+        end
         PCSX.loadSaveState(toSlice(withFlags(base, false)))
     elseif frames == 62 then
         local s = tostring(PCSX.createSaveState())
-        if flag(s, 50) ~= 0 then print('sectorReadSinceSeek survived a state without it') PCSX.quit(3) return end
-        if flag(s, 51) ~= 0 then print('scexCountersReset survived a state without it') PCSX.quit(4) return end
+        if flag(s, 50) ~= 0 then
+            print('sectorReadSinceSeek survived a state without it')
+            PCSX.quit(3)
+            return
+        end
+        if flag(s, 51) ~= 0 then
+            print('scexCountersReset survived a state without it')
+            PCSX.quit(4)
+            return
+        end
         PCSX.quit(0)
     end
 end)

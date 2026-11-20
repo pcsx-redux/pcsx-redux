@@ -21,9 +21,7 @@ TestRewind = {}
 
 local function ram32(offset) return ffi.cast('uint32_t*', PCSX.getMemPtr() + offset) end
 
-local function asm(addr, code)
-    PCSX.Assembler.New():parse(code):compileToMemory(PCSX.getMemPtr(), addr, 0x80000000)
-end
+local function asm(addr, code) PCSX.Assembler.New():parse(code):compileToMemory(PCSX.getMemPtr(), addr, 0x80000000) end
 
 function TestRewind:test_empty()
     while PCSX.getRewindStateCount() > 0 do PCSX.rewindState() end

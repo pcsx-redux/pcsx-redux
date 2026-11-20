@@ -1195,7 +1195,6 @@ class GPU {
     void dmaStopped() { m_dma2Waiting = false; }
 
   private:
-
     // Sync-1 DMA2 from the MADR/BCR and CHCR the registers hold now. True while the channel waits.
     bool dmaSync1(uint32_t chcr);
 

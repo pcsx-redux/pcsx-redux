@@ -27,6 +27,6 @@ HWEventsSaveQuit = PCSX.Events.createEventListener('Quitting', function()
     cutRefused = cutRefused and not PCSX.HWEvents.load(cut) and PCSX.HWEvents.size() == 0
     f = io.open(out, 'w')
     f:write(string.format('%d %d %s %s %s %s %s', n, #file, tostring(wrote), tostring(loaded), tostring(same),
-        tostring(badRefused), tostring(cutRefused)))
+                          tostring(badRefused), tostring(cutRefused)))
     f:close()
 end)

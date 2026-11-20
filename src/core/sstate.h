@@ -224,13 +224,12 @@ typedef Protobuf::Field<Protobuf::UInt64, TYPESTRING("cdFeedCycle"), 37> SPUCDFe
 // A sync-1 DMA4 waiting between blocks for SPUCNT's transfer mode. False in a state saved without it.
 typedef Protobuf::Field<Protobuf::Bool, TYPESTRING("dmaWaiting"), 38> SPUDMAWaiting;
 
-typedef Protobuf::Message<TYPESTRING("SPU"), SPURam, SPUPorts, XAField, SPUIrq, SPUIrqPtr, Channels, SPUAddr, SPUCtrl,
-                          SPUStat, CBStartIndex, CBCurrIndex, CBEndIndex, CBVoiceIndex, CBCDLeft, CBCDRight,
-                          SPUNoiseClock, SPUNoiseCount, SPUNoiseVal, SPUEndx, SPUMainVolWritten, EnvelopeCheckpoints,
-                          SPUReverbFirInL, SPUReverbFirInR, SPUReverbFirOutL, SPUReverbFirOutR, SPUReverbAltLeftTick,
-                          SPUReverbCallCount, SPUReverbCurrAddr, SPUNoisePosition, SPUWriteDMALandedCycle, SPUXARingL,
-                          SPUXARingR, SPUXARingPos, SPUXAInputsTaken, SPUXALastL, SPUXALastR, SPUCDFeedCycle,
-                          SPUDMAWaiting>
+typedef Protobuf::Message<
+    TYPESTRING("SPU"), SPURam, SPUPorts, XAField, SPUIrq, SPUIrqPtr, Channels, SPUAddr, SPUCtrl, SPUStat, CBStartIndex,
+    CBCurrIndex, CBEndIndex, CBVoiceIndex, CBCDLeft, CBCDRight, SPUNoiseClock, SPUNoiseCount, SPUNoiseVal, SPUEndx,
+    SPUMainVolWritten, EnvelopeCheckpoints, SPUReverbFirInL, SPUReverbFirInR, SPUReverbFirOutL, SPUReverbFirOutR,
+    SPUReverbAltLeftTick, SPUReverbCallCount, SPUReverbCurrAddr, SPUNoisePosition, SPUWriteDMALandedCycle, SPUXARingL,
+    SPUXARingR, SPUXARingPos, SPUXAInputsTaken, SPUXALastL, SPUXALastR, SPUCDFeedCycle, SPUDMAWaiting>
     SPU;
 typedef Protobuf::MessageField<SPU, TYPESTRING("spu"), 6> SPUField;
 

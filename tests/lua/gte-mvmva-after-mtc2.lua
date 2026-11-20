@@ -1,6 +1,7 @@
 local ram = ffi.cast('uint32_t*', PCSX.getMemPtr())
 local out = 0x110000 / 4
-local asm = {[[
+local asm = {
+    [[
     mfc0  $t1, $sr        # interrupts off, COP2 on
     nop
     li    $t2, -2
@@ -22,7 +23,8 @@ local asm = {[[
     nop
     nop
     nop
-]]}
+]],
+}
 for n = 0, 2 do
     table.insert(asm, [[
     li    $t1, 0x100
@@ -53,7 +55,11 @@ GteMvmvaListener = PCSX.Events.createEventListener('GPU::Vsync', function()
         for i = 0, 3 do ram[out + i] = 0 end
         PCSX.getRegisters().pc = 0x80100000
     elseif frames > 120 and ram[out + 3] == 0x600d then
-        if ram[out + 1] == 0x200 and ram[out + 2] == 0x200 then PCSX.quit(0) else PCSX.quit(1) end
+        if ram[out + 1] == 0x200 and ram[out + 2] == 0x200 then
+            PCSX.quit(0)
+        else
+            PCSX.quit(1)
+        end
     elseif frames > 400 then
         PCSX.quit(2)
     end
