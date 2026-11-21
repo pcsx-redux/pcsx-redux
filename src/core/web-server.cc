@@ -285,7 +285,7 @@ class FlowExecutor : public PCSX::WebExecutor {
             }
             if (stepFunctions.contains(function) && !debugEnabled) {
                 client->write("HTTP/1.1 503 Debugger not enabled\r\n\r\n");
-                return false;
+                return true;
             }
             if (function.compare("stepIn") == 0) {
                 PCSX::g_emulator->m_debug->stepIn();
@@ -557,6 +557,7 @@ class CDExecutor : public PCSX::WebExecutor {
                     return true;
                 }
                 client->write("HTTP/1.1 200 OK\r\n\r\n");
+                return true;
             }
             return false;
         }
@@ -576,7 +577,7 @@ class StateExecutor : public PCSX::WebExecutor {
     virtual bool execute(PCSX::WebClient* client, PCSX::RequestData& request) final {
         if (PCSX::g_gui == nullptr) {
             client->write("HTTP/1.1 500 Internal Server Error\r\n\r\nSave states unavailable in CLI/no-UI mode.");
-            return false;
+            return true;
         }
         auto path = request.urlData.path.substr(c_prefix.length());
 
@@ -1140,7 +1141,10 @@ struct PCSX::WebClient::WebClientImpl {
     }
     int executeRequest() {
         m_requestData.method = static_cast<RequestData::Method>(m_httpParser.method);
-        m_currentExecutor->execute(m_parent, m_requestData);
+        if (!m_currentExecutor->execute(m_parent, m_requestData)) {
+            send404();
+            return 0;
+        }
         scheduleClose();
         return 0;
     }

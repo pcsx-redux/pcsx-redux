@@ -119,3 +119,16 @@ function TestWebServer:test_multipart_body_is_raw()
     lu.assertNotNil(seen)
     lu.assertEquals(seen.body, body)
 end
+
+-- A known endpoint that does not handle the method or function gets a 404, not a silent close.
+function TestWebServer:test_unhandled_request_is_404()
+    local function plain(method, path)
+        return exchange(method .. ' ' .. path .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n')
+    end
+    lu.assertEquals(plain('DELETE', '/api/v1/cpu/cache'):sub(1, 12), 'HTTP/1.1 404')
+    lu.assertEquals(plain('GET', '/api/v1/cd/nope'):sub(1, 12), 'HTTP/1.1 404')
+    lu.assertEquals(plain('GET', '/api/v1/cpu/cache?function=flush'):sub(1, 12), 'HTTP/1.1 404')
+    -- A handler that already answered must not get a second reply appended.
+    local state = plain('GET', '/api/v1/state/usage')
+    lu.assertNil(state:find('404', 1, true))
+end
