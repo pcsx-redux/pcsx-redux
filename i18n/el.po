@@ -134,17 +134,17 @@ msgstr ""
 msgid "Allocator tracker return"
 msgstr ""
 
-#: src/core/cdrom.cc:1960
+#: src/core/cdrom.cc:1957
 #, c-format
 msgid "CD-ROM Label: %.32s\n"
 msgstr "Ετικέτα CD-ROM: %.32s\n"
 
-#: src/core/cdrom.cc:1961
+#: src/core/cdrom.cc:1958
 #, c-format
 msgid "CD-ROM ID: %.9s\n"
 msgstr "Ταυτότητα CD-ROM: %.9s\n"
 
-#: src/core/cdrom.cc:1962
+#: src/core/cdrom.cc:1959
 #, c-format
 msgid "CD-ROM EXE Name: %.255s\n"
 msgstr "Ονομα εκτελέσιμου αρχείου: %.255s\n"
@@ -235,23 +235,23 @@ msgctxt "Breakpoint type"
 msgid "Write"
 msgstr "Χάρτης γραφής 8"
 
-#: src/core/gdb-server.cc:68
+#: src/core/gdb-server.cc:71
 #, c-format
 msgid "GDB server: unable to listen on port %i: %s\n"
 msgstr ""
 
-#: src/core/gdb-server.cc:158
+#: src/core/gdb-server.cc:161
 #, c-format
 msgid "GDB server: reverse execution needs the debugger (use -debugger)\n"
 msgstr ""
 
-#: src/core/gdb-server.cc:163
+#: src/core/gdb-server.cc:166
 #, c-format
 msgid ""
 "GDB server: reverse execution needs the interpreter (use -interpreter)\n"
 msgstr ""
 
-#: src/core/gdb-server.cc:177
+#: src/core/gdb-server.cc:180
 #, c-format
 msgid ""
 "GDB server: reverse execution replays from the rewind ring, which is off "
@@ -259,13 +259,13 @@ msgid ""
 msgstr ""
 
 #. Interrupted, or an exception paused it. Wherever it is, it is a point of the past.
-#: src/core/gdb-server.cc:217
+#: src/core/gdb-server.cc:220
 #, c-format
 msgid ""
 "GDB server: replay from snapshot %zu (cycle %llu) paused early at pc %08x\n"
 msgstr ""
 
-#: src/core/gdb-server.cc:228
+#: src/core/gdb-server.cc:231
 #, c-format
 msgid ""
 "GDB server: replay diverged, expected to stop at cycle %llu, stopped at "
@@ -273,88 +273,88 @@ msgid ""
 msgstr ""
 
 #. breakpoints are only checked when the debugger is enabled
-#: src/core/gdb-server.cc:789
+#: src/core/gdb-server.cc:810
 #, c-format
 msgid ""
 "GDB server: refusing breakpoint at %08x, the debugger is disabled (use "
 "-debugger)\n"
 msgstr ""
 
-#: src/core/gdb-server.cc:804
+#: src/core/gdb-server.cc:828
 msgid "GDB client"
 msgstr ""
 
-#: src/core/gpu.cc:344 src/core/gpu.cc:772 src/core/psxhw.h:96
+#: src/core/gpu.cc:344 src/core/gpu.cc:865 src/core/psxhw.h:97
 #, c-format
 msgid "GPU DMA went into usable but uninitialized msan memory: %8.8lx\n"
 msgstr ""
 
-#: src/core/gpu.cc:349 src/core/gpu.cc:777 src/core/psxhw.h:101
+#: src/core/gpu.cc:349 src/core/gpu.cc:870 src/core/psxhw.h:102
 #, c-format
 msgid "GPU DMA went into unusable msan memory: %8.8lx\n"
 msgstr ""
 
-#: src/core/gpu.cc:1378
+#: src/core/gpu.cc:1491
 msgid "Color"
 msgstr ""
 
-#: src/core/gpu.cc:1393 src/core/gpulogger.cc:550
+#: src/core/gpu.cc:1506 src/core/gpulogger.cc:550
 msgid "100% Back + 100% Front"
 msgstr ""
 
-#: src/core/gpu.cc:1393 src/core/gpulogger.cc:553
+#: src/core/gpu.cc:1506 src/core/gpulogger.cc:553
 msgid "100% Back - 100% Front"
 msgstr ""
 
-#: src/core/gpu.cc:1393 src/core/gpulogger.cc:547
+#: src/core/gpu.cc:1506 src/core/gpulogger.cc:547
 msgid "50% Back + 50% Front"
 msgstr ""
 
-#: src/core/gpu.cc:1394 src/core/gpulogger.cc:556
+#: src/core/gpu.cc:1507 src/core/gpulogger.cc:556
 msgid "100% Back + 25% Front"
 msgstr ""
 
-#: src/core/gpu.cc:1396
+#: src/core/gpu.cc:1509
 msgid "Blending"
 msgstr ""
 
-#: src/core/gpu.cc:1405 src/core/gpu.cc:1506
+#: src/core/gpu.cc:1518 src/core/gpu.cc:1619
 msgid "Shading: Flat"
 msgstr ""
 
-#: src/core/gpu.cc:1408 src/core/gpu.cc:1509
+#: src/core/gpu.cc:1521 src/core/gpu.cc:1622
 msgid "Shading: Gouraud"
 msgstr ""
 
-#: src/core/gpu.cc:1412
+#: src/core/gpu.cc:1525
 msgid "Textured"
 msgstr ""
 
-#: src/core/gpu.cc:1415 src/core/gpu.cc:1512 src/core/gpu.cc:1566
+#: src/core/gpu.cc:1528 src/core/gpu.cc:1625 src/core/gpu.cc:1679
 msgid "Semi-transparency blending"
 msgstr ""
 
-#: src/core/gpu.cc:1432 src/core/gpu.cc:1491 src/core/gpu.cc:1548
+#: src/core/gpu.cc:1545 src/core/gpu.cc:1604 src/core/gpu.cc:1661
 #, c-format
 msgid "Vertex %i"
 msgstr ""
 
-#: src/core/gpu.cc:1456 src/core/gpu.cc:1537 src/core/gpu.cc:1579
+#: src/core/gpu.cc:1569 src/core/gpu.cc:1650 src/core/gpu.cc:1692
 #, c++-format
 msgid "Go to primitive##{}"
 msgstr ""
 
-#: src/core/gpu.cc:1464 src/core/gpu.cc:1589
+#: src/core/gpu.cc:1577 src/core/gpu.cc:1702
 #, c++-format
 msgid "Go to texture##{}"
 msgstr ""
 
-#: src/core/gpu.cc:1475 src/core/gpu.cc:1600
+#: src/core/gpu.cc:1588 src/core/gpu.cc:1713
 #, c++-format
 msgid "Go to CLUT##{}"
 msgstr ""
 
-#: src/core/gpu.cc:1518
+#: src/core/gpu.cc:1631
 #, c-format
 msgid "Line %i"
 msgstr "Γραμμή %i"
@@ -495,7 +495,12 @@ msgstr ""
 msgid "Draw Offset"
 msgstr ""
 
-#: src/core/gpulogger.cc:686 src/gui/widgets/breakpoints.cc:50
+#: src/core/gpulogger.cc:686
+#, fuzzy
+msgid "GPU Type"
+msgstr "Τύπος"
+
+#: src/core/gpulogger.cc:689 src/gui/widgets/breakpoints.cc:50
 msgid "Unknown"
 msgstr "Άγνωστο"
 
@@ -528,7 +533,7 @@ msgid ""
 "MDEC(1).\n"
 msgstr ""
 
-#: src/core/memorycard.cc:162
+#: src/core/memorycard.cc:163
 #, c-format
 msgid ""
 "PocketStation: kernel image %s could not be opened; device not started.\n"
@@ -541,253 +546,253 @@ msgid ""
 "started.\n"
 msgstr ""
 
-#: src/core/memorycard.cc:200
+#: src/core/memorycard.cc:201
 #, c-format
 msgid ""
 "PocketStation: the savestate has a device in slot %i, but that slot has "
 "none.\n"
 msgstr ""
 
-#: src/core/memorycard.cc:206
+#: src/core/memorycard.cc:207
 #, c-format
 msgid ""
 "PocketStation: the device state in this savestate is not one this build "
 "reads.\n"
 msgstr ""
 
-#: src/core/memorycard.cc:587
+#: src/core/memorycard.cc:588
 #, c-format
 msgid "The memory card %s doesn't exist - creating it\n"
 msgstr "Η καρτα μνήμης %s δεν υπάρχει - γίνεται δημιουργία της\n"
 
-#: src/core/memorycard.cc:594
+#: src/core/memorycard.cc:595
 #, fuzzy, c-format
 msgid "Memory card %s failed to load: %s\n"
 msgstr "Αδυναμία φόρτωσης της κάρτας μνήμης %s\n"
 
-#: src/core/memorycard.cc:599
+#: src/core/memorycard.cc:600
 #, c-format
 msgid "Loading memory card %s\n"
 msgstr "Φόρτωση κάρτας μνήμης %s\n"
 
-#: src/core/memorycard.cc:612
+#: src/core/memorycard.cc:613
 #, fuzzy, c-format
 msgid "Memory card %s failed to load: short read (%zu of %zu bytes)\n"
 msgstr "Αδυναμία φόρτωσης της κάρτας μνήμης %s\n"
 
-#: src/core/memorycard.cc:648
+#: src/core/memorycard.cc:649
 #, c-format
 msgid "Saving memory card %s\n"
 msgstr "Αποθήκευση κάρτας μνήμης %s\n"
 
-#: src/core/pad.cc:1286 src/core/pad.cc:1410
+#: src/core/pad.cc:1285 src/core/pad.cc:1409
 #, c-format
 msgid "Unknown command for pad: %02X\n"
 msgstr "Άγνωστη εντολή χειριστηρίου: %02X\n"
 
-#: src/core/pad.cc:1526
+#: src/core/pad.cc:1525
 msgid "Pad configuration"
 msgstr "Ρύθμιση χειριστηρίων"
 
-#: src/core/pad.cc:1532
+#: src/core/pad.cc:1531
 msgid "Pad 1"
 msgstr "Χειριστήριο 1"
 
-#: src/core/pad.cc:1533
+#: src/core/pad.cc:1532
 msgid "Pad 2"
 msgstr "Χειριστήριο 2"
 
-#: src/core/pad.cc:1536
+#: src/core/pad.cc:1535
 msgid "Rescan gamepads and re-read game controllers database"
 msgstr ""
 "Επανασκανάρισμα για χειριστήριο και επανανάγνωση της βάσης δεδομένων "
 "χειριστηρίων"
 
-#: src/core/pad.cc:1555
+#: src/core/pad.cc:1554
 msgid "Use raw input for mouse"
 msgstr ""
 
-#: src/core/pad.cc:1557
+#: src/core/pad.cc:1556
 msgid ""
 "When enabled, the cursor will be hidden and captured when the emulator is "
 "running. This is useful for games that require mouse input."
 msgstr ""
 
-#: src/core/pad.cc:1559
+#: src/core/pad.cc:1558
 msgid "Allow mouse capture toggle"
 msgstr ""
 
-#: src/core/pad.cc:1561
+#: src/core/pad.cc:1560
 msgid ""
 "When enabled, pressing CTRL and ALT will toggle the setting above, raw input"
 msgstr ""
 
-#: src/core/pad.cc:1563
+#: src/core/pad.cc:1562
 msgid "Pad"
 msgstr "Χειριστήριο"
 
-#: src/core/pad.cc:1572
+#: src/core/pad.cc:1571
 msgid "Set defaults"
 msgstr "Επαναφορά"
 
-#: src/core/pad.cc:1588
+#: src/core/pad.cc:1587
 msgid "Keyboard Up"
 msgstr ""
 
-#: src/core/pad.cc:1590
+#: src/core/pad.cc:1589
 msgid "Keyboard Right"
 msgstr ""
 
-#: src/core/pad.cc:1592
+#: src/core/pad.cc:1591
 msgid "Keyboard Down"
 msgstr ""
 
-#: src/core/pad.cc:1594
+#: src/core/pad.cc:1593
 msgid "Keyboard Left"
 msgstr ""
 
-#: src/core/pad.cc:1596
+#: src/core/pad.cc:1595
 msgid "Keyboard Backspace"
 msgstr ""
 
-#: src/core/pad.cc:1598
+#: src/core/pad.cc:1597
 msgid "Keyboard Enter"
 msgstr ""
 
-#: src/core/pad.cc:1600
+#: src/core/pad.cc:1599
 msgid "Keyboard Space"
 msgstr ""
 
-#: src/core/pad.cc:1602
+#: src/core/pad.cc:1601
 msgid "Keyboard Escape"
 msgstr ""
 
-#: src/core/pad.cc:1604
+#: src/core/pad.cc:1603
 msgid "Unbound"
 msgstr ""
 
-#: src/core/pad.cc:1609
+#: src/core/pad.cc:1608
 #, c++-format
 msgid "Unknown keyboard key {}"
 msgstr ""
 
-#: src/core/pad.cc:1614
+#: src/core/pad.cc:1613
 #, c++-format
 msgid "Keyboard {}"
 msgstr "Πληκτρολόγιο {}"
 
-#: src/core/pad.cc:1633 src/gui/widgets/emulation-config.cc:133
+#: src/core/pad.cc:1632 src/gui/widgets/emulation-config.cc:134
 msgid "Auto"
 msgstr "Αυτόματο"
 
-#: src/core/pad.cc:1634
+#: src/core/pad.cc:1633
 msgid "Controller"
 msgstr "Χειριστήριο"
 
-#: src/core/pad.cc:1635
+#: src/core/pad.cc:1634
 msgid "Keyboard"
 msgstr "Πληκτρολόγιο"
 
-#: src/core/pad.cc:1642
+#: src/core/pad.cc:1641
 #, fuzzy
 msgctxt "Controller button"
 msgid "Select"
 msgstr "Select"
 
-#: src/core/pad.cc:1643
+#: src/core/pad.cc:1642
 #, fuzzy
 msgctxt "Controller button"
 msgid "Start"
 msgstr "Start"
 
-#: src/core/pad.cc:1650
+#: src/core/pad.cc:1649
 msgid "Analog Mode"
 msgstr "Αναλογική λειτουργία"
 
-#: src/core/pad.cc:1659
+#: src/core/pad.cc:1658
 msgid "Digital"
 msgstr "Ψηφιακό"
 
-#: src/core/pad.cc:1660
+#: src/core/pad.cc:1659
 msgid "Analog"
 msgstr "Αναλογικό"
 
-#: src/core/pad.cc:1661
+#: src/core/pad.cc:1660
 msgid "Mouse"
 msgstr "Ποντίκι"
 
-#: src/core/pad.cc:1662
+#: src/core/pad.cc:1661
 msgid "Negcon (Unimplemented)"
 msgstr ""
 
-#: src/core/pad.cc:1663
+#: src/core/pad.cc:1662
 msgid "Gun (Unimplemented)"
 msgstr ""
 
-#: src/core/pad.cc:1664
+#: src/core/pad.cc:1663
 msgid "Guncon (Unimplemented)"
 msgstr ""
 
-#: src/core/pad.cc:1668 src/gui/widgets/pio-cart.cc:55
+#: src/core/pad.cc:1667 src/gui/widgets/pio-cart.cc:55
 msgid "Connected"
 msgstr "Συνδεδεμένο"
 
-#: src/core/pad.cc:1677
+#: src/core/pad.cc:1676
 msgid "Analog mode"
 msgstr "Αναλογική λειτουργία"
 
-#: src/core/pad.cc:1686
+#: src/core/pad.cc:1685
 msgid "Rumble"
 msgstr ""
 
-#: src/core/pad.cc:1690
+#: src/core/pad.cc:1689
 msgid "(no motors on this gamepad)"
 msgstr ""
 
-#: src/core/pad.cc:1696
+#: src/core/pad.cc:1695
 msgid "Controller Type"
 msgstr "Είδος χειριστηρίου"
 
-#: src/core/pad.cc:1708
+#: src/core/pad.cc:1707
 msgid "Multitap"
 msgstr ""
 
-#: src/core/pad.cc:1710
+#: src/core/pad.cc:1709
 msgid ""
 "Plugs a multitap into this port, with this pad in its slot A. The other "
 "three slots only take input from a host application, through the shared "
 "display memory."
 msgstr ""
 
-#: src/core/pad.cc:1716
+#: src/core/pad.cc:1715
 msgid "Device type"
 msgstr "Είδος συσκευής"
 
-#: src/core/pad.cc:1727
+#: src/core/pad.cc:1726
 msgid "Mouse sensitivity X"
 msgstr ""
 
-#: src/core/pad.cc:1729
+#: src/core/pad.cc:1728
 msgid "Mouse sensitivity Y"
 msgstr ""
 
-#: src/core/pad.cc:1731
+#: src/core/pad.cc:1730
 msgid "Keyboard mapping"
 msgstr ""
 
-#: src/core/pad.cc:1733
+#: src/core/pad.cc:1732
 msgid "Computer button mapping"
 msgstr ""
 
-#: src/core/pad.cc:1734
+#: src/core/pad.cc:1733
 msgid "Gamepad button"
 msgstr ""
 
-#: src/core/pad.cc:1784
+#: src/core/pad.cc:1783
 msgid "No gamepad selected or connected"
 msgstr ""
 
-#: src/core/pad.cc:1808
+#: src/core/pad.cc:1807
 msgid "Gamepad"
 msgstr ""
 
@@ -806,7 +811,7 @@ msgstr ""
 msgid "Called msanGetChainPtr with invalid header pointer %8.8lx\n"
 msgstr ""
 
-#: src/core/psxhw.cc:809
+#: src/core/psxhw.cc:803
 #, c-format
 msgid "Called msanSetChainPtr with invalid header pointer %8.8lx\n"
 msgstr ""
@@ -1098,7 +1103,7 @@ msgstr ""
 msgid "Failed to create the shared display memory block\n"
 msgstr ""
 
-#: src/core/sio.cc:580
+#: src/core/sio.cc:577
 msgid "Wrong block number"
 msgstr ""
 
@@ -1201,12 +1206,12 @@ msgid "Interlace: %s"
 msgstr "Ρυθμός γραφής: %s"
 
 #: src/gpu/soft/gpu.cc:358 src/gpu/soft/gpu.cc:374 src/gpu/soft/gpu.cc:375
-#: src/gpu/soft/gpu.cc:376 src/gui/widgets/pocketstation.cc:130
+#: src/gpu/soft/gpu.cc:376 src/gui/widgets/pocketstation.cc:129
 msgid "off"
 msgstr ""
 
 #: src/gpu/soft/gpu.cc:358 src/gpu/soft/gpu.cc:374 src/gpu/soft/gpu.cc:375
-#: src/gpu/soft/gpu.cc:376 src/gui/widgets/pocketstation.cc:130
+#: src/gpu/soft/gpu.cc:376 src/gui/widgets/pocketstation.cc:129
 #, fuzzy
 msgid "on"
 msgstr "Εικονίδιο"
@@ -1320,7 +1325,7 @@ msgstr ""
 msgid "FFmpeg information"
 msgstr "Πληροφορίες FFmpeg"
 
-#: src/gui/gui-about-ffmpeg.cc:45 src/gui/gui.cc:1620
+#: src/gui/gui-about-ffmpeg.cc:45 src/gui/gui.cc:1619
 #, c-format
 msgid "Version: %s"
 msgstr "Έκδοση: %s"
@@ -1811,7 +1816,7 @@ msgstr "Προβολή επίδειξης ImGui"
 msgid "Show UvFile information"
 msgstr "Προβολή πληροφοριών UvFile"
 
-#: src/gui/gui-menubar.cc:360 src/gui/gui.cc:1591
+#: src/gui/gui-menubar.cc:360 src/gui/gui.cc:1590
 msgid "About"
 msgstr "Σχετικά"
 
@@ -2064,16 +2069,16 @@ msgstr ""
 msgid "Allocator Tracker"
 msgstr ""
 
-#: src/gui/gui.cc:1491
+#: src/gui/gui.cc:1490
 #, fuzzy
 msgid "PocketStation LCD"
 msgstr "Εμφάνιση εικονιδίων Pocketstation"
 
-#: src/gui/gui.cc:1599 src/gui/gui.cc:1688
+#: src/gui/gui.cc:1598 src/gui/gui.cc:1687
 msgid "Version"
 msgstr "Έκδοση"
 
-#: src/gui/gui.cc:1606
+#: src/gui/gui.cc:1605
 msgid ""
 "No version information.\n"
 "\n"
@@ -2083,46 +2088,46 @@ msgstr ""
 "\n"
 "Πιθανόν χτίστηκε από τον πηγαίο κώδικα."
 
-#: src/gui/gui.cc:1608
+#: src/gui/gui.cc:1607
 msgid "Copy to clipboard"
 msgstr "Αντιγραφή στο πρόχειρο"
 
-#: src/gui/gui.cc:1622
+#: src/gui/gui.cc:1621
 #, c-format
 msgid "Build: %i"
 msgstr ""
 
-#: src/gui/gui.cc:1624
+#: src/gui/gui.cc:1623
 #, fuzzy
 msgid "Changeset:"
 msgstr "Αλλαγές: %s"
 
-#: src/gui/gui.cc:1631
+#: src/gui/gui.cc:1630
 #, c-format
 msgid "Date & time: %s"
 msgstr "Ημερομηνία & ώρα: %s"
 
-#: src/gui/gui.cc:1640
+#: src/gui/gui.cc:1639
 msgid "Authors"
 msgstr "Συγγραφείς"
 
-#: src/gui/gui.cc:1648
+#: src/gui/gui.cc:1647
 msgid "Licenses"
 msgstr "Άδειες λογισμικού"
 
-#: src/gui/gui.cc:1660
+#: src/gui/gui.cc:1659
 msgid "OpenGL information"
 msgstr "Πληροφορίες OpenGL"
 
-#: src/gui/gui.cc:1662
+#: src/gui/gui.cc:1661
 msgid "OpenGL error reporting: enabled"
 msgstr "Αναφορά σφαλμάτων OpenGL: Ενεργοποιημένη"
 
-#: src/gui/gui.cc:1664
+#: src/gui/gui.cc:1663
 msgid "OpenGL error reporting: disabled"
 msgstr "Αναφορά σφαλμάτων OpenGL: Απενεργοποιημένη"
 
-#: src/gui/gui.cc:1667
+#: src/gui/gui.cc:1666
 msgid ""
 "OpenGL error reporting has been disabled because your OpenGL driver is too "
 "old. Error reporting requires at least OpenGL 4.3. Please update your "
@@ -2132,112 +2137,112 @@ msgid ""
 "be able to properly report problems accurately."
 msgstr ""
 
-#: src/gui/gui.cc:1675
+#: src/gui/gui.cc:1674
 msgid "Enable OpenGL error reporting"
 msgstr "Ενεργοποίηση αναφοράς σφαλμάτων OpenGL"
 
-#: src/gui/gui.cc:1678
+#: src/gui/gui.cc:1677
 msgid ""
 "OpenGL error reporting is necessary for properly reporting OpenGL problems. "
 "However it requires OpenGL 4.3+ and might have performance repercussions on "
 "some computers. (Requires a restart of the emulator)"
 msgstr ""
 
-#: src/gui/gui.cc:1682
+#: src/gui/gui.cc:1681
 msgid "OpenGL error reporting severity"
 msgstr ""
 
-#: src/gui/gui.cc:1685
+#: src/gui/gui.cc:1684
 #, c-format
 msgid "Core profile: %s"
 msgstr "Προφίλ πυρήνα: %s"
 
-#: src/gui/gui.cc:1685 src/gui/widgets/assembly.cc:627
+#: src/gui/gui.cc:1684 src/gui/widgets/assembly.cc:627
 msgid "no"
 msgstr "όχι"
 
-#: src/gui/gui.cc:1685 src/gui/widgets/assembly.cc:627
+#: src/gui/gui.cc:1684 src/gui/widgets/assembly.cc:627
 #: src/gui/widgets/spusamples.cc:332
 msgid "yes"
 msgstr "ναι"
 
-#: src/gui/gui.cc:1686
+#: src/gui/gui.cc:1685
 msgid "Vendor"
 msgstr "Πωλητής"
 
-#: src/gui/gui.cc:1687
+#: src/gui/gui.cc:1686
 msgid "Renderer"
 msgstr ""
 
-#: src/gui/gui.cc:1689
+#: src/gui/gui.cc:1688
 msgid "Shading language version"
 msgstr ""
 
-#: src/gui/gui.cc:1692
+#: src/gui/gui.cc:1691
 #, c-format
 msgid "Texture units: %d"
 msgstr ""
 
-#: src/gui/gui.cc:1695
+#: src/gui/gui.cc:1694
 msgid "Extensions:"
 msgstr "Επεκτάσεις:"
 
-#: src/gui/gui.cc:1713
+#: src/gui/gui.cc:1712
 #, fuzzy
 msgid "Unknown controller"
 msgstr "Χειριστήριο"
 
-#: src/gui/gui.cc:1715
+#: src/gui/gui.cc:1714
 #, c++-format
 msgid "Controller connected: {} (port {})"
 msgstr ""
 
-#: src/gui/gui.cc:1716
+#: src/gui/gui.cc:1715
 #, c++-format
 msgid "Controller disconnected: {} (port {})"
 msgstr ""
 
-#: src/gui/gui.cc:1720
+#: src/gui/gui.cc:1719
 #, fuzzy, c++-format
 msgid "Controller connected: {}"
 msgstr "Είδος χειριστηρίου"
 
-#: src/gui/gui.cc:1720
+#: src/gui/gui.cc:1719
 #, c++-format
 msgid "Controller disconnected: {}"
 msgstr ""
 
-#: src/gui/gui.cc:1902
+#: src/gui/gui.cc:1901
 #, c++-format
 msgid "State saved to {}"
 msgstr ""
 
-#: src/gui/gui.cc:1904
+#: src/gui/gui.cc:1903
 #, c++-format
 msgid "Failed to save state to {}"
 msgstr ""
 
-#: src/gui/gui.cc:1915 src/gui/gui.cc:1937
+#: src/gui/gui.cc:1914 src/gui/gui.cc:1936
 #, c++-format
 msgid "Failed to load state from {}"
 msgstr ""
 
-#: src/gui/gui.cc:1940
+#: src/gui/gui.cc:1939
 #, c++-format
 msgid "State loaded from {}"
 msgstr ""
 
-#: src/gui/gui.cc:2203
+#: src/gui/gui.cc:2202
 #, c++-format
 msgid "Screenshot saved to {}\n"
 msgstr ""
 
-#: src/gui/gui.cc:2205
+#: src/gui/gui.cc:2204
 #, c++-format
 msgid "Screenshot saved to {}"
 msgstr ""
 
-#: src/gui/gui.cc:2207
+#: src/gui/gui.cc:2206
 msgid "Failed to save screenshot"
 msgstr ""
 
@@ -2388,7 +2393,7 @@ msgstr ""
 msgid "Columns"
 msgstr "Στήλες"
 
-#: src/gui/widgets/assembly.cc:594 src/gui/widgets/emulation-config.cc:200
+#: src/gui/widgets/assembly.cc:594 src/gui/widgets/emulation-config.cc:201
 msgid "Enable Debugger"
 msgstr "Ενεργοποίηση Αποσφαλματωτή"
 
@@ -3243,11 +3248,11 @@ msgid ""
 "cause issues in some cases.\n"
 msgstr ""
 
-#: src/gui/widgets/emulation-config.cc:94
+#: src/gui/widgets/emulation-config.cc:95
 msgid "OpenGL GPU *ALPHA STATE*"
 msgstr "OpenGL GPU *Βρισκεται σε πρώιμη κατάσταση*"
 
-#: src/gui/widgets/emulation-config.cc:95
+#: src/gui/widgets/emulation-config.cc:96
 msgid ""
 "Enables the OpenGL GPU renderer.\n"
 "This is not recommended for normal use at the moment,\n"
@@ -3256,12 +3261,12 @@ msgid ""
 "when changing this setting."
 msgstr ""
 
-#: src/gui/widgets/emulation-config.cc:100
+#: src/gui/widgets/emulation-config.cc:101
 #, fuzzy
 msgid "2MB VRAM"
 msgstr "VRAM"
 
-#: src/gui/widgets/emulation-config.cc:101
+#: src/gui/widgets/emulation-config.cc:102
 msgid ""
 "Emulates a console fitted with 2MB of VRAM\n"
 "instead of the stock 1MB, exposing the upper bank through\n"
@@ -3270,15 +3275,15 @@ msgid ""
 "this setting."
 msgstr ""
 
-#: src/gui/widgets/emulation-config.cc:110
+#: src/gui/widgets/emulation-config.cc:111
 msgid "Rewind capture interval (frames; 0 = disabled)"
 msgstr ""
 
-#: src/gui/widgets/emulation-config.cc:115
+#: src/gui/widgets/emulation-config.cc:116
 msgid "Rewind history depth (snapshots)"
 msgstr ""
 
-#: src/gui/widgets/emulation-config.cc:119
+#: src/gui/widgets/emulation-config.cc:120
 msgid ""
 "Captures an in-memory save state every N frames\n"
 "and keeps the last M of them; press Backspace (or\n"
@@ -3288,23 +3293,23 @@ msgid ""
 "interval to 0 to disable."
 msgstr ""
 
-#: src/gui/widgets/emulation-config.cc:133
+#: src/gui/widgets/emulation-config.cc:134
 msgid "NTSC"
 msgstr "NTSC"
 
-#: src/gui/widgets/emulation-config.cc:133
+#: src/gui/widgets/emulation-config.cc:134
 msgid "PAL"
 msgstr "PAL"
 
-#: src/gui/widgets/emulation-config.cc:136
+#: src/gui/widgets/emulation-config.cc:137
 msgid "System Type"
 msgstr "Είδος Συστήματος"
 
-#: src/gui/widgets/emulation-config.cc:155
+#: src/gui/widgets/emulation-config.cc:156
 msgid "Fast boot"
 msgstr "Γρήγορη εκκίνηση"
 
-#: src/gui/widgets/emulation-config.cc:156
+#: src/gui/widgets/emulation-config.cc:157
 msgid ""
 "This will cause the BIOS to skip the shell,\n"
 "which may include additional checks.\n"
@@ -3312,11 +3317,11 @@ msgid ""
 "faster by not displaying the logo."
 msgstr ""
 
-#: src/gui/widgets/emulation-config.cc:161
+#: src/gui/widgets/emulation-config.cc:162
 msgid "Randomize CD-ROM timings"
 msgstr ""
 
-#: src/gui/widgets/emulation-config.cc:162
+#: src/gui/widgets/emulation-config.cc:163
 msgid ""
 "The CD-ROM drive timings carry a small\n"
 "amount of jitter, like a real drive. By default\n"
@@ -3325,29 +3330,29 @@ msgid ""
 "sequence at each power-on."
 msgstr ""
 
-#: src/gui/widgets/emulation-config.cc:168
+#: src/gui/widgets/emulation-config.cc:169
 msgid "BIOS file"
 msgstr "Αρχείο BIOS"
 
-#: src/gui/widgets/emulation-config.cc:174
+#: src/gui/widgets/emulation-config.cc:175
 msgid "(settings folder)"
 msgstr ""
 
-#: src/gui/widgets/emulation-config.cc:178
+#: src/gui/widgets/emulation-config.cc:179
 #, fuzzy
 msgid "Reset"
 msgstr "Επαναφορά όλων"
 
-#: src/gui/widgets/emulation-config.cc:196
+#: src/gui/widgets/emulation-config.cc:197
 msgid "Screenshot folder"
 msgstr ""
 
-#: src/gui/widgets/emulation-config.cc:198
+#: src/gui/widgets/emulation-config.cc:199
 #, fuzzy
 msgid "Save state folder"
 msgstr "Αποθήκευση σε αρχείο"
 
-#: src/gui/widgets/emulation-config.cc:207
+#: src/gui/widgets/emulation-config.cc:208
 msgid ""
 "This will enable the usage of various breakpoints\n"
 "throughout the execution of mips code. Enabling this\n"
@@ -4647,44 +4652,44 @@ msgstr ""
 msgid "Select EXP1"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:69
+#: src/gui/widgets/pocketstation.cc:68
 msgid ""
 "No PocketStation device.\n"
 "Enable PocketStation mode on a memory card slot and set the\n"
 "PocketStation BIOS path in the configuration to create one."
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:83
+#: src/gui/widgets/pocketstation.cc:82
 #, c-format
 msgid "Slot %u: %s"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:83
+#: src/gui/widgets/pocketstation.cc:82
 msgid "docked in the PlayStation"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:83
+#: src/gui/widgets/pocketstation.cc:82
 msgid "undocked"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:85
+#: src/gui/widgets/pocketstation.cc:84
 msgid "Dock"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:85
+#: src/gui/widgets/pocketstation.cc:84
 #, fuzzy
 msgid "Undock"
 msgstr "Πίσω"
 
-#: src/gui/widgets/pocketstation.cc:88
+#: src/gui/widgets/pocketstation.cc:87
 msgid "(manual)"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:130
+#: src/gui/widgets/pocketstation.cc:129
 msgid ", rotated"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:130
+#: src/gui/widgets/pocketstation.cc:129
 #, c-format
 msgid "LCD mode: %08X (%s%s)"
 msgstr ""

@@ -138,17 +138,17 @@ msgstr "Rastreador de asignaciones"
 msgid "Allocator tracker return"
 msgstr "Retorno del rastreador de asignaciones"
 
-#: src/core/cdrom.cc:1960
+#: src/core/cdrom.cc:1957
 #, c-format
 msgid "CD-ROM Label: %.32s\n"
 msgstr "Etiqueta de CD-ROM: %.32s\n"
 
-#: src/core/cdrom.cc:1961
+#: src/core/cdrom.cc:1958
 #, c-format
 msgid "CD-ROM ID: %.9s\n"
 msgstr "ID de CD-ROM: %.9s\n"
 
-#: src/core/cdrom.cc:1962
+#: src/core/cdrom.cc:1959
 #, c-format
 msgid "CD-ROM EXE Name: %.255s\n"
 msgstr "Nombre de ejecutable del CD-ROM: %.255s\n"
@@ -238,25 +238,25 @@ msgctxt "Breakpoint type"
 msgid "Write"
 msgstr "Escritura"
 
-#: src/core/gdb-server.cc:68
+#: src/core/gdb-server.cc:71
 #, c-format
 msgid "GDB server: unable to listen on port %i: %s\n"
 msgstr "Servidor GDB: no se ha podido escuchar el puerto %i: %s\n"
 
-#: src/core/gdb-server.cc:158
+#: src/core/gdb-server.cc:161
 #, fuzzy, c-format
 msgid "GDB server: reverse execution needs the debugger (use -debugger)\n"
 msgstr ""
 "Servidor GDB: punto de interrupción en %08x rechazado, depurador desactivado "
 "(utiliza -debugger)\n"
 
-#: src/core/gdb-server.cc:163
+#: src/core/gdb-server.cc:166
 #, c-format
 msgid ""
 "GDB server: reverse execution needs the interpreter (use -interpreter)\n"
 msgstr ""
 
-#: src/core/gdb-server.cc:177
+#: src/core/gdb-server.cc:180
 #, c-format
 msgid ""
 "GDB server: reverse execution replays from the rewind ring, which is off "
@@ -264,13 +264,13 @@ msgid ""
 msgstr ""
 
 #. Interrupted, or an exception paused it. Wherever it is, it is a point of the past.
-#: src/core/gdb-server.cc:217
+#: src/core/gdb-server.cc:220
 #, c-format
 msgid ""
 "GDB server: replay from snapshot %zu (cycle %llu) paused early at pc %08x\n"
 msgstr ""
 
-#: src/core/gdb-server.cc:228
+#: src/core/gdb-server.cc:231
 #, c-format
 msgid ""
 "GDB server: replay diverged, expected to stop at cycle %llu, stopped at "
@@ -278,7 +278,7 @@ msgid ""
 msgstr ""
 
 #. breakpoints are only checked when the debugger is enabled
-#: src/core/gdb-server.cc:789
+#: src/core/gdb-server.cc:810
 #, c-format
 msgid ""
 "GDB server: refusing breakpoint at %08x, the debugger is disabled (use "
@@ -287,84 +287,84 @@ msgstr ""
 "Servidor GDB: punto de interrupción en %08x rechazado, depurador desactivado "
 "(utiliza -debugger)\n"
 
-#: src/core/gdb-server.cc:804
+#: src/core/gdb-server.cc:828
 msgid "GDB client"
 msgstr "Cliente GDB"
 
-#: src/core/gpu.cc:344 src/core/gpu.cc:772 src/core/psxhw.h:96
+#: src/core/gpu.cc:344 src/core/gpu.cc:865 src/core/psxhw.h:97
 #, c-format
 msgid "GPU DMA went into usable but uninitialized msan memory: %8.8lx\n"
 msgstr ""
 "Un DMA de la GPU ha ido a memoria de msan utilizable, pero sin inicializar: "
 "%8.8lx\n"
 
-#: src/core/gpu.cc:349 src/core/gpu.cc:777 src/core/psxhw.h:101
+#: src/core/gpu.cc:349 src/core/gpu.cc:870 src/core/psxhw.h:102
 #, c-format
 msgid "GPU DMA went into unusable msan memory: %8.8lx\n"
 msgstr "Un DMA de la GPU ha ido a memoria de msan no utilizable: %8.8lx\n"
 
-#: src/core/gpu.cc:1378
+#: src/core/gpu.cc:1491
 msgid "Color"
 msgstr ""
 
-#: src/core/gpu.cc:1393 src/core/gpulogger.cc:550
+#: src/core/gpu.cc:1506 src/core/gpulogger.cc:550
 msgid "100% Back + 100% Front"
 msgstr "100 % de fondo + 100 % de frente"
 
-#: src/core/gpu.cc:1393 src/core/gpulogger.cc:553
+#: src/core/gpu.cc:1506 src/core/gpulogger.cc:553
 msgid "100% Back - 100% Front"
 msgstr "100 % de fondo - 100 % de frente"
 
-#: src/core/gpu.cc:1393 src/core/gpulogger.cc:547
+#: src/core/gpu.cc:1506 src/core/gpulogger.cc:547
 msgid "50% Back + 50% Front"
 msgstr "50 % de fondo + 50 % de frente"
 
-#: src/core/gpu.cc:1394 src/core/gpulogger.cc:556
+#: src/core/gpu.cc:1507 src/core/gpulogger.cc:556
 msgid "100% Back + 25% Front"
 msgstr "100 % de fondo + 25 % de frente"
 
-#: src/core/gpu.cc:1396
+#: src/core/gpu.cc:1509
 #, fuzzy
 msgid "Blending"
 msgstr "Mezcla:"
 
-#: src/core/gpu.cc:1405 src/core/gpu.cc:1506
+#: src/core/gpu.cc:1518 src/core/gpu.cc:1619
 msgid "Shading: Flat"
 msgstr "Sombreado: plano"
 
-#: src/core/gpu.cc:1408 src/core/gpu.cc:1509
+#: src/core/gpu.cc:1521 src/core/gpu.cc:1622
 msgid "Shading: Gouraud"
 msgstr "Sombreado: Gouraud"
 
-#: src/core/gpu.cc:1412
+#: src/core/gpu.cc:1525
 msgid "Textured"
 msgstr "Texturización"
 
-#: src/core/gpu.cc:1415 src/core/gpu.cc:1512 src/core/gpu.cc:1566
+#: src/core/gpu.cc:1528 src/core/gpu.cc:1625 src/core/gpu.cc:1679
 msgid "Semi-transparency blending"
 msgstr "Mezcla de semitransparencias"
 
-#: src/core/gpu.cc:1432 src/core/gpu.cc:1491 src/core/gpu.cc:1548
+#: src/core/gpu.cc:1545 src/core/gpu.cc:1604 src/core/gpu.cc:1661
 #, c-format
 msgid "Vertex %i"
 msgstr "Vértice %i"
 
-#: src/core/gpu.cc:1456 src/core/gpu.cc:1537 src/core/gpu.cc:1579
+#: src/core/gpu.cc:1569 src/core/gpu.cc:1650 src/core/gpu.cc:1692
 #, c++-format
 msgid "Go to primitive##{}"
 msgstr "Ir a primitivo##{}"
 
-#: src/core/gpu.cc:1464 src/core/gpu.cc:1589
+#: src/core/gpu.cc:1577 src/core/gpu.cc:1702
 #, c++-format
 msgid "Go to texture##{}"
 msgstr "Ir a textura##{}"
 
-#: src/core/gpu.cc:1475 src/core/gpu.cc:1600
+#: src/core/gpu.cc:1588 src/core/gpu.cc:1713
 #, c++-format
 msgid "Go to CLUT##{}"
 msgstr "Ir a CLUT##{}"
 
-#: src/core/gpu.cc:1518
+#: src/core/gpu.cc:1631
 #, c-format
 msgid "Line %i"
 msgstr "Línea %i"
@@ -507,7 +507,12 @@ msgstr "Fin de área de dibujado"
 msgid "Draw Offset"
 msgstr "Desplazamiento de dibujado"
 
-#: src/core/gpulogger.cc:686 src/gui/widgets/breakpoints.cc:50
+#: src/core/gpulogger.cc:686
+#, fuzzy
+msgid "GPU Type"
+msgstr "Tipo"
+
+#: src/core/gpulogger.cc:689 src/gui/widgets/breakpoints.cc:50
 msgid "Unknown"
 msgstr "Elemento desconocido"
 
@@ -545,7 +550,7 @@ msgstr ""
 "Un hardware real no tendría un valor predeterminado y lo descodificaría en "
 "gris plano, hay que enviar MDEC(3) antes de MDEC(1).\n"
 
-#: src/core/memorycard.cc:162
+#: src/core/memorycard.cc:163
 #, c-format
 msgid ""
 "PocketStation: kernel image %s could not be opened; device not started.\n"
@@ -558,71 +563,71 @@ msgid ""
 "started.\n"
 msgstr ""
 
-#: src/core/memorycard.cc:200
+#: src/core/memorycard.cc:201
 #, c-format
 msgid ""
 "PocketStation: the savestate has a device in slot %i, but that slot has "
 "none.\n"
 msgstr ""
 
-#: src/core/memorycard.cc:206
+#: src/core/memorycard.cc:207
 #, c-format
 msgid ""
 "PocketStation: the device state in this savestate is not one this build "
 "reads.\n"
 msgstr ""
 
-#: src/core/memorycard.cc:587
+#: src/core/memorycard.cc:588
 #, c-format
 msgid "The memory card %s doesn't exist - creating it\n"
 msgstr "La Memory Card %s no existe, creando una nueva.\n"
 
-#: src/core/memorycard.cc:594
+#: src/core/memorycard.cc:595
 #, fuzzy, c-format
 msgid "Memory card %s failed to load: %s\n"
 msgstr "¡La Memory Card %s ha fallado al cargar!\n"
 
-#: src/core/memorycard.cc:599
+#: src/core/memorycard.cc:600
 #, c-format
 msgid "Loading memory card %s\n"
 msgstr "Cargando Memory Card %s\n"
 
-#: src/core/memorycard.cc:612
+#: src/core/memorycard.cc:613
 #, fuzzy, c-format
 msgid "Memory card %s failed to load: short read (%zu of %zu bytes)\n"
 msgstr "¡La Memory Card %s ha fallado al cargar!\n"
 
-#: src/core/memorycard.cc:648
+#: src/core/memorycard.cc:649
 #, c-format
 msgid "Saving memory card %s\n"
 msgstr "Guardando Memory Card %s\n"
 
-#: src/core/pad.cc:1286 src/core/pad.cc:1410
+#: src/core/pad.cc:1285 src/core/pad.cc:1409
 #, c-format
 msgid "Unknown command for pad: %02X\n"
 msgstr "Comando de mando desconocido: %02X\n"
 
-#: src/core/pad.cc:1526
+#: src/core/pad.cc:1525
 msgid "Pad configuration"
 msgstr "Configuración de mandos"
 
-#: src/core/pad.cc:1532
+#: src/core/pad.cc:1531
 msgid "Pad 1"
 msgstr "Mando 1"
 
-#: src/core/pad.cc:1533
+#: src/core/pad.cc:1532
 msgid "Pad 2"
 msgstr "Mando 2"
 
-#: src/core/pad.cc:1536
+#: src/core/pad.cc:1535
 msgid "Rescan gamepads and re-read game controllers database"
 msgstr "Volver a buscar mandos y a leer la base de datos de mandos"
 
-#: src/core/pad.cc:1555
+#: src/core/pad.cc:1554
 msgid "Use raw input for mouse"
 msgstr "Utilizar entrada sin procesar del ratón"
 
-#: src/core/pad.cc:1557
+#: src/core/pad.cc:1556
 msgid ""
 "When enabled, the cursor will be hidden and captured when the emulator is "
 "running. This is useful for games that require mouse input."
@@ -630,146 +635,146 @@ msgstr ""
 "Al activar esta opción, se ocultará y capturará el ratón mientras el "
 "emulador esté en funcionamiento. Ideal para juegos que necesitan ratón."
 
-#: src/core/pad.cc:1559
+#: src/core/pad.cc:1558
 msgid "Allow mouse capture toggle"
 msgstr "Habilitar alternancia de captura del ratón"
 
-#: src/core/pad.cc:1561
+#: src/core/pad.cc:1560
 msgid ""
 "When enabled, pressing CTRL and ALT will toggle the setting above, raw input"
 msgstr ""
 "Al activar esta opción, si pulsas CTRL y ALT podrás alternar la opción "
 "anterior con el modo de entrada sin procesar."
 
-#: src/core/pad.cc:1563
+#: src/core/pad.cc:1562
 msgid "Pad"
 msgstr "Mando"
 
-#: src/core/pad.cc:1572
+#: src/core/pad.cc:1571
 msgid "Set defaults"
 msgstr "Valores predeterminados"
 
-#: src/core/pad.cc:1588
+#: src/core/pad.cc:1587
 msgid "Keyboard Up"
 msgstr "Teclado - Arriba"
 
-#: src/core/pad.cc:1590
+#: src/core/pad.cc:1589
 msgid "Keyboard Right"
 msgstr "Teclado - Derecha"
 
-#: src/core/pad.cc:1592
+#: src/core/pad.cc:1591
 msgid "Keyboard Down"
 msgstr "Teclado - Abajo"
 
-#: src/core/pad.cc:1594
+#: src/core/pad.cc:1593
 msgid "Keyboard Left"
 msgstr "Teclado - Izquierda"
 
-#: src/core/pad.cc:1596
+#: src/core/pad.cc:1595
 msgid "Keyboard Backspace"
 msgstr "Teclado - Retroceso"
 
-#: src/core/pad.cc:1598
+#: src/core/pad.cc:1597
 msgid "Keyboard Enter"
 msgstr "Teclado - Intro"
 
-#: src/core/pad.cc:1600
+#: src/core/pad.cc:1599
 msgid "Keyboard Space"
 msgstr "Teclado - Espacio"
 
-#: src/core/pad.cc:1602
+#: src/core/pad.cc:1601
 msgid "Keyboard Escape"
 msgstr "Teclado - Esc"
 
-#: src/core/pad.cc:1604
+#: src/core/pad.cc:1603
 msgid "Unbound"
 msgstr "Sin asignar"
 
-#: src/core/pad.cc:1609
+#: src/core/pad.cc:1608
 #, c++-format
 msgid "Unknown keyboard key {}"
 msgstr "Tecla de teclado desconocida: {}"
 
-#: src/core/pad.cc:1614
+#: src/core/pad.cc:1613
 #, c++-format
 msgid "Keyboard {}"
 msgstr "Teclado {}"
 
-#: src/core/pad.cc:1633 src/gui/widgets/emulation-config.cc:133
+#: src/core/pad.cc:1632 src/gui/widgets/emulation-config.cc:134
 msgid "Auto"
 msgstr "Elegir automáticamente"
 
-#: src/core/pad.cc:1634
+#: src/core/pad.cc:1633
 msgid "Controller"
 msgstr "Mando"
 
-#: src/core/pad.cc:1635
+#: src/core/pad.cc:1634
 msgid "Keyboard"
 msgstr "Teclado"
 
-#: src/core/pad.cc:1642
+#: src/core/pad.cc:1641
 msgctxt "Controller button"
 msgid "Select"
 msgstr "SELECT"
 
-#: src/core/pad.cc:1643
+#: src/core/pad.cc:1642
 msgctxt "Controller button"
 msgid "Start"
 msgstr "START"
 
-#: src/core/pad.cc:1650
+#: src/core/pad.cc:1649
 msgid "Analog Mode"
 msgstr "Modo analógico"
 
-#: src/core/pad.cc:1659
+#: src/core/pad.cc:1658
 msgid "Digital"
 msgstr "Digital"
 
-#: src/core/pad.cc:1660
+#: src/core/pad.cc:1659
 msgid "Analog"
 msgstr "ANALOG"
 
-#: src/core/pad.cc:1661
+#: src/core/pad.cc:1660
 msgid "Mouse"
 msgstr "Ratón"
 
-#: src/core/pad.cc:1662
+#: src/core/pad.cc:1661
 msgid "Negcon (Unimplemented)"
 msgstr "NegCon (sin implementar)"
 
-#: src/core/pad.cc:1663
+#: src/core/pad.cc:1662
 msgid "Gun (Unimplemented)"
 msgstr "Lightgun (sin implementar)"
 
-#: src/core/pad.cc:1664
+#: src/core/pad.cc:1663
 msgid "Guncon (Unimplemented)"
 msgstr "Guncon (sin implementar)"
 
-#: src/core/pad.cc:1668 src/gui/widgets/pio-cart.cc:55
+#: src/core/pad.cc:1667 src/gui/widgets/pio-cart.cc:55
 msgid "Connected"
 msgstr "Conectado"
 
-#: src/core/pad.cc:1677
+#: src/core/pad.cc:1676
 msgid "Analog mode"
 msgstr "Modo analógico"
 
-#: src/core/pad.cc:1686
+#: src/core/pad.cc:1685
 msgid "Rumble"
 msgstr "Vibración"
 
-#: src/core/pad.cc:1690
+#: src/core/pad.cc:1689
 msgid "(no motors on this gamepad)"
 msgstr "(este mando no tiene motores)"
 
-#: src/core/pad.cc:1696
+#: src/core/pad.cc:1695
 msgid "Controller Type"
 msgstr "Tipo de mando"
 
-#: src/core/pad.cc:1708
+#: src/core/pad.cc:1707
 msgid "Multitap"
 msgstr "Multitap"
 
-#: src/core/pad.cc:1710
+#: src/core/pad.cc:1709
 msgid ""
 "Plugs a multitap into this port, with this pad in its slot A. The other "
 "three slots only take input from a host application, through the shared "
@@ -779,35 +784,35 @@ msgstr ""
 "otras tres ranuras solo aceptarán entradas de una aplicación anfitriona "
 "usando la memoria compartida de vídeo."
 
-#: src/core/pad.cc:1716
+#: src/core/pad.cc:1715
 msgid "Device type"
 msgstr "Tipo de dispositivo"
 
-#: src/core/pad.cc:1727
+#: src/core/pad.cc:1726
 msgid "Mouse sensitivity X"
 msgstr "Sensibilidad X del ratón"
 
-#: src/core/pad.cc:1729
+#: src/core/pad.cc:1728
 msgid "Mouse sensitivity Y"
 msgstr "Sensibilidad Y del ratón"
 
-#: src/core/pad.cc:1731
+#: src/core/pad.cc:1730
 msgid "Keyboard mapping"
 msgstr "Asignaciones del teclado"
 
-#: src/core/pad.cc:1733
+#: src/core/pad.cc:1732
 msgid "Computer button mapping"
 msgstr "Asignación del equipo"
 
-#: src/core/pad.cc:1734
+#: src/core/pad.cc:1733
 msgid "Gamepad button"
 msgstr "Botón de mando"
 
-#: src/core/pad.cc:1784
+#: src/core/pad.cc:1783
 msgid "No gamepad selected or connected"
 msgstr "No se ha seleccionado o conectado un mando"
 
-#: src/core/pad.cc:1808
+#: src/core/pad.cc:1807
 msgid "Gamepad"
 msgstr "Mando"
 
@@ -828,7 +833,7 @@ msgstr ""
 "Se ha invocado a msanGetChainPtr con el puntero de cabecera no válido "
 "%8.8lx\n"
 
-#: src/core/psxhw.cc:809
+#: src/core/psxhw.cc:803
 #, c-format
 msgid "Called msanSetChainPtr with invalid header pointer %8.8lx\n"
 msgstr ""
@@ -1129,7 +1134,7 @@ msgstr ""
 msgid "Failed to create the shared display memory block\n"
 msgstr "Error al crear el bloque de memoria compartida de vídeo\n"
 
-#: src/core/sio.cc:580
+#: src/core/sio.cc:577
 msgid "Wrong block number"
 msgstr "Número de bloque erróneo"
 
@@ -1240,12 +1245,12 @@ msgid "Interlace: %s"
 msgstr "Entrelazado: %s"
 
 #: src/gpu/soft/gpu.cc:358 src/gpu/soft/gpu.cc:374 src/gpu/soft/gpu.cc:375
-#: src/gpu/soft/gpu.cc:376 src/gui/widgets/pocketstation.cc:130
+#: src/gpu/soft/gpu.cc:376 src/gui/widgets/pocketstation.cc:129
 msgid "off"
 msgstr "no"
 
 #: src/gpu/soft/gpu.cc:358 src/gpu/soft/gpu.cc:374 src/gpu/soft/gpu.cc:375
-#: src/gpu/soft/gpu.cc:376 src/gui/widgets/pocketstation.cc:130
+#: src/gpu/soft/gpu.cc:376 src/gui/widgets/pocketstation.cc:129
 msgid "on"
 msgstr "sí"
 
@@ -1357,7 +1362,7 @@ msgstr "Depurador de GPU por software"
 msgid "FFmpeg information"
 msgstr "Información sobre FFmpeg"
 
-#: src/gui/gui-about-ffmpeg.cc:45 src/gui/gui.cc:1620
+#: src/gui/gui-about-ffmpeg.cc:45 src/gui/gui.cc:1619
 #, c-format
 msgid "Version: %s"
 msgstr "Versión: %s"
@@ -1838,7 +1843,7 @@ msgstr "Mostrar demostración de ImPlot"
 msgid "Show UvFile information"
 msgstr "Mostrar información de UvFile"
 
-#: src/gui/gui-menubar.cc:360 src/gui/gui.cc:1591
+#: src/gui/gui-menubar.cc:360 src/gui/gui.cc:1590
 msgid "About"
 msgstr "Acerca de"
 
@@ -2098,16 +2103,16 @@ msgstr ""
 msgid "Allocator Tracker"
 msgstr "Rastreador de asignaciones"
 
-#: src/gui/gui.cc:1491
+#: src/gui/gui.cc:1490
 #, fuzzy
 msgid "PocketStation LCD"
 msgstr "Tarjeta 1 PocketStation"
 
-#: src/gui/gui.cc:1599 src/gui/gui.cc:1688
+#: src/gui/gui.cc:1598 src/gui/gui.cc:1687
 msgid "Version"
 msgstr "Versión"
 
-#: src/gui/gui.cc:1606
+#: src/gui/gui.cc:1605
 msgid ""
 "No version information.\n"
 "\n"
@@ -2118,45 +2123,45 @@ msgstr ""
 "Probablemente haya sido compilada a partir\n"
 "de los archivos fuente."
 
-#: src/gui/gui.cc:1608
+#: src/gui/gui.cc:1607
 msgid "Copy to clipboard"
 msgstr "Copiar al portapapeles"
 
-#: src/gui/gui.cc:1622
+#: src/gui/gui.cc:1621
 #, c-format
 msgid "Build: %i"
 msgstr "Compilación: %i"
 
-#: src/gui/gui.cc:1624
+#: src/gui/gui.cc:1623
 msgid "Changeset:"
 msgstr "Historial de cambios:"
 
-#: src/gui/gui.cc:1631
+#: src/gui/gui.cc:1630
 #, c-format
 msgid "Date & time: %s"
 msgstr "Fecha y hora: %s"
 
-#: src/gui/gui.cc:1640
+#: src/gui/gui.cc:1639
 msgid "Authors"
 msgstr "Autores"
 
-#: src/gui/gui.cc:1648
+#: src/gui/gui.cc:1647
 msgid "Licenses"
 msgstr "Licencias"
 
-#: src/gui/gui.cc:1660
+#: src/gui/gui.cc:1659
 msgid "OpenGL information"
 msgstr "Información sobre OpenGL"
 
-#: src/gui/gui.cc:1662
+#: src/gui/gui.cc:1661
 msgid "OpenGL error reporting: enabled"
 msgstr "Informe de errores de OpenGL: activado"
 
-#: src/gui/gui.cc:1664
+#: src/gui/gui.cc:1663
 msgid "OpenGL error reporting: disabled"
 msgstr "Informe de errores de OpenGL: desactivado"
 
-#: src/gui/gui.cc:1667
+#: src/gui/gui.cc:1666
 msgid ""
 "OpenGL error reporting has been disabled because your OpenGL driver is too "
 "old. Error reporting requires at least OpenGL 4.3. Please update your "
@@ -2174,11 +2179,11 @@ msgstr ""
 "pero ciertos códigos personalizados, como el editor de shaders, no podrán "
 "informar debidamente de cualquier problema que pueda ocurrir."
 
-#: src/gui/gui.cc:1675
+#: src/gui/gui.cc:1674
 msgid "Enable OpenGL error reporting"
 msgstr "Activar informe de errores de OpenGL"
 
-#: src/gui/gui.cc:1678
+#: src/gui/gui.cc:1677
 msgid ""
 "OpenGL error reporting is necessary for properly reporting OpenGL problems. "
 "However it requires OpenGL 4.3+ and might have performance repercussions on "
@@ -2189,101 +2194,101 @@ msgstr ""
 "necesaria la versión 4.3 o superior de OpenGL y esto podría afectar al "
 "rendimiento de algunos equipos (es necesario reiniciar el emulador)."
 
-#: src/gui/gui.cc:1682
+#: src/gui/gui.cc:1681
 msgid "OpenGL error reporting severity"
 msgstr "Gravedad de los informes de errores de OpenGL"
 
-#: src/gui/gui.cc:1685
+#: src/gui/gui.cc:1684
 #, c-format
 msgid "Core profile: %s"
 msgstr "Perfil de núcleo: %s"
 
-#: src/gui/gui.cc:1685 src/gui/widgets/assembly.cc:627
+#: src/gui/gui.cc:1684 src/gui/widgets/assembly.cc:627
 msgid "no"
 msgstr "no"
 
-#: src/gui/gui.cc:1685 src/gui/widgets/assembly.cc:627
+#: src/gui/gui.cc:1684 src/gui/widgets/assembly.cc:627
 #: src/gui/widgets/spusamples.cc:332
 msgid "yes"
 msgstr "sí"
 
-#: src/gui/gui.cc:1686
+#: src/gui/gui.cc:1685
 msgid "Vendor"
 msgstr "Proveedor"
 
-#: src/gui/gui.cc:1687
+#: src/gui/gui.cc:1686
 msgid "Renderer"
 msgstr "Renderizador"
 
-#: src/gui/gui.cc:1689
+#: src/gui/gui.cc:1688
 msgid "Shading language version"
 msgstr "Versión del lenguaje de shaders"
 
-#: src/gui/gui.cc:1692
+#: src/gui/gui.cc:1691
 #, c-format
 msgid "Texture units: %d"
 msgstr "Unidades de textura: %d"
 
-#: src/gui/gui.cc:1695
+#: src/gui/gui.cc:1694
 msgid "Extensions:"
 msgstr "Extensiones:"
 
-#: src/gui/gui.cc:1713
+#: src/gui/gui.cc:1712
 #, fuzzy
 msgid "Unknown controller"
 msgstr "Mando"
 
-#: src/gui/gui.cc:1715
+#: src/gui/gui.cc:1714
 #, c++-format
 msgid "Controller connected: {} (port {})"
 msgstr ""
 
-#: src/gui/gui.cc:1716
+#: src/gui/gui.cc:1715
 #, c++-format
 msgid "Controller disconnected: {} (port {})"
 msgstr ""
 
-#: src/gui/gui.cc:1720
+#: src/gui/gui.cc:1719
 #, fuzzy, c++-format
 msgid "Controller connected: {}"
 msgstr "Tipo de mando"
 
-#: src/gui/gui.cc:1720
+#: src/gui/gui.cc:1719
 #, c++-format
 msgid "Controller disconnected: {}"
 msgstr ""
 
-#: src/gui/gui.cc:1902
+#: src/gui/gui.cc:1901
 #, c++-format
 msgid "State saved to {}"
 msgstr "Estado guardado en {}"
 
-#: src/gui/gui.cc:1904
+#: src/gui/gui.cc:1903
 #, c++-format
 msgid "Failed to save state to {}"
 msgstr "Error al guardar estado en {}"
 
-#: src/gui/gui.cc:1915 src/gui/gui.cc:1937
+#: src/gui/gui.cc:1914 src/gui/gui.cc:1936
 #, c++-format
 msgid "Failed to load state from {}"
 msgstr "Error al cargar estado de {}"
 
-#: src/gui/gui.cc:1940
+#: src/gui/gui.cc:1939
 #, c++-format
 msgid "State loaded from {}"
 msgstr "Estado cargado de {}"
 
-#: src/gui/gui.cc:2203
+#: src/gui/gui.cc:2202
 #, c++-format
 msgid "Screenshot saved to {}\n"
 msgstr "Pantalla capturada en {}\n"
 
-#: src/gui/gui.cc:2205
+#: src/gui/gui.cc:2204
 #, fuzzy, c++-format
 msgid "Screenshot saved to {}"
 msgstr "Pantalla capturada en {}\n"
 
-#: src/gui/gui.cc:2207
+#: src/gui/gui.cc:2206
 msgid "Failed to save screenshot"
 msgstr "Error al guardar captura de pantalla"
 
@@ -2439,7 +2444,7 @@ msgstr ""
 msgid "Columns"
 msgstr "Columnas"
 
-#: src/gui/widgets/assembly.cc:594 src/gui/widgets/emulation-config.cc:200
+#: src/gui/widgets/assembly.cc:594 src/gui/widgets/emulation-config.cc:201
 msgid "Enable Debugger"
 msgstr "Activar depurador"
 
@@ -3307,11 +3312,11 @@ msgstr ""
 "de memoria no inicializada que podrían\n"
 "dar problemas en algunos casos.\n"
 
-#: src/gui/widgets/emulation-config.cc:94
+#: src/gui/widgets/emulation-config.cc:95
 msgid "OpenGL GPU *ALPHA STATE*"
 msgstr "GPU por OpenGL *EN ESTADO PRELIMINAR/ALFA*"
 
-#: src/gui/widgets/emulation-config.cc:95
+#: src/gui/widgets/emulation-config.cc:96
 msgid ""
 "Enables the OpenGL GPU renderer.\n"
 "This is not recommended for normal use at the moment,\n"
@@ -3326,11 +3331,11 @@ msgstr ""
 "por software. Es necesario reiniciar al cambiar\n"
 "este ajuste."
 
-#: src/gui/widgets/emulation-config.cc:100
+#: src/gui/widgets/emulation-config.cc:101
 msgid "2MB VRAM"
 msgstr "2 MB de VRAM"
 
-#: src/gui/widgets/emulation-config.cc:101
+#: src/gui/widgets/emulation-config.cc:102
 #, fuzzy
 msgid ""
 "Emulates a console fitted with 2MB of VRAM\n"
@@ -3347,15 +3352,15 @@ msgstr ""
 "compatible con el renderizador por software, la GPU\n"
 "por OpenGL no es compatible. Es necesario reiniciar."
 
-#: src/gui/widgets/emulation-config.cc:110
+#: src/gui/widgets/emulation-config.cc:111
 msgid "Rewind capture interval (frames; 0 = disabled)"
 msgstr "Intervalo de capturas de rebobinado (en fotogramas, 0 = desactivar)"
 
-#: src/gui/widgets/emulation-config.cc:115
+#: src/gui/widgets/emulation-config.cc:116
 msgid "Rewind history depth (snapshots)"
 msgstr "Profundidad del historial de rebobinado (en capturas)"
 
-#: src/gui/widgets/emulation-config.cc:119
+#: src/gui/widgets/emulation-config.cc:120
 msgid ""
 "Captures an in-memory save state every N frames\n"
 "and keeps the last M of them; press Backspace (or\n"
@@ -3373,23 +3378,23 @@ msgstr ""
 "aproximado es del valor de la profundidad * 18 MB.\n"
 "Introduce 0 para desactivar esta característica."
 
-#: src/gui/widgets/emulation-config.cc:133
+#: src/gui/widgets/emulation-config.cc:134
 msgid "NTSC"
 msgstr "NTSC"
 
-#: src/gui/widgets/emulation-config.cc:133
+#: src/gui/widgets/emulation-config.cc:134
 msgid "PAL"
 msgstr "PAL"
 
-#: src/gui/widgets/emulation-config.cc:136
+#: src/gui/widgets/emulation-config.cc:137
 msgid "System Type"
 msgstr "Tipo de sistema"
 
-#: src/gui/widgets/emulation-config.cc:155
+#: src/gui/widgets/emulation-config.cc:156
 msgid "Fast boot"
 msgstr "Arranque rápido"
 
-#: src/gui/widgets/emulation-config.cc:156
+#: src/gui/widgets/emulation-config.cc:157
 msgid ""
 "This will cause the BIOS to skip the shell,\n"
 "which may include additional checks.\n"
@@ -3401,11 +3406,11 @@ msgstr ""
 "También reducirá considerablemente\n"
 "el tiempo de arranque al no mostrar el logotipo."
 
-#: src/gui/widgets/emulation-config.cc:161
+#: src/gui/widgets/emulation-config.cc:162
 msgid "Randomize CD-ROM timings"
 msgstr "Aleatorizar sincronización del CD-ROM"
 
-#: src/gui/widgets/emulation-config.cc:162
+#: src/gui/widgets/emulation-config.cc:163
 msgid ""
 "The CD-ROM drive timings carry a small\n"
 "amount of jitter, like a real drive. By default\n"
@@ -3421,30 +3426,30 @@ msgstr ""
 "opción, se elegirá una secuencia distinta cada vez\n"
 "que se encienda la consola."
 
-#: src/gui/widgets/emulation-config.cc:168
+#: src/gui/widgets/emulation-config.cc:169
 msgid "BIOS file"
 msgstr "Archivo de BIOS"
 
-#: src/gui/widgets/emulation-config.cc:174
+#: src/gui/widgets/emulation-config.cc:175
 msgid "(settings folder)"
 msgstr ""
 
-#: src/gui/widgets/emulation-config.cc:178
+#: src/gui/widgets/emulation-config.cc:179
 #, fuzzy
 msgid "Reset"
 msgstr "Reiniciar todo"
 
-#: src/gui/widgets/emulation-config.cc:196
+#: src/gui/widgets/emulation-config.cc:197
 #, fuzzy
 msgid "Screenshot folder"
 msgstr "Capturar pantalla"
 
-#: src/gui/widgets/emulation-config.cc:198
+#: src/gui/widgets/emulation-config.cc:199
 #, fuzzy
 msgid "Save state folder"
 msgstr "Guardar un estado de guardado"
 
-#: src/gui/widgets/emulation-config.cc:207
+#: src/gui/widgets/emulation-config.cc:208
 msgid ""
 "This will enable the usage of various breakpoints\n"
 "throughout the execution of mips code. Enabling this\n"
@@ -4809,44 +4814,44 @@ msgstr "Encendido"
 msgid "Select EXP1"
 msgstr "Seleccionar EXP1"
 
-#: src/gui/widgets/pocketstation.cc:69
+#: src/gui/widgets/pocketstation.cc:68
 msgid ""
 "No PocketStation device.\n"
 "Enable PocketStation mode on a memory card slot and set the\n"
 "PocketStation BIOS path in the configuration to create one."
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:83
+#: src/gui/widgets/pocketstation.cc:82
 #, c-format
 msgid "Slot %u: %s"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:83
+#: src/gui/widgets/pocketstation.cc:82
 msgid "docked in the PlayStation"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:83
+#: src/gui/widgets/pocketstation.cc:82
 msgid "undocked"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:85
+#: src/gui/widgets/pocketstation.cc:84
 msgid "Dock"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:85
+#: src/gui/widgets/pocketstation.cc:84
 #, fuzzy
 msgid "Undock"
 msgstr "Deshacer"
 
-#: src/gui/widgets/pocketstation.cc:88
+#: src/gui/widgets/pocketstation.cc:87
 msgid "(manual)"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:130
+#: src/gui/widgets/pocketstation.cc:129
 msgid ", rotated"
 msgstr ""
 
-#: src/gui/widgets/pocketstation.cc:130
+#: src/gui/widgets/pocketstation.cc:129
 #, c-format
 msgid "LCD mode: %08X (%s%s)"
 msgstr ""
