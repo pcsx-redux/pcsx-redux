@@ -767,6 +767,10 @@ void PCSX::GdbClient::processCommand() {
     } else if (m_cmd[0] == 'm') {
         // read memory
         auto [off, len] = parseCursor(m_cmd.substr(1));
+        // the reply may hold fewer bytes than asked for; keep it within the PacketSize we advertise
+        // in qSupported, 0x47ff, minus the $ and #xx framing, at two hex digits per byte
+        static constexpr uint64_t maxRead = (0x47ff - 4) / 2;
+        if (len > maxRead) len = maxRead;
         startStream();
         IO<File> memFile = g_emulator->m_mem->getMemoryAsFile();
         memFile->rSeek(off);
