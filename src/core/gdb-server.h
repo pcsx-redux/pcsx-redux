@@ -203,6 +203,8 @@ class GdbClient : public Intrusive::List<GdbClient>::Node {
     // gdb complains about invalid responses, and toggle this accordingly.
     bool m_canReceiveLogs = false;
     std::string m_cmd;
+    // the stop reply's reason field for the pending trap, "watch:80010000;" and the like
+    std::string m_stopReason;
     uint8_t m_crc;
     EventBus::Listener m_listener;
     uv_loop_t* m_loop;

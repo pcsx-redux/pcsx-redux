@@ -164,7 +164,7 @@ TEST(LuaWebServer, Interpreter) {
     EXPECT_EQ(runLuaInt("-webserver", "-webserver-port", "34568", "-exec", "require 'tests.lua.webserver'"), 0);
 }
 TEST(LuaGdbServer, Interpreter) {
-    EXPECT_EQ(runLuaInt("-gdb", "-gdb-port", "3464", "-exec", "require 'tests.lua.gdbserver'"), 0);
+    EXPECT_EQ(runLuaInt("-debugger", "-gdb", "-gdb-port", "3464", "-exec", "require 'tests.lua.gdbserver'"), 0);
 }
 TEST(LuaIsoBuilder, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.isobuilder"), 0); }
 TEST(LuaIsoBuilder, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.isobuilder"), 0); }
