@@ -182,19 +182,28 @@ bool PCSX::CDRIso::parsecue(const char *isofileString) {
 
     m_cdHandle.setFile(reinterpret_cast<UvFile *>(disc.tracks[1].file->opaque));
 
+    // INDEX 00 sectors are in the file, PREGAP ones aren't.
+    auto inFilePregap = [](const CueTrack *track) -> uint32_t {
+        return track->indices[1] - track->indices[0] - track->pregap;
+    };
+
     for (unsigned i = 1; i <= disc.trackCount; i++) {
         CueTrack *track = &disc.tracks[i];
         File *fi = reinterpret_cast<File *>(track->file->opaque);
-        // track->size counts the sectors of a PREGAP directive, which aren't in the file, so stop the
-        // track at the next track's INDEX 01 in the same file, or at the end of the file.
-        uint32_t start = track->indices[1] - track->fileOffset;
+        // The track's data starts at its INDEX 00, when that pregap is in the file, and stops where the
+        // next track's data starts in the same file, or at the end of the file. A PREGAP directive's
+        // sectors are in track->size but not in the file.
+        uint32_t pregapInFile = inFilePregap(track);
+        uint32_t start = track->indices[1] - track->fileOffset - pregapInFile;
         uint32_t end = fi->size() / 2352;
         if (i < disc.trackCount) {
             CueTrack *next = &disc.tracks[i + 1];
-            if (next->file == track->file) end = next->indices[1] - next->fileOffset;
+            if (next->file == track->file) end = next->indices[1] - next->fileOffset - inFilePregap(next);
         }
-        uint32_t size = end > start ? std::min(track->size, end - start) : 0;
+        uint32_t size = end > start ? std::min(track->size - track->pregap, end - start) : 0;
         m_ti[i].handle.setFile(new SubFile(fi, start * 2352, size * 2352));
+        m_ti[i].pregapInFile = pregapInFile;
+        m_ti[i].pregapVirtual = track->pregap;
         m_ti[i].type = track->trackType == TRACK_TYPE_AUDIO ? TrackType::CDDA : TrackType::DATA;
         m_ti[i].cddatype = track->compressed ? trackinfo::CCDDA : trackinfo::BIN;
         m_ti[i].start = IEC60908b::MSF(track->indices[1] + 150);
