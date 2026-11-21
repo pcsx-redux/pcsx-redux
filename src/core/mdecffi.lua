@@ -76,8 +76,8 @@ PCSX.MDEC = {
         dimension(width, 'encodeBS', 'width')
         dimension(height, 'encodeBS', 'height')
         if maxBytes == nil then maxBytes = 0 end
-        if type(maxBytes) ~= 'number' or maxBytes < 0 or maxBytes > 0xffffffff then
-            error('encodeBS: maxBytes must be nil or a number in 0..4294967295')
+        if type(maxBytes) ~= 'number' or maxBytes < 0 or maxBytes > 0xffffffff or maxBytes % 1 ~= 0 then
+            error('encodeBS: maxBytes must be nil or an integer in 0..4294967295')
         end
         if size < width * height * 3 then
             error('encodeBS: input too small, needs ' .. width * height * 3 .. ' bytes')

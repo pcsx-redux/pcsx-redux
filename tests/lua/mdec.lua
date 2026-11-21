@@ -144,4 +144,15 @@ function TestMdec:test_badArgumentsRaise()
     lu.assertErrorMsgContains('input must be', PCSX.MDEC.decodeBS, 42, 64, 48)
     lu.assertErrorMsgContains('width must be', PCSX.MDEC.encodeBS, '', 0, 48)
     lu.assertErrorMsgContains('input too small', PCSX.MDEC.encodeBS, 'abc', 64, 48)
+    lu.assertErrorMsgContains('maxBytes must be', PCSX.MDEC.encodeBS, gradient(16, 16), 16, 16, 0.5)
+end
+
+-- A black block coarsened to q_scale 63 starts with 0xfe00, which a BS reader
+-- takes for padding; the encoder must refuse the frame rather than drop it.
+function TestMdec:test_blockLostToPaddingIsAnError()
+    local black = string.rep('\0', 16 * 16 * 3)
+    local bs, err = PCSX.MDEC.encodeBS(black, 16, 16, 16)
+    lu.assertNil(bs)
+    lu.assertStrContains(err, '0xfe00')
+    lu.assertNotNil(PCSX.MDEC.encodeBS(black, 16, 16))
 end

@@ -140,6 +140,12 @@ PCSX::STR::FrameResult PCSX::STR::encodeFrame(DCT::Encoder &encoder, const Plane
         if (runLevelOver) continue;
         const auto wrap = DCT::toContainer(stream, DCT::Container::Bs, bs);
         if (wrap.failed) return fail(FrameResult::Failure::Container, wrap.error);
+        if (wrap.blocks != shape.blockCount) {
+            return fail(FrameResult::Failure::Container,
+                        fmt::format("the BS stream holds {} of the frame's {} blocks: a last block reading 0xfe00 "
+                                    "(q_scale 63, dc -512, no ACs) is taken for padding",
+                                    wrap.blocks, shape.blockCount));
+        }
         if (!budget || bs.size() <= budget) break;
     }
     result.runLevel = runLevel;
