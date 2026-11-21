@@ -76,6 +76,7 @@ nav:
       - 'Lua/assembler.md'
       - 'Lua/binary.md'
       - 'Lua/compression.md'
+      - 'Lua/mdec.md'
       - 'Lua/sqlite.md'
       - 'Lua/text-tables.md'
       - 'Lua/guest-calls.md'
