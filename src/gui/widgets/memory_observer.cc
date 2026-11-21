@@ -498,9 +498,9 @@ void PCSX::Widgets::MemoryObserver::draw(const char* title) {
                 m_searchedSequenceLength = strlen(m_sequence);
                 if (m_sequence[0] == '\0') {
                     m_addresses.clear();
-                } else if (m_useSIMD && m_sequenceSize == 8) {
+                } else if (m_useSIMD && m_sequenceSize == 8 && m_searchedSequenceLength == 8) {
                     simd_populateAddressList<8>(memData, memBase, memSize);
-                } else if (m_useSIMD && m_sequenceSize == 16) {
+                } else if (m_useSIMD && m_sequenceSize == 16 && m_searchedSequenceLength == 16) {
                     simd_populateAddressList<16>(memData, memBase, memSize);
                 } else {
                     populateAddressList(memData, memBase, memSize);
@@ -603,20 +603,6 @@ int PCSX::Widgets::MemoryObserver::getMemValue(uint32_t absoluteAddress, const u
     }
     return memValue;
 }
-
-#ifdef MEMORY_OBSERVER_X86
-// Check if all bytes in a 256-bit vector are equal
-// Broadcasts byte 0 of the vector to 256 bits, then xors the result with the starting vector
-// If the resulting vector is 0, then all bytes in the 256-bit vector are equal
-AVX2_FUNC bool PCSX::Widgets::MemoryObserver::all_equal(__m256i vec) {
-    const __m128i vec128 = _mm256_castsi256_si128(vec);
-    const __m256i broadcasted = _mm256_broadcastb_epi8(vec128);
-    const __m256i res = _mm256_xor_si256(vec, broadcasted);
-
-    // Check if the vector after xoring is 0
-    return _mm256_testz_si256(res, res) != 0;
-}
-#endif  // MEMORY_OBSERVER_X86
 
 std::vector<uint8_t> PCSX::Widgets::MemoryObserver::getShuffleResultsFor(const std::vector<uint8_t>& buffer) {
     const size_t bufferSize = buffer.size();
