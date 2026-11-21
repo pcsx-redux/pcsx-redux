@@ -63,9 +63,11 @@ class VramExecutor : public PCSX::WebExecutor {
     }
     virtual bool execute(PCSX::WebClient* client, PCSX::RequestData& request) final {
         if (request.method == PCSX::RequestData::Method::HTTP_HTTP_GET) {
+            auto vram = PCSX::g_emulator->m_gpu->getVRAM();
             client->write(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: 1048576\r\n\r\n");
-            client->write(PCSX::g_emulator->m_gpu->getVRAM());
+                fmt::format("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n",
+                            vram.size()));
+            client->write(std::move(vram));
 
             return true;
         } else if (request.method == PCSX::RequestData::Method::HTTP_POST) {
