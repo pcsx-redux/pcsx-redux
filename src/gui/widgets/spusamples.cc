@@ -57,6 +57,32 @@ void PCSX::Widgets::SPUSamples::decode(const uint8_t* spuRam, const Sample& samp
     }
 }
 
+namespace {
+
+// A sample that repeats with no loop-start flag jumps, at its end, to whatever the voice's loop
+// register holds. When the game set that register to an address inside the sample at its
+// key-ons, the most frequent such address is its loop, the lowest one on a tie. Anything else
+// stays a one-shot.
+void applyGameLoop(PCSX::Widgets::SPUSamples::Sample& s) {
+    s.gameLoop = false;
+    if (s.truncated || !s.repeats || s.hasLoop) return;
+    uint32_t best = 0, bestCount = 0;
+    // keyOnLoops is ordered by address, so the first of several equal counts is the lowest.
+    for (auto [address, count] : s.keyOnLoops) {
+        if (address < s.start || address >= s.end) continue;
+        if (count > bestCount) {
+            best = address;
+            bestCount = count;
+        }
+    }
+    if (bestCount == 0) return;
+    s.loop = best;
+    s.hasLoop = true;
+    s.gameLoop = true;
+}
+
+}  // namespace
+
 std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
                                                           const std::map<uint32_t, Sample>& samples) {
     std::vector<SF2::Sample> out;
@@ -68,6 +94,8 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         static_cast<SPUSample::Extent&>(s) = SPUSample::walk(spuRam, start);
         if (s.truncated) continue;
         s.signature = SPUSample::signature(spuRam, s);
+        if (s.signature != cached.pitchesSignature) s.keyOnLoops.clear();
+        applyGameLoop(s);
         SF2::Sample& o = out.emplace_back();
         o.name = fmt::format("{:016x}", s.signature);
         o.pcm = SPU::decodeSample(spuRam, s);
@@ -105,8 +133,9 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         "note 69 is 440 Hz, A4 in scientific pitch notation (A3 where middle C is C3). Unpitched samples have "
         "root key 255 and play on note 60 at their stored rate. Each pitched sample's fundamental was checked "
         "against the pitches the game keyed it on with, which land on whole notes when the game is tuned to A440; "
-        "an octave error is not caught by this check. Loops come from the ADPCM loop flags only; a loop address "
-        "the game wrote to the voice register is not exported. Each spu-sample line records a sample's size in sound "
+        "an octave error is not caught by this check. Loops come from the ADPCM loop flags; a sample that repeats "
+        "with no loop-start flag loops to the address the game most often had in the voice's loop register at its "
+        "key-ons, when that address is inside the sample. Each spu-sample line records a sample's size in sound "
         "RAM and its note at pitch 1000h as measured here, which its replacement is tuned against; keep these lines "
         "when editing the bank.";
     // ICMT is limited to 65536 bytes, terminator included. The lists stop at a whole name, with
@@ -151,18 +180,26 @@ void PCSX::Widgets::SPUSamples::rebuild(PCSX::SPULogger* logger, const uint8_t* 
         m_samples.clear();
         m_lastSeen = 0;
         m_lastClears = logger->clears();
+        m_voiceLoops = {};
     }
     const size_t fresh = size_t(std::min<uint64_t>(seen - m_lastSeen, count));
     // Events dropped by the ring since the last refresh hide any content swaps they covered.
     const bool gap = seen - m_lastSeen > count;
+    if (gap) m_voiceLoops = {};
     std::map<uint32_t, RootKey::PitchCounts> freshPitches;
+    std::map<uint32_t, std::map<uint32_t, uint32_t>> freshLoops;
     for (size_t i = count - fresh; i < count; i++) {
         const auto& ev = (*logger)[i];
+        if (ev.kind == PCSX::SPULogger::Kind::VoiceLoop) {
+            if (ev.voice < m_voiceLoops.size()) m_voiceLoops[ev.voice] = ev.address;
+            continue;
+        }
         if (ev.kind != PCSX::SPULogger::Kind::KeyOn) continue;
         auto& s = m_samples[ev.address];
         s.keyOns++;
         freshPitches[ev.address][uint16_t(ev.value)]++;
         if (ev.voice < 32) s.voiceMask |= 1u << ev.voice;
+        if (ev.voice < m_voiceLoops.size() && m_voiceLoops[ev.voice]) freshLoops[ev.address][*m_voiceLoops[ev.voice]]++;
     }
     m_lastSeen = seen;
 
@@ -181,6 +218,7 @@ void PCSX::Widgets::SPUSamples::rebuild(PCSX::SPULogger* logger, const uint8_t* 
         const bool replaced = gap || (s.pitchesSignature != 0 && s.pitchesSignature != s.signature);
         if (gap || s.pitchesSignature != s.signature) {
             s.pitches.clear();
+            s.keyOnLoops.clear();
             s.pitchesSignature = s.signature;
         }
         if (auto p = freshPitches.find(start); p != freshPitches.end()) {
@@ -194,8 +232,16 @@ void PCSX::Widgets::SPUSamples::rebuild(PCSX::SPULogger* logger, const uint8_t* 
                 s.pitchesDropped = false;
             }
         }
-        auto f = m_fundamentals.find(s.signature);
-        if (f == m_fundamentals.end()) f = m_fundamentals.emplace(s.signature, SPU::sampleFundamental(spuRam, s)).first;
+        if (auto l = freshLoops.find(start); l != freshLoops.end() && !replaced) {
+            for (auto [address, n] : l->second) {
+                auto& count = s.keyOnLoops[address];
+                count = n > UINT32_MAX - count ? UINT32_MAX : count + n;
+            }
+        }
+        applyGameLoop(s);
+        const std::pair<uint64_t, uint32_t> key{s.signature, s.hasLoop ? s.loop - s.start : ~0u};
+        auto f = m_fundamentals.find(key);
+        if (f == m_fundamentals.end()) f = m_fundamentals.emplace(key, SPU::sampleFundamental(spuRam, s)).first;
         s.root = RootKey::combineCounts(f->second, s.pitches);
     }
 
@@ -295,7 +341,7 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
             ImGui::TextUnformatted(fmt::format("{}", (s.end - start) / c_blockSize * 28).c_str());
             ImGui::TableSetColumnIndex(3);
             if (s.repeats && s.hasLoop) {
-                ImGui::TextUnformatted(fmt::format("{:05x}", s.loop).c_str());
+                ImGui::TextUnformatted(fmt::format("{:05x}{}", s.loop, s.gameLoop ? _(" (register)") : "").c_str());
             } else if (s.repeats) {
                 ImGui::TextUnformatted(_("repeat"));
             } else {
