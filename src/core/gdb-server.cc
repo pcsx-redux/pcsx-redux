@@ -26,6 +26,8 @@
 #include <uv.h>
 
 #include <magic_enum/magic_enum_all.hpp>
+#include <string_view>
+#include <vector>
 
 #include "core/cdrom.h"
 #include "core/debug.h"
@@ -735,16 +737,31 @@ void PCSX::GdbClient::processCommand() {
             write("OK");
             return;
         }
-        size_t i = 0;
+        // the data has to be there, hex, and exactly len bytes long, or nothing gets written
+        auto colon = m_cmd.find(':');
+        if (colon == std::string::npos) {
+            write("E01");
+            return;
+        }
+        const std::string_view data = std::string_view(m_cmd).substr(colon + 1);
+        if (data.length() != len * 2) {
+            write("E01");
+            return;
+        }
+        std::vector<uint8_t> bytes;
+        bytes.reserve(len);
+        for (size_t i = 0; i < len; i++) {
+            int hi = fromHexChar(data[i * 2 + 0]);
+            int lo = fromHexChar(data[i * 2 + 1]);
+            if ((hi < 0) || (lo < 0)) {
+                write("E01");
+                return;
+            }
+            bytes.push_back((hi << 4) | lo);
+        }
         IO<File> memFile = g_emulator->m_mem->getMemoryAsFile();
         memFile->wSeek(off);
-        while (len--) {
-            uint8_t c = fromHexChar(elements[1][i * 2 + 0]);
-            c <<= 4;
-            c |= fromHexChar(elements[1][i * 2 + 1]);
-            memFile->write(c);
-            i++;
-        }
+        for (auto c : bytes) memFile->write(c);
         write("OK");
     } else if (m_cmd[0] == 'm') {
         // read memory

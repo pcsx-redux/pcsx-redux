@@ -120,6 +120,17 @@ function TestGdbServer:test_single_digit_register_numbers()
     lu.assertEquals(request('p1d'), '00FE1F80')
 end
 
+-- A memory write whose data is missing, short or not hex is refused and writes nothing.
+function TestGdbServer:test_malformed_memory_write()
+    lu.assertEquals(request('M80010000,4:' .. le32(0x11223344)), 'OK')
+    lu.assertEquals(request('M80010000,4'), 'E01')
+    lu.assertEquals(request('M80010000,0'), 'E01')
+    lu.assertEquals(request('M80010000,0:'), 'OK')
+    lu.assertEquals(request('M80010000,4:1234'), 'E01')
+    lu.assertEquals(request('M80010000,4:zz223344'), 'E01')
+    lu.assertEquals(request('m80010000,4'), '44332211')
+end
+
 -- A bad register packet is an error reply, and the connection stays usable after it.
 function TestGdbServer:test_malformed_register_packet_keeps_connection()
     lu.assertEquals(request('P4=1234'), 'E00')
