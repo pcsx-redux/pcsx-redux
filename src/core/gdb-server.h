@@ -97,6 +97,7 @@ class GdbClient : public Intrusive::List<GdbClient>::Node {
 
     void startStream() {
         m_crc = 0;
+        m_lastPacket = "$";
         Slice raw;
         raw.copy("$", 1);
         sendRaw(std::move(raw));
@@ -106,6 +107,7 @@ class GdbClient : public Intrusive::List<GdbClient>::Node {
         for (int i = 0; i < data.length(); i++) {
             m_crc += data[i];
         }
+        m_lastPacket += data;
         Slice raw;
         raw.copy(data.data(), data.size());
         sendRaw(std::move(raw));
@@ -115,6 +117,7 @@ class GdbClient : public Intrusive::List<GdbClient>::Node {
         char end[3] = {'#'};
         end[1] = toHex[m_crc >> 4];
         end[2] = toHex[m_crc & 0x0f];
+        m_lastPacket.append(end, 3);
         Slice raw;
         raw.copy(end, 3);
         sendRaw(std::move(raw));
@@ -208,6 +211,8 @@ class GdbClient : public Intrusive::List<GdbClient>::Node {
     uint8_t m_crc;
     EventBus::Listener m_listener;
     uv_loop_t* m_loop;
+    // the last packet sent, framed, for when the client answers '-'
+    std::string m_lastPacket;
     Debug::BreakpointUserListType m_breakpoints;
 };
 

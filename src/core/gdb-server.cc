@@ -102,6 +102,7 @@ void PCSX::GdbClient::sendPacket(Slice&& payload) {
     framed += '#';
     framed += toHex[chksum >> 4];
     framed += toHex[chksum & 0x0f];
+    m_lastPacket = framed;
     Slice out;
     out.acquire(std::move(framed));
     m_connection->write(std::move(out));
@@ -349,7 +350,12 @@ void PCSX::GdbClient::processData(const Slice& slice) {
                     }
                 }
             case WAIT_FOR_DOLLAR:
-                if (c == '+') sendAck();
+                // '+' acknowledges what we sent and needs no answer; '-' asks for it again
+                if ((c == '-') && m_ackEnabled && !m_lastPacket.empty()) {
+                    Slice again;
+                    again.copy(m_lastPacket);
+                    sendRaw(std::move(again));
+                }
                 if (c == 3) g_system->pause();
                 if (c != '$') break;
                 m_state = READING_COMMAND;

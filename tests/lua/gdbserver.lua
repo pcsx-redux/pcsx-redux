@@ -109,6 +109,31 @@ local function le32(value)
     return s
 end
 
+-- Writes raw bytes, then waits until what the stub sent back matches the pattern, and returns all
+-- of it. For the framing tests, where request() would hide the acks.
+local function rawExchange(bytes, pattern)
+    connect()
+    client:write(bytes)
+    while not buffer:find(pattern) do
+        local co = coroutine.running()
+        local timer = luv.new_timer()
+        local timedOut = false
+        timer:start(5000, 0, function()
+            timedOut = true
+            waiter = nil
+            coroutine.resume(co)
+        end)
+        waiter = co
+        coroutine.yield()
+        timer:stop()
+        timer:close()
+        lu.assertFalse(timedOut, 'got ' .. buffer .. ' waiting for ' .. pattern)
+    end
+    local got = buffer
+    buffer = ''
+    return got
+end
+
 -- gdb sends the register number in hex without padding: an inferior call writes a0 as P4=...
 function TestGdbServer:test_single_digit_register_numbers()
     local regs = PCSX.getRegisters()
@@ -140,6 +165,15 @@ function TestGdbServer:test_malformed_register_packet_keeps_connection()
     lu.assertEquals(request('pzz'), 'E00')
     lu.assertEquals(request('P5=' .. le32(0xcafe)), 'OK')
     lu.assertEquals(PCSX.getRegisters().GPR.n.a1, 0xcafe)
+end
+
+-- Acks are not acked back, and a '-' gets the last packet sent again.
+function TestGdbServer:test_acks()
+    PCSX.getRegisters().GPR.n.a0 = 0x3333
+    local reply = '$33330000#' .. checksum('33330000'):upper()
+    lu.assertEquals(rawExchange('+$p4#' .. checksum('p4'), '#%x%x$'), '+' .. reply)
+    lu.assertEquals(rawExchange('-', '#%x%x$'), reply)
+    client:write('+')
 end
 
 -- Removing a gdb watchpoint leaves alone the breakpoints gdb did not set.
