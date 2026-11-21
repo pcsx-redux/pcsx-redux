@@ -154,6 +154,13 @@ function TestGdbServer:test_bad_checksum_is_refused()
     lu.assertEquals(got, '-+$11110000#' .. checksum('11110000'):upper())
     lu.assertEquals(PCSX.getRegisters().GPR.n.a0, 0x1111)
     client:write('+')
+    -- a packet cut off by the next '$' before its checksum, at any point, is dropped too
+    for _, cut in ipairs({ '', '#', '#0' }) do
+        got = rawExchange('$' .. bad .. cut .. '$' .. good .. '#' .. checksum(good), '#%x%x$')
+        lu.assertEquals((got:gsub('^%++', '')), '$11110000#' .. checksum('11110000'):upper())
+        lu.assertEquals(PCSX.getRegisters().GPR.n.a0, 0x1111)
+        client:write('+')
+    end
 end
 
 -- A memory write whose data is missing, short or not hex is refused and writes nothing.

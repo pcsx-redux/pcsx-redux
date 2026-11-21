@@ -357,7 +357,7 @@ void PCSX::GdbClient::processData(const Slice& slice) {
                 break;
             case READING_COMMAND:
                 if (c == '$') {
-                    processCommand();
+                    // a packet cut off before its checksum is dropped, and this one starts over
                     m_cmd.clear();
                     m_inSum = 0;
                     break;
@@ -381,8 +381,8 @@ void PCSX::GdbClient::processData(const Slice& slice) {
                 break;
             case READING_CRC_FIRST_CHAR:
                 if (c == '$') {
-                    processCommand();
                     m_cmd.clear();
+                    m_inSum = 0;
                     m_state = READING_COMMAND;
                     break;
                 } else {
@@ -393,7 +393,6 @@ void PCSX::GdbClient::processData(const Slice& slice) {
             case READING_CRC_SECOND_CHAR:
                 if (c == '$') {
                     m_state = READING_COMMAND;
-                    processCommand();
                     m_cmd.clear();
                     m_inSum = 0;
                     break;
