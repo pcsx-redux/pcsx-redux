@@ -858,13 +858,13 @@ void PCSX::GdbClient::processCommand() {
         startReverse(false);
     } else if (m_cmd == "bc") {
         startReverse(true);
-    } else if (m_cmd == "Hc0") {
-        // thread stuff
+    } else if ((m_cmd.length() > 2) && (m_cmd[0] == 'H') && ((m_cmd[1] == 'c') || (m_cmd[1] == 'g'))) {
+        // there's only the one thread, so selecting any of them selects it
         write("OK");
-    } else if (m_cmd == "Hc-1") {
-        write("OK");
-    } else if (m_cmd == "Hg0") {
-        write("OK");
+    } else if (m_cmd[0] == 'T') {
+        // is the thread alive: the main thread always is, and there's no other
+        auto thread = m_cmd.substr(1);
+        write(((thread == "1") || (thread == "p1.1")) ? "OK" : "E01");
     } else if (StringsHelpers::startsWith(m_cmd, "vKill;")) {
         write("OK");
     } else if (StringsHelpers::startsWith(m_cmd, qSupported)) {
