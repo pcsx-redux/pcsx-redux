@@ -26,6 +26,8 @@
 #include <multipart_parser.h>
 #include <uv.h>
 
+#include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <magic_enum/magic_enum_all.hpp>
 #include <map>
@@ -1033,10 +1035,52 @@ struct PCSX::WebClient::WebClientImpl {
         m_currentValue += slice.asString();
         return 0;
     }
+    static bool equalsNoCase(std::string_view a, std::string_view b) {
+        return std::equal(a.begin(), a.end(), b.begin(), b.end(),
+                          [](unsigned char x, unsigned char y) { return std::tolower(x) == std::tolower(y); });
+    }
+    // Pulls the name parameter out of a Content-Disposition value such as: form-data; name="a"; filename="f"
+    static std::string dispositionName(std::string_view value) {
+        size_t pos = 0;
+        while ((pos = value.find("name", pos)) != std::string_view::npos) {
+            bool atStart = (pos == 0) || (value[pos - 1] == ';') || (value[pos - 1] == ' ') || (value[pos - 1] == '\t');
+            size_t i = pos + 4;
+            pos = i;
+            if (!atStart) continue;
+            while ((i < value.size()) && ((value[i] == ' ') || (value[i] == '\t'))) i++;
+            if ((i >= value.size()) || (value[i] != '=')) continue;
+            i++;
+            while ((i < value.size()) && ((value[i] == ' ') || (value[i] == '\t'))) i++;
+            if ((i < value.size()) && (value[i] == '"')) {
+                auto end = value.find('"', i + 1);
+                if (end == std::string_view::npos) end = value.size();
+                return std::string(value.substr(i + 1, end - i - 1));
+            }
+            auto end = value.find_first_of("; \t", i);
+            return std::string(value.substr(i, end == std::string_view::npos ? std::string_view::npos : end - i));
+        }
+        return {};
+    }
     void formHeaderComplete() {
-        m_requestData.form.insert(std::pair(m_currentFormHeader, m_currentFormValue));
+        if (equalsNoCase(m_currentFormHeader, "Content-Disposition")) {
+            m_currentFormName = dispositionName(m_currentFormValue);
+        }
         m_currentFormHeader.clear();
         m_currentFormValue.clear();
+    }
+    int onFormPartBegin() {
+        m_currentFormName.clear();
+        m_currentFormData.clear();
+        m_formHeaderState = PARSING_HEADER;
+        return 0;
+    }
+    int onFormPartEnd() {
+        if (!m_currentFormName.empty()) {
+            m_requestData.form.insert(std::pair(m_currentFormName, m_currentFormData));
+        }
+        m_currentFormName.clear();
+        m_currentFormData.clear();
+        return 0;
     }
     int onFormHeaderField(const Slice& slice) {
         if (headerTooLarge(m_formHeaderBytes, slice)) return 1;
@@ -1057,20 +1101,30 @@ struct PCSX::WebClient::WebClientImpl {
         // A request with no headers never started one, so there is nothing to complete.
         if (!m_currentHeader.empty() || !m_currentValue.empty()) headerComplete();
         auto& ct = m_requestData.headers;
-        auto it = ct.find("Content-Type");
+        auto it =
+            std::find_if(ct.begin(), ct.end(), [](const auto& h) { return equalsNoCase(h.first, "Content-Type"); });
         if (it != ct.end()) {
             std::string_view contentType = it->second;
             if (contentType.starts_with("multipart/form-data")) {
                 auto pos = contentType.find("boundary=");
                 if (pos != std::string::npos) {
                     std::string_view marker = contentType.substr(pos + 9);
-                    if (marker.starts_with("\"") && marker.ends_with("\"") && marker.size() >= 2) {
-                        marker = marker.substr(1, marker.size() - 2);
+                    if (marker.starts_with("\"")) {
+                        auto end = marker.find('"', 1);
+                        marker = marker.substr(1, end == std::string_view::npos ? std::string_view::npos : end - 1);
+                    } else {
+                        marker = marker.substr(0, marker.find_first_of("; \t"));
                     }
                     m_multipartBoundary = std::string("--");
                     m_multipartBoundary += marker;
                     m_multipart = true;
                     memset(&m_multipartParserCallbacks, 0, sizeof(multipart_parser_settings));
+                    m_multipartParserCallbacks.on_part_data_begin = [](multipart_parser* p) {
+                        return static_cast<WebClientImpl*>(multipart_parser_get_data(p))->onFormPartBegin();
+                    };
+                    m_multipartParserCallbacks.on_part_data_end = [](multipart_parser* p) {
+                        return static_cast<WebClientImpl*>(multipart_parser_get_data(p))->onFormPartEnd();
+                    };
                     m_multipartParserCallbacks.on_header_field = [](multipart_parser* p, const char* at,
                                                                     size_t length) {
                         Slice slice;
@@ -1100,12 +1154,14 @@ struct PCSX::WebClient::WebClientImpl {
     }
 
     int onFormHeadersComplete() {
-        formHeaderComplete();
+        if (m_formHeaderState == PARSING_VALUE) formHeaderComplete();
+        m_formHeaderState = PARSING_HEADER;
         return 0;
     }
 
     int onFormData(const Slice& slice) {
         m_requestData.body.concatenate(slice);
+        m_currentFormData += slice.asString();
         return 0;
     }
 
@@ -1235,6 +1291,8 @@ struct PCSX::WebClient::WebClientImpl {
     size_t m_headerBytes = 0;
     size_t m_formHeaderBytes = 0;
     std::string m_currentFormValue;
+    std::string m_currentFormName;
+    std::string m_currentFormData;
     enum HeaderState {
         PARSING_HEADER,
         PARSING_VALUE,
