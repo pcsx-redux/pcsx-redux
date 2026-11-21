@@ -32,8 +32,13 @@
 
 namespace {
 
+// A bank with a record, at note 60, for every sample named like a signature.
 std::shared_ptr<const PCSX::SPU::Overlay> pack(std::vector<PCSX::SF2::Sample> samples, unsigned* skipped = nullptr) {
-    auto data = PCSX::SF2::write(samples, "pack", "");
+    std::string comment;
+    for (auto& s : samples) {
+        if (s.name.size() == 16) comment += "spu-sample " + s.name + " 16 60\n";
+    }
+    auto data = PCSX::SF2::write(samples, "pack", comment);
     return PCSX::SPU::Overlay::fromSF2(data.data(), data.size(), skipped);
 }
 
@@ -53,9 +58,19 @@ TEST(SPUOverlay, KeysOnSignatureNames) {
     ASSERT_NE(overlay, nullptr);
     EXPECT_EQ(overlay->size(), 2u);
     EXPECT_EQ(skipped, 1u);
-    EXPECT_NE(overlay->find(0xff), nullptr);
-    EXPECT_NE(overlay->find(0xabcdef0123456789), nullptr);
-    EXPECT_EQ(overlay->find(0xfe), nullptr);
+    EXPECT_NE(overlay->find(0xff, 16), nullptr);
+    EXPECT_NE(overlay->find(0xabcdef0123456789, 16), nullptr);
+    EXPECT_EQ(overlay->find(0xfe, 16), nullptr);
+}
+
+TEST(SPUOverlay, MatchesTheRecordedSizeToo) {
+    std::vector<PCSX::SF2::Sample> samples{ramp("00000000000000ff", 10)};
+    auto data = PCSX::SF2::write(samples, "pack", "spu-sample 00000000000000ff 32 60\n");
+    auto overlay = PCSX::SPU::Overlay::fromSF2(data.data(), data.size());
+    ASSERT_NE(overlay, nullptr);
+    EXPECT_NE(overlay->find(0xff, 32), nullptr);
+    EXPECT_EQ(overlay->find(0xff, 16), nullptr);
+    EXPECT_EQ(overlay->find(0xff, 48), nullptr);
 }
 
 TEST(SPUOverlay, RateAndRootKeyScaleThePitch) {
@@ -71,7 +86,7 @@ TEST(SPUOverlay, RateAndRootKeyScaleThePitch) {
     const int32_t unity = 0x10000;
     for (uint64_t sig : {1, 2, 3}) {
         PCSX::SPU::OverlayVoice voice;
-        voice.start(overlay, overlay->find(sig));
+        voice.start(overlay, overlay->find(sig, 16));
         std::vector<int32_t> out;
         for (int i = 0; i < 4; i++) out.push_back(voice.next(unity));
         if (sig == 1) {
@@ -86,13 +101,13 @@ TEST(SPUOverlay, RateAndRootKeyScaleThePitch) {
     d.correction = 100;
     auto corrected = pack({d});
     PCSX::SPU::OverlayVoice up;
-    up.start(corrected, corrected->find(4));
+    up.start(corrected, corrected->find(4, 16));
     up.next(unity);
     EXPECT_NEAR(up.next(unity), 100 * 0.5 * std::exp2(100.0 / 1200.0), 1);
 
     // Twice the pitch, twice the speed.
     PCSX::SPU::OverlayVoice voice;
-    voice.start(overlay, overlay->find(1));
+    voice.start(overlay, overlay->find(1, 16));
     voice.next(unity * 2);
     EXPECT_EQ(voice.next(unity * 2), 200);
 }
@@ -100,7 +115,7 @@ TEST(SPUOverlay, RateAndRootKeyScaleThePitch) {
 TEST(SPUOverlay, OneShotEndsInSilenceAndStaysActive) {
     auto overlay = pack({ramp("0000000000000001", 3)});
     PCSX::SPU::OverlayVoice voice;
-    voice.start(overlay, overlay->find(1));
+    voice.start(overlay, overlay->find(1, 16));
     EXPECT_EQ(voice.next(0x10000), 0);
     EXPECT_EQ(voice.next(0x10000), 100);
     EXPECT_EQ(voice.next(0x10000), 200);
@@ -118,7 +133,7 @@ TEST(SPUOverlay, LoopWraps) {
     s.loopEnd = 6;
     auto overlay = pack({s});
     PCSX::SPU::OverlayVoice voice;
-    voice.start(overlay, overlay->find(1));
+    voice.start(overlay, overlay->find(1, 16));
     std::vector<int32_t> out;
     for (int i = 0; i < 12; i++) out.push_back(voice.next(0x10000));
     EXPECT_EQ(out, (std::vector<int32_t>{0, 100, 200, 300, 400, 500, 200, 300, 400, 500, 200, 300}));
@@ -134,7 +149,7 @@ TEST(SPUOverlay, ReplacementIsTunedAgainstTheOriginal) {
     exported.correction = measured.correction;
     auto overlay = pack({exported});
     PCSX::SPU::OverlayVoice same;
-    same.start(overlay, overlay->find(1), measured.note);
+    same.start(overlay, overlay->find(1, 16), measured.note);
     same.next(0x10000);
     EXPECT_NEAR(same.next(0x10000), 100, 1);
 
@@ -143,7 +158,7 @@ TEST(SPUOverlay, ReplacementIsTunedAgainstTheOriginal) {
     a4.rootKey = 69;
     overlay = pack({a4});
     PCSX::SPU::OverlayVoice down;
-    down.start(overlay, overlay->find(2), 57.0);
+    down.start(overlay, overlay->find(2, 16), 57.0);
     down.next(0x10000);
     EXPECT_EQ(down.next(0x10000), 50);
 }
@@ -185,4 +200,33 @@ TEST(SPUSamplePitch, LoopDecodeKeepsTheFilterHistory) {
 
     // Without a minimum, one pass.
     EXPECT_EQ(PCSX::SPU::decodeSample(ram.data(), extent).size(), 3 * c_samplesPerBlock);
+}
+
+TEST(SPUOverlay, ReadsTheRecords) {
+    std::vector<PCSX::SF2::Sample> samples = {ramp("00000000000000ff", 10), ramp("00000000000000fe", 10)};
+    auto data = PCSX::SF2::write(samples, "pack",
+                                 "prose\nspu-sample 00000000000000ff 48 57.25\nspu-sample 0000000000000001 64 60\n");
+    unsigned skipped = 0;
+    auto overlay = PCSX::SPU::Overlay::fromSF2(data.data(), data.size(), &skipped);
+    ASSERT_NE(overlay, nullptr);
+    ASSERT_NE(overlay->find(0xff, 48), nullptr);
+    EXPECT_DOUBLE_EQ(overlay->find(0xff, 48)->originalNote, 57.25);
+    // A sample with no record is not a replacement.
+    EXPECT_EQ(overlay->find(0xfe, 16), nullptr);
+    EXPECT_EQ(skipped, 1u);
+    EXPECT_EQ(overlay->size(), 1u);
+}
+
+TEST(SPUOverlay, RecordedSizesFilterKeyOns) {
+    std::vector<PCSX::SF2::Sample> samples = {ramp("00000000000000ff", 10), ramp("00000000000000fe", 10)};
+    auto data = PCSX::SF2::write(
+        samples, "pack",
+        "spu-sample 00000000000000ff 48 57.25\nspu-sample 00000000000000fe 4096 60\nspu-sample 0000000000000001 64 60");
+    auto overlay = PCSX::SPU::Overlay::fromSF2(data.data(), data.size());
+    ASSERT_NE(overlay, nullptr);
+    EXPECT_TRUE(overlay->mayReplace(48));
+    EXPECT_TRUE(overlay->mayReplace(4096));
+    EXPECT_FALSE(overlay->mayReplace(16));
+    // A record with no replacement does not count.
+    EXPECT_FALSE(overlay->mayReplace(64));
 }

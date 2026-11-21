@@ -21,6 +21,10 @@
 
 #include <stdint.h>
 
+#include <string>
+#include <string_view>
+#include <unordered_map>
+
 namespace PCSX {
 
 namespace SPUSample {
@@ -53,6 +57,23 @@ Extent walk(const uint8_t* spuRam, uint32_t start);
 // included, from its start through its loop-end block. Loop targets are encoded as flags
 // relative to the data, so the same sample uploaded at another address hashes the same.
 uint64_t signature(const uint8_t* spuRam, const Extent& extent);
+
+// A pack records, for each sample, the size of the range its signature hashes and the note the
+// original sounds at pitch 1000h, as one line of its comment: "spu-sample", a space, the 16 hex
+// digit signature, a space, the size in bytes as a decimal number (a multiple of 16, from 16 to
+// 512 KiB), a space, and the note as a decimal number from 0 up to, but not including, 128.
+struct Record {
+    uint32_t size = 0;
+    double note = 60.0;
+};
+
+// The line written for one sample, without a line break.
+std::string recordLine(uint64_t signature, uint32_t size, double note);
+
+// Every well-formed record in a comment, by signature. Lines are separated by "\n", a "\r"
+// before it is ignored, and any other line is skipped. A later record for the same signature
+// wins.
+std::unordered_map<uint64_t, Record> records(std::string_view comment);
 
 }  // namespace SPUSample
 
