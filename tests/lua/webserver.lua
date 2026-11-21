@@ -56,6 +56,21 @@ local function post(path, body)
                         body)
 end
 
+-- Query values that are not numbers are rejected with a 400 and must not take the emulator down.
+function TestWebServer:test_non_numeric_query_is_bad_request()
+    local function plain(method, path, body)
+        body = body or ''
+        return exchange(method .. ' ' .. path .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
+                            'Content-Length: ' .. #body .. '\r\n\r\n' .. body)
+    end
+    local ram = plain('POST', '/api/v1/cpu/ram/raw?offset=abc&size=1', 'x')
+    lu.assertEquals(ram:sub(1, 22), 'HTTP/1.1 400 Bad Reque')
+    local vram = plain('POST', '/api/v1/gpu/vram/raw?x=a&y=0&width=1&height=1', 'xx')
+    lu.assertEquals(vram:sub(1, 22), 'HTTP/1.1 400 Bad Reque')
+    local after = plain('GET', '/api/v1/gpu/vram/raw')
+    lu.assertEquals(after:sub(1, 15), 'HTTP/1.1 200 OK')
+end
+
 function TestWebServer:test_post_body_reaches_handler()
     local seen
     PCSX.WebServer.Handlers.echo = function(request)

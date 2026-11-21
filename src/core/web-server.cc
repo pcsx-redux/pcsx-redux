@@ -57,6 +57,18 @@ namespace {
 
 static const std::unordered_set<std::string> stepFunctions = {"stepIn", "stepOver", "stepOut"};
 
+// Parses a whole query value as a number. Anything else, including trailing garbage or an
+// out-of-range value, gives false and leaves the output untouched.
+template <typename T>
+static bool parseNumber(const std::string& str, T& out) {
+    T value;
+    const char* end = str.data() + str.size();
+    auto result = std::from_chars(str.data(), end, value);
+    if ((result.ec != std::errc{}) || (result.ptr != end)) return false;
+    out = value;
+    return true;
+}
+
 class VramExecutor : public PCSX::WebExecutor {
     virtual bool match(PCSX::WebClient* client, const PCSX::UrlData& urldata) final {
         return urldata.path == "/api/v1/gpu/vram/raw";
@@ -80,10 +92,12 @@ class VramExecutor : public PCSX::WebExecutor {
                 client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
                 return true;
             }
-            auto x = std::stoi(ix->second.value());
-            auto y = std::stoi(iy->second.value());
-            auto width = std::stoi(iwidth->second.value());
-            auto height = std::stoi(iheight->second.value());
+            int x, y, width, height;
+            if (!parseNumber(ix->second.value(), x) || !parseNumber(iy->second.value(), y) ||
+                !parseNumber(iwidth->second.value(), width) || !parseNumber(iheight->second.value(), height)) {
+                client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
+                return true;
+            }
             if ((x < 0) || (y < 0) || (width < 0) || (height < 0)) {
                 client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
                 return true;
@@ -141,8 +155,11 @@ class RamExecutor : public PCSX::WebExecutor {
                 client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
                 return true;
             }
-            auto offset = std::stoul(ioffset->second.value());
-            auto size = std::stoul(isize->second.value());
+            unsigned long offset, size;
+            if (!parseNumber(ioffset->second.value(), offset) || !parseNumber(isize->second.value(), size)) {
+                client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
+                return true;
+            }
             if ((offset >= ramSize) || (size > ramSize) || ((offset + size) > ramSize)) {
                 client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
                 return true;
@@ -526,7 +543,11 @@ class CDExecutor : public PCSX::WebExecutor {
                 }
 
                 if (sector != vars.end()) {
-                    auto sectorNumber = std::stoul(sector->second.value_or(""));
+                    uint32_t sectorNumber;
+                    if (!parseNumber(sector->second.value_or(""), sectorNumber)) {
+                        client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
+                        return true;
+                    }
                     file = new PCSX::CDRIsoFile(iso, sectorNumber, request.body.size(), mode);
                 }
 
