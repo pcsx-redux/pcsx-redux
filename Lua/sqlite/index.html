@@ -1,0 +1,1449 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://pcsx-redux.consoledev.net/Lua/sqlite/">
+      
+      
+        <link rel="prev" href="../compression/">
+      
+      
+        <link rel="next" href="../text-tables/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>SQLite - PCSX-Redux</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sqlite" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PCSX-Redux" class="md-header__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PCSX-Redux
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              SQLite
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PCSX-Redux" class="md-nav__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    PCSX-Redux
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../menus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PCSX-Redux menus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../compiling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compiling PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli_flags/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Command Line Flags
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Debugging
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Debugging
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Debugging with PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gdb-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GDB server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/ghidra/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting Ghidra to PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/misc-features/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Misc Features
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/vram-viewer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    VRAM viewer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gpu-logger/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GPU Logger
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/spu-samples/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPU samples and replacement packs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/dalos/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dalos
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mips_api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Mips API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../web_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Web server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sio1_networking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SIO1 networking
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Lua
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Lua
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../libraries/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Loaded libraries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../redux-basics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Redux basic API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rendering/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Rendering
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../file-api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    File API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../iso-builder/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Building ISO images
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ppf/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PPF patches
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Webserver Lua API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../html/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTML builder
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory-and-registers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Memory and registers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../expansion-carts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Expansion carts in Lua
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Events
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../breakpoints/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Breakpoints
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../assembler/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Inline assembler
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../binary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Handling of PSX binaries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compression/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compression formats
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    SQLite
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    SQLite
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#opening-a-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      Opening a database
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Database objects
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Database objects">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#leaving-a-rows-loop-early" class="md-nav__link">
+    <span class="md-ellipsis">
+      Leaving a rows() loop early
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#statements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Statements
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#values" class="md-nav__link">
+    <span class="md-ellipsis">
+      Values
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../text-tables/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Text tables
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guest-calls/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Calling guest code
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../implot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Plots
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../case-studies/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Case studies
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playbook-scripted-session/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: scripting a game session
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playbook-localizing-bugs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: finding where a bug lives
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../openbios/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Openbios
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#opening-a-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      Opening a database
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Database objects
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Database objects">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#leaving-a-rows-loop-early" class="md-nav__link">
+    <span class="md-ellipsis">
+      Leaving a rows() loop early
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#statements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Statements
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#values" class="md-nav__link">
+    <span class="md-ellipsis">
+      Values
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="sqlite">SQLite</h1>
+<p><code>PCSX.SQLite</code> is a binding to <a href="https://sqlite.org/">SQLite</a>, built into PCSX-Redux. It is meant for scripts that need to keep structured data around between sessions, such as notes, symbol tables, or translation work, without writing their own file format.</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">db</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">SQLite</span><span class="p">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;notes.db&#39;</span><span class="p">)</span>
+<span class="n">db</span><span class="p">:</span><span class="n">exec</span> <span class="s1">&#39;CREATE TABLE IF NOT EXISTS notes (address INTEGER PRIMARY KEY, text TEXT)&#39;</span>
+<span class="n">db</span><span class="p">:</span><span class="n">run</span><span class="p">(</span><span class="s1">&#39;INSERT OR REPLACE INTO notes VALUES (?, ?)&#39;</span><span class="p">,</span> <span class="mh">0x80010000</span><span class="p">,</span> <span class="s1">&#39;entry point&#39;</span><span class="p">)</span>
+<span class="kr">for</span> <span class="n">row</span> <span class="kr">in</span> <span class="n">db</span><span class="p">:</span><span class="n">rows</span><span class="p">(</span><span class="s1">&#39;SELECT address, text FROM notes WHERE address &gt;= ?&#39;</span><span class="p">,</span> <span class="mh">0x80000000</span><span class="p">)</span> <span class="kr">do</span>
+    <span class="nb">print</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s1">&#39;%08x %s&#39;</span><span class="p">,</span> <span class="n">row</span><span class="p">.</span><span class="n">address</span><span class="p">,</span> <span class="n">row</span><span class="p">.</span><span class="n">text</span><span class="p">))</span>
+<span class="kr">end</span>
+<span class="n">db</span><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div>
+<p>Every failure raises a Lua error. The message is SQLite's own, followed by its extended result code in parentheses, for example <code>sqlite: UNIQUE constraint failed: notes.address (2067)</code>.</p>
+<h2 id="opening-a-database">Opening a database</h2>
+<p><code>PCSX.SQLite.open([path [, options]])</code> opens or creates the database at <code>path</code> and returns a database object. Without a path, or with <code>':memory:'</code>, the database lives in memory and disappears when it is closed. <code>path</code> may also be a <a href="https://sqlite.org/uri.html">URI filename</a>. <code>options</code> is a table; <code>readOnly = true</code> opens an existing database without write access.</p>
+<p><code>PCSX.SQLite.version()</code> returns the SQLite version string.</p>
+<h2 id="database-objects">Database objects</h2>
+<ul>
+<li><code>db:exec(sql)</code> runs one or more statements separated by semicolons. It takes no parameters and discards any rows.</li>
+<li><code>db:run(sql, ...)</code> prepares one statement, binds the extra arguments to its parameters in order, runs it to completion, and returns the number of rows it changed.</li>
+<li><code>db:rows(sql, ...)</code> prepares one statement, binds the extra arguments, and returns an iterator over its result rows. Each row is a table keyed by column name. The statement is finalized when the loop reaches the last row, or when binding or a step fails.</li>
+<li><code>db:each(sql, fn, ...)</code> prepares one statement, binds the extra arguments, and calls <code>fn(row)</code> for every result row, with rows shaped as in <code>rows()</code>. If <code>fn</code> returns <code>false</code>, iteration stops there. The statement is always finalized before <code>each()</code> returns, including when <code>fn</code> raises an error, which is then raised again unchanged. It returns the number of rows passed to <code>fn</code>, counting the row on which <code>fn</code> returned <code>false</code>.</li>
+<li><code>db:first(sql, ...)</code> returns the first result row as a table keyed by column name, or <code>nil</code> if there is none, and finalizes the statement.</li>
+<li><code>db:prepare(sql)</code> returns a statement object, described below.</li>
+<li><code>db:transaction(fn, ...)</code> calls <code>fn(...)</code> inside a transaction. If <code>fn</code> returns, the transaction is committed and its return values are returned. If <code>fn</code> raises an error, the transaction is rolled back and the error is raised again. If the commit itself fails, for example on a deferred foreign key, the transaction is rolled back and the error is raised. Called inside another transaction, it uses a savepoint, so only the inner part is rolled back. If SQLite ends the transaction on its own, as <code>INSERT OR ROLLBACK</code> does, every statement until <code>transaction()</code> returns raises an error, and so does <code>transaction()</code>.</li>
+<li><code>db:changes()</code> is the number of rows changed by the most recent statement.</li>
+<li><code>db:lastInsertRowId()</code> is the rowid of the most recent insertion.</li>
+<li><code>db:busyTimeout(ms)</code> sets how long a statement waits for a lock held by another connection before failing.</li>
+<li><code>db:close()</code> closes the database. A database that is garbage collected is closed too, but closing it explicitly releases the file at a known point.</li>
+</ul>
+<h3 id="leaving-a-rows-loop-early">Leaving a <code>rows()</code> loop early</h3>
+<p>A <code>rows()</code> loop left early, through <code>break</code>, <code>return</code>, or an error raised in the loop body, does not finalize its statement. The statement stays alive, and on a database file it keeps its read lock, until the garbage collector gets to it, which may be much later. While it lives, other connections cannot write to the file in the default rollback journal mode (they get <code>database is locked</code>; in WAL mode they can), and in the same connection a <code>DROP TABLE</code> on the table it reads fails with <code>database table is locked</code>. Use <code>rows()</code> only for loops that always run to the end. When the loop may stop early, use <code>db:each()</code>, which stops when <code>fn</code> returns <code>false</code> and finalizes in every case, or <code>db:first()</code> for a single row, or <code>db:prepare()</code> with an explicit <code>stmt:finalize()</code>.</p>
+<h2 id="statements">Statements</h2>
+<ul>
+<li><code>stmt:bind(index, value)</code> binds one parameter. <code>index</code> is the 1-based position of the parameter, or its name including the prefix, such as <code>':name'</code>. It returns the statement, so calls can be chained.</li>
+<li><code>stmt:bindAll(...)</code> binds every parameter in order. The number of values must match the number of parameters.</li>
+<li><code>stmt:step()</code> returns <code>true</code> when a row is available and <code>false</code> when the statement is done.</li>
+<li><code>stmt:column(index)</code>, <code>stmt:columnType(index)</code> and <code>stmt:columnName(index)</code> read the current row. Column indices are 1-based. <code>columnType</code> returns one of <code>'integer'</code>, <code>'float'</code>, <code>'text'</code>, <code>'blob'</code> or <code>'null'</code>.</li>
+<li><code>stmt:row()</code> returns the current row as a table keyed by column name, and <code>stmt:values()</code> as an array.</li>
+<li><code>stmt:columnCount()</code> is the number of columns in the result.</li>
+<li><code>stmt:reset()</code> rewinds the statement so it can run again, and <code>stmt:clearBindings()</code> sets every parameter back to <code>NULL</code>.</li>
+<li><code>stmt:finalize()</code> releases the statement. Once its database is closed, finalizing is the only thing a statement can still do.</li>
+</ul>
+<h2 id="values">Values</h2>
+<p>When binding:</p>
+<ul>
+<li><code>nil</code> becomes <code>NULL</code>.</li>
+<li>A boolean becomes the integer 0 or 1.</li>
+<li>A number with no fractional part that fits in 64 bits becomes an integer; any other number becomes a float.</li>
+<li>A string becomes text.</li>
+<li>An <code>int64_t</code> cdata is bound as an integer, exactly. A <code>uint64_t</code> cdata is bound as an integer if it is at most <code>INT64_MAX</code>; a larger one raises an error.</li>
+<li>Any other numeric cdata, such as <code>int32_t</code>, <code>uint8_t</code>, <code>float</code>, <code>double</code>, <code>bool</code> or an enum, is converted with <code>tonumber()</code> and then follows the rule for numbers. Complex cdata is not accepted.</li>
+<li><code>PCSX.SQLite.blob(string)</code> binds the string as a blob.</li>
+<li>A <code>Slice</code>, as returned by <code>file:readToSlice()</code>, binds its bytes as a blob.</li>
+<li>A <code>LuaBuffer</code>, as returned by <code>Support.NewLuaBuffer()</code> or <code>file:read(size)</code>, binds its first <code>size</code> bytes as a blob.</li>
+</ul>
+<p>Blobs are copied when bound, so the Slice or LuaBuffer can be changed or freed right after. Any other value raises an error that names its type; for cdata the error gives its C type, and for a table it lists the accepted ones.</p>
+<p>When reading, integers come back as Lua numbers when they fit exactly in a double, and as 64-bit integer cdata otherwise. Text and blobs both come back as Lua strings, which may contain any byte; <code>columnType</code> tells them apart. <code>NULL</code> comes back as <code>nil</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>
