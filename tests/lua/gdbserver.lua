@@ -136,6 +136,16 @@ function TestGdbServer:test_multiprocess_detach()
     lu.assertEquals(request('p4'):len(), 8)
 end
 
+-- gdb's `thread 1` checks the thread is alive with T; the only thread always is.
+function TestGdbServer:test_thread_alive()
+    lu.assertEquals(request('T1'), 'OK')
+    lu.assertEquals(request('Tp1.1'), 'OK')
+    lu.assertEquals(request('Hgp1.1'), 'OK')
+    lu.assertEquals(request('Hcp1.0'), 'OK')
+    lu.assertEquals(request('Hc-1'), 'OK')
+    lu.assertStrContains(request('T2'), 'E')
+end
+
 -- An empty monitor command is answered like an unknown one, and a hex payload that does not
 -- decode is an error.
 function TestGdbServer:test_empty_monitor_command()
