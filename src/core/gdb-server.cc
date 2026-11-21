@@ -799,9 +799,8 @@ void PCSX::GdbClient::processCommand() {
         auto [addr, vaddr] = parseHexNumber(breakpointData[1]);
         auto [kind, vkind] = parseHexNumber(breakpointData[2]);
         if (!vtype || !vaddr || !vkind) {
-            // didn't manage to parse breapoint data properly.
+            // didn't manage to parse breakpoint data properly
             write("E00");
-            close();
             return;
         }
         if ((action == Action::ADD) && (type <= 4) &&
