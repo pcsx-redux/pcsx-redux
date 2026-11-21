@@ -144,7 +144,8 @@ class CDRIso {
         IO<File> handle = nullptr;                                       // for multi-track images CDDA
         enum CDDAType { NONE = 0, BIN = 1, CCDDA = 2 } cddatype = NONE;  // BIN, WAV, MP3, APE
         uint32_t start_offset = 0;                                       // byte offset from start of above file
-        uint32_t pregapInFile = 0;  // sectors of the pregap stored in handle ahead of INDEX 01
+        uint32_t pregapInFile = 0;   // sectors of the pregap stored in handle ahead of INDEX 01
+        uint32_t pregapVirtual = 0;  // sectors of the pregap ahead of those, in no file
     };
 
     static constexpr unsigned MAXTRACKS = 100; /* How many tracks can a CD hold? */

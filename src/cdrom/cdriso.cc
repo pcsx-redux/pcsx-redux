@@ -554,10 +554,13 @@ bool PCSX::CDRIso::readCDDA(IEC60908b::MSF msf, unsigned char *buffer) {
         if (track_start <= lba) break;
         if (track == 1) break;
     }
-    // the next track's pregap sectors stored ahead of its INDEX 01 belong to it
-    if (track < m_numtracks && lba >= m_ti[track + 1].start.toLBA() - m_ti[track + 1].pregapInFile) {
-        track++;
-        track_start = m_ti[track].start.toLBA();
+    // the next track's pregap belongs to it, where the image says how long it is
+    if (track < m_numtracks) {
+        auto &next = m_ti[track + 1];
+        if (lba >= next.start.toLBA() - next.pregapInFile - next.pregapVirtual) {
+            track++;
+            track_start = next.start.toLBA();
+        }
     }
 
     // data tracks play silent
@@ -568,7 +571,8 @@ bool PCSX::CDRIso::readCDDA(IEC60908b::MSF msf, unsigned char *buffer) {
 
     // if before the track's data or above its end (likely next track's pregap), play silence
     uint32_t data_start = track_start - m_ti[track].pregapInFile;
-    if (lba < data_start || lba >= (track_start + m_ti[track].length.toLBA())) {
+    uint32_t track_end = data_start - m_ti[track].pregapVirtual + m_ti[track].length.toLBA();
+    if (lba < data_start || lba >= track_end) {
         memset(buffer, 0, IEC60908b::FRAMESIZE_RAW);
         return true;
     }

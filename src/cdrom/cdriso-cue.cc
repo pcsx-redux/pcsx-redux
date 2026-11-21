@@ -203,6 +203,7 @@ bool PCSX::CDRIso::parsecue(const char *isofileString) {
         uint32_t size = end > start ? std::min(track->size - track->pregap, end - start) : 0;
         m_ti[i].handle.setFile(new SubFile(fi, start * 2352, size * 2352));
         m_ti[i].pregapInFile = pregapInFile;
+        m_ti[i].pregapVirtual = track->pregap;
         m_ti[i].type = track->trackType == TRACK_TYPE_AUDIO ? TrackType::CDDA : TrackType::DATA;
         m_ti[i].cddatype = track->compressed ? trackinfo::CCDDA : trackinfo::BIN;
         m_ti[i].start = IEC60908b::MSF(track->indices[1] + 150);
