@@ -554,6 +554,11 @@ bool PCSX::CDRIso::readCDDA(IEC60908b::MSF msf, unsigned char *buffer) {
         if (track_start <= lba) break;
         if (track == 1) break;
     }
+    // the next track's pregap sectors stored ahead of its INDEX 01 belong to it
+    if (track < m_numtracks && lba >= m_ti[track + 1].start.toLBA() - m_ti[track + 1].pregapInFile) {
+        track++;
+        track_start = m_ti[track].start.toLBA();
+    }
 
     // data tracks play silent
     if (m_ti[track].type != TrackType::CDDA) {
@@ -561,8 +566,9 @@ bool PCSX::CDRIso::readCDDA(IEC60908b::MSF msf, unsigned char *buffer) {
         return true;
     }
 
-    // if above the track's end (likely next track's pregap), play silence
-    if (lba >= (track_start + m_ti[track].length.toLBA())) {
+    // if before the track's data or above its end (likely next track's pregap), play silence
+    uint32_t data_start = track_start - m_ti[track].pregapInFile;
+    if (lba < data_start || lba >= (track_start + m_ti[track].length.toLBA())) {
         memset(buffer, 0, IEC60908b::FRAMESIZE_RAW);
         return true;
     }
@@ -575,7 +581,7 @@ bool PCSX::CDRIso::readCDDA(IEC60908b::MSF msf, unsigned char *buffer) {
         }
     }
 
-    ret = (*this.*m_cdimg_read_func)(m_ti[file].handle, m_ti[track].start_offset, buffer, lba - track_start);
+    ret = (*this.*m_cdimg_read_func)(m_ti[file].handle, m_ti[track].start_offset, buffer, lba - data_start);
     if (ret != IEC60908b::FRAMESIZE_RAW) {
         memset(buffer, 0, IEC60908b::FRAMESIZE_RAW);
         return false;
