@@ -21,7 +21,9 @@
 
 #include <stdint.h>
 
+#include <array>
 #include <map>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -39,8 +41,10 @@ namespace Widgets {
 // Sample map of sound RAM, and a waveform view of the selected sample. Start addresses come
 // from the SPU logger's key-on entries, which are the only ground truth for where a sample
 // begins. Everything else is derived from sound RAM: each sample is walked a block at a time
-// until a block carries the loop-end flag, noting the loop-start flag on the way. Each sample
-// carries a content signature, and the map can be exported as a SoundFont.
+// until a block carries the loop-end flag, noting the loop-start flag on the way. A sample that
+// repeats without a loop-start flag loops to the address the game set in the voice's loop
+// register, so for those the loop is the address the logger saw in force at their key-ons.
+// Each sample carries a content signature, and the map can be exported as a SoundFont.
 class SPUSamples {
   public:
     SPUSamples(bool& show, std::vector<std::string>& favorites);
@@ -55,6 +59,9 @@ class SPUSamples {
         RootKey::PitchCounts pitches;  // key-ons by pitch register, for the content in pitchesSignature
         uint64_t pitchesSignature = 0;
         bool pitchesDropped = false;  // key-ons were discarded as ambiguous since the last kept one
+        // Loop register value in force at each key-on, for the content in pitchesSignature.
+        std::map<uint32_t, uint32_t> keyOnLoops;
+        bool gameLoop = false;  // the loop comes from keyOnLoops, not from a loop-start flag
         RootKey::Result root;
     };
 
@@ -70,8 +77,10 @@ class SPUSamples {
     void rebuild(PCSX::SPULogger* logger, const uint8_t* spuRam);
 
     std::map<uint32_t, Sample> m_samples;
-    // By signature, so a sample is only measured once.
-    std::unordered_map<uint64_t, std::optional<double>> m_fundamentals;
+    // By signature and loop offset, so a sample is only measured once per loop.
+    std::map<std::pair<uint64_t, uint32_t>, std::optional<double>> m_fundamentals;
+    // Each voice's loop register, as last written while the logger ran.
+    std::array<std::optional<uint32_t>, 24> m_voiceLoops;
     uint64_t m_lastSeen = ~uint64_t(0);
     uint64_t m_lastClears = 0;
     bool m_autoRefresh = true;

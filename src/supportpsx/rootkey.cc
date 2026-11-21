@@ -37,7 +37,7 @@ PCSX::RootKey::Result PCSX::RootKey::fromFundamental(std::optional<double> funda
     if (!fundamental || !(*fundamental > 0.0)) return r;
     const double note = noteOf(*fundamental);
     const double key = std::round(note);
-    if (key < 0.0 || key > 127.0) return r;
+    if (note < 0.0 || key > 127.0) return r;
     r.status = Status::Unconfirmed;
     r.note = note;
     r.key = uint8_t(key);
