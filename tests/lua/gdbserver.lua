@@ -173,6 +173,14 @@ function TestGdbServer:test_acks()
     local reply = '$33330000#' .. checksum('33330000'):upper()
     lu.assertEquals(rawExchange('+$p4#' .. checksum('p4'), '#%x%x$'), '+' .. reply)
     lu.assertEquals(rawExchange('-', '#%x%x$'), reply)
+    -- a reply in two packets: the second waits for the ack of the first, so a '-' gets the first
+    local usage = 'Usage: sharedmem <type>'
+    local o = 'O' .. usage:gsub('.', function(c) return string.format('%02X', c:byte()) end)
+    local cmd = 'qRcmd,' .. ('sharedmem'):gsub('.', function(c) return string.format('%02x', c:byte()) end)
+    local first = '$' .. o .. '#' .. checksum(o):upper()
+    lu.assertEquals(rawExchange('+$' .. cmd .. '#' .. checksum(cmd), '#%x%x$'), '+' .. first)
+    lu.assertEquals(rawExchange('-', '#%x%x$'), first)
+    lu.assertEquals(rawExchange('+', '#%x%x$'), '$OK#9A')
     client:write('+')
 end
 
