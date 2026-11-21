@@ -336,6 +336,10 @@ Will first load `test/baz.lua` from the zip file `bar.zip`, run it, which will i
 
 This allows distributing complex "mods" as zip files, which can be loaded and executed from the command line or the console.
 
+If two archives contain files with the same path, the one added last via either the CLI or `Support.extra.addArchive` will take precedence when using any of the functions provided by `Support.extra` to load files from archives.
+
+> Note that the `require` function does not automatically load files from archives added via `Support.extra.addArchive`. You need to use `Support.extra.dofile` to load Lua files from these archives. Support for `require`-style loading from archives is not yet provided.
+
 ## Miscellaneous
 
 - `PCSX.quit([code])` schedules the emulator to quit. It's not instantaneous, and will only quit after the current block of Lua code has finished executing, which will be before the next main loop iteration. The `code` parameter is optional, and will be the exit code of the emulator. If not specified, it'll default to 0.
