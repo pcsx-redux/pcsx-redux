@@ -580,7 +580,10 @@ std::pair<uint64_t, uint64_t> PCSX::GdbClient::parseCursor(const std::string& cu
 
 void PCSX::GdbClient::writePaged(const std::string& out, const std::string& cursorStr) {
     auto [off, len] = parseCursor(cursorStr);
-    if (len < (out.length() - off)) {
+    if (off >= out.length()) {
+        // reading from the end, or past it: nothing left
+        write("l");
+    } else if (len < (out.length() - off)) {
         writef("m%s", out.substr(off, len).c_str());
     } else if (off != 0) {
         writef("l%s", out.substr(off, len).c_str());
