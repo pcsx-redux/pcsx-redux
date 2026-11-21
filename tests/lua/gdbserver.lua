@@ -129,6 +129,15 @@ function TestGdbServer:test_malformed_register_packet_keeps_connection()
     lu.assertEquals(PCSX.getRegisters().GPR.n.a1, 0xcafe)
 end
 
+-- Removing a gdb watchpoint leaves alone the breakpoints gdb did not set.
+function TestGdbServer:test_remove_leaves_other_breakpoints()
+    local bp = PCSX.addBreakpoint(0x80010000, 'Exec', 4, 'test')
+    lu.assertEquals(request('Z2,80010000,4'), 'OK')
+    lu.assertEquals(request('z2,80010000,4'), 'OK')
+    lu.assertTrue(bp:isEnabled())
+    bp:remove()
+end
+
 -- With multiprocess negotiated, gdb detaches with D;<pid>.
 function TestGdbServer:test_multiprocess_detach()
     lu.assertEquals(request('D;1'), 'OK')
