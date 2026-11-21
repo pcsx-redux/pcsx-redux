@@ -353,24 +353,29 @@ void PCSX::GdbClient::processData(const Slice& slice) {
                 if (c == 3) g_system->pause();
                 if (c != '$') break;
                 m_state = READING_COMMAND;
+                m_inSum = 0;
                 break;
             case READING_COMMAND:
                 if (c == '$') {
                     processCommand();
                     m_cmd.clear();
-                    break;
-                }
-                if (c == '}') {
-                    m_state = ESCAPE;
+                    m_inSum = 0;
                     break;
                 }
                 if (c == '#') {
                     m_state = READING_CRC_FIRST_CHAR;
                     break;
                 }
+                // the checksum covers the bytes as sent, escapes included
+                m_inSum += c;
+                if (c == '}') {
+                    m_state = ESCAPE;
+                    break;
+                }
                 m_cmd += c;
                 break;
             case ESCAPE:
+                m_inSum += c;
                 m_cmd += c ^ ' ';
                 m_state = READING_COMMAND;
                 break;
@@ -382,15 +387,26 @@ void PCSX::GdbClient::processData(const Slice& slice) {
                     break;
                 } else {
                     m_state = READING_CRC_SECOND_CHAR;
-                    m_crc = fromHexChar(c) << 4;
+                    m_inCrcHigh = fromHexChar(c);
                 }
                 break;
             case READING_CRC_SECOND_CHAR:
                 if (c == '$') {
                     m_state = READING_COMMAND;
-                } else {
-                    m_state = WAIT_FOR_DOLLAR;
-                    m_crc |= fromHexChar(c);
+                    processCommand();
+                    m_cmd.clear();
+                    m_inSum = 0;
+                    break;
+                }
+                m_state = WAIT_FOR_DOLLAR;
+                if (m_ackEnabled &&
+                    ((m_inCrcHigh < 0) || (fromHexChar(c) < 0) || (((m_inCrcHigh << 4) | fromHexChar(c)) != m_inSum))) {
+                    // corrupted in transit: ask for it again, and don't run it
+                    Slice nak;
+                    nak.copy("-", 1);
+                    sendRaw(std::move(nak));
+                    m_cmd.clear();
+                    break;
                 }
                 processCommand();
                 m_cmd.clear();

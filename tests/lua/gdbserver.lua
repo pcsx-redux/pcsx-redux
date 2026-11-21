@@ -109,6 +109,31 @@ local function le32(value)
     return s
 end
 
+-- Writes raw bytes, then waits until what the stub sent back matches the pattern, and returns all
+-- of it. For the framing tests, where request() would hide the acks.
+local function rawExchange(bytes, pattern)
+    connect()
+    client:write(bytes)
+    while not buffer:find(pattern) do
+        local co = coroutine.running()
+        local timer = luv.new_timer()
+        local timedOut = false
+        timer:start(5000, 0, function()
+            timedOut = true
+            waiter = nil
+            coroutine.resume(co)
+        end)
+        waiter = co
+        coroutine.yield()
+        timer:stop()
+        timer:close()
+        lu.assertFalse(timedOut, 'got ' .. buffer .. ' waiting for ' .. pattern)
+    end
+    local got = buffer
+    buffer = ''
+    return got
+end
+
 -- gdb sends the register number in hex without padding: an inferior call writes a0 as P4=...
 function TestGdbServer:test_single_digit_register_numbers()
     local regs = PCSX.getRegisters()
@@ -118,6 +143,17 @@ function TestGdbServer:test_single_digit_register_numbers()
     lu.assertEquals(request('P1d=' .. le32(0x801ffe00)), 'OK')
     lu.assertEquals(regs.GPR.n.sp, 0x801ffe00)
     lu.assertEquals(request('p1d'), '00FE1F80')
+end
+
+-- A packet whose checksum doesn't match is refused with '-' and not run; the next one goes through.
+function TestGdbServer:test_bad_checksum_is_refused()
+    PCSX.getRegisters().GPR.n.a0 = 0x1111
+    local bad = 'P4=' .. le32(0x2222)
+    local good = 'p4'
+    local got = rawExchange('$' .. bad .. '#00' .. '$' .. good .. '#' .. checksum(good), '#%x%x$')
+    lu.assertEquals(got, '-+$11110000#' .. checksum('11110000'):upper())
+    lu.assertEquals(PCSX.getRegisters().GPR.n.a0, 0x1111)
+    client:write('+')
 end
 
 -- A memory write whose data is missing, short or not hex is refused and writes nothing.

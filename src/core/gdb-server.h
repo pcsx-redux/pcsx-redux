@@ -205,6 +205,9 @@ class GdbClient : public Intrusive::List<GdbClient>::Node {
     std::string m_cmd;
     // the stop reply's reason field for the pending trap, "watch:80010000;" and the like
     std::string m_stopReason;
+    // checksum of the packet being received, and the first digit of the one it came with
+    uint8_t m_inSum = 0;
+    int m_inCrcHigh = -1;
     uint8_t m_crc;
     EventBus::Listener m_listener;
     uv_loop_t* m_loop;
