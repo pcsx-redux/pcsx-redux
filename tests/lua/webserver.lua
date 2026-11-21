@@ -216,3 +216,19 @@ function TestWebServer:test_unhandled_request_is_404()
     local state = plain('GET', '/api/v1/state/usage')
     lu.assertNil(state:find('404', 1, true))
 end
+
+-- Symbol upload accepts an optional 0x prefix and skips addresses that are not 32-bit hex numbers.
+function TestWebServer:test_symbol_upload_validates_address()
+    local function plain(path, body)
+        return exchange('POST ' .. path .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
+                            'Content-Length: ' .. #body .. '\r\n\r\n' .. body)
+    end
+    lu.assertEquals(plain('/api/v1/assembly/symbols?function=reset', ''):sub(1, 15), 'HTTP/1.1 200 OK')
+    local body = '0x80010000 hexprefixed\n80020000 plain\nfffffffff toolong\n'
+    lu.assertEquals(plain('/api/v1/assembly/symbols?function=upload', body):sub(1, 15), 'HTTP/1.1 200 OK')
+    local found = {}
+    for address, name in PCSX.iterateSymbols() do found[address] = name end
+    plain('/api/v1/assembly/symbols?function=reset', '')
+    local expected = {[0x80010000] = 'hexprefixed', [0x80020000] = 'plain'}
+    lu.assertEquals(found, expected)
+end
