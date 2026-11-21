@@ -165,6 +165,35 @@ function TestGdbServer:test_empty_monitor_command()
     lu.assertEquals(request('p4'):len(), 8)
 end
 
+-- Runs one word store: lui $t0, <segment> / sw $0, 0x200($t0) / b . / nop, then waits for the stop.
+-- Each call gets its own code address, since writing memory over gdb leaves the interpreter's
+-- cached copy of code it already ran.
+local codeAddress = 0x80010000
+local function storeAndStop(segment)
+    local code = le32(0x3c080000 + segment) .. le32(0xad000200) .. le32(0x1000ffff) .. le32(0)
+    lu.assertEquals(request(string.format('M%08x,10:', codeAddress) .. code), 'OK')
+    lu.assertEquals(request('P25=' .. le32(codeAddress)), 'OK')
+    codeAddress = codeAddress + 0x10
+    return request('c')
+end
+
+-- A stop on a gdb watchpoint names the watched address, so gdb reports a watchpoint hit.
+function TestGdbServer:test_watchpoint_stop_reason()
+    lu.assertEquals(request('Z2,80000200,4'), 'OK')
+    lu.assertEquals(storeAndStop(0x8000), 'T05watch:80000200;')
+    lu.assertEquals(request('z2,80000200,4'), 'OK')
+end
+
+-- The reported address is inside the watched range and in the segment gdb used, even when the
+-- store starts below it and goes through another segment.
+function TestGdbServer:test_watchpoint_stop_address()
+    lu.assertEquals(request('Z2,80000201,1'), 'OK')
+    lu.assertEquals(storeAndStop(0xa000), 'T05watch:80000201;')
+    -- 0xa0200200 is a mirror of the same word with the 2MB of RAM
+    lu.assertEquals(storeAndStop(0xa020), 'T05watch:80000201;')
+    lu.assertEquals(request('z2,80000201,1'), 'OK')
+end
+
 -- Reading a qXfer document from past its end is an empty last chunk.
 function TestGdbServer:test_qxfer_offset_past_end()
     local doc = request('qXfer:threads:read::0,1000')

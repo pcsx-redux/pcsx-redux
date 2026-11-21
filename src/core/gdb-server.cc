@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <uv.h>
 
+#include <algorithm>
 #include <magic_enum/magic_enum_all.hpp>
 
 #include "core/cdrom.h"
@@ -287,11 +288,10 @@ PCSX::GdbClient::GdbClient(IO<File> connection, uv_loop_t* loop) : m_listener(g_
             // protocol doesn't seem to have a command to list them.
             g_system->resume();
         }
-        // we technically should specify here why we stopped, but we don't have
-        // the architecture for this just yet. Maybe that'll be part of the pause
-        // event later on.
-        if (m_waitingForTrap) write("T05");
+        // a watchpoint hit names its address; anything else is a plain trap
+        if (m_waitingForTrap) write("T05" + m_stopReason);
         m_waitingForTrap = false;
+        m_stopReason.clear();
     });
     m_listener.listen<Events::ExecutionFlow::ShellReached>([this](const auto& event) {
         if (!m_waitingForShell) return;
@@ -724,6 +724,7 @@ void PCSX::GdbClient::processCommand() {
     } else if (m_cmd == "c") {
         // continue - this doesn't technically have a reply, only when the target stops later, using T05.
         m_canReceiveLogs = true;
+        m_stopReason.clear();
         g_system->resume();
         m_waitingForTrap = true;
     } else if (m_cmd[0] == 'M') {
@@ -802,9 +803,22 @@ void PCSX::GdbClient::processCommand() {
                 return;
             }
         }
-        const auto bpActionExec = [action, this](uint32_t addr, Debug::BreakpointType type, unsigned width) -> void {
+        // reason is the stop reply field naming a watchpoint hit, for gdb to tell it from a plain trap
+        const auto bpActionExec = [action, this](uint32_t addr, Debug::BreakpointType type, unsigned width,
+                                                 const char* reason = nullptr) -> void {
             if (action == Action::ADD) {
-                auto bp = g_emulator->m_debug->addBreakpoint(addr, type, width, _("GDB client"));
+                auto bp = g_emulator->m_debug->addBreakpoint(
+                    addr, type, width, _("GDB client"),
+                    [this, reason, base = addr & 0xe0000000, start = addr & ~0xe0000000](
+                        const Debug::Breakpoint* self, uint32_t address, unsigned hitWidth, const char* cause) {
+                        // gdb matches the address against the range it watches, in the segment it used:
+                        // report where the access first overlaps that range, with RAM mirrors folded the
+                        // way the breakpoint matched them
+                        address = Debug::normalizeAddress(address) & ~0xe0000000;
+                        if (reason) m_stopReason = fmt::format("{}:{:08x};", reason, base | std::max(address, start));
+                        g_system->pause();
+                        return true;
+                    });
                 m_breakpoints.push_back(bp);
             } else {
                 addr &= ~0xe0000000;
@@ -834,16 +848,16 @@ void PCSX::GdbClient::processCommand() {
                 break;
                 // kind = number of bytes
             case 2:  // write breakpoint
-                bpActionExec(addr, Debug::BreakpointType::Write, kind);
+                bpActionExec(addr, Debug::BreakpointType::Write, kind, "watch");
                 write("OK");
                 break;
             case 3:  // read breakpoint
-                bpActionExec(addr, Debug::BreakpointType::Read, kind);
+                bpActionExec(addr, Debug::BreakpointType::Read, kind, "rwatch");
                 write("OK");
                 break;
             case 4:  // access breakpoint, aka both read and write
-                bpActionExec(addr, Debug::BreakpointType::Read, kind);
-                bpActionExec(addr, Debug::BreakpointType::Write, kind);
+                bpActionExec(addr, Debug::BreakpointType::Read, kind, "awatch");
+                bpActionExec(addr, Debug::BreakpointType::Write, kind, "awatch");
                 write("OK");
                 break;
             default:
@@ -852,6 +866,7 @@ void PCSX::GdbClient::processCommand() {
         }
     } else if (m_cmd == "s") {
         if (g_system->running()) g_system->pause();
+        m_stopReason.clear();
         m_waitingForTrap = true;
         g_emulator->m_debug->stepIn();
     } else if (m_cmd == "bs") {
