@@ -128,6 +128,8 @@ function TestGdbServer:test_malformed_memory_write()
     lu.assertEquals(request('M80010000,0:'), 'OK')
     lu.assertEquals(request('M80010000,4:1234'), 'E01')
     lu.assertEquals(request('M80010000,4:zz223344'), 'E01')
+    -- the linker-section heuristic does not skip the check
+    lu.assertEquals(request('M8000ffea,16:zz'), 'E01')
     lu.assertEquals(request('m80010000,4'), '44332211')
 end
 

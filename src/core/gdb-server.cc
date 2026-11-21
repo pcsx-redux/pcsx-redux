@@ -732,11 +732,6 @@ void PCSX::GdbClient::processCommand() {
         // write memory
         auto elements = StringsHelpers::split(m_cmd, ":");
         auto [off, len] = parseCursor(elements[0].substr(1));
-        if (((off == 0x8000f800) && (len == 0x800)) || ((off == 0x8000ffea) && (len == 22))) {
-            // heuristic for our ps-exe.ld and cpe.ld
-            write("OK");
-            return;
-        }
         // the data has to be there, hex, and exactly len bytes long, or nothing gets written
         auto colon = m_cmd.find(':');
         if (colon == std::string::npos) {
@@ -758,6 +753,11 @@ void PCSX::GdbClient::processCommand() {
                 return;
             }
             bytes.push_back((hi << 4) | lo);
+        }
+        if (((off == 0x8000f800) && (len == 0x800)) || ((off == 0x8000ffea) && (len == 22))) {
+            // heuristic for our ps-exe.ld and cpe.ld
+            write("OK");
+            return;
         }
         IO<File> memFile = g_emulator->m_mem->getMemoryAsFile();
         memFile->wSeek(off);
