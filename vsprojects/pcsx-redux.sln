@@ -132,6 +132,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Lua", "Lua", "{394627A0-57E
 		..\tests\lua\pcdrv.lua = ..\tests\lua\pcdrv.lua
 		..\tests\lua\pcwrite.lua = ..\tests\lua\pcwrite.lua
 		..\tests\lua\rewind.lua = ..\tests\lua\rewind.lua
+		..\tests\lua\scheduleinterrupt.lua = ..\tests\lua\scheduleinterrupt.lua
 		..\tests\lua\sio1-txirq.lua = ..\tests\lua\sio1-txirq.lua
 		..\tests\lua\spulogger.lua = ..\tests\lua\spulogger.lua
 		..\tests\lua\sqlite.lua = ..\tests\lua\sqlite.lua
