@@ -121,8 +121,8 @@ let
     ({
       owner = "pcsx-redux";
       repo = "nugget";
-      rev = "1a8bbf002041609215cc826f675e1e1b65cfbe65";
-      hash = "sha256-6F/s60N1WTOeZDmMyMP1WczfA7xcsAoaCmwtTaycOe0=";
+      rev = "6f0951cf90e6b84a098b0eca4ff16f7b1dc8a8a8";
+      hash = "sha256-JmMJJ8Yj2GcjpIKwin0MrjSS43sfSRtYmT7M4p8qWD4=";
       dest = "src/mips";
     })
     ({
