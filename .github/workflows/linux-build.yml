@@ -38,6 +38,9 @@ jobs:
       - name: Check tests are in the vcxproj
         if: matrix.arch == 'x86_64'
         run: ./.github/scripts/check-vcxproj-tests.sh
+      - name: Check Lua tests are in the solution
+        if: matrix.arch == 'x86_64'
+        run: ./.github/scripts/check-sln-lua.sh
       - name: Fetch submodules
         run: ./.github/scripts/update-submodules.sh
       - run: |
