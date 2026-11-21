@@ -105,6 +105,58 @@ function TestWebServer:test_pipelined_request_not_dispatched()
     lu.assertNil(second)
 end
 
+-- Like exchange, but writes the request in two pieces with a pause between them.
+local function exchangeSplit(first, second)
+    local co = coroutine.running()
+    local client = luv.new_tcp()
+    local reply = ''
+    local done = false
+    local function finish()
+        if done then return end
+        done = true
+        client:read_stop()
+        client:close(function() coroutine.resume(co) end)
+    end
+    local timer = luv.new_timer()
+    timer:start(5000, 0, finish)
+    local pause = luv.new_timer()
+    client:connect('127.0.0.1', PORT, function(err)
+        lu.assertNil(err)
+        client:read_start(function(rerr, data)
+            if rerr or not data then return finish() end
+            reply = reply .. data
+            if reply:find('\r\n\r\n', 1, true) and reply:find('END$') then finish() end
+        end)
+        client:write(first)
+        pause:start(100, 0, function() client:write(second) end)
+    end)
+    coroutine.yield()
+    timer:stop()
+    timer:close()
+    pause:stop()
+    pause:close()
+    return reply
+end
+
+-- A URL that arrives in several reads, or is longer than one read, still reaches its Lua handler.
+function TestWebServer:test_url_spanning_reads()
+    local seen
+    PCSX.WebServer.Handlers.split = function(request)
+        seen = request
+        return 'END'
+    end
+    exchangeSplit('GET /api/v1/lua/sp', 'lit HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n')
+    lu.assertNotNil(seen)
+    lu.assertEquals(seen.urlData.path, '/api/v1/lua/split')
+    seen = nil
+    local query = 'q=' .. string.rep('a', 400)
+    exchange('GET /api/v1/lua/split?' .. query .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n')
+    PCSX.WebServer.Handlers.split = nil
+    lu.assertNotNil(seen)
+    lu.assertEquals(seen.urlData.path, '/api/v1/lua/split')
+    lu.assertEquals(seen.urlData.query, query)
+end
+
 -- A multipart/form-data handler gets the raw request body, boundaries and part headers included.
 function TestWebServer:test_multipart_body_is_raw()
     local seen

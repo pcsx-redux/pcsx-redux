@@ -858,6 +858,9 @@ struct PCSX::WebClient::WebClientImpl {
             slice.borrow(data, size);
             return static_cast<WebClientImpl*>(parser->data)->onUrl(slice);
         };
+        m_httpParserSettings.on_url_complete = [](auto* parser) {
+            return static_cast<WebClientImpl*>(parser->data)->onUrlComplete();
+        };
         m_httpParserSettings.on_status = [](auto* parser, const char* data, size_t size) {
             Slice slice;
             slice.borrow(data, size);
@@ -932,9 +935,16 @@ struct PCSX::WebClient::WebClientImpl {
 
     void onUpgrade() {}
     int onMessageBegin() { return 0; }
+    // llhttp hands the URL over in as many pieces as the reads were split into, so collect them
+    // here and only parse and route once on_url_complete says the whole URL has arrived.
     int onUrl(const Slice& slice) {
+        m_urlString += slice.asString();
+        return 0;
+    }
+    int onUrlComplete() {
         UriUriA uri;
-        std::string urlString = slice.asString();
+        std::string urlString = std::move(m_urlString);
+        m_urlString.clear();
         const char* errorPos;
         if (uriParseSingleUriA(&uri, urlString.c_str(), &errorPos) != URI_SUCCESS) return 1;
         m_requestData.urlData.schema = uri.scheme.first ? std::string(uri.scheme.first, uri.scheme.afterLast) : "";
@@ -1157,6 +1167,7 @@ struct PCSX::WebClient::WebClientImpl {
     Intrusive::List<WebExecutor>::iterator m_currentExecutor;
     WebClient* m_parent;
 
+    std::string m_urlString;
     std::string m_currentHeader;
     std::string m_currentValue;
     std::string m_currentFormHeader;
