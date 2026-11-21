@@ -70,6 +70,19 @@ function TestWebServer:test_post_body_reaches_handler()
     lu.assertNotNil(reply:find('POST:a=1&b=two%20words:END', 1, true))
 end
 
+-- A GET request reaches a Lua handler with the plain method name.
+function TestWebServer:test_get_method_name()
+    local seen
+    PCSX.WebServer.Handlers.method = function(request)
+        seen = request
+        return 'END'
+    end
+    exchange('GET /api/v1/lua/method HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n')
+    PCSX.WebServer.Handlers.method = nil
+    lu.assertNotNil(seen)
+    lu.assertEquals(seen.method, 'GET')
+end
+
 -- A request with no body still gets the field, as an empty string.
 function TestWebServer:test_get_has_empty_body()
     local seen
