@@ -1,5 +1,6 @@
 #!/bin/bash
 # Fail if the tests/lua/*.lua files and the ones the Visual Studio solution lists differ, in either direction.
+# An entry counts only as a whole line naming the same tests\lua\X.lua on both sides.
 # The solution only shows what it names, so a new script without a line is invisible in the IDE.
 
 set -u
@@ -16,7 +17,7 @@ if ! find tests/lua -name '*.lua' | sort > "$files"; then
     echo "find tests/lua failed" >&2
     exit 2
 fi
-if ! grep -o '\.\.\\tests\\lua\\[^ =]*\.lua' "$sln" | sed 's/^\.\.\\//; s/\\/\//g' | sort -u > "$listed"; then
+if ! sed -nE 's/^[[:space:]]*\.\.\\(tests\\lua\\[^ =]+\.lua)[[:space:]]*=[[:space:]]*\.\.\\\1[[:space:]]*\r?$/\1/p' "$sln" | sed 's/\\/\//g' | sort -u > "$listed"; then
     echo "found no tests/lua entries in $sln, the check is blind" >&2
     exit 2
 fi
