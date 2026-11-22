@@ -875,6 +875,7 @@ struct PCSX::WebClient::WebClientImpl {
         WebClientImpl* m_impl;
     };
 
+    ~WebClientImpl() { freeMultipartParser(); }
     WebClientImpl(WebServer* server, WebClient* parent, IO<File> connection, uv_loop_t* loop)
         : m_server(server), m_parent(parent), m_connection(connection) {
         m_asyncContext = new AsyncContext{{}, this};
@@ -1119,10 +1120,14 @@ struct PCSX::WebClient::WebClientImpl {
         }
         return 0;
     }
+    // A request that ends early (closed for an oversized header, or the client leaving mid-body) never
+    // reaches onMessageComplete, so the destructor frees the parser too.
+    void freeMultipartParser() {
+        if (m_multipartParser) multipart_parser_free(m_multipartParser);
+        m_multipartParser = nullptr;
+    }
     int onMessageComplete() {
-        if (m_multipart) {
-            multipart_parser_free(m_multipartParser);
-        }
+        freeMultipartParser();
         executeRequest();
         // The connection is closed after one request; pause so llhttp_execute
         // does not go on to dispatch anything pipelined behind it.
@@ -1239,7 +1244,7 @@ struct PCSX::WebClient::WebClientImpl {
     RequestData m_requestData;
     bool m_multipart = false;
     std::string m_multipartBoundary;
-    multipart_parser* m_multipartParser;
+    multipart_parser* m_multipartParser = nullptr;
     multipart_parser_settings m_multipartParserCallbacks;
 };
 
