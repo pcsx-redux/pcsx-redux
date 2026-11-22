@@ -32,6 +32,7 @@
 #include <magic_enum/magic_enum_all.hpp>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_set>
 
@@ -1040,26 +1041,40 @@ struct PCSX::WebClient::WebClientImpl {
                           [](unsigned char x, unsigned char y) { return std::tolower(x) == std::tolower(y); });
     }
     // Pulls the name parameter out of a Content-Disposition value such as: form-data; name="a"; filename="f"
-    static std::string dispositionName(std::string_view value) {
-        size_t pos = 0;
-        while ((pos = value.find("name", pos)) != std::string_view::npos) {
-            bool atStart = (pos == 0) || (value[pos - 1] == ';') || (value[pos - 1] == ' ') || (value[pos - 1] == '\t');
-            size_t i = pos + 4;
-            pos = i;
-            if (!atStart) continue;
-            while ((i < value.size()) && ((value[i] == ' ') || (value[i] == '\t'))) i++;
-            if ((i >= value.size()) || (value[i] != '=')) continue;
+    // Parameters are split on semicolons outside quotes, and the parameter name is matched without regard to case.
+    // An absent name parameter gives nullopt; name="" gives an empty string.
+    static std::optional<std::string> dispositionName(std::string_view value) {
+        auto isSpace = [](char c) { return (c == ' ') || (c == '\t'); };
+        size_t i = value.find(';');
+        while (i != std::string_view::npos) {
             i++;
-            while ((i < value.size()) && ((value[i] == ' ') || (value[i] == '\t'))) i++;
-            if ((i < value.size()) && (value[i] == '"')) {
-                auto end = value.find('"', i + 1);
-                if (end == std::string_view::npos) end = value.size();
-                return std::string(value.substr(i + 1, end - i - 1));
+            while ((i < value.size()) && isSpace(value[i])) i++;
+            size_t keyStart = i;
+            while ((i < value.size()) && (value[i] != '=') && (value[i] != ';')) i++;
+            size_t keyEnd = i;
+            while ((keyEnd > keyStart) && isSpace(value[keyEnd - 1])) keyEnd--;
+            std::string_view key = value.substr(keyStart, keyEnd - keyStart);
+            std::string paramValue;
+            if ((i < value.size()) && (value[i] == '=')) {
+                i++;
+                while ((i < value.size()) && isSpace(value[i])) i++;
+                if ((i < value.size()) && (value[i] == '"')) {
+                    i++;
+                    while ((i < value.size()) && (value[i] != '"')) {
+                        if ((value[i] == '\\') && (i + 1 < value.size())) i++;
+                        paramValue += value[i++];
+                    }
+                    if (i < value.size()) i++;
+                } else {
+                    size_t start = i;
+                    while ((i < value.size()) && (value[i] != ';') && !isSpace(value[i])) i++;
+                    paramValue = std::string(value.substr(start, i - start));
+                }
             }
-            auto end = value.find_first_of("; \t", i);
-            return std::string(value.substr(i, end == std::string_view::npos ? std::string_view::npos : end - i));
+            if (equalsNoCase(key, "name")) return paramValue;
+            i = value.find(';', i);
         }
-        return {};
+        return std::nullopt;
     }
     void formHeaderComplete() {
         if (equalsNoCase(m_currentFormHeader, "Content-Disposition")) {
@@ -1069,16 +1084,16 @@ struct PCSX::WebClient::WebClientImpl {
         m_currentFormValue.clear();
     }
     int onFormPartBegin() {
-        m_currentFormName.clear();
+        m_currentFormName.reset();
         m_currentFormData.clear();
         m_formHeaderState = PARSING_HEADER;
         return 0;
     }
     int onFormPartEnd() {
-        if (!m_currentFormName.empty()) {
-            m_requestData.form.insert(std::pair(m_currentFormName, m_currentFormData));
+        if (m_currentFormName) {
+            m_requestData.form.insert(std::pair(*m_currentFormName, m_currentFormData));
         }
-        m_currentFormName.clear();
+        m_currentFormName.reset();
         m_currentFormData.clear();
         return 0;
     }
@@ -1291,7 +1306,7 @@ struct PCSX::WebClient::WebClientImpl {
     size_t m_headerBytes = 0;
     size_t m_formHeaderBytes = 0;
     std::string m_currentFormValue;
-    std::string m_currentFormName;
+    std::optional<std::string> m_currentFormName;
     std::string m_currentFormData;
     enum HeaderState {
         PARSING_HEADER,
