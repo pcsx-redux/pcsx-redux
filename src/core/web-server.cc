@@ -938,6 +938,11 @@ struct PCSX::WebClient::WebClientImpl {
     // llhttp hands the URL over in as many pieces as the reads were split into, so collect them
     // here and only parse and route once on_url_complete says the whole URL has arrived.
     int onUrl(const Slice& slice) {
+        if (m_urlString.size() + slice.size() > MAX_URL_SIZE) {
+            write("HTTP/1.1 414 URI Too Long\r\n\r\n");
+            scheduleClose();
+            return 1;
+        }
         m_urlString += slice.asString();
         return 0;
     }
@@ -1161,6 +1166,7 @@ struct PCSX::WebClient::WebClientImpl {
     IO<File> m_connection;
     AsyncContext* m_asyncContext = nullptr;
     static constexpr size_t BUFFER_SIZE = 256;
+    static constexpr size_t MAX_URL_SIZE = 64 * 1024;
     enum { OPEN, CLOSING } m_status = OPEN;
     llhttp_settings_t m_httpParserSettings;
     llhttp_t m_httpParser;

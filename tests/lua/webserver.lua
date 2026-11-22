@@ -157,6 +157,19 @@ function TestWebServer:test_url_spanning_reads()
     lu.assertEquals(seen.urlData.query, query)
 end
 
+-- A URL that never ends is refused once it passes the size limit, instead of being buffered forever.
+function TestWebServer:test_url_too_long()
+    local called = false
+    PCSX.WebServer.Handlers.long = function(request)
+        called = true
+        return 'END'
+    end
+    local reply = exchange('GET /api/v1/lua/long?q=' .. string.rep('a', 70000))
+    PCSX.WebServer.Handlers.long = nil
+    lu.assertFalse(called)
+    lu.assertNotNil(reply:find('HTTP/1.1 414', 1, true))
+end
+
 -- A multipart/form-data handler gets the raw request body, boundaries and part headers included.
 function TestWebServer:test_multipart_body_is_raw()
     local seen
