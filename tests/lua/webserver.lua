@@ -50,6 +50,39 @@ local function exchange(raw)
     return reply
 end
 
+-- The VRAM download must announce exactly as many body bytes as it sends.
+function TestWebServer:test_vram_content_length_matches_body()
+    local co = coroutine.running()
+    local client = luv.new_tcp()
+    local reply = {}
+    local done = false
+    local function finish()
+        if done then return end
+        done = true
+        client:read_stop()
+        client:close(function() coroutine.resume(co) end)
+    end
+    local timer = luv.new_timer()
+    timer:start(5000, 0, finish)
+    client:connect('127.0.0.1', PORT, function(err)
+        lu.assertNil(err)
+        client:read_start(function(rerr, data)
+            if rerr or not data then return finish() end
+            reply[#reply + 1] = data
+        end)
+        client:write('GET /api/v1/gpu/vram/raw HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n')
+    end)
+    coroutine.yield()
+    timer:stop()
+    timer:close()
+    reply = table.concat(reply)
+    local headerEnd = reply:find('\r\n\r\n', 1, true)
+    lu.assertNotNil(headerEnd)
+    local length = tonumber(reply:sub(1, headerEnd):match('[Cc]ontent%-[Ll]ength: (%d+)'))
+    lu.assertNotNil(length)
+    lu.assertEquals(length, #reply - (headerEnd + 3))
+end
+
 local function post(path, body)
     return exchange('POST /api/v1/lua/' .. path .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
                         'Content-Type: application/x-www-form-urlencoded\r\nContent-Length: ' .. #body .. '\r\n\r\n' ..
