@@ -102,9 +102,34 @@ void PCSX::GdbClient::sendPacket(Slice&& payload) {
     framed += '#';
     framed += toHex[chksum >> 4];
     framed += toHex[chksum & 0x0f];
+    sendFrame(std::move(framed));
+}
+
+// With acks on, one packet is in flight at a time: the next one waits for the '+' of the one
+// before, so a '-' always names the packet we still hold.
+void PCSX::GdbClient::sendFrame(std::string&& frame) {
+    if (!m_connection || m_connection->isClosed()) return;
+    if (m_ackEnabled) {
+        if (m_awaitingAck) {
+            m_pendingFrames.push_back(std::move(frame));
+            return;
+        }
+        m_lastPacket = frame;
+        m_awaitingAck = true;
+    }
     Slice out;
-    out.acquire(std::move(framed));
+    out.acquire(std::move(frame));
     m_connection->write(std::move(out));
+}
+
+void PCSX::GdbClient::onAck() {
+    if (!m_awaitingAck) return;
+    m_awaitingAck = false;
+    m_lastPacket.clear();
+    if (m_pendingFrames.empty()) return;
+    auto next = std::move(m_pendingFrames.front());
+    m_pendingFrames.pop_front();
+    sendFrame(std::move(next));
 }
 
 void PCSX::GdbClient::onReadable() {
@@ -349,7 +374,13 @@ void PCSX::GdbClient::processData(const Slice& slice) {
                     }
                 }
             case WAIT_FOR_DOLLAR:
-                if (c == '+') sendAck();
+                // '+' acknowledges what we sent and needs no answer; '-' asks for it again
+                if (c == '+') onAck();
+                if ((c == '-') && m_ackEnabled && m_awaitingAck) {
+                    Slice again;
+                    again.copy(m_lastPacket);
+                    sendRaw(std::move(again));
+                }
                 if (c == 3) g_system->pause();
                 if (c != '$') break;
                 m_state = READING_COMMAND;
@@ -935,6 +966,14 @@ void PCSX::GdbClient::processCommand() {
         write(std::move(answer));
     } else if (StringsHelpers::startsWith(m_cmd, "QStartNoAckMode")) {
         m_ackEnabled = false;
+        // nothing waits for an ack any more
+        m_awaitingAck = false;
+        m_lastPacket.clear();
+        while (!m_pendingFrames.empty()) {
+            auto frame = std::move(m_pendingFrames.front());
+            m_pendingFrames.pop_front();
+            sendFrame(std::move(frame));
+        }
         write("OK");
     } else if (StringsHelpers::startsWith(m_cmd, "qRcmd,")) {
         // this is the "monitor" command

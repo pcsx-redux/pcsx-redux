@@ -185,6 +185,23 @@ function TestGdbServer:test_malformed_register_packet_keeps_connection()
     lu.assertEquals(PCSX.getRegisters().GPR.n.a1, 0xcafe)
 end
 
+-- Acks are not acked back, and a '-' gets the last packet sent again.
+function TestGdbServer:test_acks()
+    PCSX.getRegisters().GPR.n.a0 = 0x3333
+    local reply = '$33330000#' .. checksum('33330000'):upper()
+    lu.assertEquals(rawExchange('+$p4#' .. checksum('p4'), '#%x%x$'), '+' .. reply)
+    lu.assertEquals(rawExchange('-', '#%x%x$'), reply)
+    -- a reply in two packets: the second waits for the ack of the first, so a '-' gets the first
+    local usage = 'Usage: sharedmem <type>'
+    local o = 'O' .. usage:gsub('.', function(c) return string.format('%02X', c:byte()) end)
+    local cmd = 'qRcmd,' .. ('sharedmem'):gsub('.', function(c) return string.format('%02x', c:byte()) end)
+    local first = '$' .. o .. '#' .. checksum(o):upper()
+    lu.assertEquals(rawExchange('+$' .. cmd .. '#' .. checksum(cmd), '#%x%x$'), '+' .. first)
+    lu.assertEquals(rawExchange('-', '#%x%x$'), first)
+    lu.assertEquals(rawExchange('+', '#%x%x$'), '$OK#9A')
+    client:write('+')
+end
+
 -- Removing a gdb watchpoint leaves alone the breakpoints gdb did not set.
 function TestGdbServer:test_remove_leaves_other_breakpoints()
     local bp = PCSX.addBreakpoint(0x80010000, 'Exec', 4, 'test')
