@@ -297,3 +297,20 @@ function TestWebServer:test_symbol_upload_validates_address()
     local expected = {[0x80010000] = 'hexprefixed', [0x80020000] = 'plain'}
     lu.assertEquals(found, expected)
 end
+
+-- Headers that never end, in the request or in a multipart part, are refused past the size limit.
+function TestWebServer:test_headers_too_large()
+    local called = false
+    PCSX.WebServer.Handlers.bighdr = function(request)
+        called = true
+        return 'END'
+    end
+    local reply = exchange('GET /api/v1/lua/bighdr HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Big: ' .. string.rep('a', 70000))
+    lu.assertNotNil(reply:find('HTTP/1.1 431', 1, true))
+    local body = '--XyZ\r\nX-Big: ' .. string.rep('a', 70000) .. '\r\n\r\n1\r\n--XyZ--\r\n'
+    reply = exchange('POST /api/v1/lua/bighdr HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
+                         'Content-Type: multipart/form-data; boundary=XyZ\r\nContent-Length: ' .. #body .. '\r\n\r\n' .. body)
+    PCSX.WebServer.Handlers.bighdr = nil
+    lu.assertFalse(called)
+    lu.assertNotNil(reply:find('HTTP/1.1 431', 1, true))
+end

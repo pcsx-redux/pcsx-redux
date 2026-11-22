@@ -875,6 +875,7 @@ struct PCSX::WebClient::WebClientImpl {
         WebClientImpl* m_impl;
     };
 
+    ~WebClientImpl() { freeMultipartParser(); }
     WebClientImpl(WebServer* server, WebClient* parent, IO<File> connection, uv_loop_t* loop)
         : m_server(server), m_parent(parent), m_connection(connection) {
         m_asyncContext = new AsyncContext{{}, this};
@@ -1008,7 +1009,17 @@ struct PCSX::WebClient::WebClientImpl {
         m_currentHeader.clear();
         m_currentValue.clear();
     }
+    // Header names and values are buffered until the headers end, so their total size is capped. Past the cap
+    // the request gets a 431 and the connection is closed.
+    bool headerTooLarge(size_t& total, const Slice& slice) {
+        total += slice.size();
+        if (total <= MAX_HEADER_SIZE) return false;
+        write("HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n");
+        scheduleClose();
+        return true;
+    }
     int onHeaderField(const Slice& slice) {
+        if (headerTooLarge(m_headerBytes, slice)) return 1;
         if (m_headerState == PARSING_VALUE) {
             headerComplete();
             m_headerState = PARSING_HEADER;
@@ -1017,6 +1028,7 @@ struct PCSX::WebClient::WebClientImpl {
         return 0;
     }
     int onHeaderValue(const Slice& slice) {
+        if (headerTooLarge(m_headerBytes, slice)) return 1;
         m_headerState = PARSING_VALUE;
         m_currentValue += slice.asString();
         return 0;
@@ -1027,6 +1039,7 @@ struct PCSX::WebClient::WebClientImpl {
         m_currentFormValue.clear();
     }
     int onFormHeaderField(const Slice& slice) {
+        if (headerTooLarge(m_formHeaderBytes, slice)) return 1;
         if (m_formHeaderState == PARSING_VALUE) {
             formHeaderComplete();
             m_formHeaderState = PARSING_HEADER;
@@ -1035,6 +1048,7 @@ struct PCSX::WebClient::WebClientImpl {
         return 0;
     }
     int onFormHeaderValue(const Slice& slice) {
+        if (headerTooLarge(m_formHeaderBytes, slice)) return 1;
         m_formHeaderState = PARSING_VALUE;
         m_currentFormValue += slice.asString();
         return 0;
@@ -1099,15 +1113,21 @@ struct PCSX::WebClient::WebClientImpl {
         m_requestData.rawBody.concatenate(slice);
         if (m_multipart) {
             multipart_parser_execute(m_multipartParser, slice.data<char>(), slice.size());
+            // A part whose headers grew past the cap closed the connection; stop here.
+            if (m_status != OPEN) return 1;
         } else {
             m_requestData.body.concatenate(slice);
         }
         return 0;
     }
+    // A request that ends early (closed for an oversized header, or the client leaving mid-body) never
+    // reaches onMessageComplete, so the destructor frees the parser too.
+    void freeMultipartParser() {
+        if (m_multipartParser) multipart_parser_free(m_multipartParser);
+        m_multipartParser = nullptr;
+    }
     int onMessageComplete() {
-        if (m_multipart) {
-            multipart_parser_free(m_multipartParser);
-        }
+        freeMultipartParser();
         executeRequest();
         // The connection is closed after one request; pause so llhttp_execute
         // does not go on to dispatch anything pipelined behind it.
@@ -1201,6 +1221,7 @@ struct PCSX::WebClient::WebClientImpl {
     AsyncContext* m_asyncContext = nullptr;
     static constexpr size_t BUFFER_SIZE = 256;
     static constexpr size_t MAX_URL_SIZE = 64 * 1024;
+    static constexpr size_t MAX_HEADER_SIZE = 64 * 1024;
     enum { OPEN, CLOSING } m_status = OPEN;
     llhttp_settings_t m_httpParserSettings;
     llhttp_t m_httpParser;
@@ -1211,6 +1232,8 @@ struct PCSX::WebClient::WebClientImpl {
     std::string m_currentHeader;
     std::string m_currentValue;
     std::string m_currentFormHeader;
+    size_t m_headerBytes = 0;
+    size_t m_formHeaderBytes = 0;
     std::string m_currentFormValue;
     enum HeaderState {
         PARSING_HEADER,
@@ -1221,7 +1244,7 @@ struct PCSX::WebClient::WebClientImpl {
     RequestData m_requestData;
     bool m_multipart = false;
     std::string m_multipartBoundary;
-    multipart_parser* m_multipartParser;
+    multipart_parser* m_multipartParser = nullptr;
     multipart_parser_settings m_multipartParserCallbacks;
 };
 
