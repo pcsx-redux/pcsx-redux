@@ -389,7 +389,9 @@ class LuaExecutor : public PCSX::WebExecutor {
             L.settable();
             L.settable();
             L.push("method");
-            L.push(magic_enum::enum_name(request.method).substr(5));
+            // RequestData::Method mirrors llhttp's method numbering.
+            const char* methodName = llhttp_method_name(static_cast<llhttp_method_t>(request.method));
+            L.push(std::string_view(methodName ? methodName : ""));
             L.settable();
             L.push("headers");
             L.newtable();
