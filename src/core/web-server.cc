@@ -418,7 +418,8 @@ class LuaExecutor : public PCSX::WebExecutor {
             }
             L.settable();
             L.push("body");
-            L.push(request.rawBody.asString());
+            // rawBody is only kept for multipart requests; for any other request body is already the raw body.
+            L.push(request.rawBody.size() ? request.rawBody.asString() : request.body.asString());
             L.settable();
             try {
                 L.pcall(1);
@@ -1110,8 +1111,8 @@ struct PCSX::WebClient::WebClientImpl {
     }
 
     int onBody(const Slice& slice) {
-        m_requestData.rawBody.concatenate(slice);
         if (m_multipart) {
+            m_requestData.rawBody.concatenate(slice);
             multipart_parser_execute(m_multipartParser, slice.data<char>(), slice.size());
             // A part whose headers grew past the cap closed the connection; stop here.
             if (m_status != OPEN) return 1;
