@@ -165,6 +165,12 @@ function TestGdbServer:test_multiprocess_detach()
     lu.assertEquals(request('p4'):len(), 8)
 end
 
+-- A memory read asking for more than fits in a packet gets as much as fits, not the whole range.
+function TestGdbServer:test_memory_read_is_capped()
+    lu.assertEquals(request('m80000000,10'):len(), 32)
+    lu.assertEquals(request('m80000000,10000'):len(), 0x47ff - 4 - 1)
+end
+
 -- gdb's `thread 1` checks the thread is alive with T; the only thread always is.
 function TestGdbServer:test_thread_alive()
     lu.assertEquals(request('T1'), 'OK')
