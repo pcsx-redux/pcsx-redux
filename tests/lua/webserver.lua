@@ -144,6 +144,29 @@ function TestWebServer:test_get_has_empty_body()
     lu.assertEquals(seen.body, '')
 end
 
+-- A request with no headers gets an empty headers table, and one header gives exactly one key.
+function TestWebServer:test_no_headers_means_empty_table()
+    local seen
+    PCSX.WebServer.Handlers.hdrs = function(request)
+        seen = request
+        return 'END'
+    end
+    exchange('GET /api/v1/lua/hdrs HTTP/1.1\r\n\r\n')
+    lu.assertNotNil(seen)
+    lu.assertNil(next(seen.headers))
+    seen = nil
+    exchange('GET /api/v1/lua/hdrs HTTP/1.1\r\nX-A: 1\r\n\r\n')
+    PCSX.WebServer.Handlers.hdrs = nil
+    lu.assertNotNil(seen)
+    local count = 0
+    for k, v in pairs(seen.headers) do
+        count = count + 1
+        lu.assertEquals(k, 'X-A')
+        lu.assertEquals(v[1], '1')
+    end
+    lu.assertEquals(count, 1)
+end
+
 -- A request pipelined behind the first one in the same write must not be dispatched: the
 -- connection closes after the first response, and the leftover request would see its body.
 function TestWebServer:test_pipelined_request_not_dispatched()

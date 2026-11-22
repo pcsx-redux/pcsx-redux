@@ -1021,7 +1021,8 @@ struct PCSX::WebClient::WebClientImpl {
         return 0;
     }
     int onHeadersComplete() {
-        headerComplete();
+        // A request with no headers never started one, so there is nothing to complete.
+        if (!m_currentHeader.empty() || !m_currentValue.empty()) headerComplete();
         auto& ct = m_requestData.headers;
         auto it = ct.find("Content-Type");
         if (it != ct.end()) {
