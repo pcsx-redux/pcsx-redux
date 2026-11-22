@@ -213,10 +213,14 @@ class AssemblyExecutor : public PCSX::WebExecutor {
                     }
                     auto addressStr = tokens[0];
                     auto name = tokens[1];
-                    uint32_t address;
-                    auto result =
-                        std::from_chars(addressStr.data(), addressStr.data() + addressStr.size(), address, 16);
-                    if (result.ec == std::errc::invalid_argument) continue;
+                    if ((addressStr.size() >= 2) && (addressStr[0] == '0') &&
+                        ((addressStr[1] == 'x') || (addressStr[1] == 'X'))) {
+                        addressStr.remove_prefix(2);
+                    }
+                    const char* addressEnd = addressStr.data() + addressStr.size();
+                    uint32_t address = 0;
+                    auto result = std::from_chars(addressStr.data(), addressEnd, address, 16);
+                    if ((result.ec != std::errc{}) || (result.ptr != addressEnd)) continue;
 
                     cpu->m_symbols[address] = name;
                 }
