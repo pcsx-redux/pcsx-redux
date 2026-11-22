@@ -151,6 +151,13 @@ function TestGdbServer:test_remove_leaves_other_breakpoints()
     bp:remove()
 end
 
+-- A Z or z packet that doesn't parse is an error reply, and the connection stays usable after it.
+function TestGdbServer:test_malformed_breakpoint_keeps_connection()
+    lu.assertEquals(request('Z0,zz,4'), 'E00')
+    lu.assertEquals(request('z1,80010000,q'), 'E00')
+    lu.assertEquals(request('p4'):len(), 8)
+end
+
 -- With multiprocess negotiated, gdb detaches with D;<pid>.
 function TestGdbServer:test_multiprocess_detach()
     lu.assertEquals(request('D;1'), 'OK')
