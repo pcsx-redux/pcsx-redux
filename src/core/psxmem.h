@@ -327,6 +327,9 @@ class Memory {
     IO<MemoryAsFile> getMemoryAsFile() { return m_memoryAsFile; }
 
     bool isiCacheEnabled() { return m_BIU == 0x1e988; }
+    // The RAM the guest can reach right now: 8MB needs both the setting and the guest's own
+    // RAM_SIZE register to ask for it, otherwise it's 2MB, mirrored.
+    uint32_t ramSize() const;
     bool isolatedToICache(uint32_t address) const;
     uint32_t getBIU() const { return m_BIU; }
     // For save states: the guest's own write to 0xfffe0130 also invalidates the code cache on

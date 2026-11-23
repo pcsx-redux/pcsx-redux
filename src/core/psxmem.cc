@@ -798,9 +798,13 @@ const void *PCSX::Memory::pointerWrite(uint32_t address, int size) {
     }
 }
 
+uint32_t PCSX::Memory::ramSize() const {
+    if ((m_hard[0x1061] & 0x1) && g_emulator->settings.get<Emulator::Setting8MB>()) return 8 * 1024 * 1024;
+    return 2 * 1024 * 1024;
+}
+
 void PCSX::Memory::setLuts() {
-    int max = (m_hard[0x1061] & 0x1) ? 0x80 : 0x20;
-    if (!g_emulator->settings.get<Emulator::Setting8MB>()) max = 0x20;
+    const int max = ramSize() >> 16;
     for (int i = 0; i < 0x80; i++) m_readLUT[i + 0x0000] = (uint8_t *)&m_wram[(i & (max - 1)) << 16];
     memcpy(m_readLUT + 0x8000, m_readLUT, 0x80 * sizeof(void *));
     memcpy(m_readLUT + 0xa000, m_readLUT, 0x80 * sizeof(void *));

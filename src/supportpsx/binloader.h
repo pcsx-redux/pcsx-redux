@@ -45,6 +45,9 @@ struct Info {
     std::optional<uint32_t> pc;
     std::optional<uint32_t> sp;
     std::optional<uint32_t> gp;
+    // Set by the caller to the amount of RAM the machine has. A binary that doesn't fit in RAM
+    // or in the BIOS ROM is then refused with an exception before anything gets written.
+    std::optional<uint32_t> ramSize;
 };
 
 bool load(IO<File> in, IO<File> dest, Info& info, std::map<uint32_t, std::string>& symbols);

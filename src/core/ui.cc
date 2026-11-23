@@ -122,8 +122,10 @@ void PCSX::UI::shellReached() {
 
     g_system->log(LogClass::UI, "Hijacked shell, loading %s...\n", p.string());
     bool success = false;
+    bool threw = false;
     try {
         BinaryLoader::Info info;
+        info.ramSize = g_emulator->m_mem->ramSize();
         IO<File> in(new PosixFile(filename));
         if (in->failed()) {
             throw std::runtime_error("Failed to open file.");
@@ -149,13 +151,15 @@ void PCSX::UI::shellReached() {
             }
         }
     } catch (std::exception& e) {
+        threw = true;
         g_system->log(LogClass::UI, "Failed to load %s: %s\n", p.string(), e.what());
     } catch (...) {
+        threw = true;
         g_system->log(LogClass::UI, "Failed to load %s: unknown error\n", p.string());
     }
     if (success) {
         g_system->log(LogClass::UI, "Successful: new PC = %08x...\n", regs.pc);
-    } else {
+    } else if (!threw) {
         g_system->log(LogClass::UI, "Failed to load %s, unknown file format.\n", p.string());
     }
 

@@ -275,6 +275,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\dma.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\dumpproto.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\cputrace.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\binloader-ram.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\binloader-symbols.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\profiler.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\openbios-fallback.cc" />

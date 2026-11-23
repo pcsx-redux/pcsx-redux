@@ -27,7 +27,9 @@ SOFTWARE.
 #include "supportpsx/binloader.h"
 
 #include <map>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "elfio/elfio.hpp"
 #include "fmt/format.h"
@@ -50,6 +52,44 @@ void eraseSymbolsInSpan(uint32_t low, uint32_t high, std::map<uint32_t, std::str
     }
 }
 
+// A binary has to fit either in RAM or in the BIOS ROM, through KUSEG, KSEG0 or KSEG1.
+// RAM is the 8MB window, which binaries may load anywhere into as they can rely on the
+// mirrors, but no larger than the RAM actually behind it, or it would overwrite itself.
+// Has to be called before reading the data in, so that a size field gone wrong doesn't
+// get to allocate gigabytes on the host before being refused.
+void checkSpan(const BinaryLoader::Info& info, uint32_t addr, uint64_t size) {
+    if (!info.ramSize.has_value()) return;
+    constexpr uint64_t c_ramWindow = 0x00800000;
+    constexpr uint64_t c_biosStart = 0x1fc00000;
+    constexpr uint64_t c_biosEnd = 0x1fc80000;
+    const uint64_t ramSize = info.ramSize.value();
+    const uint32_t segment = addr >> 29;
+    const uint64_t start = addr & 0x1fffffff;
+    const uint64_t end = start + size;
+    const uint64_t last = uint64_t(addr) + size;
+    if ((segment == 0 || segment == 4 || segment == 5) && (start < c_ramWindow)) {
+        if (end > c_ramWindow) {
+            throw std::runtime_error(fmt::format(
+                "Binary spans 0x{:08x}-0x{:08x}, which runs {} bytes past the end of the RAM window.", addr, last,
+                end - c_ramWindow));
+        }
+        if (size > ramSize) {
+            throw std::runtime_error(fmt::format("Binary is {} bytes, which is {} bytes more than the {} kB of RAM.",
+                                                 size, size - ramSize, ramSize / 1024));
+        }
+        return;
+    }
+    if ((segment == 0 || segment == 4 || segment == 5) && (start >= c_biosStart) && (start < c_biosEnd)) {
+        if (end > c_biosEnd) {
+            throw std::runtime_error(fmt::format(
+                "Binary spans 0x{:08x}-0x{:08x}, which runs {} bytes past the end of the BIOS ROM.", addr, last,
+                end - c_biosEnd));
+        }
+        return;
+    }
+    throw std::runtime_error(fmt::format("Binary loads at 0x{:08x}, which is neither RAM nor the BIOS ROM.", addr));
+}
+
 bool loadCPE(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<uint32_t, std::string>& symbols) {
     uint32_t magic = file->read<uint32_t>();
     if (magic != 0x1455043) return false;
@@ -66,6 +106,7 @@ bool loadCPE(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<ui
             case 1: {  // load
                 uint32_t addr = file->read<uint32_t>();
                 uint32_t size = file->read<uint32_t>();
+                checkSpan(info, addr, size);
                 dest->writeAt(file->read(size), addr);
                 eraseSymbolsInSpan(addr, addr + size, symbols);
             } break;
@@ -140,6 +181,7 @@ bool loadPSEXE(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<
     if (!overlay && spInFile != 0) info.sp = spInFile;
     file->rSeek(0x71, SEEK_SET);
     uint8_t regionByte = file->byte();
+    checkSpan(info, addr, size);
     file->rSeek(2048, SEEK_SET);
     dest->writeAt(file->read(size), addr);
     eraseSymbolsInSpan(addr, addr + size, symbols);
@@ -234,6 +276,13 @@ bool loadELF(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<ui
 
     Elf_Half sec_num = reader.sections.size();
     Elf_Half seg_num = reader.segments.size();
+    struct Chunk {
+        const char* data;
+        Elf_Xword size;
+        Elf64_Addr vaddr;
+        Elf64_Addr loadAddr;
+    };
+    std::vector<Chunk> chunks;
     for (unsigned i = 0; i < sec_num; i++) {
         section* psec = reader.sections[i];
 
@@ -256,8 +305,13 @@ bool loadELF(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<ui
                 break;
             }
         }
-        dest->writeAt(data, size, loadAddr);
-        eraseSymbolsInSpan(vaddr, vaddr + size, symbols);
+        checkSpan(info, loadAddr, size);
+        chunks.push_back({data, size, vaddr, loadAddr});
+    }
+    // All of the sections are checked before the first one gets written.
+    for (auto& chunk : chunks) {
+        dest->writeAt(chunk.data, chunk.size, chunk.loadAddr);
+        eraseSymbolsInSpan(chunk.vaddr, chunk.vaddr + chunk.size, symbols);
     }
 
     // Only symbols that name an address are imported: file and section symbols, undefined
