@@ -318,6 +318,7 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
         if (userAddressError(m_regs.GPR.r[_Rs_] + _Imm_, Exception::StoreAddressError)) return;
         gteDrainIfStalling();
         gteStall();
+        gteCheckStaleRead("SWC2", false, _Rt_);
         PCSX::g_emulator->m_gte->SWC2(code);
     }
 
@@ -343,6 +344,30 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
         if (m_regs.cycle < m_regs.gteReady) {
             while (m_gtePendingCount) gteCommitOldest();
         }
+    }
+    // Debug aid for the GTEStaleReads setting: a read of a register that a queued write would
+    // change returns the old value, as it does on the console. Compares what the read returns
+    // now against what it would return with the queued writes landed, then puts the registers
+    // back, since a move from the GTE can rewrite the register it reads.
+    void gteCheckStaleRead(const char* insn, bool ctrl, unsigned reg) {
+        if (!m_gtePendingCount) return;
+        auto& debugSettings = PCSX::g_emulator->settings.get<PCSX::Emulator::SettingDebugSettings>();
+        if (!debugSettings.get<PCSX::Emulator::DebugSettings::GTEStaleReads>()) return;
+        auto& gte = *PCSX::g_emulator->m_gte;
+        const PCSX::psxCP2Data data = m_regs.CP2D;
+        const PCSX::psxCP2Ctrl ctrlRegs = m_regs.CP2C;
+        const uint32_t stale = ctrl ? m_regs.CP2C.r[reg] : gte.MFC2(static_cast<int>(reg));
+        m_regs.CP2D = data;
+        for (unsigned i = 0; i < m_gtePendingCount; i++) gteCommit(m_gtePending[i]);
+        const uint32_t landed = ctrl ? m_regs.CP2C.r[reg] : gte.MFC2(static_cast<int>(reg));
+        m_regs.CP2D = data;
+        m_regs.CP2C = ctrlRegs;
+        if (stale == landed) return;
+        PCSX::g_system->log(PCSX::LogClass::GTE,
+                            _("%s at 0x%08x reads GTE %s register %u as 0x%08x, before a write making it 0x%08x "
+                              "has landed\n"),
+                            insn, m_regs.pc - 4, ctrl ? "control" : "data", reg, stale, landed);
+        if (debugSettings.get<PCSX::Emulator::DebugSettings::Debug>()) PCSX::g_system->pause();
     }
     void gteMTC2(uint32_t code) { gteQueueWrite(false, _Rd_, m_regs.GPR.r[_Rt_]); }
     void gteCTC2(uint32_t code) { gteQueueWrite(true, _Rd_, m_regs.GPR.r[_Rt_]); }
@@ -1223,6 +1248,7 @@ void InterpretedCPU::psxMFC2(uint32_t code) {
     gteStall();
     // load delay = 1 latency
     if (!_Rt_) return;
+    gteCheckStaleRead("MFC2", false, _Rd_);
     delayedLoadRef(_Rt_) = PCSX::g_emulator->m_gte->MFC2(code);
 }
 
@@ -1231,6 +1257,7 @@ void InterpretedCPU::psxCFC2(uint32_t code) {
     gteStall();
     // load delay = 1 latency
     if (!_Rt_) return;
+    gteCheckStaleRead("CFC2", true, _Rd_);
     delayedLoadRef(_Rt_) = PCSX::g_emulator->m_gte->CFC2(code);
 }
 

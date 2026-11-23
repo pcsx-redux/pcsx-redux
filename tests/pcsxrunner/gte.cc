@@ -101,3 +101,21 @@ TEST(GTE, WriteToUseCoarseDynarec) {
     int ret = invoker.invoke();
     EXPECT_EQ(ret, 2);
 }
+
+// MFC2, CFC2 and SWC2 reading a GTE register before a write to it has landed, with the
+// GTEStaleReads setting on and the debugger enabled: each such read pauses, and the reads that
+// get the written value (enough instructions in between, or a stall on a running command) don't.
+TEST(GTE, StaleReadsCaught) {
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-dofile", "tests/lua/gte-stale-reads.lua");
+    int ret = invoker.invoke();
+    EXPECT_EQ(ret, 0);
+}
+
+// Same program with the setting off: the reads return the same values and nothing pauses.
+TEST(GTE, StaleReadsSettingOff) {
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-dofile", "tests/lua/gte-stale-reads.lua", "-exec", "GteStaleReadsOff = true");
+    int ret = invoker.invoke();
+    EXPECT_EQ(ret, 0);
+}
