@@ -96,10 +96,14 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
     // register can differ between them.
     std::vector<Sample> unique;
     std::vector<bool> loopKnown;
+    // The copy each kept loop was observed at, which is the kept copy unless it had none.
+    std::vector<uint32_t> loopFrom;
     std::unordered_map<uint64_t, size_t> bySignature;
     auto loopOffset = [](const Sample& s) { return s.repeats && s.hasLoop ? int64_t(s.loop - s.start) : -1; };
-    auto describe = [](const Sample& s) {
-        return s.repeats && s.hasLoop ? fmt::format("loop at {:05x}", s.loop) : std::string("no loop");
+    // The loop as the copy at `address` has it.
+    auto describe = [&](const Sample& s, uint32_t address) {
+        const int64_t offset = loopOffset(s);
+        return offset < 0 ? std::string("no loop") : fmt::format("loop at {:05x}", address + offset);
     };
     for (auto& [start, cached] : samples) {
         // Sound RAM may have changed since the map was last rebuilt.
@@ -118,6 +122,7 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         applyGameLoop(s);
         auto [it, added] = bySignature.try_emplace(s.signature, unique.size());
         if (added) {
+            loopFrom.push_back(s.start);
             unique.push_back(std::move(s));
             loopKnown.push_back(known);
             continue;
@@ -128,10 +133,12 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
             kept.gameLoop = s.gameLoop;
             kept.loop = kept.start + (s.loop - s.start);
             loopKnown[it->second] = true;
+            loopFrom[it->second] = s.start;
         } else if (known && loopOffset(kept) != loopOffset(s)) {
+            const uint32_t from = loopFrom[it->second];
             return fail(fmt::format(f_("The samples at {:05x} ({}) and {:05x} ({}) have the same signature, "
                                        "{:016x}, but different loops; a SoundFont can only replace both with one."),
-                                    kept.start, describe(kept), s.start, describe(s), s.signature));
+                                    from, describe(kept, from), s.start, describe(s, s.start), s.signature));
         }
         for (auto [pitch, n] : s.pitches) {
             auto& count = kept.pitches[pitch];

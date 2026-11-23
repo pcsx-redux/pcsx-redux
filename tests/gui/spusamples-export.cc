@@ -224,3 +224,19 @@ TEST_F(SPUSamplesExport, RecordsThatDoNotFitSayWhy) {
     EXPECT_TRUE(PCSX::Widgets::SPUSamples::exportSF2(ram.data(), samples, &error).empty());
     EXPECT_NE(error.find("2000 samples"), std::string::npos) << error;
 }
+
+// The conflict names the copies the two loops were logged at, not a copy that took one of them.
+TEST_F(SPUSamplesExport, AConflictNamesTheCopiesTheLoopsCameFrom) {
+    std::vector<uint8_t> ram(PCSX::SPUSample::c_ramSize);
+    put(ram, 0x1000, 4, 3, 0x10);
+    put(ram, 0x2000, 4, 3, 0x10);
+    put(ram, 0x3000, 4, 3, 0x10);
+    Samples samples;
+    add(samples, ram, 0x1000, {});
+    add(samples, ram, 0x2000, {{0x2010, 1}});
+    add(samples, ram, 0x3000, {{0x3020, 1}});
+    std::string error;
+    EXPECT_TRUE(PCSX::Widgets::SPUSamples::exportSF2(ram.data(), samples, &error).empty());
+    EXPECT_NE(error.find("02000 (loop at 02010)"), std::string::npos) << error;
+    EXPECT_NE(error.find("03000 (loop at 03020)"), std::string::npos) << error;
+}
