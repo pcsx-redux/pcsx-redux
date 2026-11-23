@@ -314,3 +314,56 @@ function TestWebServer:test_headers_too_large()
     lu.assertFalse(called)
     lu.assertNotNil(reply:find('HTTP/1.1 431', 1, true))
 end
+
+-- The form table of a multipart/form-data request is keyed by each part's name, holding the part's data.
+function TestWebServer:test_multipart_form_fields()
+    local seen
+    PCSX.WebServer.Handlers.mpform = function(request)
+        seen = request
+        return 'END'
+    end
+    local body = '--XyZ\r\nContent-Disposition: form-data; name="a"\r\n\r\n1\r\n' ..
+                     '--XyZ\r\nContent-Disposition: form-data; name="b"\r\n\r\n2\r\n--XyZ--\r\n'
+    local function try(contentTypeHeader)
+        seen = nil
+        exchange('POST /api/v1/lua/mpform HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' .. contentTypeHeader ..
+                     '\r\nContent-Length: ' .. #body .. '\r\n\r\n' .. body)
+        lu.assertNotNil(seen)
+        local keys = {}
+        for k in pairs(seen.form) do keys[#keys + 1] = k end
+        table.sort(keys)
+        lu.assertEquals(keys, {'a', 'b'})
+        lu.assertEquals(seen.form.a, {'1'})
+        lu.assertEquals(seen.form.b, {'2'})
+        lu.assertEquals(seen.body, body)
+    end
+    try('Content-Type: multipart/form-data; boundary=XyZ')
+    try('content-type: multipart/form-data; boundary=XyZ')
+    try('Content-Type: multipart/form-data; boundary=XyZ; charset=utf-8')
+    PCSX.WebServer.Handlers.mpform = nil
+end
+
+-- The part name comes from the name parameter itself: any case, never from inside another parameter's quoted value,
+-- and an empty name="" is still a field.
+function TestWebServer:test_multipart_disposition_name()
+    local seen
+    PCSX.WebServer.Handlers.mpname = function(request)
+        seen = request
+        return 'END'
+    end
+    local body = '--XyZ\r\nContent-Disposition: form-data; NAME="a"\r\n\r\n1\r\n' ..
+                     '--XyZ\r\nContent-Disposition: form-data; filename="report name=wrong"; name="up"\r\n\r\n2\r\n' ..
+                     '--XyZ\r\nContent-Disposition: form-data; name=""\r\n\r\n3\r\n' ..
+                     '--XyZ\r\nContent-Disposition: form-data\r\n\r\n4\r\n--XyZ--\r\n'
+    exchange('POST /api/v1/lua/mpname HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
+                 'Content-Type: multipart/form-data; boundary=XyZ\r\nContent-Length: ' .. #body .. '\r\n\r\n' .. body)
+    PCSX.WebServer.Handlers.mpname = nil
+    lu.assertNotNil(seen)
+    local keys = {}
+    for k in pairs(seen.form) do keys[#keys + 1] = k end
+    table.sort(keys)
+    lu.assertEquals(keys, {'', 'a', 'up'})
+    lu.assertEquals(seen.form.a, {'1'})
+    lu.assertEquals(seen.form.up, {'2'})
+    lu.assertEquals(seen.form[''], {'3'})
+end
