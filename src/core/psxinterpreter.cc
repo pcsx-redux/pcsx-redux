@@ -318,7 +318,8 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
         if (userAddressError(m_regs.GPR.r[_Rs_] + _Imm_, Exception::StoreAddressError)) return;
         gteDrainIfStalling();
         gteStall();
-        gteCheckStaleRead("SWC2", false, _Rt_);
+        // An unaligned store faults in GTE::SWC2 before it reads the register.
+        if (((m_regs.GPR.r[_Rs_] + _Imm_) & 3) == 0) gteCheckStaleRead("SWC2", false, _Rt_);
         PCSX::g_emulator->m_gte->SWC2(code);
     }
 
@@ -367,7 +368,9 @@ class InterpretedCPU final : public PCSX::R3000Acpu {
                             _("%s at 0x%08x reads GTE %s register %u as 0x%08x, before a write making it 0x%08x "
                               "has landed\n"),
                             insn, m_regs.pc - 4, ctrl ? "control" : "data", reg, stale, landed);
-        if (debugSettings.get<PCSX::Emulator::DebugSettings::Debug>()) PCSX::g_system->pause();
+        // A guest call run through RunUntil reports its own outcome; stopping the whole
+        // emulator from inside it is what RunUntil parks the first-chance mask to avoid.
+        if (!m_inRunUntil && debugSettings.get<PCSX::Emulator::DebugSettings::Debug>()) PCSX::g_system->pause();
     }
     void gteMTC2(uint32_t code) { gteQueueWrite(false, _Rd_, m_regs.GPR.r[_Rt_]); }
     void gteCTC2(uint32_t code) { gteQueueWrite(true, _Rd_, m_regs.GPR.r[_Rt_]); }
