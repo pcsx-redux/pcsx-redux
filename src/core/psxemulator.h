@@ -159,13 +159,16 @@ class Emulator {
             Raw,
         };
         typedef Setting<SIO1Mode, TYPESTRING("SIO1Mode"), SIO1Mode::Protobuf> SIO1ModeSetting;
+        // Interpreter only: logs an MFC2, CFC2 or SWC2 that reads a GTE register before a write
+        // to it has landed, and pauses when the debugger is on.
+        typedef Setting<bool, TYPESTRING("GTEStaleReads"), false> GTEStaleReads;
         typedef Settings<Debug, Trace, KernelLog, FirstChanceException, SkipISR, LoggingCDROM, LoggingHWCDROM,
                          GdbServer, GdbManifest, GdbLogSetting, GdbServerPort, GdbServerTrace, WebServer, WebServerPort,
                          KernelCallA0_00_1f, KernelCallA0_20_3f, KernelCallA0_40_5f, KernelCallA0_60_7f,
                          KernelCallA0_80_9f, KernelCallA0_a0_bf, KernelCallB0_00_1f, KernelCallB0_20_3f,
                          KernelCallB0_40_5f, KernelCallC0_00_1f, DemangledSymbols, PCdrv, PCdrvBase, PCdrvNet,
                          PCdrvNetAllow, SIO1Server, SIO1ServerPort, SIO1Client, SIO1ClientHost, SIO1ClientPort,
-                         SIO1ModeSetting>
+                         SIO1ModeSetting, GTEStaleReads>
             type;
     };
     typedef SettingNested<TYPESTRING("Debug"), DebugSettings::type> SettingDebugSettings;

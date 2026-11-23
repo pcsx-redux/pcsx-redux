@@ -208,6 +208,12 @@ sequence at each power-on.)"));
         ImGuiHelpers::ShowHelpMarker(_(R"(This will enable the usage of various breakpoints
 throughout the execution of mips code. Enabling this
 can slow down emulation to a noticeable extent.)"));
+        changed |= ImGui::Checkbox(_("Catch stale GTE reads"),
+                                   &debugSettings.get<Emulator::DebugSettings::GTEStaleReads>().value);
+        ImGuiHelpers::ShowHelpMarker(_(R"(Logs an MFC2, CFC2 or SWC2 that reads a GTE register
+too soon after a write to it, which on the console
+returns the old value. Pauses when the debugger is
+enabled. Requires the interpreter.)"));
     }
     ImGui::End();
 
