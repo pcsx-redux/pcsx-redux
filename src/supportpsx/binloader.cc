@@ -239,7 +239,8 @@ bool loadELF(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<ui
     elfio reader;
     FileIStream stream(file);
 
-    if (!reader.load(stream)) return false;
+    // Lazily, so that a section's data is only read once its span has been checked.
+    if (!reader.load(stream, true)) return false;
     if (reader.get_class() != ELFCLASS32) return false;
 
     info.pc = static_cast<uint32_t>(reader.get_entry());
@@ -263,7 +264,6 @@ bool loadELF(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<ui
         if (StringsHelpers::endsWith(name, "_Header")) continue;
 
         auto size = psec->get_size();
-        auto data = psec->get_data();
         auto vaddr = psec->get_address();
         auto loadAddr = vaddr;
         for (unsigned j = 0; j < seg_num; j++) {
@@ -275,8 +275,14 @@ bool loadELF(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<ui
                 break;
             }
         }
+        // A segment's physical address can put the section past the end of the 32-bit space,
+        // which the span check, taking a 32-bit address, wouldn't see.
+        if (info.spanCheck && (loadAddr + size > 0x100000000ULL)) {
+            throw std::runtime_error(
+                fmt::format("Section {} at 0x{:x} runs past the end of the address space", name, loadAddr));
+        }
         checkSpan(info, loadAddr, size);
-        chunks.push_back({data, size, vaddr, loadAddr});
+        chunks.push_back({psec->get_data(), size, vaddr, loadAddr});
     }
     // All of the sections are checked before the first one gets written.
     for (auto& chunk : chunks) {

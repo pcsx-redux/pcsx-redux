@@ -21,9 +21,8 @@
 
 #include <filesystem>
 #include <map>
-#include <string>
-
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -146,5 +145,44 @@ TEST(BinaryLoader, ELFIsCheckedBeforeAnySectionIsWritten) {
     std::error_code ec;
     std::filesystem::remove(path, ec);
     EXPECT_EQ(spans.size(), 2);
+    EXPECT_TRUE(dest->isEmpty());
+}
+
+TEST(BinaryLoader, ELFSectionPastFourGigabytesIsRefused) {
+    using namespace ELFIO;
+    elfio writer;
+    writer.create(ELFCLASS32, ELFDATA2LSB);
+    writer.set_type(ET_EXEC);
+    writer.set_machine(EM_MIPS);
+    writer.set_entry(0x80010000);
+
+    char code[0x200] = {};
+    section* text = writer.sections.add(".text");
+    text->set_type(SHT_PROGBITS);
+    text->set_flags(SHF_ALLOC | SHF_EXECINSTR);
+    text->set_address(0x80010000);
+    text->set_addr_align(4);
+    text->set_data(code, sizeof(code));
+    // The segment loads it at 0xffffff00, so its last bytes would land past 0xffffffff.
+    segment* load = writer.segments.add();
+    load->set_type(PT_LOAD);
+    load->set_virtual_address(0x80010000);
+    load->set_physical_address(0xffffff00);
+    load->set_flags(PF_R | PF_X);
+    load->set_align(4);
+    load->add_section(text, 4);
+
+    auto path = (std::filesystem::temp_directory_path() / "binloader-ram-4g.elf").string();
+    ASSERT_TRUE(writer.save(path));
+    PCSX::IO<PCSX::Mem4G> dest(new PCSX::Mem4G());
+    {
+        PCSX::IO<PCSX::File> in(new PCSX::PosixFile(path));
+        std::map<uint32_t, std::string> symbols;
+        PCSX::BinaryLoader::Info info;
+        info.spanCheck = [](uint32_t, uint64_t) -> std::optional<std::string> { return {}; };
+        EXPECT_THROW(PCSX::BinaryLoader::load(in, dest.asA<PCSX::File>(), info, symbols), std::runtime_error);
+    }
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
     EXPECT_TRUE(dest->isEmpty());
 }
