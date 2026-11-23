@@ -2535,8 +2535,8 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 <instance part="SIO4" gate="G$1" x="48.26" y="-10.16" smashed="yes">
 <attribute name="NAME" x="50.8" y="-10.922" size="1.524" layer="95"/>
 </instance>
-<instance part="SIO5" gate="G$1" x="48.26" y="-30.48" smashed="yes">
-<attribute name="NAME" x="50.8" y="-31.242" size="1.524" layer="95"/>
+<instance part="SIO5" gate="G$1" x="17.78" y="-30.48" smashed="yes" rot="R180">
+<attribute name="NAME" x="15.24" y="-29.718" size="1.524" layer="95" rot="R180"/>
 </instance>
 <instance part="SIO8" gate="G$1" x="48.26" y="-38.1" smashed="yes">
 <attribute name="NAME" x="50.8" y="-38.862" size="1.524" layer="95"/>
@@ -2769,13 +2769,6 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 <junction x="38.1" y="-7.62"/>
 </segment>
 </net>
-<net name="!RTS" class="0">
-<segment>
-<pinref part="SIO5" gate="G$1" pin="S"/>
-<pinref part="GATES" gate="G$1" pin="2A"/>
-<wire x1="45.72" y1="-30.48" x2="38.1" y2="-30.48" width="0.1524" layer="91"/>
-</segment>
-</net>
 <net name="!CTS" class="0">
 <segment>
 <pinref part="SIO8" gate="G$1" pin="S"/>
@@ -2785,10 +2778,11 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 </net>
 <net name="RTS" class="0">
 <segment>
-<pinref part="GATES" gate="G$1" pin="2Y"/>
-<wire x1="30.48" y1="-30.48" x2="30.48" y2="-12.7" width="0.1524" layer="91"/>
 <pinref part="CP2102" gate="G$1" pin="RTS"/>
-<wire x1="30.48" y1="-12.7" x2="20.32" y2="-12.7" width="0.1524" layer="91"/>
+<wire x1="20.32" y1="-12.7" x2="40.64" y2="-12.7" width="0.1524" layer="91"/>
+<wire x1="40.64" y1="-12.7" x2="40.64" y2="-30.48" width="0.1524" layer="91"/>
+<pinref part="GATES" gate="G$1" pin="2A"/>
+<wire x1="40.64" y1="-30.48" x2="38.1" y2="-30.48" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="CTS" class="0">
@@ -2798,6 +2792,13 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 <wire x1="27.94" y1="-15.24" x2="27.94" y2="-38.1" width="0.1524" layer="91"/>
 <pinref part="GATES" gate="G$1" pin="1Y"/>
 <wire x1="27.94" y1="-38.1" x2="30.48" y2="-38.1" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="!RTS" class="0">
+<segment>
+<pinref part="SIO5" gate="G$1" pin="S"/>
+<pinref part="GATES" gate="G$1" pin="2Y"/>
+<wire x1="20.32" y1="-30.48" x2="30.48" y2="-30.48" width="0.1524" layer="91"/>
 </segment>
 </net>
 </nets>

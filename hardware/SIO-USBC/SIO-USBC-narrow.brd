@@ -838,11 +838,11 @@ design rules under a new name.</description>
 <element name="SIO5" library="pixel" library_urn="urn:adsk.eagle:library:14260538" package="1565322-1" package3d_urn="urn:adsk.eagle:package:42529302/1" value="1565322-1" x="7.6" y="31.777" smashed="yes" rot="R180"/>
 <element name="SIO8" library="pixel" library_urn="urn:adsk.eagle:library:14260538" package="1565322-1" package3d_urn="urn:adsk.eagle:package:42529302/1" value="1565322-1" x="11.2" y="31.777" smashed="yes" rot="R180"/>
 <element name="SIO7" library="pixel" library_urn="urn:adsk.eagle:library:14260538" package="1565322-1" package3d_urn="urn:adsk.eagle:package:42529302/1" value="1565322-1" x="10" y="31.777" smashed="yes" rot="R180"/>
-<element name="TX" library="testpad" library_urn="urn:adsk.eagle:library:385" package="B2,54" package3d_urn="urn:adsk.eagle:package:27948/1" value="TPB2,54" x="8.128" y="25.781" smashed="yes" rot="MR0">
-<attribute name="NAME" x="11.938" y="22.352" size="1.27" layer="26" ratio="10" rot="MR0"/>
-<attribute name="POPULARITY" value="3" x="8.128" y="25.781" size="1.778" layer="28" rot="MR0" display="off"/>
-<attribute name="TP_SIGNAL_NAME" value="" x="8.128" y="25.781" size="1.778" layer="28" rot="MR0" display="off"/>
-<attribute name="VALUE" x="9.398" y="24.384" size="0.0254" layer="28" rot="MR0"/>
+<element name="TX" library="testpad" library_urn="urn:adsk.eagle:library:385" package="B2,54" package3d_urn="urn:adsk.eagle:package:27948/1" value="TPB2,54" x="6.858" y="25.781" smashed="yes" rot="MR0">
+<attribute name="NAME" x="10.668" y="22.352" size="1.27" layer="26" ratio="10" rot="MR0"/>
+<attribute name="POPULARITY" value="3" x="6.858" y="25.781" size="1.778" layer="28" rot="MR0" display="off"/>
+<attribute name="TP_SIGNAL_NAME" value="" x="6.858" y="25.781" size="1.778" layer="28" rot="MR0" display="off"/>
+<attribute name="VALUE" x="8.128" y="24.384" size="0.0254" layer="28" rot="MR0"/>
 </element>
 <element name="RX" library="testpad" library_urn="urn:adsk.eagle:library:385" package="B2,54" package3d_urn="urn:adsk.eagle:package:27948/1" value="TPB2,54" x="3.048" y="25.781" smashed="yes" rot="MR0">
 <attribute name="NAME" x="4.318" y="22.352" size="1.27" layer="26" ratio="10" rot="MR0"/>
@@ -1042,8 +1042,8 @@ design rules under a new name.</description>
 <contactref element="TX" pad="TP"/>
 <wire x1="7.9272" y1="26.0946625" x2="6.4" y2="27.6218625" width="0.1524" layer="1"/>
 <via x="7.9272" y="26.0946625" extent="1-16" drill="0.2032"/>
-<wire x1="8.128" y1="25.781" x2="7.9272" y2="25.9818" width="0.1524" layer="16"/>
-<wire x1="7.9272" y1="26.0946625" x2="7.9272" y2="25.9818" width="0.1524" layer="16"/>
+<wire x1="7.9272" y1="26.0946625" x2="7.1716625" y2="26.0946625" width="0.1524" layer="16"/>
+<wire x1="7.1716625" y1="26.0946625" x2="6.858" y2="25.781" width="0.1524" layer="16"/>
 <wire x1="7.9272" y1="26.0946625" x2="7.874" y2="26.0414625" width="0.1524" layer="1"/>
 <wire x1="7.874" y1="26.0414625" x2="7.874" y2="23.89" width="0.1524" layer="1"/>
 <contactref element="SIO4" pad="PAD1"/>
@@ -1064,15 +1064,6 @@ design rules under a new name.</description>
 <wire x1="2.8" y1="32.977" x2="2.8" y2="31.677" width="0.1524" layer="1"/>
 <wire x1="2.8" y1="31.677" x2="2.8" y2="30.48" width="0.1524" layer="1"/>
 </signal>
-<signal name="!RTS">
-<contactref element="SIO5" pad="PAD"/>
-<contactref element="SIO5" pad="PAD1"/>
-<contactref element="GATES" pad="P$3"/>
-<wire x1="7.6" y1="32.977" x2="7.6" y2="31.677" width="0.1524" layer="1"/>
-<wire x1="7.6" y1="31.677" x2="7.6" y2="30.5" width="0.1524" layer="1"/>
-<wire x1="9.406" y1="28.694" x2="9.406" y2="26.3975" width="0.1524" layer="1"/>
-<wire x1="7.6" y1="30.5" x2="9.406" y2="28.694" width="0.1524" layer="1"/>
-</signal>
 <signal name="!CTS">
 <contactref element="SIO8" pad="PAD"/>
 <contactref element="SIO8" pad="PAD1"/>
@@ -1083,11 +1074,11 @@ design rules under a new name.</description>
 <wire x1="10.406" y1="28.646" x2="11.2" y2="29.44" width="0.1524" layer="1"/>
 </signal>
 <signal name="RTS">
-<contactref element="GATES" pad="P$4"/>
 <contactref element="CP2102" pad="24"/>
-<wire x1="9.1625" y1="25.6725" x2="9.406" y2="25.6725" width="0.1524" layer="1"/>
-<wire x1="8.374" y1="23.89" x2="8.374" y2="24.884" width="0.1524" layer="1"/>
-<wire x1="8.374" y1="24.884" x2="9.1625" y2="25.6725" width="0.1524" layer="1"/>
+<contactref element="GATES" pad="P$3"/>
+<wire x1="8.374" y1="23.89" x2="8.374" y2="25.41860625" width="0.1524" layer="1"/>
+<wire x1="9.35289375" y1="26.3975" x2="9.406" y2="26.3975" width="0.1524" layer="1"/>
+<wire x1="8.374" y1="25.41860625" x2="9.35289375" y2="26.3975" width="0.1524" layer="1"/>
 </signal>
 <signal name="CTS">
 <contactref element="CP2102" pad="23"/>
@@ -1098,6 +1089,20 @@ design rules under a new name.</description>
 <wire x1="10.795" y1="25.2835" x2="10.795" y2="24.765" width="0.1524" layer="1"/>
 <wire x1="10.795" y1="24.765" x2="10.541" y2="24.511" width="0.1524" layer="1"/>
 <wire x1="10.541" y1="24.511" x2="9.15439375" y2="24.511" width="0.1524" layer="1"/>
+</signal>
+<signal name="!RTS">
+<contactref element="SIO5" pad="PAD"/>
+<contactref element="SIO5" pad="PAD1"/>
+<contactref element="GATES" pad="P$4"/>
+<wire x1="9.406" y1="25.6725" x2="9.027590625" y2="25.294090625" width="0.1524" layer="1"/>
+<wire x1="9.027590625" y1="25.294090625" x2="8.995909375" y2="25.294090625" width="0.1524" layer="1"/>
+<via x="8.995909375" y="25.294090625" extent="1-16" drill="0.2032"/>
+<wire x1="8.995909375" y1="25.294090625" x2="8.89" y2="25.4" width="0.1524" layer="16"/>
+<wire x1="8.89" y1="25.4" x2="8.89" y2="29.21" width="0.1524" layer="16"/>
+<via x="8.89" y="29.21" extent="1-16" drill="0.2032"/>
+<wire x1="8.89" y1="29.21" x2="7.6" y2="30.5" width="0.1524" layer="1"/>
+<wire x1="7.6" y1="30.5" x2="7.6" y2="31.677" width="0.1524" layer="1"/>
+<wire x1="7.6" y1="31.677" x2="7.6" y2="32.977" width="0.1524" layer="1"/>
 </signal>
 </signals>
 <mfgpreviewcolors>
