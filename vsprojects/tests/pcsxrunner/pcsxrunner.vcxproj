@@ -275,6 +275,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\dma.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\dumpproto.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\cputrace.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\binloader-ram.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\binloader-symbols.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\profiler.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\openbios-fallback.cc" />
@@ -328,6 +329,7 @@
     <ClCompile Include="..\..\..\tests\spu\xastate.cc" />
     <ClCompile Include="..\..\..\tests\core\pad-config.cc" />
     <ClCompile Include="..\..\..\tests\core\i18n.cc" />
+    <ClCompile Include="..\..\..\tests\core\memory-ramsize.cc" />
     <ClCompile Include="..\..\..\tests\core\pocketstation-flash-sync.cc" />
     <ClCompile Include="..\..\..\tests\core\spdwriter.cc" />
     <ClCompile Include="..\..\..\tests\core\commandline.cc" />

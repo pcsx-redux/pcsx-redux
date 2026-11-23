@@ -798,10 +798,48 @@ const void *PCSX::Memory::pointerWrite(uint32_t address, int size) {
     }
 }
 
+uint32_t PCSX::Memory::ramSize() const {
+    if ((m_hard[0x1061] & 0x1) && g_emulator->settings.get<Emulator::Setting8MB>()) return 8 * 1024 * 1024;
+    return 2 * 1024 * 1024;
+}
+
+uint32_t PCSX::Memory::ramWindow(uint32_t ramSizeRegister) {
+    const uint32_t bit11 = (ramSizeRegister >> 11) & 1;
+    const uint32_t ras0 = 0x100000 << ((((ramSizeRegister >> 9) & 1) << 1) | bit11);
+    const uint32_t ras1 = (ramSizeRegister & 0x400) ? 0x100000 << ((((ramSizeRegister >> 8) & 1) << 1) | bit11) : 0;
+    return ras0 + ras1;
+}
+
+std::optional<std::string> PCSX::Memory::checkLoadSpan(uint32_t address, uint64_t size) const {
+    if (size == 0) return {};
+    const uint64_t end = uint64_t(address) + size;
+    const auto isRAM = [this](const uint8_t *p) { return (p >= m_wram) && (p < m_wram + 0x00800000); };
+    const auto isBIOS = [this](const uint8_t *p) { return (p >= m_bios) && (p < m_bios + 0x00080000); };
+    for (uint64_t page = address >> 16; page <= ((end - 1) >> 16); page++) {
+        const auto p = (const uint8_t *)(page < 0x10000 ? m_readLUT[page] : nullptr);
+        if (!isRAM(p) && !isBIOS(p)) {
+            return fmt::format("Binary spans 0x{:08x}-0x{:08x}, and 0x{:08x} is neither RAM nor the BIOS ROM.", address,
+                               end, std::max(uint64_t(address), page << 16));
+        }
+    }
+    const uint32_t ram = ramSize();
+    if (isRAM((const uint8_t *)m_readLUT[address >> 16]) && (size > ram)) {
+        return fmt::format("Binary is {} bytes, which is {} bytes more than the {} kB of RAM.", size, size - ram,
+                           ram / 1024);
+    }
+    return {};
+}
+
 void PCSX::Memory::setLuts() {
-    int max = (m_hard[0x1061] & 0x1) ? 0x80 : 0x20;
-    if (!g_emulator->settings.get<Emulator::Setting8MB>()) max = 0x20;
-    for (int i = 0; i < 0x80; i++) m_readLUT[i + 0x0000] = (uint8_t *)&m_wram[(i & (max - 1)) << 16];
+    // RAM_SIZE reads 0 from reset until the BIOS sets it, which keeps the whole window mapped.
+    // The LUTs only cover 8MB of window; past that, pages stay unmapped.
+    constexpr uint32_t c_lutWindow = 0x00800000;
+    const uint32_t ramSizeRegister = readHardwareRegister<0x1060>();
+    const uint32_t window = ramSizeRegister == 0 ? c_lutWindow : std::min(ramWindow(ramSizeRegister), c_lutWindow);
+    const int max = ramSize() >> 16;
+    for (int i = 0; i < 0x80; i++) {
+        m_readLUT[i + 0x0000] = (uint32_t(i) << 16) < window ? (uint8_t *)&m_wram[(i & (max - 1)) << 16] : nullptr;
+    }
     memcpy(m_readLUT + 0x8000, m_readLUT, 0x80 * sizeof(void *));
     memcpy(m_readLUT + 0xa000, m_readLUT, 0x80 * sizeof(void *));
     if (isiCacheEnabled()) {

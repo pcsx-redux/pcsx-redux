@@ -78,6 +78,9 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\cputrace.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\binloader-ram.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\binloader-symbols.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -196,6 +199,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\tests\core\i18n.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\tests\core\memory-ramsize.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\tests\core\pocketstation-flash-sync.cc">
