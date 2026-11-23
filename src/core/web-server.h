@@ -86,7 +86,8 @@ struct RequestData {
     std::multimap<std::string, std::string> headers;
     std::multimap<std::string, std::string> form;
     Slice body;
-    // The request body exactly as received, multipart framing included.
+    // For multipart/form-data, the request body exactly as received, framing included (body then holds only the
+    // part data). Left empty for any other request, whose body already is the raw request body.
     Slice rawBody;
 };
 
