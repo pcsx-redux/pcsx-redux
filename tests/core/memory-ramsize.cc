@@ -29,6 +29,7 @@
 #include "core/psxemulator.h"
 #include "core/psxhw.h"
 #include "core/psxmem.h"
+#include "core/r3000a.h"
 #include "core/system.h"
 #include "gtest/gtest.h"
 
@@ -70,6 +71,8 @@ class MemoryRamSize : public ::testing::Test {
         PCSX::g_emulator = m_emulator;
         m_emulator->settings.get<PCSX::Emulator::SettingDynarec>().value = false;
         ASSERT_NE(m_emulator->m_mem->init(), -1);
+        // HW::reset reaches into the counters, which need the CPU.
+        ASSERT_TRUE(PCSX::R3000Acpu::psxInit());
         m_mem = m_emulator->m_mem.get();
     }
     void TearDown() override {
@@ -156,6 +159,13 @@ TEST_F(MemoryRamSize, EightMegabytesBehindTheWindow) {
     // Bit 8 clear asks for 2MB, whatever the setting says.
     setRamSize(0xa88);
     EXPECT_EQ(m_mem->ramSize(), 2 * c_1MB);
+}
+
+TEST_F(MemoryRamSize, HardwareResetRestoresTheWholeWindow) {
+    setRamSize(0x888);
+    expectWindow(2 * c_1MB);
+    m_emulator->m_hw->reset();
+    expectWindow(8 * c_1MB);
 }
 
 TEST_F(MemoryRamSize, WriteLUTFollowsTheReadLUT) {
