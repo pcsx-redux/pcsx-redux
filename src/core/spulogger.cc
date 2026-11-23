@@ -23,7 +23,8 @@
 #include "core/r3000a.h"
 #include "core/spu.h"
 
-void PCSX::SPULogger::logInternal(Kind kind, uint32_t address, uint32_t length, uint32_t value, uint8_t voice) {
+void PCSX::SPULogger::logInternal(Kind kind, uint32_t address, uint32_t length, uint32_t value, uint8_t voice,
+                                  uint32_t loop) {
     // Allocated on first use rather than at construction, so a session that never turns the
     // logger on never pays for the ring.
     if (m_events.size() != c_capacity) m_events.resize(c_capacity);
@@ -37,6 +38,7 @@ void PCSX::SPULogger::logInternal(Kind kind, uint32_t address, uint32_t length, 
     ev.value = value;
     ev.kind = kind;
     ev.voice = voice;
+    ev.loop = loop;
 
     if (m_count == c_capacity) {
         m_events[m_head] = ev;

@@ -57,6 +57,7 @@ class SPULogger {
     };
 
     static constexpr uint8_t c_noVoice = 0xff;
+    static constexpr uint32_t c_noLoop = UINT32_MAX;
     static constexpr size_t c_capacity = 256 * 1024;
 
     struct Event {
@@ -65,12 +66,18 @@ class SPULogger {
         uint32_t address = 0;  // byte offset into sound RAM, where meaningful
         uint32_t length = 0;   // bytes, for transfers
         uint32_t value = 0;    // raw register value, or for KeyOn the voice's pitch register
+        // For KeyOn, the loop address the voice holds as it is keyed on: the last one written to
+        // its loop register, or the last one a loop-start flag latched since, whichever is later.
+        uint32_t loop = c_noLoop;
         Kind kind = Kind::PIOWrite;
         uint8_t voice = c_noVoice;
     };
 
     void log(Kind kind, uint32_t address, uint32_t length, uint32_t value, uint8_t voice = c_noVoice) {
         if (m_enabled) logInternal(kind, address, length, value, voice);
+    }
+    void logKeyOn(uint32_t address, uint16_t pitch, uint32_t loop, uint8_t voice) {
+        if (m_enabled) logInternal(Kind::KeyOn, address, 0, pitch, voice, loop);
     }
 
     bool enabled() const { return m_enabled; }
@@ -110,7 +117,8 @@ class SPULogger {
     static bool isVoiceScoped(Kind kind);
 
   private:
-    void logInternal(Kind kind, uint32_t address, uint32_t length, uint32_t value, uint8_t voice);
+    void logInternal(Kind kind, uint32_t address, uint32_t length, uint32_t value, uint8_t voice,
+                     uint32_t loop = c_noLoop);
     void captureBaseline(const uint16_t *registers);
 
     std::vector<Event> m_events;

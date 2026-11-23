@@ -59,9 +59,9 @@ void PCSX::Widgets::SPUSamples::decode(const uint8_t* spuRam, const Sample& samp
 
 namespace {
 
-// A sample that repeats with no loop-start flag jumps, at its end, to whatever the voice's loop
-// register holds. When the game set that register to an address inside the sample at its
-// key-ons, the most frequent such address is its loop, the lowest one on a tie. Anything else
+// A sample that repeats with no loop-start flag jumps, at its end, to whatever loop address the
+// voice holds. When the voice held an address inside the sample at its key-ons, the most
+// frequent such address is its loop, the lowest one on a tie. Anything else
 // stays a one-shot.
 void applyGameLoop(PCSX::Widgets::SPUSamples::Sample& s) {
     s.gameLoop = false;
@@ -84,26 +84,70 @@ void applyGameLoop(PCSX::Widgets::SPUSamples::Sample& s) {
 }  // namespace
 
 std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
-                                                          const std::map<uint32_t, Sample>& samples) {
-    std::vector<SF2::Sample> out;
-    std::vector<std::string> unpitched, unconfirmed, disagrees, records;
-    auto note = [](std::vector<std::string>& list, const std::string& name) { list.push_back(name); };
+                                                          const std::map<uint32_t, Sample>& samples,
+                                                          std::string* error) {
+    if (error) error->clear();
+    auto fail = [error](std::string why) {
+        if (error) *error = std::move(why);
+        return std::vector<uint8_t>{};
+    };
+    // A pack holds one replacement per signature, so copies of the same data at several
+    // addresses are exported once. Their flags are the same, so only a loop taken from the loop
+    // register can differ between them.
+    std::vector<Sample> unique;
+    std::vector<bool> loopKnown;
+    std::unordered_map<uint64_t, size_t> bySignature;
+    auto loopOffset = [](const Sample& s) { return s.repeats && s.hasLoop ? int64_t(s.loop - s.start) : -1; };
+    auto describe = [](const Sample& s) {
+        return s.repeats && s.hasLoop ? fmt::format("loop at {:05x}", s.loop) : std::string("no loop");
+    };
     for (auto& [start, cached] : samples) {
         // Sound RAM may have changed since the map was last rebuilt.
         Sample s = cached;
         static_cast<SPUSample::Extent&>(s) = SPUSample::walk(spuRam, start);
         if (s.truncated) continue;
         s.signature = SPUSample::signature(spuRam, s);
-        if (s.signature != cached.pitchesSignature) s.keyOnLoops.clear();
+        // Key-ons logged against other content at this address say nothing about this sample.
+        if (s.signature != cached.pitchesSignature) {
+            s.keyOnLoops.clear();
+            s.pitches.clear();
+        }
+        // A sample that repeats with no loop-start flag, and no loop address logged at any of its
+        // key-ons, loops somewhere this copy cannot tell.
+        const bool known = !s.repeats || s.hasLoop || !s.keyOnLoops.empty();
         applyGameLoop(s);
+        auto [it, added] = bySignature.try_emplace(s.signature, unique.size());
+        if (added) {
+            unique.push_back(std::move(s));
+            loopKnown.push_back(known);
+            continue;
+        }
+        Sample& kept = unique[it->second];
+        if (!loopKnown[it->second] && known) {
+            kept.hasLoop = s.hasLoop;
+            kept.gameLoop = s.gameLoop;
+            kept.loop = kept.start + (s.loop - s.start);
+            loopKnown[it->second] = true;
+        } else if (known && loopOffset(kept) != loopOffset(s)) {
+            return fail(fmt::format(f_("The samples at {:05x} ({}) and {:05x} ({}) have the same signature, "
+                                       "{:016x}, but different loops; a SoundFont can only replace both with one."),
+                                    kept.start, describe(kept), s.start, describe(s), s.signature));
+        }
+        for (auto [pitch, n] : s.pitches) {
+            auto& count = kept.pitches[pitch];
+            count = n > UINT32_MAX - count ? UINT32_MAX : count + n;
+        }
+    }
+
+    std::vector<SF2::Sample> out;
+    std::vector<std::string> unpitched, unconfirmed, disagrees, records;
+    auto note = [](std::vector<std::string>& list, const std::string& name) { list.push_back(name); };
+    for (auto& s : unique) {
         SF2::Sample& o = out.emplace_back();
         o.name = fmt::format("{:016x}", s.signature);
         o.pcm = SPU::decodeSample(spuRam, s);
         o.sampleRate = 44100;
-        // Key-ons logged against other content at this address say nothing about this sample.
-        static const RootKey::PitchCounts none;
-        const auto& pitches = s.signature == cached.pitchesSignature ? s.pitches : none;
-        const auto root = RootKey::combineCounts(SPU::sampleFundamental(spuRam, s), pitches);
+        const auto root = RootKey::combineCounts(SPU::sampleFundamental(spuRam, s), s.pitches);
         o.rootKey = root.key;
         o.correction = root.correction;
         records.push_back(SPUSample::recordLine(s.signature, s.end - s.start, root.note));
@@ -134,8 +178,8 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         "root key 255 and play on note 60 at their stored rate. Each pitched sample's fundamental was checked "
         "against the pitches the game keyed it on with, which land on whole notes when the game is tuned to A440; "
         "an octave error is not caught by this check. Loops come from the ADPCM loop flags; a sample that repeats "
-        "with no loop-start flag loops to the address the game most often had in the voice's loop register at its "
-        "key-ons, when that address is inside the sample. Each spu-sample line records a sample's size in sound "
+        "with no loop-start flag loops to the loop address its voice most often held at its key-ons, when that "
+        "address is inside the sample. Each spu-sample line records a sample's size in sound "
         "RAM and its note at pitch 1000h as measured here, which its replacement is tuned against; keep these lines "
         "when editing the bank.";
     // ICMT is limited to 65536 bytes, terminator included. The lists stop at a whole name, with
@@ -156,11 +200,13 @@ std::vector<uint8_t> PCSX::Widgets::SPUSamples::exportSF2(const uint8_t* spuRam,
         }
         if (line.find(' ', heading.size() + 1) != std::string::npos) comment += line;
     };
-    // The note records go first, so that they are the last thing a long bank loses.
+    // A sample without its record is skipped on import, so the records all fit or the export fails.
+    // The lists after them only inform, and lose their tail instead.
     for (auto& record : records) {
         if (comment.size() + 1 + record.size() > limit) {
-            truncated = true;
-            break;
+            return fail(fmt::format(f_("The {} samples need more spu-sample lines than a SoundFont comment holds. "
+                                       "Clear the SPU logger and capture a shorter span."),
+                                    out.size()));
         }
         comment += '\n';
         comment += record;
@@ -180,26 +226,20 @@ void PCSX::Widgets::SPUSamples::rebuild(PCSX::SPULogger* logger, const uint8_t* 
         m_samples.clear();
         m_lastSeen = 0;
         m_lastClears = logger->clears();
-        m_voiceLoops = {};
     }
     const size_t fresh = size_t(std::min<uint64_t>(seen - m_lastSeen, count));
     // Events dropped by the ring since the last refresh hide any content swaps they covered.
     const bool gap = seen - m_lastSeen > count;
-    if (gap) m_voiceLoops = {};
     std::map<uint32_t, RootKey::PitchCounts> freshPitches;
     std::map<uint32_t, std::map<uint32_t, uint32_t>> freshLoops;
     for (size_t i = count - fresh; i < count; i++) {
         const auto& ev = (*logger)[i];
-        if (ev.kind == PCSX::SPULogger::Kind::VoiceLoop) {
-            if (ev.voice < m_voiceLoops.size()) m_voiceLoops[ev.voice] = ev.address;
-            continue;
-        }
         if (ev.kind != PCSX::SPULogger::Kind::KeyOn) continue;
         auto& s = m_samples[ev.address];
         s.keyOns++;
         freshPitches[ev.address][uint16_t(ev.value)]++;
         if (ev.voice < 32) s.voiceMask |= 1u << ev.voice;
-        if (ev.voice < m_voiceLoops.size() && m_voiceLoops[ev.voice]) freshLoops[ev.address][*m_voiceLoops[ev.voice]]++;
+        if (ev.loop != PCSX::SPULogger::c_noLoop) freshLoops[ev.address][ev.loop]++;
     }
     m_lastSeen = seen;
 
@@ -434,8 +474,11 @@ void PCSX::Widgets::SPUSamples::draw(PCSX::SPULogger* logger, const uint8_t* spu
     if (m_exportDialog.draw()) {
         auto& selected = m_exportDialog.selected();
         if (!selected.empty()) {
-            auto data = exportSF2(spuRam, m_samples);
-            if (data.empty()) {
+            std::string error;
+            auto data = exportSF2(spuRam, m_samples, &error);
+            if (!error.empty()) {
+                m_exportStatus = error;
+            } else if (data.empty()) {
                 m_exportStatus = _("No complete samples to export.");
             } else {
                 IO<File> file = new PosixFile(selected[0], FileOps::TRUNCATE);
