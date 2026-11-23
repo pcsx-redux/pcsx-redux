@@ -24,6 +24,7 @@
 #include <string>
 
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "elfio/elfio.hpp"
@@ -32,13 +33,12 @@
 #include "support/mem4g.h"
 #include "supportpsx/binloader.h"
 
-// A loader told how much RAM there is refuses any binary that fits neither in RAM nor in
-// the BIOS ROM, before writing a single byte. Without the bound, a header claiming too much
-// data wraps around the RAM mirrors and lands over the kernel and the BIOS image.
+// The caller's span check sees every span of a binary before any of it is read or written,
+// and a refusal from it leaves the destination untouched.
 
 namespace {
 
-constexpr uint32_t c_ram = 2 * 1024 * 1024;
+using Spans = std::vector<std::pair<uint32_t, uint64_t>>;
 
 std::vector<uint8_t> makePSEXE(uint32_t addr, uint32_t size, uint32_t dataSize) {
     std::vector<uint8_t> exe(2048 + dataSize, 0x55);
@@ -51,87 +51,61 @@ std::vector<uint8_t> makePSEXE(uint32_t addr, uint32_t size, uint32_t dataSize) 
     return exe;
 }
 
-bool load(std::vector<uint8_t>& exe, PCSX::IO<PCSX::Mem4G> dest, std::optional<uint32_t> ramSize) {
-    PCSX::IO<PCSX::File> in(new PCSX::BufferFile(exe.data(), exe.size()));
+// Records what it is asked, and refuses anything bigger than 2MB.
+PCSX::BinaryLoader::Info recordingInfo(Spans& spans) {
     PCSX::BinaryLoader::Info info;
-    info.ramSize = ramSize;
+    info.spanCheck = [&spans](uint32_t address, uint64_t size) -> std::optional<std::string> {
+        spans.emplace_back(address, size);
+        if (size > 0x200000) return "too big";
+        return {};
+    };
+    return info;
+}
+
+bool load(std::vector<uint8_t>& exe, PCSX::IO<PCSX::Mem4G> dest, PCSX::BinaryLoader::Info info) {
+    PCSX::IO<PCSX::File> in(new PCSX::BufferFile(exe.data(), exe.size()));
     std::map<uint32_t, std::string> symbols;
     return PCSX::BinaryLoader::load(in, dest.asA<PCSX::File>(), info, symbols);
 }
 
 }  // namespace
 
-TEST(BinaryLoader, PSEXEInsideRAMLoads) {
+TEST(BinaryLoader, PSEXESpanIsChecked) {
+    Spans spans;
     auto exe = makePSEXE(0x80010000, 0x800, 0x800);
     PCSX::IO<PCSX::Mem4G> dest(new PCSX::Mem4G());
-    EXPECT_TRUE(load(exe, dest, c_ram));
+    EXPECT_TRUE(load(exe, dest, recordingInfo(spans)));
+    ASSERT_EQ(spans.size(), 1);
+    EXPECT_EQ(spans[0].first, 0x80010000);
+    EXPECT_EQ(spans[0].second, 0x800);
     EXPECT_EQ(dest->lowestAddress(), 0x80010000);
     EXPECT_EQ(dest->actualSize(), 0x800);
 }
 
-TEST(BinaryLoader, PSEXEEndingAtTheEndOfRAMLoads) {
-    auto exe = makePSEXE(0x80000000 + c_ram - 0x800, 0x800, 0x800);
+TEST(BinaryLoader, RefusedPSEXEWritesNothing) {
+    Spans spans;
+    auto exe = makePSEXE(0x80010000, 0x200004, 0x200004);
     PCSX::IO<PCSX::Mem4G> dest(new PCSX::Mem4G());
-    EXPECT_TRUE(load(exe, dest, c_ram));
-    EXPECT_EQ(dest->actualSize(), 0x800);
-}
-
-TEST(BinaryLoader, PSEXEInARAMMirrorLoads) {
-    auto exe = makePSEXE(0x80600000, 0x800, 0x800);
-    PCSX::IO<PCSX::Mem4G> dest(new PCSX::Mem4G());
-    EXPECT_TRUE(load(exe, dest, c_ram));
-    EXPECT_EQ(dest->lowestAddress(), 0x80600000);
-    EXPECT_EQ(dest->actualSize(), 0x800);
-}
-
-TEST(BinaryLoader, PSEXELargerThanRAMIsRefused) {
-    auto exe = makePSEXE(0x80000000, c_ram + 1, 0x800);
-    PCSX::IO<PCSX::Mem4G> dest(new PCSX::Mem4G());
-    EXPECT_THROW(load(exe, dest, c_ram), std::runtime_error);
+    EXPECT_THROW(load(exe, dest, recordingInfo(spans)), std::runtime_error);
     EXPECT_TRUE(dest->isEmpty());
 }
 
-TEST(BinaryLoader, PSEXECrossingTheEndOfTheRAMWindowIsRefused) {
-    auto exe = makePSEXE(0x80800000 - 0x800, 0x804, 0x804);
-    PCSX::IO<PCSX::Mem4G> dest(new PCSX::Mem4G());
-    EXPECT_THROW(load(exe, dest, c_ram), std::runtime_error);
-    EXPECT_TRUE(dest->isEmpty());
-}
-
-TEST(BinaryLoader, PSEXEInTheBIOSLoads) {
-    auto exe = makePSEXE(0xbfc00000, 0x800, 0x800);
-    PCSX::IO<PCSX::Mem4G> dest(new PCSX::Mem4G());
-    EXPECT_TRUE(load(exe, dest, c_ram));
-    EXPECT_EQ(dest->lowestAddress(), 0xbfc00000);
-    EXPECT_EQ(dest->actualSize(), 0x800);
-}
-
-TEST(BinaryLoader, PSEXERunningPastTheBIOSIsRefused) {
-    auto exe = makePSEXE(0xbfc80000 - 0x800, 0x804, 0x804);
-    PCSX::IO<PCSX::Mem4G> dest(new PCSX::Mem4G());
-    EXPECT_THROW(load(exe, dest, c_ram), std::runtime_error);
-    EXPECT_TRUE(dest->isEmpty());
-}
-
-TEST(BinaryLoader, PSEXEClaimingAGigabyteIsRefused) {
-    // The header lies about the size, so this also checks the data is never read in.
+TEST(BinaryLoader, PSEXEClaimingAGigabyteIsRefusedBeforeReading) {
+    // The header lies about the size, so a read would come up short; the refusal has to
+    // come first.
+    Spans spans;
     auto exe = makePSEXE(0x80010000, 0x40000000, 0x800);
     PCSX::IO<PCSX::Mem4G> dest(new PCSX::Mem4G());
-    EXPECT_THROW(load(exe, dest, c_ram), std::runtime_error);
+    EXPECT_THROW(load(exe, dest, recordingInfo(spans)), std::runtime_error);
+    ASSERT_EQ(spans.size(), 1);
+    EXPECT_EQ(spans[0].second, 0x40000000);
     EXPECT_TRUE(dest->isEmpty());
 }
 
-TEST(BinaryLoader, PSEXEOutsideOfTheRAMSegmentsIsRefused) {
-    auto exe = makePSEXE(0xc0000000, 0x800, 0x800);
-    PCSX::IO<PCSX::Mem4G> dest(new PCSX::Mem4G());
-    EXPECT_THROW(load(exe, dest, c_ram), std::runtime_error);
-    EXPECT_TRUE(dest->isEmpty());
-}
-
-TEST(BinaryLoader, PSEXEIsntBoundedWithoutARAMSize) {
+TEST(BinaryLoader, PSEXEIsntBoundedWithoutACheck) {
     auto exe = makePSEXE(0xc0000000, 0x1000, 0x1000);
     PCSX::IO<PCSX::Mem4G> dest(new PCSX::Mem4G());
-    EXPECT_TRUE(load(exe, dest, std::nullopt));
+    EXPECT_TRUE(load(exe, dest, {}));
     EXPECT_EQ(dest->actualSize(), 0x1000);
 }
 
@@ -144,31 +118,33 @@ TEST(BinaryLoader, ELFIsCheckedBeforeAnySectionIsWritten) {
     writer.set_entry(0x80010000);
 
     char code[0x40] = {};
+    std::vector<char> big(0x200004);
     section* text = writer.sections.add(".text");
     text->set_type(SHT_PROGBITS);
     text->set_flags(SHF_ALLOC | SHF_EXECINSTR);
     text->set_address(0x80010000);
     text->set_addr_align(4);
     text->set_data(code, sizeof(code));
-    // The second section is the one that doesn't fit, so the first must not have been written.
+    // The second section is the one refused, so the first must not have been written.
     section* data = writer.sections.add(".data");
     data->set_type(SHT_PROGBITS);
     data->set_flags(SHF_ALLOC | SHF_WRITE);
-    data->set_address(0x80800000 - 0x20);
+    data->set_address(0x80020000);
     data->set_addr_align(4);
-    data->set_data(code, sizeof(code));
+    data->set_data(big.data(), big.size());
 
     auto path = (std::filesystem::temp_directory_path() / "binloader-ram.elf").string();
     ASSERT_TRUE(writer.save(path));
+    Spans spans;
     PCSX::IO<PCSX::Mem4G> dest(new PCSX::Mem4G());
     {
         PCSX::IO<PCSX::File> in(new PCSX::PosixFile(path));
-        PCSX::BinaryLoader::Info info;
-        info.ramSize = c_ram;
         std::map<uint32_t, std::string> symbols;
+        auto info = recordingInfo(spans);
         EXPECT_THROW(PCSX::BinaryLoader::load(in, dest.asA<PCSX::File>(), info, symbols), std::runtime_error);
     }
     std::error_code ec;
     std::filesystem::remove(path, ec);
+    EXPECT_EQ(spans.size(), 2);
     EXPECT_TRUE(dest->isEmpty());
 }

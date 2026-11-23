@@ -125,7 +125,9 @@ void PCSX::UI::shellReached() {
     bool threw = false;
     try {
         BinaryLoader::Info info;
-        info.ramSize = g_emulator->m_mem->ramSize();
+        info.spanCheck = [](uint32_t address, uint64_t size) {
+            return g_emulator->m_mem->checkLoadSpan(address, size);
+        };
         IO<File> in(new PosixFile(filename));
         if (in->failed()) {
             throw std::runtime_error("Failed to open file.");

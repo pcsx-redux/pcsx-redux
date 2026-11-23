@@ -29,6 +29,7 @@ SOFTWARE.
 #include <stdint.h>
 
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
@@ -45,9 +46,9 @@ struct Info {
     std::optional<uint32_t> pc;
     std::optional<uint32_t> sp;
     std::optional<uint32_t> gp;
-    // Set by the caller to the amount of RAM the machine has. A binary that doesn't fit in RAM
-    // or in the BIOS ROM is then refused with an exception before anything gets written.
-    std::optional<uint32_t> ramSize;
+    // Set by the caller to bound where a binary may go. Called on each span before it is read
+    // or written; returning a reason refuses the whole binary with an exception.
+    std::function<std::optional<std::string>(uint32_t address, uint64_t size)> spanCheck;
 };
 
 bool load(IO<File> in, IO<File> dest, Info& info, std::map<uint32_t, std::string>& symbols);

@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <optional>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -327,9 +329,15 @@ class Memory {
     IO<MemoryAsFile> getMemoryAsFile() { return m_memoryAsFile; }
 
     bool isiCacheEnabled() { return m_BIU == 0x1e988; }
-    // The RAM the guest can reach right now: 8MB needs both the setting and the guest's own
-    // RAM_SIZE register to ask for it, otherwise it's 2MB, mirrored.
+    // The RAM behind the window: 8MB needs both the setting and the guest's own RAM_SIZE
+    // register to ask for it, otherwise it's 2MB, mirrored over the window.
     uint32_t ramSize() const;
+    // How much address space the DRAM controller decodes for a RAM_SIZE value: /RAS0 then,
+    // if enabled, /RAS1, each 1MB << ((bank size bit 1 << 1) | bit 11).
+    static uint32_t ramWindow(uint32_t ramSizeRegister);
+    // Asks the read LUT whether every page of a span is RAM or BIOS ROM, and whether a span in
+    // RAM is no larger than the RAM behind the window. Returns why not, if it isn't.
+    std::optional<std::string> checkLoadSpan(uint32_t address, uint64_t size) const;
     bool isolatedToICache(uint32_t address) const;
     uint32_t getBIU() const { return m_BIU; }
     // For save states: the guest's own write to 0xfffe0130 also invalidates the code cache on
