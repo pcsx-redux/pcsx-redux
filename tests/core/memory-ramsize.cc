@@ -22,6 +22,7 @@
 // bound asks those same LUTs where a binary may go.
 
 #include <cstdint>
+#include <memory>
 #include <string>
 
 #include "core/arguments.h"
@@ -66,16 +67,21 @@ class MemoryRamSize : public ::testing::Test {
         m_oldSystem = PCSX::g_system;
         m_oldEmulator = PCSX::g_emulator;
         PCSX::g_system = &m_system;
-        // Torn down by hand in TearDown: the destructor closes a Lua state this fixture never opens.
-        m_emulator = new PCSX::Emulator();
-        PCSX::g_emulator = m_emulator;
+        m_emulator = std::make_unique<PCSX::Emulator>();
+        PCSX::g_emulator = m_emulator.get();
         m_emulator->settings.get<PCSX::Emulator::SettingDynarec>().value = false;
         ASSERT_NE(m_emulator->m_mem->init(), -1);
         // HW::reset reaches into the counters, which need the CPU.
         ASSERT_TRUE(PCSX::R3000Acpu::psxInit());
+        m_emulator->m_cpu->m_regs.cycle = 0;
         m_mem = m_emulator->m_mem.get();
     }
     void TearDown() override {
+        if (m_emulator) {
+            if (m_emulator->m_cpu) m_emulator->m_cpu->psxShutdown();
+            m_emulator->m_mem->shutdown();
+            m_emulator.reset();
+        }
         PCSX::g_emulator = m_oldEmulator;
         PCSX::g_system = m_oldSystem;
     }
@@ -96,7 +102,7 @@ class MemoryRamSize : public ::testing::Test {
     TestSystem m_system;
     PCSX::System* m_oldSystem = nullptr;
     PCSX::Emulator* m_oldEmulator = nullptr;
-    PCSX::Emulator* m_emulator = nullptr;
+    std::unique_ptr<PCSX::Emulator> m_emulator;
     PCSX::Memory* m_mem = nullptr;
 };
 
