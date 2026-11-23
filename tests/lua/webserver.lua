@@ -285,8 +285,9 @@ end
 -- Symbol upload accepts an optional 0x prefix and skips addresses that are not 32-bit hex numbers.
 function TestWebServer:test_symbol_upload_validates_address()
     local function plain(path, body)
-        return exchange('POST ' .. path .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
-                            'Content-Length: ' .. #body .. '\r\n\r\n' .. body)
+        return exchange(
+                   'POST ' .. path .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' .. 'Content-Length: ' ..
+                       #body .. '\r\n\r\n' .. body)
     end
     lu.assertEquals(plain('/api/v1/assembly/symbols?function=reset', ''):sub(1, 15), 'HTTP/1.1 200 OK')
     local body = '0x80010000 hexprefixed\n80020000 plain\nfffffffff toolong\n'
@@ -294,7 +295,7 @@ function TestWebServer:test_symbol_upload_validates_address()
     local found = {}
     for address, name in PCSX.iterateSymbols() do found[address] = name end
     plain('/api/v1/assembly/symbols?function=reset', '')
-    local expected = {[0x80010000] = 'hexprefixed', [0x80020000] = 'plain'}
+    local expected = { [0x80010000] = 'hexprefixed', [0x80020000] = 'plain' }
     lu.assertEquals(found, expected)
 end
 
@@ -309,7 +310,8 @@ function TestWebServer:test_headers_too_large()
     lu.assertNotNil(reply:find('HTTP/1.1 431', 1, true))
     local body = '--XyZ\r\nX-Big: ' .. string.rep('a', 70000) .. '\r\n\r\n1\r\n--XyZ--\r\n'
     reply = exchange('POST /api/v1/lua/bighdr HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
-                         'Content-Type: multipart/form-data; boundary=XyZ\r\nContent-Length: ' .. #body .. '\r\n\r\n' .. body)
+                         'Content-Type: multipart/form-data; boundary=XyZ\r\nContent-Length: ' .. #body .. '\r\n\r\n' ..
+                         body)
     PCSX.WebServer.Handlers.bighdr = nil
     lu.assertFalse(called)
     lu.assertNotNil(reply:find('HTTP/1.1 431', 1, true))
@@ -332,9 +334,9 @@ function TestWebServer:test_multipart_form_fields()
         local keys = {}
         for k in pairs(seen.form) do keys[#keys + 1] = k end
         table.sort(keys)
-        lu.assertEquals(keys, {'a', 'b'})
-        lu.assertEquals(seen.form.a, {'1'})
-        lu.assertEquals(seen.form.b, {'2'})
+        lu.assertEquals(keys, { 'a', 'b' })
+        lu.assertEquals(seen.form.a, { '1' })
+        lu.assertEquals(seen.form.b, { '2' })
         lu.assertEquals(seen.body, body)
     end
     try('Content-Type: multipart/form-data; boundary=XyZ')
@@ -362,8 +364,8 @@ function TestWebServer:test_multipart_disposition_name()
     local keys = {}
     for k in pairs(seen.form) do keys[#keys + 1] = k end
     table.sort(keys)
-    lu.assertEquals(keys, {'', 'a', 'up'})
-    lu.assertEquals(seen.form.a, {'1'})
-    lu.assertEquals(seen.form.up, {'2'})
-    lu.assertEquals(seen.form[''], {'3'})
+    lu.assertEquals(keys, { '', 'a', 'up' })
+    lu.assertEquals(seen.form.a, { '1' })
+    lu.assertEquals(seen.form.up, { '2' })
+    lu.assertEquals(seen.form[''], { '3' })
 end

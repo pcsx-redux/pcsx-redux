@@ -81,7 +81,8 @@ local function checkLayout(iso, first, last, layout)
             -- A virtual pregap, or past the end of the disc: a whole sector of silence.
             local at = data:find(string.char(0xa5, 0x5a, 0xc3), 1, true)
             lu.assertNil(at, at and ('disc sector ' .. lba .. ' read bin sector ' .. data:byte(at - 1)))
-            lu.assertTrue(data == string.rep('\0', 2352), 'disc sector ' .. lba .. ' should be silence, read ' .. #data .. ' bytes')
+            lu.assertTrue(data == string.rep('\0', 2352),
+                          'disc sector ' .. lba .. ' should be silence, read ' .. #data .. ' bytes')
         end
     end
 end
