@@ -137,5 +137,14 @@ File {} created. All done.
                input, info.pc.value_or(0), info.gp.value_or(0), info.sp.value_or(0), file->size(), out->size(),
                output.value());
 
+    if (rom && out->size() > 128 * 1024) {
+        fmt::print(R"(
+Warning: this rom is {} bytes, larger than 128KB. Datel carts (Action Replay,
+GameShark) only map their first 128KB of flash contiguously at 0x1f000000, and
+the bootstrap code sits at the end of the rom, so it will not boot on them.
+)",
+                   out->size());
+    }
+
     return 0;
 }
