@@ -17,6 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include "bank-probe-strict.h"
 #include "gtest/gtest.h"
 #include "main/main.h"
 
@@ -56,7 +57,10 @@ TEST(GPUThreaded, BankProbe1MB) {
     EXPECT_EQ(runThreaded("src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe"), 0);
 }
 TEST(GPUThreaded, BankProbe2MB) {
-    EXPECT_EQ(runThreaded2MB("src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe"), 0);
+    MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
+                        "-interpreter", "-softgputhreaded", "-2mbvram", "-loadexe",
+                        "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
+    runBankProbeStrict2MB(invoker);
 }
 TEST(GPUThreaded, TexpageUpper) {
     EXPECT_EQ(runThreaded2MB("src/mips/tests/gpu/2mb-vram/texpage-upper/texpage-upper.ps-exe"), 0);

@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <string>
 
+#include "bank-probe-strict.h"
 #include "gtest/gtest.h"
 #include "main/main.h"
 
@@ -32,7 +33,8 @@
 
 // bank-probe characterizes the GP1(09h) gate. It self-verifies that the lower
 // bank round-trips and that the gate flips the upper bank between mirror and
-// (real | open-bus); both 1MB and 2MB fitments are valid and pass.
+// (real | open-bus); both 1MB and 2MB fitments are valid and pass. Under the
+// 2MB fitment the gtest also holds the probe to gate0=mirror, gate1=real.
 TEST(TwoMBVram, BankProbe1MB) {
     MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
                         "-loadexe", "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
@@ -41,10 +43,10 @@ TEST(TwoMBVram, BankProbe1MB) {
 }
 
 TEST(TwoMBVram, BankProbe2MB) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
-    int ret = invoker.invoke();
-    EXPECT_EQ(ret, 0);
+    MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
+                        "-interpreter", "-2mbvram", "-loadexe",
+                        "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
+    runBankProbeStrict2MB(invoker);
 }
 
 // texpage-upper uploads a 16-bit texture page into the upper bank and samples
@@ -158,7 +160,10 @@ static int runOpenGLProbe(const char* name) {
 
 TEST(TwoMBVramOpenGL, BankProbe) {
     if (!haveDisplay()) GTEST_SKIP() << "no display";
-    EXPECT_EQ(runOpenGLProbe("bank-probe"), 0);
+    MainInvoker invoker("-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-openglgpu", "-2mbvram", "-loadexe",
+                        "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
+    runBankProbeStrict2MB(invoker);
 }
 
 TEST(TwoMBVramOpenGL, TexpageUpper) {
