@@ -566,7 +566,8 @@ void PCSX::Lua::displayStack(bool error) {
         if (useLuaPrinter) {
             if (isInDisplayStackAlready || !hasLuaPrinter) {
                 std::string msg = tostring();
-                pop();
+                // The message, then the copy of the printer pushed for this entry.
+                pop(2);
                 printf("%s\n", msg.c_str());
             } else {
                 push(true);

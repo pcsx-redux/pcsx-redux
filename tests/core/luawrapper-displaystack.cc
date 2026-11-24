@@ -119,3 +119,15 @@ TEST(LuaWrapperDisplayStack, PcallErrorDumpKeepsBottomEntry) {
     for (auto& line : p.error) EXPECT_EQ(line.find("(Table)"), std::string::npos) << line;
     L.close();
 }
+
+// With no Lua printer to call, the stdout fallback still leaves the stack as it found it.
+TEST(LuaWrapperDisplayStack, StdoutFallbackKeepsStack) {
+    PCSX::Lua L;
+    L.openlibs();
+    Printers p(true, false);
+    L.push(lua_Number(1));
+    L.push(lua_Number(2));
+    L.displayStack(true);
+    EXPECT_EQ(L.gettop(), 2);
+    L.close();
+}
