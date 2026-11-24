@@ -61,6 +61,7 @@ class impl final : public GPU, private SoftRenderer {
         // retail 512 rows (gate-closed mirrors and 1MB open-bus are handled by
         // resolveVramY / the open-bus prefill, not by drawing into row 512+).
         m_vramHeight = (vram2MBFitted() && vram2MBGateOpen()) ? (VRAM_HEIGHT * 2) : VRAM_HEIGHT;
+        m_vramYMask = vram2MBGateOpen() ? 0x3ff : VRAM_Y_MASK;
     }
     // The RESOLVED texture, not the raw one. The VRAM viewer takes whatever
     // this returns from either backend, and the OpenGL backend hands it a

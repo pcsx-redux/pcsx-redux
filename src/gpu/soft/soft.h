@@ -194,6 +194,11 @@ struct SoftRenderer {
     // addressable. Public (like m_vram16) so impl can sync it across the
     // private SoftRenderer inheritance.
     int m_vramHeight = VRAM_HEIGHT;
+    // Row mask for the texture page and CLUT bases of a textured primitive:
+    // 0x1ff with the GP1(09h) gate closed, where every VRAM access wraps Y at
+    // 9 bits, and 0x3ff with it open, where Y>=512 reaches the upper bank (or
+    // the open-bus prefill on a 1MB fitment). Synced with m_vramHeight.
+    int m_vramYMask = VRAM_Y_MASK;
     SoftDisplay m_softDisplay;
     int32_t m_statusRet;
     bool m_disableTexturesInPolygons = false;
@@ -327,7 +332,7 @@ struct SoftRenderer {
         rs.texMaskX = (uint8_t)~m_textureWindowMaskU;
         rs.texMaskY = (uint8_t)~m_textureWindowMaskV;
         rs.texBaseX = m_globalTextAddrX;
-        rs.texBaseY = m_globalTextAddrY;
+        rs.texBaseY = m_globalTextAddrY & m_vramYMask;
         rs.abr = m_globalTextABR;
         rs.drawX = drawX;
         rs.drawY = drawY;
@@ -344,7 +349,7 @@ struct SoftRenderer {
         if constexpr (Tex == TexMode::Direct15) {
             rs.clutP = 0;
         } else {
-            rs.clutP = (clY << 10) + clX;
+            rs.clutP = ((clY & m_vramYMask) << 10) + clX;
         }
         return rs;
     }
