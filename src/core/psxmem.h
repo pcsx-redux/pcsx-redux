@@ -328,7 +328,17 @@ class Memory {
 
     IO<MemoryAsFile> getMemoryAsFile() { return m_memoryAsFile; }
 
-    bool isiCacheEnabled() { return m_BIU == 0x1e988; }
+    // BIU_CONFIG (0xfffe0130) bits the memory map decodes.
+    static constexpr uint32_t c_biuTag = 1 << 2;   // TAG: isolated stores reach the i-cache tags
+    static constexpr uint32_t c_biuDS = 1 << 7;    // DS: data cache (scratchpad) enable
+    static constexpr uint32_t c_biuIS1 = 1 << 11;  // IS1: i-cache enable
+    // The running configuration: i-cache and scratchpad on, tag test mode off. RAM stores take the
+    // write LUT, and an isolated store keeps reaching memory, which is not modelled.
+    static bool biuRunning(uint32_t biu) { return (biu & (c_biuTag | c_biuDS | c_biuIS1)) == (c_biuDS | c_biuIS1); }
+    // The i-cache on outside the running configuration, the way cache flush routines set it up before
+    // raising SR.IsC: tag test mode armed, or the scratchpad off.
+    static bool biuCacheMaintenance(uint32_t biu) { return (biu & c_biuIS1) && !biuRunning(biu); }
+    bool isiCacheEnabled() { return biuRunning(m_BIU); }
     // The RAM behind the window: 8MB needs both the setting and the guest's own RAM_SIZE
     // register to ask for it, otherwise it's 2MB, mirrored over the window.
     uint32_t ramSize() const;
@@ -339,6 +349,7 @@ class Memory {
     // RAM is no larger than the RAM behind the window. Returns why not, if it isn't.
     std::optional<std::string> checkLoadSpan(uint32_t address, uint64_t size) const;
     bool isolatedToICache(uint32_t address) const;
+    uint8_t *unisolatedRamStore(uint32_t page) const;
     uint32_t getBIU() const { return m_BIU; }
     // For save states: the guest's own write to 0xfffe0130 also invalidates the code cache on
     // some values, which a restore does by itself.

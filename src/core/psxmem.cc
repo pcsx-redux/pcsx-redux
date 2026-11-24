@@ -403,11 +403,23 @@ uint16_t PCSX::Memory::read16(uint32_t address) {
     return 0xffff;
 }
 
+/* Outside the running BIU configuration the RAM write LUT is empty, and SR.IsC decides whether a
+   store reaches RAM: with IsC clear it does, with IsC set it doesn't (isolatedToICache takes the
+   ones the i-cache gets). Until the guest first writes BIU_CONFIG, RAM stays unwritable as before. */
+uint8_t *PCSX::Memory::unisolatedRamStore(uint32_t page) const {
+    if (m_BIU == 0) return nullptr;
+    if (g_emulator->m_cpu->m_regs.CP0.n.Status & 0x10000) return nullptr;
+    const uint32_t segment = page & 0xe000;
+    if ((segment != 0x0000) && (segment != 0x8000) && (segment != 0xa000)) return nullptr;
+    if ((page & 0x1fff) >= 0x80) return nullptr;
+    return (uint8_t *)m_readLUT[page];
+}
+
 /* COP0 SR.IsC set with BIU_CONFIG.IS1 set sends a 32-bit load or store to a KUSEG or KSEG0
    address into the i-cache (see R3000Acpu::readICacheIsolated). Only RAM addresses and a
-   non-default BIU_CONFIG are modelled, which is how cache flush routines and the nugget
-   tests/cpu/icache probes use it. Isolation under the default 1E988h, sub-word accesses, and other
-   addresses keep reaching memory as they do without isolation. */
+   BIU_CONFIG outside its running configuration are modelled, which is how cache flush routines
+   and the nugget tests/cpu/icache probes use it. Isolation under the running configuration keeps
+   reaching memory as it does without isolation. */
 bool PCSX::Memory::isolatedToICache(uint32_t address) const {
     if ((m_BIU & 0x800) == 0) return false;
     const uint32_t region = address & 0xff800000;
@@ -417,7 +429,7 @@ bool PCSX::Memory::isolatedToICache(uint32_t address) const {
 
 uint32_t PCSX::Memory::read32(uint32_t address, ReadType readType) {
     if (readType == ReadType::Data) g_emulator->m_cpu->m_regs.cycle += 1;
-    if ((m_BIU != 0x1e988) && (readType == ReadType::Data) && isolatedToICache(address)) [[unlikely]] {
+    if (!isiCacheEnabled() && (readType == ReadType::Data) && isolatedToICache(address)) [[unlikely]] {
         return g_emulator->m_cpu->readICacheIsolated(address, m_BIU & 4);
     }
     const uint32_t page = address >> 16;
@@ -563,6 +575,9 @@ void PCSX::Memory::write8(uint32_t address, uint32_t value) {
         const uint32_t offset = address & 0xffff;
         *(pointer + offset) = static_cast<uint8_t>(value);
         g_emulator->m_cpu->ClearStore(address & (~3));
+    } else if (const auto ram = unisolatedRamStore(page)) {
+        *(ram + (address & 0xffff)) = static_cast<uint8_t>(value);
+        g_emulator->m_cpu->ClearStore(address & (~3));
     } else if (page == 0x1f80 || page == 0x9f80 || page == 0xbf80) {
         if ((address & 0xffff) < 0x400) {
             m_hard[address & 0x3ff] = value;
@@ -601,6 +616,9 @@ void PCSX::Memory::write16(uint32_t address, uint32_t value) {
         const uint32_t offset = address & 0xffff;
         *(uint16_t *)(pointer + offset) = SWAP_LEu16(static_cast<uint16_t>(value));
         g_emulator->m_cpu->ClearStore(address & (~3));
+    } else if (const auto ram = unisolatedRamStore(page)) {
+        *(uint16_t *)(ram + (address & 0xffff)) = SWAP_LEu16(static_cast<uint16_t>(value));
+        g_emulator->m_cpu->ClearStore(address & (~3));
     } else if (page == 0x1f80 || page == 0x9f80 || page == 0xbf80) {
         if ((address & 0xffff) < 0x400) {
             uint16_t *ptr = (uint16_t *)&m_hard[address & 0x3ff];
@@ -622,7 +640,7 @@ void PCSX::Memory::write16(uint32_t address, uint32_t value) {
 
 void PCSX::Memory::write32(uint32_t address, uint32_t value) {
     g_emulator->m_cpu->m_regs.cycle += 1;
-    if ((m_BIU != 0x1e988) && isolatedToICache(address)) [[unlikely]] {
+    if (!isiCacheEnabled() && isolatedToICache(address)) [[unlikely]] {
         g_emulator->m_cpu->writeICacheIsolated(address, value, m_BIU & 4);
         return;
     }
@@ -644,6 +662,9 @@ void PCSX::Memory::write32(uint32_t address, uint32_t value) {
         const uint32_t offset = address & 0xffff;
         *(uint32_t *)(pointer + offset) = SWAP_LEu32(value);
         g_emulator->m_cpu->ClearStore(address & (~3));
+    } else if (const auto ram = unisolatedRamStore(page)) {
+        *(uint32_t *)(ram + (address & 0xffff)) = SWAP_LEu32(value);
+        g_emulator->m_cpu->ClearStore(address & (~3));
     } else if (page == 0x1f80 || page == 0x9f80 || page == 0xbf80) {
         if ((address & 0xffff) < 0x400) {
             uint32_t *ptr = (uint32_t *)&m_hard[address & 0x3ff];
@@ -654,23 +675,11 @@ void PCSX::Memory::write32(uint32_t address, uint32_t value) {
     } else if ((page & 0x1fff) >= 0x1f00 && (page & 0x1fff) < 0x1f80 && pioConnected) {
         g_emulator->m_pioCart->write32(address, value);
     } else if (address == 0xfffe0130) {
+        // Decoded by its bits: 800h, 804h and 1E90Ch (TOCA World Touring Cars, SLES-02572, OpenBIOS),
+        // ps1-bare-metal's 1E98Ch and the i-cache probes' 1E908h all set up cache maintenance.
         m_BIU = value;
-        switch (value) {
-            case 0x00000800:
-            case 0x00000804:
-            case 0x0001e90c:  // TOCA World Touring Cars, SLES-02572, FlushCache at 0xa002f79c
-                g_emulator->m_cpu->biuCacheFlush();
-                [[fallthrough]];
-            case 0x0001e988:
-                setLuts();
-                break;
-            default:
-                g_system->log(LogClass::CPU, _("Unknown BIU value: %8.8lx\n"), value);
-                if (g_emulator->settings.get<Emulator::SettingDebugSettings>().get<Emulator::DebugSettings::Debug>()) {
-                    g_system->pause();
-                }
-                break;
-        }
+        if (biuCacheMaintenance(value)) g_emulator->m_cpu->biuCacheFlush();
+        setLuts();
     } else if (sendWriteToLua(address, 4, value)) {
     } else if (isiCacheEnabled()) {
         g_emulator->m_cpu->ClearStore(address);
