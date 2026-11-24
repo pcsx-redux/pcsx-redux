@@ -27,12 +27,17 @@
 
 // bank-probe passes on any board where some gate polarity opens the upper
 // bank, including one where the bank stays reachable with the gate closed
-// (verdict=both-polarities-open-upper). The 2MB fitment is stricter: the
+// (verdict=both-polarities-open-upper, or arcade-gate0-opens-upper on a 1MB
+// board). Each fitment has exactly one right answer. With 2MB fitted the
 // closed gate mirrors the lower bank and only the open gate reaches the
-// second chip, as measured on the 573. This runs the probe with -stdout,
-// captures what it prints and checks its summary line for exactly that.
-// The invoker has to carry -stdout.
-static void runBankProbeStrict2MB(MainInvoker& invoker) {
+// second chip, as measured on the 573. With 1MB fitted the closed gate
+// mirrors and the open gate reads open bus, as measured on retail boards.
+// This runs the probe with -stdout, captures what it prints and checks its
+// summary line for the expected decode. The invoker has to carry -stdout.
+static constexpr char kBankProbe1MB[] = " gate0=mirror gate1=open-bus";
+static constexpr char kBankProbe2MB[] = " gate0=mirror gate1=real";
+
+static void runBankProbeStrict(MainInvoker& invoker, const char* expected) {
     testing::internal::CaptureStdout();
     int ret = invoker.invoke();
     std::string out = testing::internal::GetCapturedStdout();
@@ -45,5 +50,5 @@ static void runBankProbeStrict2MB(MainInvoker& invoker) {
     ASSERT_NE(start, std::string::npos) << "bank-probe printed no summary line";
     auto end = out.find('\n', start);
     std::string summary = out.substr(start, end == std::string::npos ? std::string::npos : end - start);
-    EXPECT_TRUE(summary.ends_with(" gate0=mirror gate1=real")) << summary;
+    EXPECT_TRUE(summary.ends_with(expected)) << summary;
 }

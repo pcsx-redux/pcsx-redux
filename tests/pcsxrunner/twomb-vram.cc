@@ -33,20 +33,20 @@
 
 // bank-probe characterizes the GP1(09h) gate. It self-verifies that the lower
 // bank round-trips and that the gate flips the upper bank between mirror and
-// (real | open-bus); both 1MB and 2MB fitments are valid and pass. Under the
-// 2MB fitment the gtest also holds the probe to gate0=mirror, gate1=real.
+// (real | open-bus); both 1MB and 2MB fitments are valid and pass. The gtests
+// also hold each fitment to its one right decode: gate0=mirror gate1=open-bus
+// with 1MB, gate0=mirror gate1=real with 2MB.
 TEST(TwoMBVram, BankProbe1MB) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
-    int ret = invoker.invoke();
-    EXPECT_EQ(ret, 0);
+    MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
+                        "-interpreter", "-loadexe", "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
+    runBankProbeStrict(invoker, kBankProbe1MB);
 }
 
 TEST(TwoMBVram, BankProbe2MB) {
     MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
                         "-interpreter", "-2mbvram", "-loadexe",
                         "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
-    runBankProbeStrict2MB(invoker);
+    runBankProbeStrict(invoker, kBankProbe2MB);
 }
 
 // texpage-upper uploads a 16-bit texture page into the upper bank and samples
@@ -163,7 +163,7 @@ TEST(TwoMBVramOpenGL, BankProbe) {
     MainInvoker invoker("-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
                         "-openglgpu", "-2mbvram", "-loadexe",
                         "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
-    runBankProbeStrict2MB(invoker);
+    runBankProbeStrict(invoker, kBankProbe2MB);
 }
 
 TEST(TwoMBVramOpenGL, TexpageUpper) {

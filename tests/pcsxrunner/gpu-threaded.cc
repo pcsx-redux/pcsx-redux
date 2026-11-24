@@ -54,13 +54,16 @@ static int runThreaded2MB(const char *exe) {
 }
 
 TEST(GPUThreaded, BankProbe1MB) {
-    EXPECT_EQ(runThreaded("src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe"), 0);
+    MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
+                        "-interpreter", "-softgputhreaded", "-loadexe",
+                        "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
+    runBankProbeStrict(invoker, kBankProbe1MB);
 }
 TEST(GPUThreaded, BankProbe2MB) {
     MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
                         "-interpreter", "-softgputhreaded", "-2mbvram", "-loadexe",
                         "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
-    runBankProbeStrict2MB(invoker);
+    runBankProbeStrict(invoker, kBankProbe2MB);
 }
 TEST(GPUThreaded, TexpageUpper) {
     EXPECT_EQ(runThreaded2MB("src/mips/tests/gpu/2mb-vram/texpage-upper/texpage-upper.ps-exe"), 0);
