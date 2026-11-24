@@ -42,8 +42,9 @@ namespace Widgets {
 // from the SPU logger's key-on entries, which are the only ground truth for where a sample
 // begins. Everything else is derived from sound RAM: each sample is walked a block at a time
 // until a block carries the loop-end flag, noting the loop-start flag on the way. A sample that
-// repeats without a loop-start flag loops to the address the game set in the voice's loop
-// register, so for those the loop is the address the logger saw in force at their key-ons.
+// repeats without a loop-start flag loops to the voice's loop address, which the game sets
+// through the loop register or a previous sample's loop-start flag leaves there, so for those the
+// loop is the address the voice held as they were keyed on.
 // Each sample carries a content signature, and the map can be exported as a SoundFont.
 class SPUSamples {
   public:
@@ -59,7 +60,7 @@ class SPUSamples {
         RootKey::PitchCounts pitches;  // key-ons by pitch register, for the content in pitchesSignature
         uint64_t pitchesSignature = 0;
         bool pitchesDropped = false;  // key-ons were discarded as ambiguous since the last kept one
-        // Loop register value in force at each key-on, for the content in pitchesSignature.
+        // Loop address the voice held at each key-on, for the content in pitchesSignature.
         std::map<uint32_t, uint32_t> keyOnLoops;
         bool gameLoop = false;  // the loop comes from keyOnLoops, not from a loop-start flag
         RootKey::Result root;
@@ -70,17 +71,21 @@ class SPUSamples {
     // Every sample that ends in sound RAM, decoded, as one preset each. The root key comes
     // from the sample's fundamental at its stored rate (pitch 1000h, 44100 Hz), checked
     // against the key-on pitches in `pitches`; the bank comment names the convention and
-    // lists the samples that need a human.
-    static std::vector<uint8_t> exportSF2(const uint8_t* spuRam, const std::map<uint32_t, Sample>& samples);
+    // lists the samples that need a human. Copies of one sample at several addresses are exported
+    // once. Returns nothing, with the reason in `error`, when the bank cannot hold the map: two
+    // copies of a sample with different loops, or more samples than the comment has room to
+    // record.
+    static std::vector<uint8_t> exportSF2(const uint8_t* spuRam, const std::map<uint32_t, Sample>& samples,
+                                          std::string* error = nullptr);
+
+    // Brings the map up to date with the logger and sound RAM. draw() calls it.
+    void rebuild(PCSX::SPULogger* logger, const uint8_t* spuRam);
+    const std::map<uint32_t, Sample>& samples() const { return m_samples; }
 
   private:
-    void rebuild(PCSX::SPULogger* logger, const uint8_t* spuRam);
-
     std::map<uint32_t, Sample> m_samples;
     // By signature and loop offset, so a sample is only measured once per loop.
     std::map<std::pair<uint64_t, uint32_t>, std::optional<double>> m_fundamentals;
-    // Each voice's loop register, as last written while the logger ran.
-    std::array<std::optional<uint32_t>, 24> m_voiceLoops;
     uint64_t m_lastSeen = ~uint64_t(0);
     uint64_t m_lastClears = 0;
     bool m_autoRefresh = true;
