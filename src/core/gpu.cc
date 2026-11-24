@@ -1319,6 +1319,21 @@ void PCSX::GPU::BlitVramRam::processWrite(Buffer &buf, Logged::Origin origin, ui
                     m_gpu->m_readFifo->pushSlice(std::move(rest));
                 }
             }
+            // An odd pixel count still ends on a whole GPUREAD word. Its upper halfword is the next
+            // pixel of the last row, at column (x + w) & 1023 (SCPH-1001, gpu-transfer-edges and
+            // gpu-transfer-ffff).
+            if ((w * h) & 1) {
+                const unsigned l = y + h - 1;
+                Slice pad;
+                if (m_gpu->vramOpenBus(l)) {
+                    const uint16_t openBus = kVramOpenBusValue;
+                    pad.copy(&openBus, sizeof(openBus));
+                } else {
+                    const size_t at = size_t(m_gpu->resolveVramY(l)) * 1024 + ((x + w) & c_Coord10Mask);
+                    pad.borrow(m_gpu->m_vramReadSlice, at * 2, 2);
+                }
+                m_gpu->m_readFifo->pushSlice(std::move(pad));
+            }
             return;
     }
 }
