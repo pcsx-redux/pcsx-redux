@@ -31,6 +31,9 @@ plugins:
       output_path: pcsx-redux.pdf
 
 markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - github-callouts
   - pymdownx.highlight:
       linenums: true
   - pymdownx.superfences
