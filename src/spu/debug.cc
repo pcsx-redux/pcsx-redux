@@ -723,16 +723,17 @@ void impl::drawScopes() {
     const int window = m_scopeWindow;
     const int span = window * 2;
     const uint64_t head = m_scopeHead.load(std::memory_order_acquire);
+    const uint64_t first = m_scopeStart.load(std::memory_order_relaxed);
     int16_t samples[kMaxWindow * 2];
     if (ImGui::BeginTable("##SpuScopes", m_scopeColumns, ImGuiTableFlags_SizingStretchSame)) {
         for (unsigned ch = 0; ch < MAXCHAN; ch++) {
             ImGui::TableNextColumn();
             const auto& ring = m_scopeAfterEnvelope ? m_scopeEnveloped[ch] : m_scopeRaw[ch];
-            // Before the mixer has recorded a full span, the missing history reads as silence.
+            // Samples from before this recording started read as silence.
             for (int i = 0; i < span; i++) {
                 const uint64_t back = span - i;
-                samples[i] =
-                    back > head ? 0 : ring[(head - back) & (kScopeSamples - 1)].load(std::memory_order_relaxed);
+                const bool recorded = back <= head && head - back >= first;
+                samples[i] = recorded ? ring[(head - back) & (kScopeSamples - 1)].load(std::memory_order_relaxed) : 0;
             }
             int start = span - window;
             if (m_scopeTrigger) {

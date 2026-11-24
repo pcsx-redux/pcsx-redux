@@ -702,8 +702,16 @@ void PCSX::SPU::impl::mixChunk(int n) {
 
     // A voice that is silent for part of the chunk records nothing there, so the scope
     // starts the chunk at zero.
+    // What the ring held before a gap in the recording, or before a jump of the sample clock,
+    // is not history any more.
+    const bool recorded = m_scopeChunk;
     m_scopeChunk = m_scopeRecording.load(std::memory_order_relaxed);
-    if (m_scopeChunk) clearScopeChunk(n);
+    if (m_scopeChunk) {
+        if (!recorded || m_scopeHead.load(std::memory_order_relaxed) != m_mixPos) {
+            m_scopeStart.store(m_mixPos, std::memory_order_relaxed);
+        }
+        clearScopeChunk(n);
+    }
 
     // Collect the chunk from every channel into the mix accumulators.
     for (ch = 0; ch < MAXCHAN; ch++) {

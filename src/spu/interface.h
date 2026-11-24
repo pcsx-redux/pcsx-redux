@@ -619,6 +619,7 @@ class impl final : public SPUInterface {
     }
     std::atomic<bool> m_scopeRecording = false;  // written by the UI thread only
     std::atomic<uint64_t> m_scopeHead = 0;       // written by the mixer thread only
+    std::atomic<uint64_t> m_scopeStart = 0;      // mixer thread: first sample of this recording
     bool m_scopeChunk = false;                   // mixer thread: recording this chunk
     // Relaxed atomics: the UI reads while the mixer writes, and a sample from the next pass
     // only shows as a glitch in one frame of the trace.
