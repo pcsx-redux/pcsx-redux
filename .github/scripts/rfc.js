@@ -136,8 +136,14 @@ async function run({ github, context, core, now = Date.now(), stakeholdersText }
     const target = `https://github.com/${owner}/${repo}/blob/main/RFC.md`;
     const prs = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'open', per_page: 100 });
     const { rows, bySha } = await evaluate(github, owner, repo, prs, now);
-    await publishStatuses(github, core, owner, repo, bySha, target);
     const payload = context.payload;
+    // A pull request event runs in that pull request's concurrency group, so
+    // it only writes the status of its own head commit. Statuses on other
+    // pull requests are left to the serialized hourly run (see rfc.yml).
+    const own = context.eventName === 'pull_request_target'
+        ? new Map([...bySha].filter(([sha]) => sha === payload.pull_request.head.sha))
+        : bySha;
+    await publishStatuses(github, core, owner, repo, own, target);
     if (context.eventName === 'pull_request_target' && payload.action === 'labeled' && payload.label.name === LABEL) {
         await announce(github, owner, repo, payload.pull_request, rows, target, stakeholdersText);
     }
