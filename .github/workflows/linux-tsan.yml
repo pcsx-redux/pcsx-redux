@@ -15,6 +15,9 @@ jobs:
     continue-on-error: true
     container:
       image: ghcr.io/pcsx-redux/pcsx-redux-build:latest
+      # TSan re-execs itself with ASLR off when the kernel's mmap entropy is too high for its
+      # memory layout; Docker's default seccomp profile refuses that personality() call.
+      options: --security-opt seccomp=unconfined
       env:
         TEST_RESULTS: /tmp/test-results
         BUILD: tsan
