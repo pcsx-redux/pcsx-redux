@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -603,6 +604,29 @@ class impl final : public SPUInterface {
     float m_channelDebugData[MAXCHAN][DEBUG_SAMPLES];
     char m_channelTag[MAXCHAN][CHANNEL_TAG] = {};
     unsigned m_currentDebugSample = 0;
+
+    // Voice scopes. While the scope window is open the mixer records every voice's sample
+    // twice, as decoded and interpolated and after the envelope, into a ring indexed by the
+    // emulated sample clock, and the window reads it back from the UI thread.
+    static constexpr unsigned kScopeSamples = 8192;  // a power of two, about 186 ms
+    void drawScopes();
+    void clearScopeChunk(int n);
+    void recordScope(int ch, int ns, int32_t raw, int32_t enveloped) {
+        if (!m_scopeChunk) return;
+        const unsigned index = (m_mixPos + ns) & (kScopeSamples - 1);
+        m_scopeRaw[ch][index] = std::clamp(raw, -32768, 32767);
+        m_scopeEnveloped[ch][index] = std::clamp(enveloped, -32768, 32767);
+    }
+    std::atomic<bool> m_scopeRecording = false;  // written by the UI thread only
+    std::atomic<uint64_t> m_scopeHead = 0;       // written by the mixer thread only
+    bool m_scopeChunk = false;                   // mixer thread: recording this chunk
+    int16_t m_scopeRaw[MAXCHAN][kScopeSamples] = {};
+    int16_t m_scopeEnveloped[MAXCHAN][kScopeSamples] = {};
+    bool m_scopeAfterEnvelope = true;
+    bool m_scopeTrigger = true;
+    int m_scopeWindow = 512;
+    int m_scopeColumns = 4;
+    float m_scopeGain = 1.0f;
 };
 
 }  // namespace SPU

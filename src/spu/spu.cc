@@ -393,6 +393,7 @@ void PCSX::SPU::impl::synthesizeVoice(int ch, SPUCHAN *voice, int32_t &capVoice1
         const int32_t envelope = voice->adsr.step(stop, on, m_mixPos + ns);
         int32_t mixedSample = (envelope * rawSample) >> kAdsrEnvelopeShift;
         sval = mixedSample;
+        recordScope(ch, ns, rawSample, mixedSample);
 
         // The capture mirror holds the voice 1/3 sample after ADSR but before volume.
         mixedSample = std::clamp(mixedSample, kCaptureSampleMin, kCaptureSampleMax);
@@ -699,10 +700,16 @@ void PCSX::SPU::impl::mixChunk(int n) {
         noiseLevel[ns] = m_noise.getVal();
     }
 
+    // A voice that is silent for part of the chunk records nothing there, so the scope
+    // starts the chunk at zero.
+    m_scopeChunk = m_scopeRecording.load(std::memory_order_relaxed);
+    if (m_scopeChunk) clearScopeChunk(n);
+
     // Collect the chunk from every channel into the mix accumulators.
     for (ch = 0; ch < MAXCHAN; ch++) {
         synthesizeChannel(ch, &s_chan[ch], capVoice1Index, capVoice3Index, n);
     }
+    if (m_scopeChunk) m_scopeHead.store(m_mixPos + n, std::memory_order_release);
 
     // Write from our temporary capture buffer to the actual SPU RAM.
     writeCaptureBufferCD(n);

@@ -588,6 +588,7 @@ void impl::debug() {
         }
         if (++m_currentDebugSample == DEBUG_SAMPLES) m_currentDebugSample = 0;
     }
+    drawScopes();
     if (!m_showDebug) return;
     ImGui::SetNextWindowPos(ImVec2(20, 40), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(1200, 430), ImGuiCond_FirstUseEver);
@@ -600,5 +601,145 @@ void impl::debug() {
     DrawSectionXa(xapGlobal, iLeftXAVol, iRightXAVol);
     DrawSectionChannels(s_chan, m_channelTag, m_channelDebugData, spuRamBase);
 
+    ImGui::End();
+}
+
+namespace {
+
+// The newest start position in [first, last] that sits on a rising zero crossing, or -1.
+int FindRisingEdge(const int16_t* samples, int first, int last) {
+    for (int i = last; i >= first; i--) {
+        if (i > 0 && samples[i - 1] < 0 && samples[i] >= 0) return i;
+    }
+    return -1;
+}
+
+void DrawScope(const int16_t* samples, int count, float gain, bool on, int channel) {
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    const ImVec2 size = ImGui::GetContentRegionAvail();
+    const float width = size.x;
+    const float height = ImGui::GetTextLineHeight() * 4.0f;
+    ImGui::Dummy(ImVec2(width, height));
+    if (width < 2.0f) return;
+
+    auto* drawList = ImGui::GetWindowDrawList();
+    const ImVec2 end = ImVec2(origin.x + width, origin.y + height);
+    const float middle = origin.y + height * 0.5f;
+    const float scale = height * 0.5f * gain / 32768.0f;
+    const auto y = [&](int sample) { return std::clamp(middle - sample * scale, origin.y, end.y); };
+
+    bool clipped = false;
+    for (int i = 0; i < count; i++) {
+        if (samples[i] == 32767 || samples[i] == -32768) clipped = true;
+    }
+
+    drawList->PushClipRect(origin, end, true);
+    drawList->AddRectFilled(origin, end, ImGui::GetColorU32(ImGuiCol_FrameBg));
+    drawList->AddLine(ImVec2(origin.x, middle), ImVec2(end.x, middle), ImGui::GetColorU32(ImGuiCol_Separator));
+    const ImU32 color = ImGui::GetColorU32(on ? ImGuiCol_PlotLines : ImGuiCol_TextDisabled);
+    if (count <= width) {
+        // Fewer samples than pixels: join the samples.
+        const float step = count > 1 ? width / (count - 1) : 0.0f;
+        for (int i = 1; i < count; i++) {
+            drawList->AddLine(ImVec2(origin.x + (i - 1) * step, y(samples[i - 1])),
+                              ImVec2(origin.x + i * step, y(samples[i])), color);
+        }
+    } else {
+        // More samples than pixels: one vertical span per column, from its lowest sample to its
+        // highest, starting at the last sample of the column before so the trace stays joined.
+        const int columns = static_cast<int>(width);
+        int previous = samples[0];
+        for (int x = 0; x < columns; x++) {
+            const int from = static_cast<int>(static_cast<int64_t>(x) * count / columns);
+            const int to = std::max(from + 1, static_cast<int>(static_cast<int64_t>(x + 1) * count / columns));
+            int low = previous, high = previous;
+            for (int i = from; i < to; i++) {
+                low = std::min<int>(low, samples[i]);
+                high = std::max<int>(high, samples[i]);
+            }
+            previous = samples[to - 1];
+            drawList->AddLine(ImVec2(origin.x + x + 0.5f, y(high)), ImVec2(origin.x + x + 0.5f, y(low) + 1.0f), color);
+        }
+    }
+    char label[8];
+    snprintf(label, sizeof(label), "%02i", channel);
+    drawList->AddText(ImVec2(origin.x + 3.0f, origin.y + 1.0f),
+                      ImGui::GetColorU32(on ? ImGuiCol_Text : ImGuiCol_TextDisabled), label);
+    drawList->PopClipRect();
+    // A sample at full scale is usually a clipping encoder or a filter blowing up.
+    drawList->AddRect(origin, end, clipped ? IM_COL32(230, 60, 60, 255) : ImGui::GetColorU32(ImGuiCol_Border));
+}
+
+}  // namespace
+
+void impl::clearScopeChunk(int n) {
+    for (int ns = 0; ns < n; ns++) {
+        const unsigned index = (m_mixPos + ns) & (kScopeSamples - 1);
+        for (unsigned ch = 0; ch < MAXCHAN; ch++) {
+            m_scopeRaw[ch][index] = 0;
+            m_scopeEnveloped[ch][index] = 0;
+        }
+    }
+}
+
+void impl::drawScopes() {
+    if (!m_showScope) {
+        m_scopeRecording.store(false, std::memory_order_relaxed);
+        return;
+    }
+    ImGui::SetNextWindowSize(ImVec2(900, 520), ImGuiCond_FirstUseEver);
+    const bool visible = ImGui::Begin(_("SPU Voice Scopes"), &m_showScope);
+    // Only an open window pays for the recording.
+    m_scopeRecording.store(visible && m_showScope, std::memory_order_relaxed);
+    if (!visible) {
+        ImGui::End();
+        return;
+    }
+
+    // The trigger looks for an edge in the window's length of history before the shown
+    // window, and the whole span stays in the older half of the ring, away from the samples
+    // the mixer is writing.
+    constexpr int kMaxWindow = kScopeSamples / 4;
+    int tap = m_scopeAfterEnvelope ? 1 : 0;
+    ImGui::RadioButton(_("Decoded, before envelope"), &tap, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton(_("After envelope"), &tap, 1);
+    m_scopeAfterEnvelope = tap == 1;
+    ImGui::SameLine();
+    ImGui::Checkbox(_("Trigger on rising edge"), &m_scopeTrigger);
+    ImGui::SetNextItemWidth(200.0f);
+    ImGui::SliderInt(_("Window"), &m_scopeWindow, 32, kMaxWindow, _("%d samples"), ImGuiSliderFlags_Logarithmic);
+    m_scopeWindow = std::clamp(m_scopeWindow, 32, kMaxWindow);
+    ImGui::SameLine();
+    ImGui::Text("%.2f ms", m_scopeWindow * 1000.0f / 44100.0f);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(120.0f);
+    ImGui::SliderFloat(_("Gain"), &m_scopeGain, 1.0f, 16.0f, "%.1fx", ImGuiSliderFlags_Logarithmic);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(120.0f);
+    ImGui::SliderInt(_("Columns"), &m_scopeColumns, 1, 8);
+    m_scopeColumns = std::clamp(m_scopeColumns, 1, 8);
+
+    const int window = m_scopeWindow;
+    const int span = window * 2;
+    const uint64_t head = m_scopeHead.load(std::memory_order_acquire);
+    int16_t samples[kMaxWindow * 2];
+    if (ImGui::BeginTable("##SpuScopes", m_scopeColumns, ImGuiTableFlags_SizingStretchSame)) {
+        for (unsigned ch = 0; ch < MAXCHAN; ch++) {
+            ImGui::TableNextColumn();
+            const auto& ring = m_scopeAfterEnvelope ? m_scopeEnveloped[ch] : m_scopeRaw[ch];
+            const uint64_t oldest = head - span;
+            for (int i = 0; i < span; i++) samples[i] = ring[(oldest + i) & (kScopeSamples - 1)];
+            int start = span - window;
+            if (m_scopeTrigger) {
+                const int edge = FindRisingEdge(samples, 1, span - window);
+                if (edge >= 0) start = edge;
+            }
+            ImGui::PushID(ch);
+            DrawScope(samples + start, window, m_scopeGain, s_chan[ch].data.get<Chan::On>().value, ch);
+            ImGui::PopID();
+        }
+        ImGui::EndTable();
+    }
     ImGui::End();
 }

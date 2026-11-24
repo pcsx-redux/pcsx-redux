@@ -309,6 +309,7 @@ in Configuration->Emulation, restart PCSX-Redux, then try again.)"));
             }
             if (ImGui::BeginMenu(_("SPU"))) {
                 ImGui::MenuItem(_("Show SPU debug"), nullptr, &PCSX::g_emulator->m_spu->m_showDebug);
+                ImGui::MenuItem(_("Show SPU voice scopes"), nullptr, &PCSX::g_emulator->m_spu->m_showScope);
                 ImGui::MenuItem(_("Show SPU logger"), nullptr, &m_spuLoggerWidget.m_show);
                 ImGui::MenuItem(_("Show SPU samples"), nullptr, &m_spuSamplesWidget.m_show);
                 ImGui::EndMenu();
