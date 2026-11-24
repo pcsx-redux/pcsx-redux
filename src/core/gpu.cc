@@ -36,6 +36,7 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
 
+#define GPUSTATUS_READYFORCOMMANDS 0x10000000  // GP0 FIFO empty
 #define GPUSTATUS_READYFORVRAM 0x08000000
 #define GPUSTATUS_IDLE 0x04000000  // CMD ready
 #define GPUSTATUS_MODE 0x02000000  // Data request mode
@@ -388,9 +389,20 @@ uint32_t PCSX::GPU::readStatus() {
     // GP0(C0h) until the last word of the readout has been read.
     if (!isIdle() || (m_readFifo->size() != 0)) ret &= ~GPUSTATUS_IDLE;
     if (m_irq1Flag) ret |= GPUSTATUS_IRQ1;
-    // Let's pretend our input fifo is always ready for more data.
-    if ((ret & 0x60000000) == 0x20000000) ret |= 0x02000000;
-    if (dmaBlockRequestLow()) ret &= ~0x12000000;
+    if (dmaBlockRequestLow()) ret &= ~GPUSTATUS_READYFORCOMMANDS;
+    // Bit 25 is the DMA request, picked by the GP1(04h) direction. With 1 it means the GP0 FIFO is not
+    // full, and Redux's FIFO never fills. With 2 it follows bit 28, so it is set whenever bit 28 is:
+    // after a command, during an unfinished GP0(A0h), and after a DMA2 list (SCPH-1001,
+    // gpu-transfer-edges).
+    switch ((ret >> 29) & 3) {
+        case 1:
+            ret |= GPUSTATUS_MODE;
+            break;
+        case 2:
+            ret &= ~GPUSTATUS_MODE;
+            if (ret & GPUSTATUS_READYFORCOMMANDS) ret |= GPUSTATUS_MODE;
+            break;
+    }
     return ret;
 }
 
