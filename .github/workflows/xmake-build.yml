@@ -25,6 +25,7 @@ env:
 jobs:
   emulator:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     container:
       image: ghcr.io/pcsx-redux/pcsx-redux-build:latest
     steps:
@@ -48,6 +49,7 @@ jobs:
 
   guest:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     container:
       image: ghcr.io/pcsx-redux/pcsx-redux-build:latest
     strategy:
@@ -72,6 +74,7 @@ jobs:
 
   wasm:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     container:
