@@ -24,8 +24,7 @@ local asm = table.concat({
     nop
     nop
     lui   $s0, 0x8011
-]],
-    -- mfc2 right after mtc2, then after one and two nops
+]], -- mfc2 right after mtc2, then after one and two nops
     case(1, [[
     li    $t1, 0x100
     mtc2  $t1, $ir1
@@ -35,8 +34,7 @@ local asm = table.concat({
     mfc2  $t2, $ir1
     nop
     sw    $t2, 4($s0)
-]]),
-    case(2, [[
+]]), case(2, [[
     li    $t1, 0x100
     mtc2  $t1, $ir1
 ]] .. settle .. [[
@@ -46,8 +44,7 @@ local asm = table.concat({
     mfc2  $t2, $ir1
     nop
     sw    $t2, 8($s0)
-]]),
-    case(3, [[
+]]), case(3, [[
     li    $t1, 0x100
     mtc2  $t1, $ir1
 ]] .. settle .. [[
@@ -58,8 +55,7 @@ local asm = table.concat({
     mfc2  $t2, $ir1
     nop
     sw    $t2, 12($s0)
-]]),
-    -- cfc2 right after ctc2
+]]), -- cfc2 right after ctc2
     case(4, [[
     li    $t1, 0x100
     ctc2  $t1, $ofx
@@ -69,8 +65,7 @@ local asm = table.concat({
     cfc2  $t2, $ofx
     nop
     sw    $t2, 16($s0)
-]]),
-    -- swc2 right after mtc2
+]]), -- swc2 right after mtc2
     case(5, [[
     li    $t1, 0x100
     mtc2  $t1, $ir1
@@ -78,8 +73,7 @@ local asm = table.concat({
     li    $t1, 0x200
     mtc2  $t1, $ir1
     swc2  $ir1, 20($s0)
-]]),
-    -- mfc2 waiting on a running RTPT: the stall gives the write time to land
+]]), -- mfc2 waiting on a running RTPT: the stall gives the write time to land
     case(6, [[
     li    $t1, 0x100
     mtc2  $t1, $vxy0
@@ -90,8 +84,7 @@ local asm = table.concat({
     mfc2  $t2, $vxy0
     nop
     sw    $t2, 24($s0)
-]] .. settle),
-    -- a write of the value already there reads the same either way
+]] .. settle), -- a write of the value already there reads the same either way
     case(7, [[
     li    $t1, 0x200
     mtc2  $t1, $ir1
@@ -100,8 +93,7 @@ local asm = table.concat({
     mfc2  $t2, $ir1
     nop
     sw    $t2, 28($s0)
-]]),
-    -- IRGB sets IR1 when it lands, so IR1 read right after it is stale too
+]]), -- IRGB sets IR1 when it lands, so IR1 read right after it is stale too
     case(8, [[
     mtc2  $zero, $ir1
 ]] .. settle .. [[
@@ -110,12 +102,10 @@ local asm = table.concat({
     mfc2  $t2, $ir1
     nop
     sw    $t2, 32($s0)
-]] .. settle),
-    [[
+]] .. settle), [[
     li    $t1, 0x600d
     sw    $t1, 0x40($s0)
-]],
-    -- an unaligned swc2 faults with a write still pending, and never reads the register
+]], -- an unaligned swc2 faults with a write still pending, and never reads the register
     case(9, [[
     li    $t1, 0x100
     mtc2  $t1, $ir1
