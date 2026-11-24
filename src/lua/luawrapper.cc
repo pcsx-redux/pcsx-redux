@@ -253,7 +253,7 @@ int PCSX::Lua::pcall(int nargs) {
         gettable(t);
         if (isnil()) {
             pop();
-            remove();
+            remove(t);
             break;
         }
     }
@@ -484,9 +484,13 @@ void PCSX::Lua::displayStack(bool error) {
         } else {
             push("Stack empty");
         }
-        pcall(1);
-        push(false);
-        setfield("IN_DISPLAY_STACK", LUA_REGISTRYINDEX);
+        try {
+            pcall(1);
+        } catch (...) {
+            clearInDisplayStack();
+            throw;
+        }
+        clearInDisplayStack();
         return;
     }
 
@@ -494,7 +498,7 @@ void PCSX::Lua::displayStack(bool error) {
     bool useLuaPrinter = false;
     bool hasLuaPrinter = true;
 
-    if ((!normalPrinter && error) || (!errorPrinter && !error)) {
+    if ((!errorPrinter && error) || (!normalPrinter && !error)) {
         useLuaPrinter = true;
         lua_pushstring(L, error ? "printError" : "print");
         lua_gettable(L, LUA_GLOBALSINDEX);
@@ -535,11 +539,13 @@ void PCSX::Lua::displayStack(bool error) {
                 break;
             case LUA_TUSERDATA:
                 push("(Userdata) ");
-                lua_pushfstring(L, "%08x", lua_touserdata(L, i));
+                lua_pushfstring(L, "%p", lua_touserdata(L, i));
+                c++;
                 break;
             case LUA_TLIGHTUSERDATA:
                 push("(Lightuserdata) ");
-                lua_pushfstring(L, "%08x", lua_touserdata(L, i));
+                lua_pushfstring(L, "%p", lua_touserdata(L, i));
+                c++;
                 break;
             case LUA_TTHREAD:
                 push("(Thread)");
@@ -548,8 +554,9 @@ void PCSX::Lua::displayStack(bool error) {
                 push("(Proto)");
                 break;
             case 10:
-                push("(CData)");
-                lua_pushfstring(L, "%08x", lua_topointer(L, i));
+                push("(CData) ");
+                lua_pushfstring(L, "%p", lua_topointer(L, i));
+                c++;
                 break;
             default:
                 push("Unknown");
@@ -564,9 +571,13 @@ void PCSX::Lua::displayStack(bool error) {
             } else {
                 push(true);
                 setfield("IN_DISPLAY_STACK", LUA_REGISTRYINDEX);
-                pcall(1);
-                push(false);
-                setfield("IN_DISPLAY_STACK", LUA_REGISTRYINDEX);
+                try {
+                    pcall(1);
+                } catch (...) {
+                    clearInDisplayStack();
+                    throw;
+                }
+                clearInDisplayStack();
             }
         } else {
             std::string msg = tostring();
@@ -578,7 +589,12 @@ void PCSX::Lua::displayStack(bool error) {
             }
         }
     }
-    pop();
+    if (useLuaPrinter) pop();
+}
+
+void PCSX::Lua::clearInDisplayStack() {
+    push(false);
+    setfield("IN_DISPLAY_STACK", LUA_REGISTRYINDEX);
 }
 
 json PCSX::Lua::toJson(int t) {

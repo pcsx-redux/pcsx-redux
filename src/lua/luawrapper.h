@@ -219,6 +219,7 @@ class Lua {
     void concat(int n = 2) { lua_concat(L, n); }
 
     void displayStack(bool error = false);
+    void clearInDisplayStack();
 
     json toJson(int t = -1);
     void fromJson(const json&, int t = -1);

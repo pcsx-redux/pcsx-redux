@@ -210,6 +210,9 @@
     <ClCompile Include="..\..\..\tests\core\memory-ramsize.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\core\luawrapper-displaystack.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\core\pocketstation-flash-sync.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
