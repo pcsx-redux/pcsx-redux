@@ -862,7 +862,15 @@ void PCSX::UvFifo::setNotifier(uv_loop_t *loop, uv_async_t *async, std::function
         UvFifo *fifo = reinterpret_cast<UvFifo *>(async->data);
         if (fifo->m_notifyCb) fifo->m_notifyCb();
     });
-    m_notifyAsync.store(async, std::memory_order_release);
+    {
+        // Publish under the lock the worker's read callback holds while it
+        // queues data and calls notify(). Without it, the release store here
+        // and the m_size load below can pass the worker's increment and its
+        // load of m_notifyAsync, so both sides miss and the request sits
+        // unread until the peer hangs up.
+        std::lock_guard lock(m_control->m_lock);
+        m_notifyAsync.store(async, std::memory_order_release);
+    }
     // The fifo may have been readable since before we were installed - an
     // accepted connection starts reading on the worker thread the instant it
     // exists, well before the consumer gets it back through the listener's
