@@ -195,16 +195,19 @@ function TestFile:test_close_lands_the_writes()
     local chunk = string.rep('0123456789abcdef', 1024)
     local expected = string.rep(chunk, 16)
     local short = 0
-    for i = 1, 50 do
-        local f = Support.File.open(path, 'TRUNCATE')
-        for k = 1, 16 do f:write(chunk) end
-        f:close()
-        local h = io.open(path, 'rb')
-        local got = h:read('*a')
-        h:close()
-        if got ~= expected then short = short + 1 end
-    end
+    local ok, err = pcall(function()
+        for i = 1, 50 do
+            local f = Support.File.open(path, 'TRUNCATE')
+            for k = 1, 16 do f:write(chunk) end
+            f:close()
+            local h = assert(io.open(path, 'rb'))
+            local got = h:read('*a')
+            h:close()
+            if got ~= expected then short = short + 1 end
+        end
+    end)
     if hook then debug.sethook(hook, mask, count) end
     os.remove(path)
+    if not ok then error(err, 0) end
     lu.assertEquals(short, 0)
 end
