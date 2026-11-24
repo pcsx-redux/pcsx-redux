@@ -197,6 +197,7 @@ void PCSX::Lua::push(std::function<int(Lua)>&& f) {
 
 void PCSX::Lua::call(std::string_view f, int i, int nargs) {
     checkstack(1);
+    i = getabsolute(i);
     lua_pushlstring(L, f.data(), f.size());
     lua_gettable(L, i);
     lua_insert(L, -1 - nargs);
@@ -376,6 +377,7 @@ int PCSX::Lua::error(std::string_view msg) {
 
 bool PCSX::Lua::isobject(int i) {
     bool r = false;
+    i = getabsolute(i);
     if (istable(i)) {
         push("__obj");
         gettable(i);
