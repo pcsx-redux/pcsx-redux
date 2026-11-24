@@ -710,24 +710,31 @@ void PCSX::GPU::FastFill::getVertices(AddTri&& add, PixelOp op) {
         add({x1, y1}, {x0, y1}, {x0, y0});
     }
 }
+// A transfer rectangle, split in two where its columns run past 1023 and wrap to 0.
+static void addTransferRect(PCSX::GPU::Logged::AddTri& add, unsigned x, unsigned y, unsigned w, unsigned h) {
+    const unsigned first = std::min(w, 1024 - x);
+    auto rect = [&](int x0, int x1) {
+        const int y0 = y, y1 = y + h;
+        add({x0, y0}, {x1, y0}, {x1, y1});
+        add({x1, y1}, {x0, y1}, {x0, y0});
+    };
+    rect(x, x + first);
+    if (first < w) rect(0, w - first);
+}
 void PCSX::GPU::BlitVramVram::getVertices(AddTri&& add, PixelOp op) {
     if (op == PixelOp::READ) {
-        add({int(sX), int(sY)}, {int(sX + w), int(sY)}, {int(sX + w), int(sY + h)});
-        add({int(sX + w), int(sY + h)}, {int(sX), int(sY + h)}, {int(sX), int(sY)});
+        addTransferRect(add, sX, sY, w, h);
     } else if (op == PixelOp::WRITE) {
-        add({int(dX), int(dY)}, {int(dX + w), int(dY)}, {int(dX + w), int(dY + h)});
-        add({int(dX + w), int(dY + h)}, {int(dX), int(dY + h)}, {int(dX), int(dY)});
+        addTransferRect(add, dX, dY, w, h);
     }
 }
 void PCSX::GPU::BlitRamVram::getVertices(AddTri&& add, PixelOp op) {
     if (op == PixelOp::READ) return;
-    add({int(x), int(y)}, {int(x + w), int(y)}, {int(x + w), int(y + h)});
-    add({int(x + w), int(y + h)}, {int(x), int(y + h)}, {int(x), int(y)});
+    addTransferRect(add, x, y, w, h);
 }
 void PCSX::GPU::BlitVramRam::getVertices(AddTri&& add, PixelOp op) {
     if (op == PixelOp::WRITE) return;
-    add({int(x), int(y)}, {int(x + w), int(y)}, {int(x + w), int(y + h)});
-    add({int(x + w), int(y + h)}, {int(x), int(y + h)}, {int(x), int(y)});
+    addTransferRect(add, x, y, w, h);
 }
 
 void PCSX::GPU::Logged::addLine(AddTri&& add, int x1, int y1, int x2, int y2) {

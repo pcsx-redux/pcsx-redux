@@ -320,6 +320,32 @@ TEST_F(GPULoggerHitTest, BlitVramVram) {
     expectExact(measure({0x80000000, xy(0, 300), xy(200, 200), xy(40, 30)}));
 }
 
+// GP0(A0h) and GP0(80h) columns past 1023 wrap to 0 on the same row, as on v2 silicon
+// (SCPH-1001, gpu-transfer-ffff), instead of the whole rectangle moving to x=0.
+TEST_F(GPULoggerHitTest, BlitRamVramWrapsAtColumn1024) {
+    clearVram();
+    std::vector<uint32_t> words = {0xa0000000, xy(1000, 60), xy(40, 10)};
+    for (unsigned i = 0; i < 40 * 10 / 2; i++) words.push_back(0x7fff7fff);
+    auto c = measure(words);
+    auto v = vram();
+    EXPECT_EQ(v[60 * 1024 + 1000], 0x7fff);
+    EXPECT_EQ(v[69 * 1024 + 15], 0x7fff);
+    EXPECT_EQ(v[60 * 1024 + 16], 0);
+    EXPECT_EQ(v[60 * 1024 + 999], 0);
+    expectExact(c);
+}
+
+TEST_F(GPULoggerHitTest, BlitVramVramWrapsAtColumn1024) {
+    clearVram();
+    gp0({0x02000000 | c_white, xy(0, 300), xy(48, 30)});
+    auto c = measure({0x80000000, xy(0, 300), xy(1000, 100), xy(40, 30)});
+    auto v = vram();
+    EXPECT_NE(v[100 * 1024 + 1000], 0);
+    EXPECT_NE(v[129 * 1024 + 15], 0);
+    EXPECT_EQ(v[100 * 1024 + 16], 0);
+    expectExact(c);
+}
+
 // GP0(02h) rows wrap at row 512 with the bank gate closed. Expected rows are the retail silicon
 // readings (SCPH-1000/1001/5501/7001) of a probe filling each rectangle on a cleared VRAM.
 TEST_F(GPULoggerHitTest, FastFillWrapsAtRow512) {
