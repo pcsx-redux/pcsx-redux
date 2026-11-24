@@ -676,8 +676,8 @@ void impl::clearScopeChunk(int n) {
     for (int ns = 0; ns < n; ns++) {
         const unsigned index = (m_mixPos + ns) & (kScopeSamples - 1);
         for (unsigned ch = 0; ch < MAXCHAN; ch++) {
-            m_scopeRaw[ch][index] = 0;
-            m_scopeEnveloped[ch][index] = 0;
+            m_scopeRaw[ch][index].store(0, std::memory_order_relaxed);
+            m_scopeEnveloped[ch][index].store(0, std::memory_order_relaxed);
         }
     }
 }
@@ -728,8 +728,12 @@ void impl::drawScopes() {
         for (unsigned ch = 0; ch < MAXCHAN; ch++) {
             ImGui::TableNextColumn();
             const auto& ring = m_scopeAfterEnvelope ? m_scopeEnveloped[ch] : m_scopeRaw[ch];
-            const uint64_t oldest = head - span;
-            for (int i = 0; i < span; i++) samples[i] = ring[(oldest + i) & (kScopeSamples - 1)];
+            // Before the mixer has recorded a full span, the missing history reads as silence.
+            for (int i = 0; i < span; i++) {
+                const uint64_t back = span - i;
+                samples[i] =
+                    back > head ? 0 : ring[(head - back) & (kScopeSamples - 1)].load(std::memory_order_relaxed);
+            }
             int start = span - window;
             if (m_scopeTrigger) {
                 const int edge = FindRisingEdge(samples, 1, span - window);

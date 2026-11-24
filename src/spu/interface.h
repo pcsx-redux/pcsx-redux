@@ -614,14 +614,16 @@ class impl final : public SPUInterface {
     void recordScope(int ch, int ns, int32_t raw, int32_t enveloped) {
         if (!m_scopeChunk) return;
         const unsigned index = (m_mixPos + ns) & (kScopeSamples - 1);
-        m_scopeRaw[ch][index] = std::clamp(raw, -32768, 32767);
-        m_scopeEnveloped[ch][index] = std::clamp(enveloped, -32768, 32767);
+        m_scopeRaw[ch][index].store(std::clamp(raw, -32768, 32767), std::memory_order_relaxed);
+        m_scopeEnveloped[ch][index].store(std::clamp(enveloped, -32768, 32767), std::memory_order_relaxed);
     }
     std::atomic<bool> m_scopeRecording = false;  // written by the UI thread only
     std::atomic<uint64_t> m_scopeHead = 0;       // written by the mixer thread only
     bool m_scopeChunk = false;                   // mixer thread: recording this chunk
-    int16_t m_scopeRaw[MAXCHAN][kScopeSamples] = {};
-    int16_t m_scopeEnveloped[MAXCHAN][kScopeSamples] = {};
+    // Relaxed atomics: the UI reads while the mixer writes, and a sample from the next pass
+    // only shows as a glitch in one frame of the trace.
+    std::atomic<int16_t> m_scopeRaw[MAXCHAN][kScopeSamples] = {};
+    std::atomic<int16_t> m_scopeEnveloped[MAXCHAN][kScopeSamples] = {};
     bool m_scopeAfterEnvelope = true;
     bool m_scopeTrigger = true;
     int m_scopeWindow = 512;
