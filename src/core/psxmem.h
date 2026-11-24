@@ -355,6 +355,8 @@ class Memory {
     // some values, which a restore does by itself.
     void setBIU(uint32_t value) {
         m_BIU = value;
+        // A state does not record the first-write flag; a saved 0 reads as cold start.
+        m_biuWritten = value != 0;
         setLuts();
     }
 
@@ -383,6 +385,8 @@ class Memory {
     SharedMem m_wramShared;
 
     uint32_t m_BIU = 0;
+    // False from reset until the first BIU_CONFIG write by the guest, so an explicit 0 differs from cold start.
+    bool m_biuWritten = false;
 
     // hopefully this should become private eventually, with only certain classes having direct access.
   public:

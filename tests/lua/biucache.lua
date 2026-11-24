@@ -105,7 +105,7 @@ end
 -- The same BIU values with IsC clear leave RAM reachable.
 function TestBIUCache:test_stores_reach_ram_with_isc_clear()
     if not interpreter() then lu.skip('needs the interpreter') end
-    for _, biu in ipairs({ 0x800, 0x804, 0x1e90c, 0x1e98c }) do
+    for _, biu in ipairs({ 0, 0x800, 0x804, 0x1e90c, 0x1e98c }) do
         ram32(PROBE)[0] = 0x11223344
         isolatedStore('sw    $a2, 0($a3)')
         local r = PCSX.callGuest { pc = UNCACHED, args = { biu, 0, 0xaabbccdd, PROBE } }

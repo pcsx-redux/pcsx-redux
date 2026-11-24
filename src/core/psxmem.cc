@@ -282,6 +282,7 @@ void PCSX::Memory::reset() {
         g_system->printf(_("Unknown bios loaded (%08x)\n"), crc);
     }
     m_BIU = 0;
+    m_biuWritten = false;
 }
 
 void PCSX::Memory::shutdown() {
@@ -407,7 +408,7 @@ uint16_t PCSX::Memory::read16(uint32_t address) {
    store reaches RAM: with IsC clear it does, with IsC set it doesn't (isolatedToICache takes the
    ones the i-cache gets). Until the guest first writes BIU_CONFIG, RAM stays unwritable as before. */
 uint8_t *PCSX::Memory::unisolatedRamStore(uint32_t page) const {
-    if (m_BIU == 0) return nullptr;
+    if (!m_biuWritten) return nullptr;
     if (g_emulator->m_cpu->m_regs.CP0.n.Status & 0x10000) return nullptr;
     const uint32_t segment = page & 0xe000;
     if ((segment != 0x0000) && (segment != 0x8000) && (segment != 0xa000)) return nullptr;
@@ -675,9 +676,11 @@ void PCSX::Memory::write32(uint32_t address, uint32_t value) {
     } else if ((page & 0x1fff) >= 0x1f00 && (page & 0x1fff) < 0x1f80 && pioConnected) {
         g_emulator->m_pioCart->write32(address, value);
     } else if (address == 0xfffe0130) {
-        // Decoded by its bits: 800h, 804h and 1E90Ch (TOCA World Touring Cars, SLES-02572, OpenBIOS),
+        // Decoded by its bits: 800h, 804h and 1E90Ch (OpenBIOS, and TOCA World Touring Cars, SLES-02572,
+        // whose FlushCache runs from 0xa002f79c),
         // ps1-bare-metal's 1E98Ch and the i-cache probes' 1E908h all set up cache maintenance.
         m_BIU = value;
+        m_biuWritten = true;
         if (biuCacheMaintenance(value)) g_emulator->m_cpu->biuCacheFlush();
         setLuts();
     } else if (sendWriteToLua(address, 4, value)) {
