@@ -27,7 +27,9 @@ SOFTWARE.
 #include "supportpsx/binloader.h"
 
 #include <map>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "elfio/elfio.hpp"
 #include "fmt/format.h"
@@ -50,6 +52,14 @@ void eraseSymbolsInSpan(uint32_t low, uint32_t high, std::map<uint32_t, std::str
     }
 }
 
+// Has to be called before reading the data in, so that a size field gone wrong doesn't
+// get to allocate gigabytes on the host before being refused.
+void checkSpan(const BinaryLoader::Info& info, uint32_t addr, uint64_t size) {
+    if (!info.spanCheck) return;
+    auto refusal = info.spanCheck(addr, size);
+    if (refusal.has_value()) throw std::runtime_error(refusal.value());
+}
+
 bool loadCPE(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<uint32_t, std::string>& symbols) {
     uint32_t magic = file->read<uint32_t>();
     if (magic != 0x1455043) return false;
@@ -66,6 +76,7 @@ bool loadCPE(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<ui
             case 1: {  // load
                 uint32_t addr = file->read<uint32_t>();
                 uint32_t size = file->read<uint32_t>();
+                checkSpan(info, addr, size);
                 dest->writeAt(file->read(size), addr);
                 eraseSymbolsInSpan(addr, addr + size, symbols);
             } break;
@@ -140,6 +151,7 @@ bool loadPSEXE(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<
     if (!overlay && spInFile != 0) info.sp = spInFile;
     file->rSeek(0x71, SEEK_SET);
     uint8_t regionByte = file->byte();
+    checkSpan(info, addr, size);
     file->rSeek(2048, SEEK_SET);
     dest->writeAt(file->read(size), addr);
     eraseSymbolsInSpan(addr, addr + size, symbols);
@@ -227,13 +239,21 @@ bool loadELF(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<ui
     elfio reader;
     FileIStream stream(file);
 
-    if (!reader.load(stream)) return false;
+    // Lazily, so that a section's data is only read once its span has been checked.
+    if (!reader.load(stream, true)) return false;
     if (reader.get_class() != ELFCLASS32) return false;
 
     info.pc = static_cast<uint32_t>(reader.get_entry());
 
     Elf_Half sec_num = reader.sections.size();
     Elf_Half seg_num = reader.segments.size();
+    struct Chunk {
+        const char* data;
+        Elf_Xword size;
+        Elf64_Addr vaddr;
+        Elf64_Addr loadAddr;
+    };
+    std::vector<Chunk> chunks;
     for (unsigned i = 0; i < sec_num; i++) {
         section* psec = reader.sections[i];
 
@@ -244,7 +264,6 @@ bool loadELF(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<ui
         if (StringsHelpers::endsWith(name, "_Header")) continue;
 
         auto size = psec->get_size();
-        auto data = psec->get_data();
         auto vaddr = psec->get_address();
         auto loadAddr = vaddr;
         for (unsigned j = 0; j < seg_num; j++) {
@@ -256,8 +275,19 @@ bool loadELF(IO<File> file, IO<File> dest, BinaryLoader::Info& info, std::map<ui
                 break;
             }
         }
-        dest->writeAt(data, size, loadAddr);
-        eraseSymbolsInSpan(vaddr, vaddr + size, symbols);
+        // A segment's physical address can put the section past the end of the 32-bit space,
+        // which the span check, taking a 32-bit address, wouldn't see.
+        if (info.spanCheck && (loadAddr + size > 0x100000000ULL)) {
+            throw std::runtime_error(
+                fmt::format("Section {} at 0x{:x} runs past the end of the address space", name, loadAddr));
+        }
+        checkSpan(info, loadAddr, size);
+        chunks.push_back({psec->get_data(), size, vaddr, loadAddr});
+    }
+    // All of the sections are checked before the first one gets written.
+    for (auto& chunk : chunks) {
+        dest->writeAt(chunk.data, chunk.size, chunk.loadAddr);
+        eraseSymbolsInSpan(chunk.vaddr, chunk.vaddr + chunk.size, symbols);
     }
 
     // Only symbols that name an address are imported: file and section symbols, undefined

@@ -832,8 +832,11 @@ void PCSX::SPU::impl::SoundOn(int start, int end, uint16_t val, uint64_t cycle) 
             resetAdpcmWalk(ch);
             // One entry per voice actually keyed, carrying the address it is about to decode
             // from: the only sample entry point that is ground truth rather than inference. The
-            // value is the pitch the voice starts at.
-            g_emulator->m_spuLogger->log(SPULogger::Kind::KeyOn, cp.keyOnBlock, 0, m_pitchShadow[ch], ch);
+            // value is the pitch the voice starts at, and the loop is where a sample with no
+            // loop-start flag of its own will repeat to unless the game moves it.
+            g_emulator->m_spuLogger->logKeyOn(
+                cp.keyOnBlock, m_pitchShadow[ch],
+                cp.keyOnLoop == EnvelopeCheckpoint::kNoLoop ? SPULogger::c_noLoop : cp.keyOnLoop, ch);
         }
     }
 }

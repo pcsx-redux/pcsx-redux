@@ -82,9 +82,9 @@
             "label": "make_cpe_helloworld",
             "type": "shell",
             "group": "build",
-            "command": "${workspaceRoot}/dockermake.sh -C src/mips/helloworld all",
+            "command": "${workspaceRoot}/dockermake.sh -C src/mips/examples/helloworld all",
             "windows": {
-                "command": "${workspaceRoot}\\dockermake.bat -C src/mips/helloworld all"
+                "command": "${workspaceRoot}\\dockermake.bat -C src/mips/examples/helloworld all"
             },
             "problemMatcher": [
                 "$gcc"
@@ -106,9 +106,9 @@
             "label": "make_cube",
             "type": "shell",
             "group": "build",
-            "command": "${workspaceRoot}/dockermake.sh -C src/mips/cube all",
+            "command": "${workspaceRoot}/dockermake.sh -C src/mips/examples/cube all",
             "windows": {
-                "command": "${workspaceRoot}\\dockermake.bat -C src/mips/cube all"
+                "command": "${workspaceRoot}\\dockermake.bat -C src/mips/examples/cube all"
             },
             "problemMatcher": [
                 "$gcc"
@@ -118,9 +118,9 @@
             "label": "make_cube_clean",
             "type": "shell",
             "group": "build",
-            "command": "${workspaceRoot}/dockermake.sh -C src/mips/cube clean all",
+            "command": "${workspaceRoot}/dockermake.sh -C src/mips/examples/cube clean all",
             "windows": {
-                "command": "${workspaceRoot}\\dockermake.bat -C src/mips/cube clean all"
+                "command": "${workspaceRoot}\\dockermake.bat -C src/mips/examples/cube clean all"
             },
             "problemMatcher": []
         },

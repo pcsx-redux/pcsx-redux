@@ -25,7 +25,10 @@
 #include <assert.h>
 #include <uv.h>
 
+#include <algorithm>
 #include <magic_enum/magic_enum_all.hpp>
+#include <string_view>
+#include <vector>
 
 #include "core/cdrom.h"
 #include "core/debug.h"
@@ -99,9 +102,34 @@ void PCSX::GdbClient::sendPacket(Slice&& payload) {
     framed += '#';
     framed += toHex[chksum >> 4];
     framed += toHex[chksum & 0x0f];
+    sendFrame(std::move(framed));
+}
+
+// With acks on, one packet is in flight at a time: the next one waits for the '+' of the one
+// before, so a '-' always names the packet we still hold.
+void PCSX::GdbClient::sendFrame(std::string&& frame) {
+    if (!m_connection || m_connection->isClosed()) return;
+    if (m_ackEnabled) {
+        if (m_awaitingAck) {
+            m_pendingFrames.push_back(std::move(frame));
+            return;
+        }
+        m_lastPacket = frame;
+        m_awaitingAck = true;
+    }
     Slice out;
-    out.acquire(std::move(framed));
+    out.acquire(std::move(frame));
     m_connection->write(std::move(out));
+}
+
+void PCSX::GdbClient::onAck() {
+    if (!m_awaitingAck) return;
+    m_awaitingAck = false;
+    m_lastPacket.clear();
+    if (m_pendingFrames.empty()) return;
+    auto next = std::move(m_pendingFrames.front());
+    m_pendingFrames.pop_front();
+    sendFrame(std::move(next));
 }
 
 void PCSX::GdbClient::onReadable() {
@@ -287,11 +315,10 @@ PCSX::GdbClient::GdbClient(IO<File> connection, uv_loop_t* loop) : m_listener(g_
             // protocol doesn't seem to have a command to list them.
             g_system->resume();
         }
-        // we technically should specify here why we stopped, but we don't have
-        // the architecture for this just yet. Maybe that'll be part of the pause
-        // event later on.
-        if (m_waitingForTrap) write("T05");
+        // a watchpoint hit names its address; anything else is a plain trap
+        if (m_waitingForTrap) write("T05" + m_stopReason);
         m_waitingForTrap = false;
+        m_stopReason.clear();
     });
     m_listener.listen<Events::ExecutionFlow::ShellReached>([this](const auto& event) {
         if (!m_waitingForShell) return;
@@ -347,48 +374,69 @@ void PCSX::GdbClient::processData(const Slice& slice) {
                     }
                 }
             case WAIT_FOR_DOLLAR:
-                if (c == '+') sendAck();
+                // '+' acknowledges what we sent and needs no answer; '-' asks for it again
+                if (c == '+') onAck();
+                if ((c == '-') && m_ackEnabled && m_awaitingAck) {
+                    Slice again;
+                    again.copy(m_lastPacket);
+                    sendRaw(std::move(again));
+                }
                 if (c == 3) g_system->pause();
                 if (c != '$') break;
                 m_state = READING_COMMAND;
+                m_inSum = 0;
                 break;
             case READING_COMMAND:
                 if (c == '$') {
-                    processCommand();
+                    // a packet cut off before its checksum is dropped, and this one starts over
                     m_cmd.clear();
-                    break;
-                }
-                if (c == '}') {
-                    m_state = ESCAPE;
+                    m_inSum = 0;
                     break;
                 }
                 if (c == '#') {
                     m_state = READING_CRC_FIRST_CHAR;
                     break;
                 }
+                // the checksum covers the bytes as sent, escapes included
+                m_inSum += c;
+                if (c == '}') {
+                    m_state = ESCAPE;
+                    break;
+                }
                 m_cmd += c;
                 break;
             case ESCAPE:
+                m_inSum += c;
                 m_cmd += c ^ ' ';
                 m_state = READING_COMMAND;
                 break;
             case READING_CRC_FIRST_CHAR:
                 if (c == '$') {
-                    processCommand();
                     m_cmd.clear();
+                    m_inSum = 0;
                     m_state = READING_COMMAND;
                     break;
                 } else {
                     m_state = READING_CRC_SECOND_CHAR;
-                    m_crc = fromHexChar(c) << 4;
+                    m_inCrcHigh = fromHexChar(c);
                 }
                 break;
             case READING_CRC_SECOND_CHAR:
                 if (c == '$') {
                     m_state = READING_COMMAND;
-                } else {
-                    m_state = WAIT_FOR_DOLLAR;
-                    m_crc |= fromHexChar(c);
+                    m_cmd.clear();
+                    m_inSum = 0;
+                    break;
+                }
+                m_state = WAIT_FOR_DOLLAR;
+                if (m_ackEnabled &&
+                    ((m_inCrcHigh < 0) || (fromHexChar(c) < 0) || (((m_inCrcHigh << 4) | fromHexChar(c)) != m_inSum))) {
+                    // corrupted in transit: ask for it again, and don't run it
+                    Slice nak;
+                    nak.copy("-", 1);
+                    sendRaw(std::move(nak));
+                    m_cmd.clear();
+                    break;
                 }
                 processCommand();
                 m_cmd.clear();
@@ -580,7 +628,10 @@ std::pair<uint64_t, uint64_t> PCSX::GdbClient::parseCursor(const std::string& cu
 
 void PCSX::GdbClient::writePaged(const std::string& out, const std::string& cursorStr) {
     auto [off, len] = parseCursor(cursorStr);
-    if (len < (out.length() - off)) {
+    if (off >= out.length()) {
+        // reading from the end, or past it: nothing left
+        write("l");
+    } else if (len < (out.length() - off)) {
         writef("m%s", out.substr(off, len).c_str());
     } else if (off != 0) {
         writef("l%s", out.substr(off, len).c_str());
@@ -721,31 +772,51 @@ void PCSX::GdbClient::processCommand() {
     } else if (m_cmd == "c") {
         // continue - this doesn't technically have a reply, only when the target stops later, using T05.
         m_canReceiveLogs = true;
+        m_stopReason.clear();
         g_system->resume();
         m_waitingForTrap = true;
     } else if (m_cmd[0] == 'M') {
         // write memory
         auto elements = StringsHelpers::split(m_cmd, ":");
         auto [off, len] = parseCursor(elements[0].substr(1));
+        // the data has to be there, hex, and exactly len bytes long, or nothing gets written
+        auto colon = m_cmd.find(':');
+        if (colon == std::string::npos) {
+            write("E01");
+            return;
+        }
+        const std::string_view data = std::string_view(m_cmd).substr(colon + 1);
+        if (data.length() != len * 2) {
+            write("E01");
+            return;
+        }
+        std::vector<uint8_t> bytes;
+        bytes.reserve(len);
+        for (size_t i = 0; i < len; i++) {
+            int hi = fromHexChar(data[i * 2 + 0]);
+            int lo = fromHexChar(data[i * 2 + 1]);
+            if ((hi < 0) || (lo < 0)) {
+                write("E01");
+                return;
+            }
+            bytes.push_back((hi << 4) | lo);
+        }
         if (((off == 0x8000f800) && (len == 0x800)) || ((off == 0x8000ffea) && (len == 22))) {
             // heuristic for our ps-exe.ld and cpe.ld
             write("OK");
             return;
         }
-        size_t i = 0;
         IO<File> memFile = g_emulator->m_mem->getMemoryAsFile();
         memFile->wSeek(off);
-        while (len--) {
-            uint8_t c = fromHexChar(elements[1][i * 2 + 0]);
-            c <<= 4;
-            c |= fromHexChar(elements[1][i * 2 + 1]);
-            memFile->write(c);
-            i++;
-        }
+        for (auto c : bytes) memFile->write(c);
         write("OK");
     } else if (m_cmd[0] == 'm') {
         // read memory
         auto [off, len] = parseCursor(m_cmd.substr(1));
+        // the reply may hold fewer bytes than asked for; keep it within the PacketSize we advertise
+        // in qSupported, 0x47ff, minus the $ and #xx framing, at two hex digits per byte
+        static constexpr uint64_t maxRead = (0x47ff - 4) / 2;
+        if (len > maxRead) len = maxRead;
         startStream();
         IO<File> memFile = g_emulator->m_mem->getMemoryAsFile();
         memFile->rSeek(off);
@@ -778,9 +849,8 @@ void PCSX::GdbClient::processCommand() {
         auto [addr, vaddr] = parseHexNumber(breakpointData[1]);
         auto [kind, vkind] = parseHexNumber(breakpointData[2]);
         if (!vtype || !vaddr || !vkind) {
-            // didn't manage to parse breapoint data properly.
+            // didn't manage to parse breakpoint data properly
             write("E00");
-            close();
             return;
         }
         if ((action == Action::ADD) && (type <= 4) &&
@@ -799,16 +869,30 @@ void PCSX::GdbClient::processCommand() {
                 return;
             }
         }
-        const auto bpActionExec = [action, this](uint32_t addr, Debug::BreakpointType type, unsigned width) -> void {
+        // reason is the stop reply field naming a watchpoint hit, for gdb to tell it from a plain trap
+        const auto bpActionExec = [action, this](uint32_t addr, Debug::BreakpointType type, unsigned width,
+                                                 const char* reason = nullptr) -> void {
             if (action == Action::ADD) {
-                auto bp = g_emulator->m_debug->addBreakpoint(addr, type, width, _("GDB client"));
+                auto bp = g_emulator->m_debug->addBreakpoint(
+                    addr, type, width, _("GDB client"),
+                    [this, reason, base = addr & 0xe0000000, start = addr & ~0xe0000000](
+                        const Debug::Breakpoint* self, uint32_t address, unsigned hitWidth, const char* cause) {
+                        // gdb matches the address against the range it watches, in the segment it used:
+                        // report where the access first overlaps that range, with RAM mirrors folded the
+                        // way the breakpoint matched them
+                        address = Debug::normalizeAddress(address) & ~0xe0000000;
+                        if (reason) m_stopReason = fmt::format("{}:{:08x};", reason, base | std::max(address, start));
+                        g_system->pause();
+                        return true;
+                    });
                 m_breakpoints.push_back(bp);
             } else {
                 addr &= ~0xe0000000;
                 auto& tree = g_emulator->m_debug->getTree();
                 auto bp = tree.find(addr, Debug::BreakpointTreeType::INTERVAL_SEARCH);
                 while (bp != tree.end()) {
-                    if (bp->type() == type && !m_breakpoints.isLinked(&*bp)) {
+                    // only remove what this client set, of the type it asks for
+                    if ((bp->type() != type) || !m_breakpoints.isLinked(&*bp)) {
                         bp++;
                     } else {
                         g_emulator->m_debug->removeBreakpoint(&*bp);
@@ -830,16 +914,16 @@ void PCSX::GdbClient::processCommand() {
                 break;
                 // kind = number of bytes
             case 2:  // write breakpoint
-                bpActionExec(addr, Debug::BreakpointType::Write, kind);
+                bpActionExec(addr, Debug::BreakpointType::Write, kind, "watch");
                 write("OK");
                 break;
             case 3:  // read breakpoint
-                bpActionExec(addr, Debug::BreakpointType::Read, kind);
+                bpActionExec(addr, Debug::BreakpointType::Read, kind, "rwatch");
                 write("OK");
                 break;
             case 4:  // access breakpoint, aka both read and write
-                bpActionExec(addr, Debug::BreakpointType::Read, kind);
-                bpActionExec(addr, Debug::BreakpointType::Write, kind);
+                bpActionExec(addr, Debug::BreakpointType::Read, kind, "awatch");
+                bpActionExec(addr, Debug::BreakpointType::Write, kind, "awatch");
                 write("OK");
                 break;
             default:
@@ -848,19 +932,20 @@ void PCSX::GdbClient::processCommand() {
         }
     } else if (m_cmd == "s") {
         if (g_system->running()) g_system->pause();
+        m_stopReason.clear();
         m_waitingForTrap = true;
         g_emulator->m_debug->stepIn();
     } else if (m_cmd == "bs") {
         startReverse(false);
     } else if (m_cmd == "bc") {
         startReverse(true);
-    } else if (m_cmd == "Hc0") {
-        // thread stuff
+    } else if ((m_cmd.length() > 2) && (m_cmd[0] == 'H') && ((m_cmd[1] == 'c') || (m_cmd[1] == 'g'))) {
+        // there's only the one thread, so selecting any of them selects it
         write("OK");
-    } else if (m_cmd == "Hc-1") {
-        write("OK");
-    } else if (m_cmd == "Hg0") {
-        write("OK");
+    } else if (m_cmd[0] == 'T') {
+        // is the thread alive: the main thread always is, and there's no other
+        auto thread = m_cmd.substr(1);
+        write(((thread == "1") || (thread == "p1.1")) ? "OK" : "E01");
     } else if (StringsHelpers::startsWith(m_cmd, "vKill;")) {
         write("OK");
     } else if (StringsHelpers::startsWith(m_cmd, qSupported)) {
@@ -881,17 +966,32 @@ void PCSX::GdbClient::processCommand() {
         write(std::move(answer));
     } else if (StringsHelpers::startsWith(m_cmd, "QStartNoAckMode")) {
         m_ackEnabled = false;
+        // nothing waits for an ack any more
+        m_awaitingAck = false;
+        m_lastPacket.clear();
+        while (!m_pendingFrames.empty()) {
+            auto frame = std::move(m_pendingFrames.front());
+            m_pendingFrames.pop_front();
+            sendFrame(std::move(frame));
+        }
         write("OK");
     } else if (StringsHelpers::startsWith(m_cmd, "qRcmd,")) {
         // this is the "monitor" command
         size_t len = m_cmd.length() - 6;
+        if (len & 1) {
+            write("E01");
+            return;
+        }
         std::string monitor;
         monitor.reserve(len / 2);
         for (size_t i = 0; i < len; i += 2) {
-            char c = fromHexChar(m_cmd[i + 6]);
-            c <<= 4;
-            c |= fromHexChar(m_cmd[i + 7]);
-            monitor += c;
+            int hi = fromHexChar(m_cmd[i + 6]);
+            int lo = fromHexChar(m_cmd[i + 7]);
+            if ((hi < 0) || (lo < 0)) {
+                write("E01");
+                return;
+            }
+            monitor += char((hi << 4) | lo);
         }
         processMonitorCommand(monitor);
     } else if (StringsHelpers::startsWith(m_cmd, qXferMemMap) &&
@@ -912,6 +1012,10 @@ void PCSX::GdbClient::processCommand() {
 
 void PCSX::GdbClient::processMonitorCommand(const std::string& cmd) {
     auto words = StringsHelpers::split(cmd, " ");
+    if (words.empty()) {
+        write("OK");
+        return;
+    }
     if (words[0] == "reset") {
         bool hard = false;
         bool halt = false;

@@ -47,7 +47,7 @@
             "name": "(cppdbg) Launch Cube",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/src/mips/cube/cube.elf",
+            "program": "${workspaceFolder}/src/mips/examples/cube/cube.elf",
             "cwd": "${workspaceFolder}",
             "MIMode": "gdb",
             "targetArchitecture": "mips",
@@ -74,7 +74,7 @@
                     "text": "monitor reset shellhalt"
                 },
                 {
-                    "text": "load ./src/mips/cube/cube.elf"
+                    "text": "load ./src/mips/examples/cube/cube.elf"
                 }
             ],
             "launchCompleteCommand": "None",

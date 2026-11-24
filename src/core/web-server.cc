@@ -26,10 +26,13 @@
 #include <multipart_parser.h>
 #include <uv.h>
 
+#include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <magic_enum/magic_enum_all.hpp>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_set>
 
@@ -57,15 +60,29 @@ namespace {
 
 static const std::unordered_set<std::string> stepFunctions = {"stepIn", "stepOver", "stepOut"};
 
+// Parses a whole query value as a number. Anything else, including trailing garbage or an
+// out-of-range value, gives false and leaves the output untouched.
+template <typename T>
+static bool parseNumber(const std::string& str, T& out) {
+    T value;
+    const char* end = str.data() + str.size();
+    auto result = std::from_chars(str.data(), end, value);
+    if ((result.ec != std::errc{}) || (result.ptr != end)) return false;
+    out = value;
+    return true;
+}
+
 class VramExecutor : public PCSX::WebExecutor {
     virtual bool match(PCSX::WebClient* client, const PCSX::UrlData& urldata) final {
         return urldata.path == "/api/v1/gpu/vram/raw";
     }
     virtual bool execute(PCSX::WebClient* client, PCSX::RequestData& request) final {
         if (request.method == PCSX::RequestData::Method::HTTP_HTTP_GET) {
+            auto vram = PCSX::g_emulator->m_gpu->getVRAM();
             client->write(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: 1048576\r\n\r\n");
-            client->write(PCSX::g_emulator->m_gpu->getVRAM());
+                fmt::format("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n",
+                            vram.size()));
+            client->write(std::move(vram));
 
             return true;
         } else if (request.method == PCSX::RequestData::Method::HTTP_POST) {
@@ -80,10 +97,12 @@ class VramExecutor : public PCSX::WebExecutor {
                 client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
                 return true;
             }
-            auto x = std::stoi(ix->second.value());
-            auto y = std::stoi(iy->second.value());
-            auto width = std::stoi(iwidth->second.value());
-            auto height = std::stoi(iheight->second.value());
+            int x, y, width, height;
+            if (!parseNumber(ix->second.value(), x) || !parseNumber(iy->second.value(), y) ||
+                !parseNumber(iwidth->second.value(), width) || !parseNumber(iheight->second.value(), height)) {
+                client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
+                return true;
+            }
             if ((x < 0) || (y < 0) || (width < 0) || (height < 0)) {
                 client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
                 return true;
@@ -141,8 +160,11 @@ class RamExecutor : public PCSX::WebExecutor {
                 client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
                 return true;
             }
-            auto offset = std::stoul(ioffset->second.value());
-            auto size = std::stoul(isize->second.value());
+            unsigned long offset, size;
+            if (!parseNumber(ioffset->second.value(), offset) || !parseNumber(isize->second.value(), size)) {
+                client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
+                return true;
+            }
             if ((offset >= ramSize) || (size > ramSize) || ((offset + size) > ramSize)) {
                 client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
                 return true;
@@ -194,10 +216,14 @@ class AssemblyExecutor : public PCSX::WebExecutor {
                     }
                     auto addressStr = tokens[0];
                     auto name = tokens[1];
-                    uint32_t address;
-                    auto result =
-                        std::from_chars(addressStr.data(), addressStr.data() + addressStr.size(), address, 16);
-                    if (result.ec == std::errc::invalid_argument) continue;
+                    if ((addressStr.size() >= 2) && (addressStr[0] == '0') &&
+                        ((addressStr[1] == 'x') || (addressStr[1] == 'X'))) {
+                        addressStr.remove_prefix(2);
+                    }
+                    const char* addressEnd = addressStr.data() + addressStr.size();
+                    uint32_t address = 0;
+                    auto result = std::from_chars(addressStr.data(), addressEnd, address, 16);
+                    if ((result.ec != std::errc{}) || (result.ptr != addressEnd)) continue;
 
                     cpu->m_symbols[address] = name;
                 }
@@ -285,7 +311,7 @@ class FlowExecutor : public PCSX::WebExecutor {
             }
             if (stepFunctions.contains(function) && !debugEnabled) {
                 client->write("HTTP/1.1 503 Debugger not enabled\r\n\r\n");
-                return false;
+                return true;
             }
             if (function.compare("stepIn") == 0) {
                 PCSX::g_emulator->m_debug->stepIn();
@@ -370,7 +396,9 @@ class LuaExecutor : public PCSX::WebExecutor {
             L.settable();
             L.settable();
             L.push("method");
-            L.push(magic_enum::enum_name(request.method).substr(5));
+            // RequestData::Method mirrors llhttp's method numbering.
+            const char* methodName = llhttp_method_name(static_cast<llhttp_method_t>(request.method));
+            L.push(std::string_view(methodName ? methodName : ""));
             L.settable();
             L.push("headers");
             L.newtable();
@@ -393,7 +421,8 @@ class LuaExecutor : public PCSX::WebExecutor {
             }
             L.settable();
             L.push("body");
-            L.push(request.rawBody.asString());
+            // rawBody is only kept for multipart requests; for any other request body is already the raw body.
+            L.push(request.rawBody.size() ? request.rawBody.asString() : request.body.asString());
             L.settable();
             try {
                 L.pcall(1);
@@ -526,7 +555,11 @@ class CDExecutor : public PCSX::WebExecutor {
                 }
 
                 if (sector != vars.end()) {
-                    auto sectorNumber = std::stoul(sector->second.value_or(""));
+                    uint32_t sectorNumber;
+                    if (!parseNumber(sector->second.value_or(""), sectorNumber)) {
+                        client->write("HTTP/1.1 400 Bad Request\r\n\r\n");
+                        return true;
+                    }
                     file = new PCSX::CDRIsoFile(iso, sectorNumber, request.body.size(), mode);
                 }
 
@@ -557,6 +590,7 @@ class CDExecutor : public PCSX::WebExecutor {
                     return true;
                 }
                 client->write("HTTP/1.1 200 OK\r\n\r\n");
+                return true;
             }
             return false;
         }
@@ -576,7 +610,7 @@ class StateExecutor : public PCSX::WebExecutor {
     virtual bool execute(PCSX::WebClient* client, PCSX::RequestData& request) final {
         if (PCSX::g_gui == nullptr) {
             client->write("HTTP/1.1 500 Internal Server Error\r\n\r\nSave states unavailable in CLI/no-UI mode.");
-            return false;
+            return true;
         }
         auto path = request.urlData.path.substr(c_prefix.length());
 
@@ -845,6 +879,7 @@ struct PCSX::WebClient::WebClientImpl {
         WebClientImpl* m_impl;
     };
 
+    ~WebClientImpl() { freeMultipartParser(); }
     WebClientImpl(WebServer* server, WebClient* parent, IO<File> connection, uv_loop_t* loop)
         : m_server(server), m_parent(parent), m_connection(connection) {
         m_asyncContext = new AsyncContext{{}, this};
@@ -857,6 +892,9 @@ struct PCSX::WebClient::WebClientImpl {
             Slice slice;
             slice.borrow(data, size);
             return static_cast<WebClientImpl*>(parser->data)->onUrl(slice);
+        };
+        m_httpParserSettings.on_url_complete = [](auto* parser) {
+            return static_cast<WebClientImpl*>(parser->data)->onUrlComplete();
         };
         m_httpParserSettings.on_status = [](auto* parser, const char* data, size_t size) {
             Slice slice;
@@ -932,9 +970,21 @@ struct PCSX::WebClient::WebClientImpl {
 
     void onUpgrade() {}
     int onMessageBegin() { return 0; }
+    // llhttp hands the URL over in as many pieces as the reads were split into, so collect them
+    // here and only parse and route once on_url_complete says the whole URL has arrived.
     int onUrl(const Slice& slice) {
+        if (m_urlString.size() + slice.size() > MAX_URL_SIZE) {
+            write("HTTP/1.1 414 URI Too Long\r\n\r\n");
+            scheduleClose();
+            return 1;
+        }
+        m_urlString += slice.asString();
+        return 0;
+    }
+    int onUrlComplete() {
         UriUriA uri;
-        std::string urlString = slice.asString();
+        std::string urlString = std::move(m_urlString);
+        m_urlString.clear();
         const char* errorPos;
         if (uriParseSingleUriA(&uri, urlString.c_str(), &errorPos) != URI_SUCCESS) return 1;
         m_requestData.urlData.schema = uri.scheme.first ? std::string(uri.scheme.first, uri.scheme.afterLast) : "";
@@ -963,7 +1013,17 @@ struct PCSX::WebClient::WebClientImpl {
         m_currentHeader.clear();
         m_currentValue.clear();
     }
+    // Header names and values are buffered until the headers end, so their total size is capped. Past the cap
+    // the request gets a 431 and the connection is closed.
+    bool headerTooLarge(size_t& total, const Slice& slice) {
+        total += slice.size();
+        if (total <= MAX_HEADER_SIZE) return false;
+        write("HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n");
+        scheduleClose();
+        return true;
+    }
     int onHeaderField(const Slice& slice) {
+        if (headerTooLarge(m_headerBytes, slice)) return 1;
         if (m_headerState == PARSING_VALUE) {
             headerComplete();
             m_headerState = PARSING_HEADER;
@@ -972,16 +1032,74 @@ struct PCSX::WebClient::WebClientImpl {
         return 0;
     }
     int onHeaderValue(const Slice& slice) {
+        if (headerTooLarge(m_headerBytes, slice)) return 1;
         m_headerState = PARSING_VALUE;
         m_currentValue += slice.asString();
         return 0;
     }
+    static bool equalsNoCase(std::string_view a, std::string_view b) {
+        return std::equal(a.begin(), a.end(), b.begin(), b.end(),
+                          [](unsigned char x, unsigned char y) { return std::tolower(x) == std::tolower(y); });
+    }
+    // Pulls the name parameter out of a Content-Disposition value such as: form-data; name="a"; filename="f"
+    // Parameters are split on semicolons outside quotes, and the parameter name is matched without regard to case.
+    // An absent name parameter gives nullopt; name="" gives an empty string.
+    static std::optional<std::string> dispositionName(std::string_view value) {
+        auto isSpace = [](char c) { return (c == ' ') || (c == '\t'); };
+        size_t i = value.find(';');
+        while (i != std::string_view::npos) {
+            i++;
+            while ((i < value.size()) && isSpace(value[i])) i++;
+            size_t keyStart = i;
+            while ((i < value.size()) && (value[i] != '=') && (value[i] != ';')) i++;
+            size_t keyEnd = i;
+            while ((keyEnd > keyStart) && isSpace(value[keyEnd - 1])) keyEnd--;
+            std::string_view key = value.substr(keyStart, keyEnd - keyStart);
+            std::string paramValue;
+            if ((i < value.size()) && (value[i] == '=')) {
+                i++;
+                while ((i < value.size()) && isSpace(value[i])) i++;
+                if ((i < value.size()) && (value[i] == '"')) {
+                    i++;
+                    while ((i < value.size()) && (value[i] != '"')) {
+                        if ((value[i] == '\\') && (i + 1 < value.size())) i++;
+                        paramValue += value[i++];
+                    }
+                    if (i < value.size()) i++;
+                } else {
+                    size_t start = i;
+                    while ((i < value.size()) && (value[i] != ';') && !isSpace(value[i])) i++;
+                    paramValue = std::string(value.substr(start, i - start));
+                }
+            }
+            if (equalsNoCase(key, "name")) return paramValue;
+            i = value.find(';', i);
+        }
+        return std::nullopt;
+    }
     void formHeaderComplete() {
-        m_requestData.form.insert(std::pair(m_currentFormHeader, m_currentFormValue));
+        if (equalsNoCase(m_currentFormHeader, "Content-Disposition")) {
+            m_currentFormName = dispositionName(m_currentFormValue);
+        }
         m_currentFormHeader.clear();
         m_currentFormValue.clear();
     }
+    int onFormPartBegin() {
+        m_currentFormName.reset();
+        m_currentFormData.clear();
+        m_formHeaderState = PARSING_HEADER;
+        return 0;
+    }
+    int onFormPartEnd() {
+        if (m_currentFormName) {
+            m_requestData.form.insert(std::pair(*m_currentFormName, m_currentFormData));
+        }
+        m_currentFormName.reset();
+        m_currentFormData.clear();
+        return 0;
+    }
     int onFormHeaderField(const Slice& slice) {
+        if (headerTooLarge(m_formHeaderBytes, slice)) return 1;
         if (m_formHeaderState == PARSING_VALUE) {
             formHeaderComplete();
             m_formHeaderState = PARSING_HEADER;
@@ -990,27 +1108,39 @@ struct PCSX::WebClient::WebClientImpl {
         return 0;
     }
     int onFormHeaderValue(const Slice& slice) {
+        if (headerTooLarge(m_formHeaderBytes, slice)) return 1;
         m_formHeaderState = PARSING_VALUE;
         m_currentFormValue += slice.asString();
         return 0;
     }
     int onHeadersComplete() {
-        headerComplete();
+        // A request with no headers never started one, so there is nothing to complete.
+        if (!m_currentHeader.empty() || !m_currentValue.empty()) headerComplete();
         auto& ct = m_requestData.headers;
-        auto it = ct.find("Content-Type");
+        auto it =
+            std::find_if(ct.begin(), ct.end(), [](const auto& h) { return equalsNoCase(h.first, "Content-Type"); });
         if (it != ct.end()) {
             std::string_view contentType = it->second;
             if (contentType.starts_with("multipart/form-data")) {
                 auto pos = contentType.find("boundary=");
                 if (pos != std::string::npos) {
                     std::string_view marker = contentType.substr(pos + 9);
-                    if (marker.starts_with("\"") && marker.ends_with("\"") && marker.size() >= 2) {
-                        marker = marker.substr(1, marker.size() - 2);
+                    if (marker.starts_with("\"")) {
+                        auto end = marker.find('"', 1);
+                        marker = marker.substr(1, end == std::string_view::npos ? std::string_view::npos : end - 1);
+                    } else {
+                        marker = marker.substr(0, marker.find_first_of("; \t"));
                     }
                     m_multipartBoundary = std::string("--");
                     m_multipartBoundary += marker;
                     m_multipart = true;
                     memset(&m_multipartParserCallbacks, 0, sizeof(multipart_parser_settings));
+                    m_multipartParserCallbacks.on_part_data_begin = [](multipart_parser* p) {
+                        return static_cast<WebClientImpl*>(multipart_parser_get_data(p))->onFormPartBegin();
+                    };
+                    m_multipartParserCallbacks.on_part_data_end = [](multipart_parser* p) {
+                        return static_cast<WebClientImpl*>(multipart_parser_get_data(p))->onFormPartEnd();
+                    };
                     m_multipartParserCallbacks.on_header_field = [](multipart_parser* p, const char* at,
                                                                     size_t length) {
                         Slice slice;
@@ -1040,28 +1170,36 @@ struct PCSX::WebClient::WebClientImpl {
     }
 
     int onFormHeadersComplete() {
-        formHeaderComplete();
+        if (m_formHeaderState == PARSING_VALUE) formHeaderComplete();
+        m_formHeaderState = PARSING_HEADER;
         return 0;
     }
 
     int onFormData(const Slice& slice) {
         m_requestData.body.concatenate(slice);
+        m_currentFormData += slice.asString();
         return 0;
     }
 
     int onBody(const Slice& slice) {
-        m_requestData.rawBody.concatenate(slice);
         if (m_multipart) {
+            m_requestData.rawBody.concatenate(slice);
             multipart_parser_execute(m_multipartParser, slice.data<char>(), slice.size());
+            // A part whose headers grew past the cap closed the connection; stop here.
+            if (m_status != OPEN) return 1;
         } else {
             m_requestData.body.concatenate(slice);
         }
         return 0;
     }
+    // A request that ends early (closed for an oversized header, or the client leaving mid-body) never
+    // reaches onMessageComplete, so the destructor frees the parser too.
+    void freeMultipartParser() {
+        if (m_multipartParser) multipart_parser_free(m_multipartParser);
+        m_multipartParser = nullptr;
+    }
     int onMessageComplete() {
-        if (m_multipart) {
-            multipart_parser_free(m_multipartParser);
-        }
+        freeMultipartParser();
         executeRequest();
         // The connection is closed after one request; pause so llhttp_execute
         // does not go on to dispatch anything pipelined behind it.
@@ -1140,7 +1278,10 @@ struct PCSX::WebClient::WebClientImpl {
     }
     int executeRequest() {
         m_requestData.method = static_cast<RequestData::Method>(m_httpParser.method);
-        m_currentExecutor->execute(m_parent, m_requestData);
+        if (!m_currentExecutor->execute(m_parent, m_requestData)) {
+            send404();
+            return 0;
+        }
         scheduleClose();
         return 0;
     }
@@ -1151,16 +1292,23 @@ struct PCSX::WebClient::WebClientImpl {
     IO<File> m_connection;
     AsyncContext* m_asyncContext = nullptr;
     static constexpr size_t BUFFER_SIZE = 256;
+    static constexpr size_t MAX_URL_SIZE = 64 * 1024;
+    static constexpr size_t MAX_HEADER_SIZE = 64 * 1024;
     enum { OPEN, CLOSING } m_status = OPEN;
     llhttp_settings_t m_httpParserSettings;
     llhttp_t m_httpParser;
     Intrusive::List<WebExecutor>::iterator m_currentExecutor;
     WebClient* m_parent;
 
+    std::string m_urlString;
     std::string m_currentHeader;
     std::string m_currentValue;
     std::string m_currentFormHeader;
+    size_t m_headerBytes = 0;
+    size_t m_formHeaderBytes = 0;
     std::string m_currentFormValue;
+    std::optional<std::string> m_currentFormName;
+    std::string m_currentFormData;
     enum HeaderState {
         PARSING_HEADER,
         PARSING_VALUE,
@@ -1170,7 +1318,7 @@ struct PCSX::WebClient::WebClientImpl {
     RequestData m_requestData;
     bool m_multipart = false;
     std::string m_multipartBoundary;
-    multipart_parser* m_multipartParser;
+    multipart_parser* m_multipartParser = nullptr;
     multipart_parser_settings m_multipartParserCallbacks;
 };
 

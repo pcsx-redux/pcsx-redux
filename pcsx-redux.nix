@@ -106,8 +106,8 @@ let
     ({
       owner = "rixnobis";
       repo = "cueparser";
-      rev = "17f2c521ddf76466ef23db92b9fa2d7b933ca7ef";
-      hash = "sha256-wBkLoznyekF+HGZagfOdQVyvkjqqgaFHIL1cIKqdLA4=";
+      rev = "f9637963701285969c088076a68bd7186ad68bee";
+      hash = "sha256-fgbX98NCsbldU5WcuIJigrTtW8EDDGEPS969Ev8StxA=";
     })
     ({
       owner = "ArthurSonzogni";
@@ -121,8 +121,8 @@ let
     ({
       owner = "pcsx-redux";
       repo = "nugget";
-      rev = "1a8bbf002041609215cc826f675e1e1b65cfbe65";
-      hash = "sha256-6F/s60N1WTOeZDmMyMP1WczfA7xcsAoaCmwtTaycOe0=";
+      rev = "6f0951cf90e6b84a098b0eca4ff16f7b1dc8a8a8";
+      hash = "sha256-JmMJJ8Yj2GcjpIKwin0MrjSS43sfSRtYmT7M4p8qWD4=";
       dest = "src/mips";
     })
     ({

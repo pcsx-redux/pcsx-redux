@@ -109,6 +109,31 @@ local function le32(value)
     return s
 end
 
+-- Writes raw bytes, then waits until what the stub sent back matches the pattern, and returns all
+-- of it. For the framing tests, where request() would hide the acks.
+local function rawExchange(bytes, pattern)
+    connect()
+    client:write(bytes)
+    while not buffer:find(pattern) do
+        local co = coroutine.running()
+        local timer = luv.new_timer()
+        local timedOut = false
+        timer:start(5000, 0, function()
+            timedOut = true
+            waiter = nil
+            coroutine.resume(co)
+        end)
+        waiter = co
+        coroutine.yield()
+        timer:stop()
+        timer:close()
+        lu.assertFalse(timedOut, 'got ' .. buffer .. ' waiting for ' .. pattern)
+    end
+    local got = buffer
+    buffer = ''
+    return got
+end
+
 -- gdb sends the register number in hex without padding: an inferior call writes a0 as P4=...
 function TestGdbServer:test_single_digit_register_numbers()
     local regs = PCSX.getRegisters()
@@ -120,6 +145,37 @@ function TestGdbServer:test_single_digit_register_numbers()
     lu.assertEquals(request('p1d'), '00FE1F80')
 end
 
+-- A packet whose checksum doesn't match is refused with '-' and not run; the next one goes through.
+function TestGdbServer:test_bad_checksum_is_refused()
+    PCSX.getRegisters().GPR.n.a0 = 0x1111
+    local bad = 'P4=' .. le32(0x2222)
+    local good = 'p4'
+    local got = rawExchange('$' .. bad .. '#00' .. '$' .. good .. '#' .. checksum(good), '#%x%x$')
+    lu.assertEquals(got, '-+$11110000#' .. checksum('11110000'):upper())
+    lu.assertEquals(PCSX.getRegisters().GPR.n.a0, 0x1111)
+    client:write('+')
+    -- a packet cut off by the next '$' before its checksum, at any point, is dropped too
+    for _, cut in ipairs({ '', '#', '#0' }) do
+        got = rawExchange('$' .. bad .. cut .. '$' .. good .. '#' .. checksum(good), '#%x%x$')
+        lu.assertEquals((got:gsub('^%++', '')), '$11110000#' .. checksum('11110000'):upper())
+        lu.assertEquals(PCSX.getRegisters().GPR.n.a0, 0x1111)
+        client:write('+')
+    end
+end
+
+-- A memory write whose data is missing, short or not hex is refused and writes nothing.
+function TestGdbServer:test_malformed_memory_write()
+    lu.assertEquals(request('M80010000,4:' .. le32(0x11223344)), 'OK')
+    lu.assertEquals(request('M80010000,4'), 'E01')
+    lu.assertEquals(request('M80010000,0'), 'E01')
+    lu.assertEquals(request('M80010000,0:'), 'OK')
+    lu.assertEquals(request('M80010000,4:1234'), 'E01')
+    lu.assertEquals(request('M80010000,4:zz223344'), 'E01')
+    -- the linker-section heuristic does not skip the check
+    lu.assertEquals(request('M8000ffea,16:zz'), 'E01')
+    lu.assertEquals(request('m80010000,4'), '44332211')
+end
+
 -- A bad register packet is an error reply, and the connection stays usable after it.
 function TestGdbServer:test_malformed_register_packet_keeps_connection()
     lu.assertEquals(request('P4=1234'), 'E00')
@@ -129,9 +185,105 @@ function TestGdbServer:test_malformed_register_packet_keeps_connection()
     lu.assertEquals(PCSX.getRegisters().GPR.n.a1, 0xcafe)
 end
 
+-- Acks are not acked back, and a '-' gets the last packet sent again.
+function TestGdbServer:test_acks()
+    PCSX.getRegisters().GPR.n.a0 = 0x3333
+    local reply = '$33330000#' .. checksum('33330000'):upper()
+    lu.assertEquals(rawExchange('+$p4#' .. checksum('p4'), '#%x%x$'), '+' .. reply)
+    lu.assertEquals(rawExchange('-', '#%x%x$'), reply)
+    -- a reply in two packets: the second waits for the ack of the first, so a '-' gets the first
+    local usage = 'Usage: sharedmem <type>'
+    local o = 'O' .. usage:gsub('.', function(c) return string.format('%02X', c:byte()) end)
+    local cmd = 'qRcmd,' .. ('sharedmem'):gsub('.', function(c) return string.format('%02x', c:byte()) end)
+    local first = '$' .. o .. '#' .. checksum(o):upper()
+    lu.assertEquals(rawExchange('+$' .. cmd .. '#' .. checksum(cmd), '#%x%x$'), '+' .. first)
+    lu.assertEquals(rawExchange('-', '#%x%x$'), first)
+    lu.assertEquals(rawExchange('+', '#%x%x$'), '$OK#9A')
+    client:write('+')
+end
+
+-- Removing a gdb watchpoint leaves alone the breakpoints gdb did not set.
+function TestGdbServer:test_remove_leaves_other_breakpoints()
+    local bp = PCSX.addBreakpoint(0x80010000, 'Exec', 4, 'test')
+    lu.assertEquals(request('Z2,80010000,4'), 'OK')
+    lu.assertEquals(request('z2,80010000,4'), 'OK')
+    lu.assertTrue(bp:isEnabled())
+    bp:remove()
+end
+
+-- A Z or z packet that doesn't parse is an error reply, and the connection stays usable after it.
+function TestGdbServer:test_malformed_breakpoint_keeps_connection()
+    lu.assertEquals(request('Z0,zz,4'), 'E00')
+    lu.assertEquals(request('z1,80010000,q'), 'E00')
+    lu.assertEquals(request('p4'):len(), 8)
+end
+
 -- With multiprocess negotiated, gdb detaches with D;<pid>.
 function TestGdbServer:test_multiprocess_detach()
     lu.assertEquals(request('D;1'), 'OK')
     disconnect()
     lu.assertEquals(request('p4'):len(), 8)
+end
+
+-- A memory read asking for more than fits in a packet gets as much as fits, not the whole range.
+function TestGdbServer:test_memory_read_is_capped()
+    lu.assertEquals(request('m80000000,10'):len(), 32)
+    lu.assertEquals(request('m80000000,10000'):len(), 0x47ff - 4 - 1)
+end
+
+-- gdb's `thread 1` checks the thread is alive with T; the only thread always is.
+function TestGdbServer:test_thread_alive()
+    lu.assertEquals(request('T1'), 'OK')
+    lu.assertEquals(request('Tp1.1'), 'OK')
+    lu.assertEquals(request('Hgp1.1'), 'OK')
+    lu.assertEquals(request('Hcp1.0'), 'OK')
+    lu.assertEquals(request('Hc-1'), 'OK')
+    lu.assertStrContains(request('T2'), 'E')
+end
+
+-- An empty monitor command is answered like an unknown one, and a hex payload that does not
+-- decode is an error.
+function TestGdbServer:test_empty_monitor_command()
+    lu.assertEquals(request('qRcmd,'), 'OK')
+    lu.assertEquals(request('qRcmd,20'), 'OK')
+    lu.assertEquals(request('qRcmd,7'), 'E01')
+    lu.assertEquals(request('qRcmd,7z'), 'E01')
+    lu.assertEquals(request('p4'):len(), 8)
+end
+
+-- Runs one word store: lui $t0, <segment> / sw $0, 0x200($t0) / b . / nop, then waits for the stop.
+-- Each call gets its own code address, since writing memory over gdb leaves the interpreter's
+-- cached copy of code it already ran.
+local codeAddress = 0x80010000
+local function storeAndStop(segment)
+    local code = le32(0x3c080000 + segment) .. le32(0xad000200) .. le32(0x1000ffff) .. le32(0)
+    lu.assertEquals(request(string.format('M%08x,10:', codeAddress) .. code), 'OK')
+    lu.assertEquals(request('P25=' .. le32(codeAddress)), 'OK')
+    codeAddress = codeAddress + 0x10
+    return request('c')
+end
+
+-- A stop on a gdb watchpoint names the watched address, so gdb reports a watchpoint hit.
+function TestGdbServer:test_watchpoint_stop_reason()
+    lu.assertEquals(request('Z2,80000200,4'), 'OK')
+    lu.assertEquals(storeAndStop(0x8000), 'T05watch:80000200;')
+    lu.assertEquals(request('z2,80000200,4'), 'OK')
+end
+
+-- The reported address is inside the watched range and in the segment gdb used, even when the
+-- store starts below it and goes through another segment.
+function TestGdbServer:test_watchpoint_stop_address()
+    lu.assertEquals(request('Z2,80000201,1'), 'OK')
+    lu.assertEquals(storeAndStop(0xa000), 'T05watch:80000201;')
+    -- 0xa0200200 is a mirror of the same word with the 2MB of RAM
+    lu.assertEquals(storeAndStop(0xa020), 'T05watch:80000201;')
+    lu.assertEquals(request('z2,80000201,1'), 'OK')
+end
+
+-- Reading a qXfer document from past its end is an empty last chunk.
+function TestGdbServer:test_qxfer_offset_past_end()
+    local doc = request('qXfer:threads:read::0,1000')
+    lu.assertEquals(doc:sub(1, 1), 'l')
+    lu.assertEquals(request('qXfer:threads:read::' .. string.format('%x', #doc - 1) .. ',1000'), 'l')
+    lu.assertEquals(request('qXfer:threads:read::1000,100'), 'l')
 end

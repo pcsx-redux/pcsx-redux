@@ -18,6 +18,7 @@
  ***************************************************************************/
 
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <random>
@@ -35,23 +36,36 @@ package.path = package.path
     .. ';./?.lua'
 )";
 
-static const char suffix[] = R"(
-coroutine.resume(coroutine.create(function()
-    PCSX.quit(require('luaunit').LuaUnit.new():runSuite '--verbose')
-end))
-)";
+// With PCSX_TEST_REPORT_DIR set, luaunit also writes a JUnit report named after
+// the running gtest into that directory, for the CI summary.
+static std::string suffix() {
+    std::string options = "'--verbose'";
+    const char* dir = std::getenv("PCSX_TEST_REPORT_DIR");
+    auto* info = ::testing::UnitTest::GetInstance()->current_test_info();
+    if (dir && *dir && info) {
+        auto report = std::filesystem::path(dir) / "luaunit";
+        std::filesystem::create_directories(report);
+        report /= std::string(info->test_suite_name()) + "." + info->name() + ".xml";
+        options += ", '-o', 'junit', '-n', [==[" + report.generic_string() + "]==]";
+    }
+    return "coroutine.resume(coroutine.create(function()\n"
+           "    PCSX.quit(require('luaunit').LuaUnit.new():runSuite(" +
+           options + "))\nend))\n";
+}
 
 template <typename... Args>
 int runLuaInt(Args... args) {
+    std::string end = suffix();
     MainInvoker invoker("-no-ui", "-cli", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-luacov", "-exec", prefix, args..., "-exec", suffix);
+                        "-luacov", "-exec", prefix, args..., "-exec", end.c_str());
     return invoker.invoke();
 }
 
 template <typename... Args>
 int runLuaDyn(Args... args) {
+    std::string end = suffix();
     MainInvoker invoker("-no-ui", "-cli", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-dynarec", "-luacov",
-                        "-exec", prefix, args..., "-exec", suffix);
+                        "-exec", prefix, args..., "-exec", end.c_str());
     return invoker.invoke();
 }
 
@@ -150,7 +164,7 @@ TEST(LuaWebServer, Interpreter) {
     EXPECT_EQ(runLuaInt("-webserver", "-webserver-port", "34568", "-exec", "require 'tests.lua.webserver'"), 0);
 }
 TEST(LuaGdbServer, Interpreter) {
-    EXPECT_EQ(runLuaInt("-gdb", "-gdb-port", "3464", "-exec", "require 'tests.lua.gdbserver'"), 0);
+    EXPECT_EQ(runLuaInt("-debugger", "-gdb", "-gdb-port", "3464", "-exec", "require 'tests.lua.gdbserver'"), 0);
 }
 TEST(LuaIsoBuilder, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.isobuilder"), 0); }
 TEST(LuaIsoBuilder, Dynarec) { EXPECT_EQ(runLuaDynTest("tests.lua.isobuilder"), 0); }
@@ -159,6 +173,7 @@ TEST(LuaCuePregap, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.cuepregap")
 TEST(LuaAssembler, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.assembler"), 0); }
 TEST(LuaBinary, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.binary"), 0); }
 TEST(LuaCDRomApi, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.cdromapi"), 0); }
+TEST(LuaScheduleInterrupt, Interpreter) { EXPECT_EQ(runLuaIntTest("tests.lua.scheduleinterrupt"), 0); }
 
 TEST(LuaStartup, DofileError) {
     MainInvoker failing("-no-ui", "-cli", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",

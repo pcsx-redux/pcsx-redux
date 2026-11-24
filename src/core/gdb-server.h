@@ -23,6 +23,7 @@
 #include <uv.h>
 
 #include <cstdarg>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
@@ -95,29 +96,29 @@ class GdbClient : public Intrusive::List<GdbClient>::Node {
         sendRaw(std::move(raw));
     }
 
+    // A streamed reply is built into one frame and sent when complete, like any other packet.
     void startStream() {
         m_crc = 0;
-        Slice raw;
-        raw.copy("$", 1);
-        sendRaw(std::move(raw));
+        m_streamFrame = "$";
     }
 
     void stream(const std::string& data) {
         for (int i = 0; i < data.length(); i++) {
             m_crc += data[i];
         }
-        Slice raw;
-        raw.copy(data.data(), data.size());
-        sendRaw(std::move(raw));
+        m_streamFrame += data;
     }
 
     void stopStream() {
         char end[3] = {'#'};
         end[1] = toHex[m_crc >> 4];
         end[2] = toHex[m_crc & 0x0f];
-        Slice raw;
-        raw.copy(end, 3);
-        sendRaw(std::move(raw));
+        m_streamFrame.append(end, 3);
+        Slice log;
+        log.borrow(m_streamFrame.data(), m_streamFrame.size());
+        logOutgoing(log);
+        sendFrame(std::move(m_streamFrame));
+        m_streamFrame.clear();
     }
 
     static const char toHex[];
@@ -128,7 +129,9 @@ class GdbClient : public Intrusive::List<GdbClient>::Node {
     // buffer and handed over as a single Slice - GDB packets are small, and it
     // is one allocation per packet against a hash table insert plus erase.
     void sendPacket(Slice&& payload);  // wraps in $...#XX
-    void sendRaw(Slice&& raw);         // as-is, for acks and streamed chunks
+    void sendRaw(Slice&& raw);         // as-is, for acks
+    void sendFrame(std::string&& frame);
+    void onAck();
     void logOutgoing(const Slice& slice);
 
     static constexpr size_t BUFFER_SIZE = 256;
@@ -203,9 +206,20 @@ class GdbClient : public Intrusive::List<GdbClient>::Node {
     // gdb complains about invalid responses, and toggle this accordingly.
     bool m_canReceiveLogs = false;
     std::string m_cmd;
+    // the stop reply's reason field for the pending trap, "watch:80010000;" and the like
+    std::string m_stopReason;
+    // checksum of the packet being received, and the first digit of the one it came with
+    uint8_t m_inSum = 0;
+    int m_inCrcHigh = -1;
     uint8_t m_crc;
     EventBus::Listener m_listener;
     uv_loop_t* m_loop;
+    // with acks on: the packet sent and not yet acked, for when the client answers '-', and the
+    // ones waiting behind it
+    std::string m_lastPacket;
+    bool m_awaitingAck = false;
+    std::deque<std::string> m_pendingFrames;
+    std::string m_streamFrame;
     Debug::BreakpointUserListType m_breakpoints;
 };
 

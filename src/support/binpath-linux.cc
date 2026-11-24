@@ -28,12 +28,15 @@ SOFTWARE.
 
 #ifdef __linux__
 
+#include <limits.h>
 #include <unistd.h>
 
 std::u8string PCSX::BinPath::getExecutablePath() {
-    char8_t buffer[BUFSIZ];
-    readlink("/proc/self/exe", (char*)buffer, BUFSIZ);
-    return std::u8string(buffer);
+    char8_t buffer[PATH_MAX];
+    // readlink doesn't NUL-terminate, so only take the bytes it returned.
+    ssize_t len = readlink("/proc/self/exe", (char*)buffer, sizeof(buffer));
+    if (len <= 0) return {};
+    return std::u8string(buffer, len);
 }
 
 #endif

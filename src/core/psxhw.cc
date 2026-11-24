@@ -60,6 +60,8 @@ void PCSX::HW::reset() {
     if (g_emulator->settings.get<Emulator::SettingSpuIrq>()) g_emulator->m_mem->setIRQ(0x200);
 
     memset(g_emulator->m_mem->m_hard, 0, 0x10000);
+    // RAM_SIZE is now 0 again, and the RAM window has to follow it.
+    g_emulator->m_mem->setLuts();
 
     g_emulator->m_mdec->init();
     g_emulator->m_cdrom->reset();

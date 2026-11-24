@@ -50,10 +50,58 @@ local function exchange(raw)
     return reply
 end
 
+-- The VRAM download must announce exactly as many body bytes as it sends.
+function TestWebServer:test_vram_content_length_matches_body()
+    local co = coroutine.running()
+    local client = luv.new_tcp()
+    local reply = {}
+    local done = false
+    local function finish()
+        if done then return end
+        done = true
+        client:read_stop()
+        client:close(function() coroutine.resume(co) end)
+    end
+    local timer = luv.new_timer()
+    timer:start(5000, 0, finish)
+    client:connect('127.0.0.1', PORT, function(err)
+        lu.assertNil(err)
+        client:read_start(function(rerr, data)
+            if rerr or not data then return finish() end
+            reply[#reply + 1] = data
+        end)
+        client:write('GET /api/v1/gpu/vram/raw HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n')
+    end)
+    coroutine.yield()
+    timer:stop()
+    timer:close()
+    reply = table.concat(reply)
+    local headerEnd = reply:find('\r\n\r\n', 1, true)
+    lu.assertNotNil(headerEnd)
+    local length = tonumber(reply:sub(1, headerEnd):match('[Cc]ontent%-[Ll]ength: (%d+)'))
+    lu.assertNotNil(length)
+    lu.assertEquals(length, #reply - (headerEnd + 3))
+end
+
 local function post(path, body)
     return exchange('POST /api/v1/lua/' .. path .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
                         'Content-Type: application/x-www-form-urlencoded\r\nContent-Length: ' .. #body .. '\r\n\r\n' ..
                         body)
+end
+
+-- Query values that are not numbers are rejected with a 400 and must not take the emulator down.
+function TestWebServer:test_non_numeric_query_is_bad_request()
+    local function plain(method, path, body)
+        body = body or ''
+        return exchange(method .. ' ' .. path .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
+                            'Content-Length: ' .. #body .. '\r\n\r\n' .. body)
+    end
+    local ram = plain('POST', '/api/v1/cpu/ram/raw?offset=abc&size=1', 'x')
+    lu.assertEquals(ram:sub(1, 22), 'HTTP/1.1 400 Bad Reque')
+    local vram = plain('POST', '/api/v1/gpu/vram/raw?x=a&y=0&width=1&height=1', 'xx')
+    lu.assertEquals(vram:sub(1, 22), 'HTTP/1.1 400 Bad Reque')
+    local after = plain('GET', '/api/v1/gpu/vram/raw')
+    lu.assertEquals(after:sub(1, 15), 'HTTP/1.1 200 OK')
 end
 
 function TestWebServer:test_post_body_reaches_handler()
@@ -70,6 +118,19 @@ function TestWebServer:test_post_body_reaches_handler()
     lu.assertNotNil(reply:find('POST:a=1&b=two%20words:END', 1, true))
 end
 
+-- A GET request reaches a Lua handler with the plain method name.
+function TestWebServer:test_get_method_name()
+    local seen
+    PCSX.WebServer.Handlers.method = function(request)
+        seen = request
+        return 'END'
+    end
+    exchange('GET /api/v1/lua/method HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n')
+    PCSX.WebServer.Handlers.method = nil
+    lu.assertNotNil(seen)
+    lu.assertEquals(seen.method, 'GET')
+end
+
 -- A request with no body still gets the field, as an empty string.
 function TestWebServer:test_get_has_empty_body()
     local seen
@@ -81,6 +142,29 @@ function TestWebServer:test_get_has_empty_body()
     PCSX.WebServer.Handlers.empty = nil
     lu.assertNotNil(seen)
     lu.assertEquals(seen.body, '')
+end
+
+-- A request with no headers gets an empty headers table, and one header gives exactly one key.
+function TestWebServer:test_no_headers_means_empty_table()
+    local seen
+    PCSX.WebServer.Handlers.hdrs = function(request)
+        seen = request
+        return 'END'
+    end
+    exchange('GET /api/v1/lua/hdrs HTTP/1.1\r\n\r\n')
+    lu.assertNotNil(seen)
+    lu.assertNil(next(seen.headers))
+    seen = nil
+    exchange('GET /api/v1/lua/hdrs HTTP/1.1\r\nX-A: 1\r\n\r\n')
+    PCSX.WebServer.Handlers.hdrs = nil
+    lu.assertNotNil(seen)
+    local count = 0
+    for k, v in pairs(seen.headers) do
+        count = count + 1
+        lu.assertEquals(k, 'X-A')
+        lu.assertEquals(v[1], '1')
+    end
+    lu.assertEquals(count, 1)
 end
 
 -- A request pipelined behind the first one in the same write must not be dispatched: the
@@ -105,6 +189,71 @@ function TestWebServer:test_pipelined_request_not_dispatched()
     lu.assertNil(second)
 end
 
+-- Like exchange, but writes the request in two pieces with a pause between them.
+local function exchangeSplit(first, second)
+    local co = coroutine.running()
+    local client = luv.new_tcp()
+    local reply = ''
+    local done = false
+    local function finish()
+        if done then return end
+        done = true
+        client:read_stop()
+        client:close(function() coroutine.resume(co) end)
+    end
+    local timer = luv.new_timer()
+    timer:start(5000, 0, finish)
+    local pause = luv.new_timer()
+    client:connect('127.0.0.1', PORT, function(err)
+        lu.assertNil(err)
+        client:read_start(function(rerr, data)
+            if rerr or not data then return finish() end
+            reply = reply .. data
+            if reply:find('\r\n\r\n', 1, true) and reply:find('END$') then finish() end
+        end)
+        client:write(first)
+        pause:start(100, 0, function() client:write(second) end)
+    end)
+    coroutine.yield()
+    timer:stop()
+    timer:close()
+    pause:stop()
+    pause:close()
+    return reply
+end
+
+-- A URL that arrives in several reads, or is longer than one read, still reaches its Lua handler.
+function TestWebServer:test_url_spanning_reads()
+    local seen
+    PCSX.WebServer.Handlers.split = function(request)
+        seen = request
+        return 'END'
+    end
+    exchangeSplit('GET /api/v1/lua/sp', 'lit HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n')
+    lu.assertNotNil(seen)
+    lu.assertEquals(seen.urlData.path, '/api/v1/lua/split')
+    seen = nil
+    local query = 'q=' .. string.rep('a', 400)
+    exchange('GET /api/v1/lua/split?' .. query .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n')
+    PCSX.WebServer.Handlers.split = nil
+    lu.assertNotNil(seen)
+    lu.assertEquals(seen.urlData.path, '/api/v1/lua/split')
+    lu.assertEquals(seen.urlData.query, query)
+end
+
+-- A URL that never ends is refused once it passes the size limit, instead of being buffered forever.
+function TestWebServer:test_url_too_long()
+    local called = false
+    PCSX.WebServer.Handlers.long = function(request)
+        called = true
+        return 'END'
+    end
+    local reply = exchange('GET /api/v1/lua/long?q=' .. string.rep('a', 70000))
+    PCSX.WebServer.Handlers.long = nil
+    lu.assertFalse(called)
+    lu.assertNotNil(reply:find('HTTP/1.1 414', 1, true))
+end
+
 -- A multipart/form-data handler gets the raw request body, boundaries and part headers included.
 function TestWebServer:test_multipart_body_is_raw()
     local seen
@@ -118,4 +267,105 @@ function TestWebServer:test_multipart_body_is_raw()
     PCSX.WebServer.Handlers.multipart = nil
     lu.assertNotNil(seen)
     lu.assertEquals(seen.body, body)
+end
+
+-- A known endpoint that does not handle the method or function gets a 404, not a silent close.
+function TestWebServer:test_unhandled_request_is_404()
+    local function plain(method, path)
+        return exchange(method .. ' ' .. path .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n')
+    end
+    lu.assertEquals(plain('DELETE', '/api/v1/cpu/cache'):sub(1, 12), 'HTTP/1.1 404')
+    lu.assertEquals(plain('GET', '/api/v1/cd/nope'):sub(1, 12), 'HTTP/1.1 404')
+    lu.assertEquals(plain('GET', '/api/v1/cpu/cache?function=flush'):sub(1, 12), 'HTTP/1.1 404')
+    -- A handler that already answered must not get a second reply appended.
+    local state = plain('GET', '/api/v1/state/usage')
+    lu.assertNil(state:find('404', 1, true))
+end
+
+-- Symbol upload accepts an optional 0x prefix and skips addresses that are not 32-bit hex numbers.
+function TestWebServer:test_symbol_upload_validates_address()
+    local function plain(path, body)
+        return exchange(
+                   'POST ' .. path .. ' HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' .. 'Content-Length: ' ..
+                       #body .. '\r\n\r\n' .. body)
+    end
+    lu.assertEquals(plain('/api/v1/assembly/symbols?function=reset', ''):sub(1, 15), 'HTTP/1.1 200 OK')
+    local body = '0x80010000 hexprefixed\n80020000 plain\nfffffffff toolong\n'
+    lu.assertEquals(plain('/api/v1/assembly/symbols?function=upload', body):sub(1, 15), 'HTTP/1.1 200 OK')
+    local found = {}
+    for address, name in PCSX.iterateSymbols() do found[address] = name end
+    plain('/api/v1/assembly/symbols?function=reset', '')
+    local expected = { [0x80010000] = 'hexprefixed', [0x80020000] = 'plain' }
+    lu.assertEquals(found, expected)
+end
+
+-- Headers that never end, in the request or in a multipart part, are refused past the size limit.
+function TestWebServer:test_headers_too_large()
+    local called = false
+    PCSX.WebServer.Handlers.bighdr = function(request)
+        called = true
+        return 'END'
+    end
+    local reply = exchange('GET /api/v1/lua/bighdr HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Big: ' .. string.rep('a', 70000))
+    lu.assertNotNil(reply:find('HTTP/1.1 431', 1, true))
+    local body = '--XyZ\r\nX-Big: ' .. string.rep('a', 70000) .. '\r\n\r\n1\r\n--XyZ--\r\n'
+    reply = exchange('POST /api/v1/lua/bighdr HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
+                         'Content-Type: multipart/form-data; boundary=XyZ\r\nContent-Length: ' .. #body .. '\r\n\r\n' ..
+                         body)
+    PCSX.WebServer.Handlers.bighdr = nil
+    lu.assertFalse(called)
+    lu.assertNotNil(reply:find('HTTP/1.1 431', 1, true))
+end
+
+-- The form table of a multipart/form-data request is keyed by each part's name, holding the part's data.
+function TestWebServer:test_multipart_form_fields()
+    local seen
+    PCSX.WebServer.Handlers.mpform = function(request)
+        seen = request
+        return 'END'
+    end
+    local body = '--XyZ\r\nContent-Disposition: form-data; name="a"\r\n\r\n1\r\n' ..
+                     '--XyZ\r\nContent-Disposition: form-data; name="b"\r\n\r\n2\r\n--XyZ--\r\n'
+    local function try(contentTypeHeader)
+        seen = nil
+        exchange('POST /api/v1/lua/mpform HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' .. contentTypeHeader ..
+                     '\r\nContent-Length: ' .. #body .. '\r\n\r\n' .. body)
+        lu.assertNotNil(seen)
+        local keys = {}
+        for k in pairs(seen.form) do keys[#keys + 1] = k end
+        table.sort(keys)
+        lu.assertEquals(keys, { 'a', 'b' })
+        lu.assertEquals(seen.form.a, { '1' })
+        lu.assertEquals(seen.form.b, { '2' })
+        lu.assertEquals(seen.body, body)
+    end
+    try('Content-Type: multipart/form-data; boundary=XyZ')
+    try('content-type: multipart/form-data; boundary=XyZ')
+    try('Content-Type: multipart/form-data; boundary=XyZ; charset=utf-8')
+    PCSX.WebServer.Handlers.mpform = nil
+end
+
+-- The part name comes from the name parameter itself: any case, never from inside another parameter's quoted value,
+-- and an empty name="" is still a field.
+function TestWebServer:test_multipart_disposition_name()
+    local seen
+    PCSX.WebServer.Handlers.mpname = function(request)
+        seen = request
+        return 'END'
+    end
+    local body = '--XyZ\r\nContent-Disposition: form-data; NAME="a"\r\n\r\n1\r\n' ..
+                     '--XyZ\r\nContent-Disposition: form-data; filename="report name=wrong"; name="up"\r\n\r\n2\r\n' ..
+                     '--XyZ\r\nContent-Disposition: form-data; name=""\r\n\r\n3\r\n' ..
+                     '--XyZ\r\nContent-Disposition: form-data\r\n\r\n4\r\n--XyZ--\r\n'
+    exchange('POST /api/v1/lua/mpname HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' ..
+                 'Content-Type: multipart/form-data; boundary=XyZ\r\nContent-Length: ' .. #body .. '\r\n\r\n' .. body)
+    PCSX.WebServer.Handlers.mpname = nil
+    lu.assertNotNil(seen)
+    local keys = {}
+    for k in pairs(seen.form) do keys[#keys + 1] = k end
+    table.sort(keys)
+    lu.assertEquals(keys, { '', 'a', 'up' })
+    lu.assertEquals(seen.form.a, { '1' })
+    lu.assertEquals(seen.form.up, { '2' })
+    lu.assertEquals(seen.form[''], { '3' })
 end

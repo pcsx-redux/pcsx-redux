@@ -11,13 +11,21 @@ local schema = protoc.new()
 assert(schema:load(PCSX.getSaveStateProtoSchema(), 'savestate.proto'))
 pb.option('int64_as_string')
 
+local TAIL = '\165\90\195\60\90\165\60\195'
+
 local function toV4(s)
     local state = pb.decode('SaveState', s)
     state.save_state_info = { version_string = 'PCSX-Redux SaveState v4', version = 4 }
     local vram = state.gpu.vram
     if #vram ~= 0x200000 then error('v5 VRAM is ' .. #vram .. ' bytes') end
-    state.gpu.vram = vram:sub(1, 0x100000)
+    -- The last pixels of the blob carry a pattern, so a load that drops the end of it shows.
+    state.gpu.vram = vram:sub(1, 0x100000 - #TAIL) .. TAIL
     return pb.encode('SaveState', state)
+end
+
+local function lowerBankEndsWithTail()
+    local vram = tostring(PCSX.GPU.getVRAM())
+    return vram:sub(0x100001 - #TAIL, 0x100000) == TAIL
 end
 
 local function toSlice(s)
@@ -52,6 +60,11 @@ V4SaveStateListener = PCSX.Events.createEventListener('GPU::Vsync', function()
         if not upperBankIsOpenBus() then
             print('v4 load wrote the upper VRAM bank')
             PCSX.quit(2)
+            return
+        end
+        if not lowerBankEndsWithTail() then
+            print('v4 load did not restore the end of the lower VRAM bank')
+            PCSX.quit(4)
             return
         end
         ram[marker] = 0xdeadbeef
