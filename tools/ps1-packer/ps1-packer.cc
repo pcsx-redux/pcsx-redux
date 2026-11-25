@@ -115,6 +115,11 @@ Valid input binary files can be in the following formats:
         return -1;
     }
 
+    if (shell && (rom || datel)) {
+        fmt::print("-shell can't be used with -rom or -datel: its reboot runs the cart's boot hook again.\n");
+        return -1;
+    }
+
     PCSX::PS1Packer::Options options;
     options.booty = booty;
     options.raw = raw;
