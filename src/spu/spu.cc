@@ -393,7 +393,8 @@ void PCSX::SPU::impl::synthesizeVoice(int ch, SPUCHAN *voice, int32_t &capVoice1
         const int32_t envelope = voice->adsr.step(stop, on, m_mixPos + ns);
         int32_t mixedSample = (envelope * rawSample) >> kAdsrEnvelopeShift;
         sval = mixedSample;
-        recordScope(ch, ns, rawSample, mixedSample);
+        recordScope(ScopeRaw, ch, ns, rawSample);
+        recordScope(ScopeEnveloped, ch, ns, mixedSample);
 
         // The capture mirror holds the voice 1/3 sample after ADSR but before volume.
         mixedSample = std::clamp(mixedSample, kCaptureSampleMin, kCaptureSampleMax);
@@ -411,12 +412,17 @@ void PCSX::SPU::impl::synthesizeVoice(int ch, SPUCHAN *voice, int32_t &capVoice1
                 }
             }
             // Left/right sound volume (PSX volume goes from 0 to 0x3fff).
+            const int32_t left = (sval * voice->volume.left()) / kVoiceVolumeUnity;
+            const int32_t right = (sval * voice->volume.right()) / kVoiceVolumeUnity;
+            // The scope shows what the voice sends, whatever the debug mute says.
+            recordScope(ScopeLeft, ch, ns, left);
+            recordScope(ScopeRight, ch, ns, right);
             if (mute && !solo) {
                 // Debug mute.
                 sval = 0;
             } else {
-                SSumL[ns] += (sval * voice->volume.left()) / kVoiceVolumeUnity;
-                SSumR[ns] += (sval * voice->volume.right()) / kVoiceVolumeUnity;
+                SSumL[ns] += left;
+                SSumR[ns] += right;
             }
 
             // Store for reverb.
