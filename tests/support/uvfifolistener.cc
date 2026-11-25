@@ -21,6 +21,8 @@
 
 #include <chrono>
 #include <csignal>
+#include <cstdio>
+#include <cstdlib>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -100,16 +102,26 @@ void closeHandle(uv_handle_t* handle) {
     if (!uv_is_closing(handle)) uv_close(handle, [](uv_handle_t*) {});
 }
 
-// For a handle whose storage is about to go out of scope: libuv still writes to
-// it, and to its requests, until the close callback has run.
+// Pumps until `done` is set. Used before letting storage go out of scope that
+// libuv or the worker thread may still touch, so giving up is not an option:
+// past the deadline the run is aborted rather than left to a use-after-free.
+void pumpUntil(uv_loop_t* loop, const bool& done, const char* what) {
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (!done && (std::chrono::steady_clock::now() < deadline)) pump(loop, 5);
+    if (done) return;
+    ADD_FAILURE() << "Timed out waiting for " << what;
+    fflush(stdout);
+    std::abort();
+}
+
+// libuv still writes to a closing handle, and to its requests, until the close
+// callback has run.
 void closeAndWait(uv_loop_t* loop, uv_handle_t* handle) {
     if (uv_is_closing(handle)) return;
     bool closed = false;
     handle->data = &closed;
     uv_close(handle, [](uv_handle_t* handle) { *static_cast<bool*>(handle->data) = true; });
-    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-    while (!closed && (std::chrono::steady_clock::now() < deadline)) pump(loop, 5);
-    EXPECT_TRUE(closed);
+    pumpUntil(loop, closed, "a handle to close");
 }
 
 }  // namespace
@@ -293,14 +305,20 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
     IO<File> serverSide;
     UvFifoListener listener;
     uv_async_t listenerAsync = {};
+    bool listenerDone = false;
     listener.start(c_flushPort, &loop, &listenerAsync, [&](UvFifo* fifo) {
-        if (!fifo) return;
+        if (!fifo) {
+            listenerDone = true;
+            return;
+        }
         accepted = fifo;
         serverSide.setFile(fifo);
     });
     AtScopeExit stopListener([&]() {
         listener.stop();
-        pump(&loop);
+        // The nullptr is the listener's last word: after it the worker no longer
+        // touches the listener or the async.
+        pumpUntil(&loop, listenerDone, "the listener to stop");
         closeHandle(reinterpret_cast<uv_handle_t*>(&listenerAsync));
         pump(&loop);
         serverSide.reset();
@@ -338,8 +356,11 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
     // The write completes on the worker thread, and a fast enough kernel can
     // take the whole payload before this line runs. Then nothing is pending and
     // there is nothing for this test to measure.
+    // The worker records a write error before it drops the pending count, so
+    // read the count first.
+    const auto pending = accepted->pendingWrites();
     ASSERT_FALSE(accepted->failed());
-    if (accepted->pendingWrites() == 0) GTEST_SKIP() << "The whole payload left before close(); nothing was pending.";
+    if (pending == 0) GTEST_SKIP() << "The whole payload left before close(); nothing was pending.";
     // No drain wait: close straight away, the way a handler that has finished
     // writing its response does.
     serverSide.reset();
@@ -385,14 +406,20 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
     IO<File> serverSide;
     UvFifoListener listener;
     uv_async_t listenerAsync = {};
+    bool listenerDone = false;
     listener.start(c_dropPort, &loop, &listenerAsync, [&](UvFifo* fifo) {
-        if (!fifo) return;
+        if (!fifo) {
+            listenerDone = true;
+            return;
+        }
         accepted = fifo;
         serverSide.setFile(fifo);
     });
     AtScopeExit stopListener([&]() {
         listener.stop();
-        pump(&loop);
+        // The nullptr is the listener's last word: after it the worker no longer
+        // touches the listener or the async.
+        pumpUntil(&loop, listenerDone, "the listener to stop");
         closeHandle(reinterpret_cast<uv_handle_t*>(&listenerAsync));
         pump(&loop);
         serverSide.reset();
