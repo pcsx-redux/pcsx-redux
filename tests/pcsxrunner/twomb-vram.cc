@@ -47,6 +47,24 @@ TEST(TwoMBVram, BankProbe2MB) {
     EXPECT_EQ(ret, 0);
 }
 
+// clut-y-fold samples a 4bpp texture through CLUT word 0xF800 (CLUT Y 992) and
+// through texpage bit 11 with the gate closed, where both must wrap to the lower
+// bank, and on a 2MB fitment re-reads the CLUT from the real upper bank with the
+// gate open. Tales of Destiny draws its town tiles with that CLUT word.
+TEST(TwoMBVram, ClutYFold1MB) {
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-loadexe", "src/mips/tests/gpu/2mb-vram/clut-y-fold/clut-y-fold.ps-exe");
+    int ret = invoker.invoke();
+    EXPECT_EQ(ret, 0);
+}
+
+TEST(TwoMBVram, ClutYFold2MB) {
+    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/clut-y-fold/clut-y-fold.ps-exe");
+    int ret = invoker.invoke();
+    EXPECT_EQ(ret, 0);
+}
+
 // texpage-upper uploads a 16-bit texture page into the upper bank and samples
 // it through a textured rectangle, asserting the drawn texels match the source.
 // It self-validates against a lower-bank page first, so a passing run proves
@@ -204,5 +222,10 @@ TEST(TwoMBVramOpenGL, PrimitivesCross) {
 TEST(TwoMBVramOpenGL, GateFlipQueued) {
     if (!haveDisplay()) GTEST_SKIP() << "no display";
     EXPECT_EQ(runOpenGLProbe("gate-flip-queued"), 0);
+}
+
+TEST(TwoMBVramOpenGL, ClutYFold) {
+    if (!haveDisplay()) GTEST_SKIP() << "no display";
+    EXPECT_EQ(runOpenGLProbe("clut-y-fold"), 0);
 }
 #endif
