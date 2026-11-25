@@ -20,7 +20,9 @@
 #include <uv.h>
 
 #include <chrono>
+#include <csignal>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -70,6 +72,33 @@ struct Squatter {
     uv_tcp_t m_tcp = {};
     bool m_released = false;
 };
+
+// Runs its function on every way out of a scope, including the early return of
+// a fatal assertion. A listener left listening keeps the worker loop busy, and
+// ~UvThread then waits on that loop forever: a failed ASSERT turned into a hang
+// that only the CI job timeout ended.
+template <typename F>
+class AtScopeExit {
+  public:
+    explicit AtScopeExit(F&& f) : m_f(std::move(f)) {}
+    AtScopeExit(const AtScopeExit&) = delete;
+    AtScopeExit& operator=(const AtScopeExit&) = delete;
+    ~AtScopeExit() { m_f(); }
+
+  private:
+    F m_f;
+};
+
+#ifndef _WIN32
+// The emulator ignores SIGPIPE in main(), and the tests have to as well: a peer
+// closed on an early return, while the worker is still writing to it, would
+// otherwise kill the whole run instead of failing one test.
+[[maybe_unused]] const bool c_sigpipeIgnored = (std::signal(SIGPIPE, SIG_IGN), true);
+#endif
+
+void closeHandle(uv_handle_t* handle) {
+    if (!uv_is_closing(handle)) uv_close(handle, [](uv_handle_t*) {});
+}
 
 }  // namespace
 
@@ -252,6 +281,12 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
     listener.start(c_flushPort, &loop, &listenerAsync, [&accepted](UvFifo* fifo) {
         if (fifo) accepted = fifo;
     });
+    AtScopeExit stopListener([&]() {
+        listener.stop();
+        pump(&loop);
+        closeHandle(reinterpret_cast<uv_handle_t*>(&listenerAsync));
+        pump(&loop);
+    });
     pump(&loop);
     ASSERT_EQ(listener.status(), UvFifoListener::Status::Listening);
 
@@ -263,11 +298,14 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
         bool m_eof = false;
         bool m_reading = false;
     } peer;
+    // Declared before the peer's guard, so a connect still in flight on an early
+    // return is cancelled while its request is alive.
+    uv_connect_t connectReq;
     uv_tcp_init(&loop, &peer.m_tcp);
     peer.m_tcp.data = &peer;
+    AtScopeExit closePeer([&]() { closeHandle(reinterpret_cast<uv_handle_t*>(&peer.m_tcp)); });
     struct sockaddr_in target;
     ASSERT_EQ(uv_ip4_addr("127.0.0.1", c_flushPort, &target), 0);
-    uv_connect_t connectReq;
     ASSERT_EQ(uv_tcp_connect(&connectReq, &peer.m_tcp, reinterpret_cast<const sockaddr*>(&target),
                              [](uv_connect_t*, int status) { EXPECT_EQ(status, 0); }),
               0);
@@ -280,7 +318,10 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
     constexpr size_t c_payloadSize = 64 * 1024 * 1024;
     std::string payload(c_payloadSize, 'x');
     serverSide->write(payload.data(), payload.size());
-    ASSERT_GT(accepted->pendingWrites(), 0u);
+    // The write completes on the worker thread, and a fast enough kernel can
+    // take the whole payload before this line runs. Then nothing is pending and
+    // there is nothing for this test to measure.
+    if (accepted->pendingWrites() == 0) GTEST_SKIP() << "The whole payload left before close(); nothing was pending.";
     // No drain wait: close straight away, the way a handler that has finished
     // writing its response does.
     serverSide.reset();
@@ -310,17 +351,11 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
 
     EXPECT_TRUE(peer.m_eof);
     EXPECT_EQ(peer.m_received, c_payloadSize);
-
-    uv_close(reinterpret_cast<uv_handle_t*>(&peer.m_tcp), [](uv_handle_t*) {});
-    listener.stop();
-    pump(&loop);
-    uv_close(reinterpret_cast<uv_handle_t*>(&listenerAsync), [](uv_handle_t*) {});
-    pump(&loop);
 }
 
 // The fifo is deleted as soon as its last reference goes, but the socket stays
-// open until the queued writes drain, and the peer is free to keep talking in
-// the meantime. Its bytes must not be read into the deleted fifo. Under ASan
+// open until the queued writes drain and the peer hangs up, and the peer is free
+// to keep talking in the meantime. Its bytes must not be read into the deleted fifo. Under ASan
 // this is a heap-use-after-free without the fix; without ASan it may pass.
 TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
     UvThreadOp::UvThread uvThread;
@@ -332,6 +367,12 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
     listener.start(c_dropPort, &loop, &listenerAsync, [&accepted](UvFifo* fifo) {
         if (fifo) accepted = fifo;
     });
+    AtScopeExit stopListener([&]() {
+        listener.stop();
+        pump(&loop);
+        closeHandle(reinterpret_cast<uv_handle_t*>(&listenerAsync));
+        pump(&loop);
+    });
     pump(&loop);
     ASSERT_EQ(listener.status(), UvFifoListener::Status::Listening);
 
@@ -341,11 +382,14 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
         bool m_eof = false;
         ssize_t m_endCode = 0;
     } peer;
+    // Declared before the peer's guard, so a connect still in flight on an early
+    // return is cancelled while its request is alive.
+    uv_connect_t connectReq;
     uv_tcp_init(&loop, &peer.m_tcp);
     peer.m_tcp.data = &peer;
+    AtScopeExit closePeer([&]() { closeHandle(reinterpret_cast<uv_handle_t*>(&peer.m_tcp)); });
     struct sockaddr_in target;
     ASSERT_EQ(uv_ip4_addr("127.0.0.1", c_dropPort, &target), 0);
-    uv_connect_t connectReq;
     ASSERT_EQ(uv_tcp_connect(&connectReq, &peer.m_tcp, reinterpret_cast<const sockaddr*>(&target),
                              [](uv_connect_t*, int status) { EXPECT_EQ(status, 0); }),
               0);
@@ -353,11 +397,11 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
     ASSERT_NE(accepted, nullptr);
     IO<File> serverSide(accepted);
 
-    // Keep the socket open past the fifo's lifetime, as in the flush test.
+    // The graceful close keeps the socket open past the fifo's lifetime until
+    // the peer hangs up, whether or not the write below is still pending.
     constexpr size_t c_payloadSize = 16 * 1024 * 1024;
     std::string payload(c_payloadSize, 'x');
     serverSide->write(payload.data(), payload.size());
-    ASSERT_GT(accepted->pendingWrites(), 0u);
     serverSide.reset();
 
     // Now talk to the socket whose fifo is gone.
@@ -394,10 +438,4 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
     // unread data on it, which also throws away what the peer had not read yet.
     EXPECT_STREQ(uv_err_name(static_cast<int>(peer.m_endCode)), "EOF");
     EXPECT_EQ(peer.m_received, c_payloadSize);
-
-    uv_close(reinterpret_cast<uv_handle_t*>(&peer.m_tcp), [](uv_handle_t*) {});
-    listener.stop();
-    pump(&loop);
-    uv_close(reinterpret_cast<uv_handle_t*>(&listenerAsync), [](uv_handle_t*) {});
-    pump(&loop);
 }
