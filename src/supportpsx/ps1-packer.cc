@@ -29,6 +29,7 @@ SOFTWARE.
 #include <assert.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <exception>
 #include <vector>
 
@@ -76,6 +77,104 @@ int16_t getLO(uint32_t v) {
     return ret;
 }
 
+// Datel carts (Action Replay, GameShark) map the first 128KB of their flash
+// at 0x1f000000 and the second 128KB at 0x1f040000, with I/O registers in
+// between. The rom image is linear in flash, so its second 128KB lands in the
+// second window. The bootstrap gathers the compressed stream from both windows
+// into RAM, at the same spot an in-place PS-X EXE would hold it, then runs the
+// usual decompression. Returns the entry point of the bootstrap.
+uint32_t packDatel(std::vector<uint8_t>& dataOut, size_t inSize, size_t outSize, uint32_t addr, uint32_t pc,
+                   const PCSX::PS1Packer::Options& options) {
+    // The last 8KB of each window is left alone.
+    constexpr uint32_t window1Base = 0x1f000000;
+    constexpr uint32_t window2Base = 0x1f040000;
+    constexpr uint32_t window2Offset = 0x20000;
+    constexpr uint32_t windowUsable = 0x1e000;
+    constexpr uint32_t tload = 0x110;
+
+    size_t margin = PCSX::UCLUtils::inPlaceOverlapMargin(dataOut.data(), outSize, inSize);
+    size_t relMargin = margin - inSize + outSize;
+    relMargin = (relMargin + 3) & ~3;
+    uint32_t staging = addr + inSize + relMargin + 8 - dataOut.size();
+    uint32_t rawStaging = staging & 0x1fffffff;
+    if (rawStaging < 0x10000) staging += 0x10000 - rawStaging;
+    if (((staging + dataOut.size()) & 0x1fffffff) > 0x1f0000) {
+        throw std::runtime_error("Binary too large to be staged in RAM for a Datel rom.\n");
+    }
+
+    auto emit = [&](uint32_t size1, uint32_t size2) {
+        std::vector<uint8_t> code;
+        pushBytes(code, n2e_d::code);
+        if (options.resetstack) {
+            pushBytes(code, lui(Reg::SP, 0x807f));
+        } else {
+            pushBytes(code, addiu(Reg::T8, Reg::RA, 0));
+        }
+        // Kill interrupts by setting IMASK to 0.
+        pushBytes(code, lui(Reg::V1, 0x1f80));
+        pushBytes(code, sw(Reg::R0, 0x1074, Reg::V1));
+        // Copies $t1 words from $a2 to $a3.
+        auto copy = [&](uint32_t src, uint32_t size) {
+            pushBytes(code, lui(Reg::A2, getHI(src)));
+            pushBytes(code, addiu(Reg::A2, getLO(src)));
+            pushBytes(code, lui(Reg::T1, getHI(size / 4)));
+            pushBytes(code, addiu(Reg::T1, getLO(size / 4)));
+            pushBytes(code, lw(Reg::T0, 0, Reg::A2));
+            pushBytes(code, addiu(Reg::T1, -1));
+            pushBytes(code, addiu(Reg::A2, 4));
+            pushBytes(code, sw(Reg::T0, 0, Reg::A3));
+            pushBytes(code, bnez(Reg::T1, -20));
+            pushBytes(code, addiu(Reg::A3, 4));
+        };
+        pushBytes(code, lui(Reg::A3, getHI(staging)));
+        pushBytes(code, addiu(Reg::A3, getLO(staging)));
+        uint32_t codeSize = sizeof(n2e_d::code);
+        uint32_t fixedSize = 38 * 4;
+        copy(window1Base + tload + codeSize + fixedSize, size1);
+        if (size2 != 0) copy(window2Base, size2);
+        // Calls the ucl-nrv2e decompressor.
+        pushBytes(code, lui(Reg::A0, getHI(staging)));
+        pushBytes(code, addiu(Reg::A0, getLO(staging)));
+        pushBytes(code, lui(Reg::A1, getHI(addr)));
+        pushBytes(code, bal(-((int16_t)(code.size() + 4))));
+        pushBytes(code, addiu(Reg::A1, getLO(addr)));
+        // Calls A0:44 - FlushCache, then jumps into the decompressed binary.
+        pushBytes(code, li(Reg::T0, 0xa0));
+        pushBytes(code, jalr(Reg::T0));
+        pushBytes(code, li(Reg::T1, 0x44));
+        pushBytes(code, lui(Reg::T0, getHI(pc)));
+        pushBytes(code, addiu(Reg::T0, getLO(pc)));
+        pushBytes(code, jr(Reg::T0));
+        if (options.resetstack) {
+            pushBytes(code, ori(Reg::SP, 0xfff0));
+        } else {
+            pushBytes(code, addiu(Reg::RA, Reg::T8, 0));
+        }
+        while (code.size() < codeSize + fixedSize) pushBytes(code, nop());
+        if (code.size() != codeSize + fixedSize) {
+            throw std::runtime_error("Internal error: Datel bootstrap size mismatch.\n");
+        }
+        return code;
+    };
+
+    uint32_t codeSize = emit(0, 0).size();
+    uint32_t dataStart = tload + codeSize;
+    uint32_t size1 = std::min<uint32_t>(dataOut.size(), windowUsable - dataStart);
+    uint32_t size2 = dataOut.size() - size1;
+    if (size2 > windowUsable) {
+        throw std::runtime_error("Binary too large for a Datel rom, even split over both flash windows.\n");
+    }
+
+    std::vector<uint8_t> rom = emit(size1, size2);
+    rom.insert(rom.end(), dataOut.begin(), dataOut.begin() + size1);
+    if (size2 != 0) {
+        rom.resize(window2Offset - tload, 0);
+        rom.insert(rom.end(), dataOut.begin() + size1, dataOut.end());
+    }
+    dataOut = std::move(rom);
+    return window1Base + tload + sizeof(n2e_d::code);
+}
+
 }  // namespace
 
 void PCSX::PS1Packer::pack(IO<File> src, IO<File> dest, uint32_t addr, uint32_t pc, uint32_t gp, uint32_t sp,
@@ -103,12 +202,14 @@ void PCSX::PS1Packer::pack(IO<File> src, IO<File> dest, uint32_t addr, uint32_t 
     while ((dataOut.size() & 3) != 0) {
         dataOut.push_back(0);
     }
+    std::vector<uint8_t> compressed;
+    if (options.datel) compressed = dataOut;
     uint32_t newPC = dataOut.size();
     uint32_t compLoad = 0;
 
     // If we're outputting a rom file, our tload will be fixed
     // at 0x1f000110, after the license string.
-    uint32_t tload = options.raw ? 0 : options.rom ? 0x1f000110 : options.tload;
+    uint32_t tload = options.raw ? 0 : (options.rom || options.datel) ? 0x1f000110 : options.tload;
 
     if (tload != 0) {
         newPC = tload + dataOut.size();
@@ -330,9 +431,14 @@ void PCSX::PS1Packer::pack(IO<File> src, IO<File> dest, uint32_t addr, uint32_t 
         }
     }
 
+    if (options.datel) {
+        newPC = packDatel(compressed, dataIn.size(), outSize, addr, pc, options);
+        dataOut = std::move(compressed);
+    }
+
     // Pad our PS-X EXE to a multiple of 2048 bytes, because
     // that's what the PS1's BIOS expects when reading from CD-Rom.
-    while (!options.cpe && !options.booty && !options.rom && !options.raw && !options.nopad &&
+    while (!options.cpe && !options.booty && !options.rom && !options.datel && !options.raw && !options.nopad &&
            ((dataOut.size() & 0x7ff) != 0)) {
         dataOut.push_back(0);
     }
@@ -342,7 +448,7 @@ void PCSX::PS1Packer::pack(IO<File> src, IO<File> dest, uint32_t addr, uint32_t 
     // For a rom file, this is going to be the most complex
     // header, as we still need to push some more code.
     std::vector<uint8_t> header;
-    if (options.booty || options.rom) {
+    if (options.booty || options.rom || options.datel) {
         // We'll use the same bootstrap code for both the normal rom code
         // and the booty code, cause we're lazy. The stage2 code is
         // going to be executed by the breakpoint we're setting on top
@@ -451,7 +557,7 @@ void PCSX::PS1Packer::pack(IO<File> src, IO<File> dest, uint32_t addr, uint32_t 
         header.pop_back();
         pushBytes(header, jr(Reg::RA));
         pushBytes(header, last);
-        if (options.rom) {
+        if (options.rom || options.datel) {
             // Our tload for a rom file is fixed at 0x1f000110, so we
             // have some leeway for stage2 above, and so we need to
             // pad until we arrive at 0x110.

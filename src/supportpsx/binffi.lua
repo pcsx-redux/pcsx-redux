@@ -43,6 +43,7 @@ struct PS1PackerOptions {
     bool raw;
     bool rom;
     bool cpe;
+    bool datel;
 };
 
 bool binaryLoaderLoad(LuaFile* src, LuaFile* dest, struct BinaryLoaderInfo* info);

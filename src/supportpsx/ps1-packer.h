@@ -44,6 +44,7 @@ struct Options {
     bool raw = false;
     bool rom = false;
     bool cpe = false;
+    bool datel = false;
 };
 
 void pack(IO<File> src, IO<File> dest, uint32_t addr, uint32_t pc, uint32_t gp, uint32_t sp, const Options&);
