@@ -243,9 +243,6 @@ TEST(UvFifo, FailedConnectIsActionable) {
 // i.e. it measured nothing. A silent peer fills the socket buffers and forces
 // the writes to stay queued, which is the only state in which this is a test.
 TEST(UvFifo, CloseFlushesPendingWrites) {
-#ifdef _WIN32
-    GTEST_SKIP() << "Intermittently hangs the Windows CI runner past its job timeout.";
-#endif
     UvThreadOp::UvThread uvThread;
     Loop loop;
 
@@ -326,9 +323,6 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
 // the meantime. Its bytes must not be read into the deleted fifo. Under ASan
 // this is a heap-use-after-free without the fix; without ASan it may pass.
 TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
-#ifdef _WIN32
-    GTEST_SKIP() << "Intermittently hangs the Windows CI runner past its job timeout.";
-#endif
     UvThreadOp::UvThread uvThread;
     Loop loop;
 
