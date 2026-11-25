@@ -100,6 +100,18 @@ void closeHandle(uv_handle_t* handle) {
     if (!uv_is_closing(handle)) uv_close(handle, [](uv_handle_t*) {});
 }
 
+// For a handle whose storage is about to go out of scope: libuv still writes to
+// it, and to its requests, until the close callback has run.
+void closeAndWait(uv_loop_t* loop, uv_handle_t* handle) {
+    if (uv_is_closing(handle)) return;
+    bool closed = false;
+    handle->data = &closed;
+    uv_close(handle, [](uv_handle_t* handle) { *static_cast<bool*>(handle->data) = true; });
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!closed && (std::chrono::steady_clock::now() < deadline)) pump(loop, 5);
+    EXPECT_TRUE(closed);
+}
+
 }  // namespace
 
 // Control: a listener that binds cleanly must start and stop without incident.
@@ -276,16 +288,22 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
     Loop loop;
 
     UvFifo* accepted = nullptr;
+    // Owns every accepted fifo, including one the listener only delivers while
+    // the guard below is pumping, so none of them is left open.
+    IO<File> serverSide;
     UvFifoListener listener;
     uv_async_t listenerAsync = {};
-    listener.start(c_flushPort, &loop, &listenerAsync, [&accepted](UvFifo* fifo) {
-        if (fifo) accepted = fifo;
+    listener.start(c_flushPort, &loop, &listenerAsync, [&](UvFifo* fifo) {
+        if (!fifo) return;
+        accepted = fifo;
+        serverSide.setFile(fifo);
     });
     AtScopeExit stopListener([&]() {
         listener.stop();
         pump(&loop);
         closeHandle(reinterpret_cast<uv_handle_t*>(&listenerAsync));
         pump(&loop);
+        serverSide.reset();
     });
     pump(&loop);
     ASSERT_EQ(listener.status(), UvFifoListener::Status::Listening);
@@ -298,12 +316,12 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
         bool m_eof = false;
         bool m_reading = false;
     } peer;
-    // Declared before the peer's guard, so a connect still in flight on an early
-    // return is cancelled while its request is alive.
+    // Declared before the peer's guard, so a request still in flight on an early
+    // return is cancelled while its storage is alive.
     uv_connect_t connectReq;
     uv_tcp_init(&loop, &peer.m_tcp);
     peer.m_tcp.data = &peer;
-    AtScopeExit closePeer([&]() { closeHandle(reinterpret_cast<uv_handle_t*>(&peer.m_tcp)); });
+    AtScopeExit closePeer([&]() { closeAndWait(&loop, reinterpret_cast<uv_handle_t*>(&peer.m_tcp)); });
     struct sockaddr_in target;
     ASSERT_EQ(uv_ip4_addr("127.0.0.1", c_flushPort, &target), 0);
     ASSERT_EQ(uv_tcp_connect(&connectReq, &peer.m_tcp, reinterpret_cast<const sockaddr*>(&target),
@@ -311,7 +329,6 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
               0);
     pump(&loop);
     ASSERT_NE(accepted, nullptr);
-    IO<File> serverSide(accepted);
 
     // Big enough that it cannot possibly fit in the socket buffers, so the tail
     // is genuinely still queued when close() lands.
@@ -321,6 +338,7 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
     // The write completes on the worker thread, and a fast enough kernel can
     // take the whole payload before this line runs. Then nothing is pending and
     // there is nothing for this test to measure.
+    ASSERT_FALSE(accepted->failed());
     if (accepted->pendingWrites() == 0) GTEST_SKIP() << "The whole payload left before close(); nothing was pending.";
     // No drain wait: close straight away, the way a handler that has finished
     // writing its response does.
@@ -362,16 +380,22 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
     Loop loop;
 
     UvFifo* accepted = nullptr;
+    // Owns every accepted fifo, including one the listener only delivers while
+    // the guard below is pumping, so none of them is left open.
+    IO<File> serverSide;
     UvFifoListener listener;
     uv_async_t listenerAsync = {};
-    listener.start(c_dropPort, &loop, &listenerAsync, [&accepted](UvFifo* fifo) {
-        if (fifo) accepted = fifo;
+    listener.start(c_dropPort, &loop, &listenerAsync, [&](UvFifo* fifo) {
+        if (!fifo) return;
+        accepted = fifo;
+        serverSide.setFile(fifo);
     });
     AtScopeExit stopListener([&]() {
         listener.stop();
         pump(&loop);
         closeHandle(reinterpret_cast<uv_handle_t*>(&listenerAsync));
         pump(&loop);
+        serverSide.reset();
     });
     pump(&loop);
     ASSERT_EQ(listener.status(), UvFifoListener::Status::Listening);
@@ -382,12 +406,13 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
         bool m_eof = false;
         ssize_t m_endCode = 0;
     } peer;
-    // Declared before the peer's guard, so a connect still in flight on an early
-    // return is cancelled while its request is alive.
+    // Declared before the peer's guard, so a request still in flight on an early
+    // return is cancelled while its storage is alive.
     uv_connect_t connectReq;
+    uv_write_t writeReq;
     uv_tcp_init(&loop, &peer.m_tcp);
     peer.m_tcp.data = &peer;
-    AtScopeExit closePeer([&]() { closeHandle(reinterpret_cast<uv_handle_t*>(&peer.m_tcp)); });
+    AtScopeExit closePeer([&]() { closeAndWait(&loop, reinterpret_cast<uv_handle_t*>(&peer.m_tcp)); });
     struct sockaddr_in target;
     ASSERT_EQ(uv_ip4_addr("127.0.0.1", c_dropPort, &target), 0);
     ASSERT_EQ(uv_tcp_connect(&connectReq, &peer.m_tcp, reinterpret_cast<const sockaddr*>(&target),
@@ -395,7 +420,6 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
               0);
     pump(&loop);
     ASSERT_NE(accepted, nullptr);
-    IO<File> serverSide(accepted);
 
     // The graceful close keeps the socket open past the fifo's lifetime until
     // the peer hangs up, whether or not the write below is still pending.
@@ -407,7 +431,6 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
     // Now talk to the socket whose fifo is gone.
     static const char c_chatter[] = "still here";
     uv_buf_t chatter = uv_buf_init(const_cast<char*>(c_chatter), sizeof(c_chatter) - 1);
-    uv_write_t writeReq;
     ASSERT_EQ(uv_write(&writeReq, reinterpret_cast<uv_stream_t*>(&peer.m_tcp), &chatter, 1,
                        [](uv_write_t*, int status) { EXPECT_EQ(status, 0); }),
               0);
