@@ -19,8 +19,13 @@
 
 #include <uv.h>
 
+#include <atomic>
 #include <chrono>
+#include <csignal>
+#include <cstdio>
+#include <cstdlib>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -70,6 +75,64 @@ struct Squatter {
     uv_tcp_t m_tcp = {};
     bool m_released = false;
 };
+
+// Runs its function on every way out of a scope, including the early return of
+// a fatal assertion. A listener left listening keeps the worker loop busy, and
+// ~UvThread then waits on that loop forever: a failed ASSERT turned into a hang
+// that only the CI job timeout ended.
+template <typename F>
+class AtScopeExit {
+  public:
+    explicit AtScopeExit(F&& f) : m_f(std::move(f)) {}
+    AtScopeExit(const AtScopeExit&) = delete;
+    AtScopeExit& operator=(const AtScopeExit&) = delete;
+    ~AtScopeExit() { m_f(); }
+
+  private:
+    F m_f;
+};
+
+#ifndef _WIN32
+// The emulator ignores SIGPIPE in main(), and the tests have to as well: a peer
+// closed on an early return, while the worker is still writing to it, would
+// otherwise kill the whole run instead of failing one test.
+[[maybe_unused]] const bool c_sigpipeIgnored = (std::signal(SIGPIPE, SIG_IGN), true);
+#endif
+
+void closeHandle(uv_handle_t* handle) {
+    if (!uv_is_closing(handle)) uv_close(handle, [](uv_handle_t*) {});
+}
+
+// Pumps until `done` is set. Used before letting storage go out of scope that
+// libuv or the worker thread may still touch, so giving up is not an option:
+// past the deadline the run is aborted rather than left to a use-after-free.
+template <typename Flag>
+void pumpUntil(uv_loop_t* loop, const Flag& done, const char* what) {
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (!done && (std::chrono::steady_clock::now() < deadline)) pump(loop, 5);
+    if (done) return;
+    ADD_FAILURE() << "Timed out waiting for " << what;
+    fflush(stdout);
+    std::abort();
+}
+
+// The worker runs requests in the order they were queued, so once this one has
+// run, everything queued before it has finished too.
+struct WorkerBarrier : UvThreadOp {
+    static void post(std::atomic<bool>& done) {
+        request([&done](uv_loop_t*) { done.store(true); });
+    }
+};
+
+// libuv still writes to a closing handle, and to its requests, until the close
+// callback has run.
+void closeAndWait(uv_loop_t* loop, uv_handle_t* handle) {
+    if (uv_is_closing(handle)) return;
+    bool closed = false;
+    handle->data = &closed;
+    uv_close(handle, [](uv_handle_t* handle) { *static_cast<bool*>(handle->data) = true; });
+    pumpUntil(loop, closed, "a handle to close");
+}
 
 }  // namespace
 
@@ -243,17 +306,37 @@ TEST(UvFifo, FailedConnectIsActionable) {
 // i.e. it measured nothing. A silent peer fills the socket buffers and forces
 // the writes to stay queued, which is the only state in which this is a test.
 TEST(UvFifo, CloseFlushesPendingWrites) {
-#ifdef _WIN32
-    GTEST_SKIP() << "Intermittently hangs the Windows CI runner past its job timeout.";
-#endif
     UvThreadOp::UvThread uvThread;
     Loop loop;
 
     UvFifo* accepted = nullptr;
+    // Owns every accepted fifo, including one the listener only delivers while
+    // the guard below is pumping, so none of them is left open.
+    IO<File> serverSide;
     UvFifoListener listener;
     uv_async_t listenerAsync = {};
-    listener.start(c_flushPort, &loop, &listenerAsync, [&accepted](UvFifo* fifo) {
-        if (fifo) accepted = fifo;
+    bool listenerDone = false;
+    listener.start(c_flushPort, &loop, &listenerAsync, [&](UvFifo* fifo) {
+        if (!fifo) {
+            listenerDone = true;
+            return;
+        }
+        accepted = fifo;
+        serverSide.setFile(fifo);
+    });
+    AtScopeExit stopListener([&]() {
+        // stop() is harmless on a listener that already failed. The nullptr is
+        // sent from the worker's close callback, and a request queued after it
+        // arrives can only run once that callback, and the queued stop(), have
+        // returned. Only then is it safe to let the listener go.
+        listener.stop();
+        pumpUntil(&loop, listenerDone, "the listener to stop");
+        std::atomic<bool> drained = false;
+        WorkerBarrier::post(drained);
+        pumpUntil(&loop, drained, "the worker to drain");
+        closeHandle(reinterpret_cast<uv_handle_t*>(&listenerAsync));
+        pump(&loop);
+        serverSide.reset();
     });
     pump(&loop);
     ASSERT_EQ(listener.status(), UvFifoListener::Status::Listening);
@@ -266,24 +349,33 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
         bool m_eof = false;
         bool m_reading = false;
     } peer;
+    // Declared before the peer's guard, so a request still in flight on an early
+    // return is cancelled while its storage is alive.
+    uv_connect_t connectReq;
     uv_tcp_init(&loop, &peer.m_tcp);
     peer.m_tcp.data = &peer;
+    AtScopeExit closePeer([&]() { closeAndWait(&loop, reinterpret_cast<uv_handle_t*>(&peer.m_tcp)); });
     struct sockaddr_in target;
     ASSERT_EQ(uv_ip4_addr("127.0.0.1", c_flushPort, &target), 0);
-    uv_connect_t connectReq;
     ASSERT_EQ(uv_tcp_connect(&connectReq, &peer.m_tcp, reinterpret_cast<const sockaddr*>(&target),
                              [](uv_connect_t*, int status) { EXPECT_EQ(status, 0); }),
               0);
     pump(&loop);
     ASSERT_NE(accepted, nullptr);
-    IO<File> serverSide(accepted);
 
     // Big enough that it cannot possibly fit in the socket buffers, so the tail
     // is genuinely still queued when close() lands.
     constexpr size_t c_payloadSize = 64 * 1024 * 1024;
     std::string payload(c_payloadSize, 'x');
     serverSide->write(payload.data(), payload.size());
-    ASSERT_GT(accepted->pendingWrites(), 0u);
+    // The write completes on the worker thread, and a fast enough kernel can
+    // take the whole payload before this line runs. Then nothing is pending and
+    // there is nothing for this test to measure.
+    // The worker records a write error before it drops the pending count, so
+    // read the count first.
+    const auto pending = accepted->pendingWrites();
+    ASSERT_FALSE(accepted->failed());
+    if (pending == 0) GTEST_SKIP() << "The whole payload left before close(); nothing was pending.";
     // No drain wait: close straight away, the way a handler that has finished
     // writing its response does.
     serverSide.reset();
@@ -313,30 +405,44 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
 
     EXPECT_TRUE(peer.m_eof);
     EXPECT_EQ(peer.m_received, c_payloadSize);
-
-    uv_close(reinterpret_cast<uv_handle_t*>(&peer.m_tcp), [](uv_handle_t*) {});
-    listener.stop();
-    pump(&loop);
-    uv_close(reinterpret_cast<uv_handle_t*>(&listenerAsync), [](uv_handle_t*) {});
-    pump(&loop);
 }
 
 // The fifo is deleted as soon as its last reference goes, but the socket stays
-// open until the queued writes drain, and the peer is free to keep talking in
-// the meantime. Its bytes must not be read into the deleted fifo. Under ASan
+// open until the queued writes drain and the peer hangs up, and the peer is free
+// to keep talking in the meantime. Its bytes must not be read into the deleted fifo. Under ASan
 // this is a heap-use-after-free without the fix; without ASan it may pass.
 TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
-#ifdef _WIN32
-    GTEST_SKIP() << "Intermittently hangs the Windows CI runner past its job timeout.";
-#endif
     UvThreadOp::UvThread uvThread;
     Loop loop;
 
     UvFifo* accepted = nullptr;
+    // Owns every accepted fifo, including one the listener only delivers while
+    // the guard below is pumping, so none of them is left open.
+    IO<File> serverSide;
     UvFifoListener listener;
     uv_async_t listenerAsync = {};
-    listener.start(c_dropPort, &loop, &listenerAsync, [&accepted](UvFifo* fifo) {
-        if (fifo) accepted = fifo;
+    bool listenerDone = false;
+    listener.start(c_dropPort, &loop, &listenerAsync, [&](UvFifo* fifo) {
+        if (!fifo) {
+            listenerDone = true;
+            return;
+        }
+        accepted = fifo;
+        serverSide.setFile(fifo);
+    });
+    AtScopeExit stopListener([&]() {
+        // stop() is harmless on a listener that already failed. The nullptr is
+        // sent from the worker's close callback, and a request queued after it
+        // arrives can only run once that callback, and the queued stop(), have
+        // returned. Only then is it safe to let the listener go.
+        listener.stop();
+        pumpUntil(&loop, listenerDone, "the listener to stop");
+        std::atomic<bool> drained = false;
+        WorkerBarrier::post(drained);
+        pumpUntil(&loop, drained, "the worker to drain");
+        closeHandle(reinterpret_cast<uv_handle_t*>(&listenerAsync));
+        pump(&loop);
+        serverSide.reset();
     });
     pump(&loop);
     ASSERT_EQ(listener.status(), UvFifoListener::Status::Listening);
@@ -347,29 +453,31 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
         bool m_eof = false;
         ssize_t m_endCode = 0;
     } peer;
+    // Declared before the peer's guard, so a request still in flight on an early
+    // return is cancelled while its storage is alive.
+    uv_connect_t connectReq;
+    uv_write_t writeReq;
     uv_tcp_init(&loop, &peer.m_tcp);
     peer.m_tcp.data = &peer;
+    AtScopeExit closePeer([&]() { closeAndWait(&loop, reinterpret_cast<uv_handle_t*>(&peer.m_tcp)); });
     struct sockaddr_in target;
     ASSERT_EQ(uv_ip4_addr("127.0.0.1", c_dropPort, &target), 0);
-    uv_connect_t connectReq;
     ASSERT_EQ(uv_tcp_connect(&connectReq, &peer.m_tcp, reinterpret_cast<const sockaddr*>(&target),
                              [](uv_connect_t*, int status) { EXPECT_EQ(status, 0); }),
               0);
     pump(&loop);
     ASSERT_NE(accepted, nullptr);
-    IO<File> serverSide(accepted);
 
-    // Keep the socket open past the fifo's lifetime, as in the flush test.
+    // The graceful close keeps the socket open past the fifo's lifetime until
+    // the peer hangs up, whether or not the write below is still pending.
     constexpr size_t c_payloadSize = 16 * 1024 * 1024;
     std::string payload(c_payloadSize, 'x');
     serverSide->write(payload.data(), payload.size());
-    ASSERT_GT(accepted->pendingWrites(), 0u);
     serverSide.reset();
 
     // Now talk to the socket whose fifo is gone.
     static const char c_chatter[] = "still here";
     uv_buf_t chatter = uv_buf_init(const_cast<char*>(c_chatter), sizeof(c_chatter) - 1);
-    uv_write_t writeReq;
     ASSERT_EQ(uv_write(&writeReq, reinterpret_cast<uv_stream_t*>(&peer.m_tcp), &chatter, 1,
                        [](uv_write_t*, int status) { EXPECT_EQ(status, 0); }),
               0);
@@ -400,10 +508,4 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
     // unread data on it, which also throws away what the peer had not read yet.
     EXPECT_STREQ(uv_err_name(static_cast<int>(peer.m_endCode)), "EOF");
     EXPECT_EQ(peer.m_received, c_payloadSize);
-
-    uv_close(reinterpret_cast<uv_handle_t*>(&peer.m_tcp), [](uv_handle_t*) {});
-    listener.stop();
-    pump(&loop);
-    uv_close(reinterpret_cast<uv_handle_t*>(&listenerAsync), [](uv_handle_t*) {});
-    pump(&loop);
 }

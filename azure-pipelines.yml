@@ -1,123 +1,127 @@
 trigger:
 - main
 
-pool:
-  vmImage: 'windows-2025-vs2026'
+jobs:
+- job: build
+  # The VS build alone has taken up to 55 minutes, too close to the default 60.
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'windows-2025-vs2026'
 
-variables:
-  solution: 'vsprojects/pcsx-redux.sln'
-  buildConfiguration: 'ReleaseWithClangCL'
+  variables:
+    solution: 'vsprojects/pcsx-redux.sln'
+    buildConfiguration: 'ReleaseWithClangCL'
 
-steps:
-- checkout: self
-  submodules: false
-- task: Bash@3
-  inputs:
-    filePath: '.github/scripts/update-submodules.sh'
-- task: NuGetToolInstaller@1
+  steps:
+  - checkout: self
+    submodules: false
+  - task: Bash@3
+    inputs:
+      filePath: '.github/scripts/update-submodules.sh'
+  - task: NuGetToolInstaller@1
 
-- task: NuGetCommand@2
-  inputs:
-    restoreSolution: '$(solution)'
+  - task: NuGetCommand@2
+    inputs:
+      restoreSolution: '$(solution)'
 
-- task: PowerShell@2
-  inputs:
-    targetType: 'inline'
-    script: |
-      wget https://christiansoltenborn.gallerycdn.vsassets.io/extensions/christiansoltenborn/googletestadapter/0.17.1.1389/1571333606547/GoogleTestAdapter-0.17.1.vsix -OutFile GoogleTestAdapter-0.17.1.zip
+  - task: PowerShell@2
+    inputs:
+      targetType: 'inline'
+      script: |
+        wget https://christiansoltenborn.gallerycdn.vsassets.io/extensions/christiansoltenborn/googletestadapter/0.17.1.1389/1571333606547/GoogleTestAdapter-0.17.1.vsix -OutFile GoogleTestAdapter-0.17.1.zip
 
-- task: ExtractFiles@1
-  inputs:
-    archiveFilePatterns: 'GoogleTestAdapter-0.17.1.zip'
-    destinationFolder: 'GoogleTestAdapter'
-    cleanDestinationFolder: true
+  - task: ExtractFiles@1
+    inputs:
+      archiveFilePatterns: 'GoogleTestAdapter-0.17.1.zip'
+      destinationFolder: 'GoogleTestAdapter'
+      cleanDestinationFolder: true
 
-- task: CopyFiles@2
-  inputs:
-    Contents: |
-      LICENSE
-      i18n/*.po
-    TargetFolder: '$(build.artifactStagingDirectory)/assets'
+  - task: CopyFiles@2
+    inputs:
+      Contents: |
+        LICENSE
+        i18n/*.po
+      TargetFolder: '$(build.artifactStagingDirectory)/assets'
 
-- task: CopyFiles@2
-  inputs:
-    Contents: |
-      third_party/noto/*
-    TargetFolder: '$(build.artifactStagingDirectory)/assets/fonts'
-    FlattenFolders: true
+  - task: CopyFiles@2
+    inputs:
+      Contents: |
+        third_party/noto/*
+      TargetFolder: '$(build.artifactStagingDirectory)/assets/fonts'
+      FlattenFolders: true
 
-- task: CopyFiles@2
-  inputs:
-    Contents: |
-      resources/*.lua
-    TargetFolder: '$(build.artifactStagingDirectory)/assets'
-    FlattenFolders: true
+  - task: CopyFiles@2
+    inputs:
+      Contents: |
+        resources/*.lua
+      TargetFolder: '$(build.artifactStagingDirectory)/assets'
+      FlattenFolders: true
 
-- task: VSBuild@1
-  inputs:
-    solution: '$(solution)'
-    platform: 'x64'
-    maximumCpuCount: false
-    configuration: '$(buildConfiguration)'
+  - task: VSBuild@1
+    inputs:
+      solution: '$(solution)'
+      platform: 'x64'
+      maximumCpuCount: false
+      configuration: '$(buildConfiguration)'
 
-- task: PowerShell@2
-  inputs:
-    targetType: 'inline'
-    script: |
-      Rename-Item -Path "vsprojects/x64/ReleaseWithClangCL/pcsx-redux.exe" -NewName "pcsx-redux.main"
-      Rename-Item -Path "vsprojects/x64/ReleaseWithClangCL/pcsx-wrapper.exe" -NewName "pcsx-redux.exe"
+  - task: PowerShell@2
+    inputs:
+      targetType: 'inline'
+      script: |
+        Rename-Item -Path "vsprojects/x64/ReleaseWithClangCL/pcsx-redux.exe" -NewName "pcsx-redux.main"
+        Rename-Item -Path "vsprojects/x64/ReleaseWithClangCL/pcsx-wrapper.exe" -NewName "pcsx-redux.exe"
 
-- task: CopyFiles@2
-  inputs:
-    Contents: |
-      vsprojects/x64/ReleaseWithClangCL/pcsx-redux.main
-      vsprojects/x64/ReleaseWithClangCL/pcsx-redux.exe
-      vsprojects/x64/ReleaseWithClangCL/crashpad_handler.exe
-      vsprojects/x64/ReleaseWithClangCL/authoring.exe
-      vsprojects/x64/ReleaseWithClangCL/exe2elf.exe
-      vsprojects/x64/ReleaseWithClangCL/exe2iso.exe
-      vsprojects/x64/ReleaseWithClangCL/exe2sys573.exe
-      vsprojects/x64/ReleaseWithClangCL/modconv.exe
-      vsprojects/x64/ReleaseWithClangCL/xmconv.exe
-      vsprojects/x64/ReleaseWithClangCL/ps1-packer.exe
-      vsprojects/x64/ReleaseWithClangCL/psyq-obj-parser.exe
-      vsprojects/x64/ReleaseWithClangCL/*.dll
-    TargetFolder: '$(build.artifactStagingDirectory)/binaries'
+  - task: CopyFiles@2
+    inputs:
+      Contents: |
+        vsprojects/x64/ReleaseWithClangCL/pcsx-redux.main
+        vsprojects/x64/ReleaseWithClangCL/pcsx-redux.exe
+        vsprojects/x64/ReleaseWithClangCL/crashpad_handler.exe
+        vsprojects/x64/ReleaseWithClangCL/authoring.exe
+        vsprojects/x64/ReleaseWithClangCL/exe2elf.exe
+        vsprojects/x64/ReleaseWithClangCL/exe2iso.exe
+        vsprojects/x64/ReleaseWithClangCL/exe2sys573.exe
+        vsprojects/x64/ReleaseWithClangCL/modconv.exe
+        vsprojects/x64/ReleaseWithClangCL/xmconv.exe
+        vsprojects/x64/ReleaseWithClangCL/ps1-packer.exe
+        vsprojects/x64/ReleaseWithClangCL/psyq-obj-parser.exe
+        vsprojects/x64/ReleaseWithClangCL/*.dll
+      TargetFolder: '$(build.artifactStagingDirectory)/binaries'
 
-- task: CopyFiles@2
-  inputs:
-    Contents: |
-      vsprojects/x64/ReleaseWithClangCL/*.pdb
-    TargetFolder: '$(build.artifactStagingDirectory)/pdbs'
+  - task: CopyFiles@2
+    inputs:
+      Contents: |
+        vsprojects/x64/ReleaseWithClangCL/*.pdb
+      TargetFolder: '$(build.artifactStagingDirectory)/pdbs'
 
-- task: VSTest@3
-  inputs:
-    testSelector: 'testAssemblies'
-    testAssemblyVer2: |
-      **\*.exe
-      !**\crashpad_handler.exe
-      !**\authoring.exe
-      !**\exe2elf.exe
-      !**\exe2exe.exe
-      !**\exe2iso.exe
-      !**\mdec.exe
-      !**\exe2sys573.exe
-      !**\modconv.exe
-      !**\xmconv.exe
-      !**\midi2psm.exe
-      !**\midi2spd.exe
-      !**\pcsx-redux.main
-      !**\pcsx-redux.exe
-      !**\pcsxrunner.exe
-      !**\ps1-packer.exe
-      !**\psyq-obj-parser.exe
-      !third_party\**\*.exe
-    searchFolder: '$(System.DefaultWorkingDirectory)'
-    pathtoCustomTestAdapters: 'GoogleTestAdapter'
-    codeCoverageEnabled: True
+  - task: VSTest@3
+    inputs:
+      testSelector: 'testAssemblies'
+      testAssemblyVer2: |
+        **\*.exe
+        !**\crashpad_handler.exe
+        !**\authoring.exe
+        !**\exe2elf.exe
+        !**\exe2exe.exe
+        !**\exe2iso.exe
+        !**\mdec.exe
+        !**\exe2sys573.exe
+        !**\modconv.exe
+        !**\xmconv.exe
+        !**\midi2psm.exe
+        !**\midi2spd.exe
+        !**\pcsx-redux.main
+        !**\pcsx-redux.exe
+        !**\pcsxrunner.exe
+        !**\ps1-packer.exe
+        !**\psyq-obj-parser.exe
+        !third_party\**\*.exe
+      searchFolder: '$(System.DefaultWorkingDirectory)'
+      pathtoCustomTestAdapters: 'GoogleTestAdapter'
+      codeCoverageEnabled: True
 
-- task: PublishBuildArtifacts@1
-  inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: 'drop'
-    publishLocation: 'Container'
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: 'drop'
+      publishLocation: 'Container'
