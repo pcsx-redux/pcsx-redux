@@ -19,6 +19,7 @@
 
 #include <uv.h>
 
+#include <atomic>
 #include <chrono>
 #include <csignal>
 #include <cstdio>
@@ -105,7 +106,8 @@ void closeHandle(uv_handle_t* handle) {
 // Pumps until `done` is set. Used before letting storage go out of scope that
 // libuv or the worker thread may still touch, so giving up is not an option:
 // past the deadline the run is aborted rather than left to a use-after-free.
-void pumpUntil(uv_loop_t* loop, const bool& done, const char* what) {
+template <typename Flag>
+void pumpUntil(uv_loop_t* loop, const Flag& done, const char* what) {
     auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (!done && (std::chrono::steady_clock::now() < deadline)) pump(loop, 5);
     if (done) return;
@@ -113,6 +115,14 @@ void pumpUntil(uv_loop_t* loop, const bool& done, const char* what) {
     fflush(stdout);
     std::abort();
 }
+
+// The worker runs requests in the order they were queued, so once this one has
+// run, everything queued before it has finished too.
+struct WorkerBarrier : UvThreadOp {
+    static void post(std::atomic<bool>& done) {
+        request([&done](uv_loop_t*) { done.store(true); });
+    }
+};
 
 // libuv still writes to a closing handle, and to its requests, until the close
 // callback has run.
@@ -315,13 +325,15 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
         serverSide.setFile(fifo);
     });
     AtScopeExit stopListener([&]() {
-        // The nullptr is the listener's last word: after it the worker no longer
-        // touches the listener or the async. A failed bind has already sent it,
-        // and a stop() queued then would still read the listener later.
-        if (!listenerDone) {
-            listener.stop();
-            pumpUntil(&loop, listenerDone, "the listener to stop");
-        }
+        // stop() is harmless on a listener that already failed. The nullptr is
+        // sent from the worker's close callback, and a request queued after it
+        // arrives can only run once that callback, and the queued stop(), have
+        // returned. Only then is it safe to let the listener go.
+        listener.stop();
+        pumpUntil(&loop, listenerDone, "the listener to stop");
+        std::atomic<bool> drained = false;
+        WorkerBarrier::post(drained);
+        pumpUntil(&loop, drained, "the worker to drain");
         closeHandle(reinterpret_cast<uv_handle_t*>(&listenerAsync));
         pump(&loop);
         serverSide.reset();
@@ -419,13 +431,15 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
         serverSide.setFile(fifo);
     });
     AtScopeExit stopListener([&]() {
-        // The nullptr is the listener's last word: after it the worker no longer
-        // touches the listener or the async. A failed bind has already sent it,
-        // and a stop() queued then would still read the listener later.
-        if (!listenerDone) {
-            listener.stop();
-            pumpUntil(&loop, listenerDone, "the listener to stop");
-        }
+        // stop() is harmless on a listener that already failed. The nullptr is
+        // sent from the worker's close callback, and a request queued after it
+        // arrives can only run once that callback, and the queued stop(), have
+        // returned. Only then is it safe to let the listener go.
+        listener.stop();
+        pumpUntil(&loop, listenerDone, "the listener to stop");
+        std::atomic<bool> drained = false;
+        WorkerBarrier::post(drained);
+        pumpUntil(&loop, drained, "the worker to drain");
         closeHandle(reinterpret_cast<uv_handle_t*>(&listenerAsync));
         pump(&loop);
         serverSide.reset();
