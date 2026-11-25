@@ -624,8 +624,9 @@ json PCSX::Lua::toJson(int t) {
                 auto num = tonumber(-1);
                 double fractpart, intpart;
                 fractpart = modf(num, &intpart);
-                if (fractpart == 0.0) {
-                    val = static_cast<int>(intpart);
+                // Integral values within int64_t range are stored as JSON integers; anything else stays a double.
+                if ((fractpart == 0.0) && (intpart >= -9223372036854775808.0) && (intpart < 9223372036854775808.0)) {
+                    val = static_cast<int64_t>(intpart);
                 } else {
                     val = num;
                 }
@@ -660,14 +661,18 @@ void PCSX::Lua::fromJson(const json& j, int t) {
     for (auto it = j.begin(); it != j.end(); it++) {
         switch (it.value().type()) {
             case json::value_t::number_integer:
+                push(it.key());
+                push(lua_Number(it.value().get<int64_t>()));
+                settable(t);
+                break;
             case json::value_t::number_unsigned:
                 push(it.key());
-                push(lua_Number(it.value().get<int>()));
+                push(lua_Number(it.value().get<uint64_t>()));
                 settable(t);
                 break;
             case json::value_t::number_float:
                 push(it.key());
-                push(it.value().get<float>());
+                push(lua_Number(it.value().get<double>()));
                 settable(t);
                 break;
             case json::value_t::boolean:
