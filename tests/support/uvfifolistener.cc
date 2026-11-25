@@ -315,10 +315,13 @@ TEST(UvFifo, CloseFlushesPendingWrites) {
         serverSide.setFile(fifo);
     });
     AtScopeExit stopListener([&]() {
-        listener.stop();
         // The nullptr is the listener's last word: after it the worker no longer
-        // touches the listener or the async.
-        pumpUntil(&loop, listenerDone, "the listener to stop");
+        // touches the listener or the async. A failed bind has already sent it,
+        // and a stop() queued then would still read the listener later.
+        if (!listenerDone) {
+            listener.stop();
+            pumpUntil(&loop, listenerDone, "the listener to stop");
+        }
         closeHandle(reinterpret_cast<uv_handle_t*>(&listenerAsync));
         pump(&loop);
         serverSide.reset();
@@ -416,10 +419,13 @@ TEST(UvFifo, PeerTrafficAfterDropIsSafe) {
         serverSide.setFile(fifo);
     });
     AtScopeExit stopListener([&]() {
-        listener.stop();
         // The nullptr is the listener's last word: after it the worker no longer
-        // touches the listener or the async.
-        pumpUntil(&loop, listenerDone, "the listener to stop");
+        // touches the listener or the async. A failed bind has already sent it,
+        // and a stop() queued then would still read the listener later.
+        if (!listenerDone) {
+            listener.stop();
+            pumpUntil(&loop, listenerDone, "the listener to stop");
+        }
         closeHandle(reinterpret_cast<uv_handle_t*>(&listenerAsync));
         pump(&loop);
         serverSide.reset();
