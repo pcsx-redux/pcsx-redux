@@ -2469,6 +2469,7 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 <part name="RX" library="testpad" library_urn="urn:adsk.eagle:library:385" deviceset="TP" device="B2,54" package3d_urn="urn:adsk.eagle:package:27948/1"/>
 <part name="GND" library="testpad" library_urn="urn:adsk.eagle:library:385" deviceset="TP" device="B2,54" package3d_urn="urn:adsk.eagle:package:27948/1"/>
 <part name="GATES" library="pixel" library_urn="urn:adsk.eagle:library:14260538" deviceset="74AUP2G14" device=""/>
+<part name="C5" library="pixel" library_urn="urn:adsk.eagle:library:14260538" deviceset="CAPACITOR" device="0603" package3d_urn="urn:adsk.eagle:package:39543025/1" value="100nF"/>
 </parts>
 <sheets>
 <sheet>
@@ -2560,6 +2561,10 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 <attribute name="TP_SIGNAL_NAME" x="-92.71" y="-85.09" size="1.778" layer="97"/>
 </instance>
 <instance part="GATES" gate="G$1" x="35.56" y="-35.56" smashed="yes" rot="R180"/>
+<instance part="C5" gate="G$1" x="22.86" y="-40.64" smashed="yes">
+<attribute name="NAME" x="20.57" y="-39.39" size="1.27" layer="95" font="vector" rot="R90" align="center"/>
+<attribute name="VALUE" x="25.16" y="-39.39" size="1.27" layer="96" font="vector" rot="R90" align="center"/>
+</instance>
 </instances>
 <busses>
 </busses>
@@ -2630,6 +2635,10 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 <pinref part="GATES" gate="G$1" pin="GND"/>
 <wire x1="43.18" y1="-20.32" x2="35.56" y2="-20.32" width="0.1524" layer="91"/>
 <junction x="43.18" y="-20.32"/>
+<pinref part="C5" gate="G$1" pin="1"/>
+<wire x1="22.86" y1="-35.56" x2="22.86" y2="-20.32" width="0.1524" layer="91"/>
+<wire x1="22.86" y1="-20.32" x2="35.56" y2="-20.32" width="0.1524" layer="91"/>
+<junction x="35.56" y="-20.32"/>
 </segment>
 </net>
 <net name="DM" class="0">
@@ -2742,9 +2751,13 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 </segment>
 <segment>
 <pinref part="GATES" gate="G$1" pin="VCC"/>
-<wire x1="12.7" y1="-53.34" x2="35.56" y2="-53.34" width="0.1524" layer="91"/>
+<wire x1="12.7" y1="-53.34" x2="22.86" y2="-53.34" width="0.1524" layer="91"/>
+<wire x1="22.86" y1="-53.34" x2="35.56" y2="-53.34" width="0.1524" layer="91"/>
 <wire x1="35.56" y1="-53.34" x2="35.56" y2="-48.26" width="0.1524" layer="91"/>
 <label x="15.24" y="-53.34" size="1.778" layer="95"/>
+<pinref part="C5" gate="G$1" pin="2"/>
+<wire x1="22.86" y1="-43.18" x2="22.86" y2="-53.34" width="0.1524" layer="91"/>
+<junction x="22.86" y="-53.34"/>
 </segment>
 </net>
 <net name="RXD" class="0">
