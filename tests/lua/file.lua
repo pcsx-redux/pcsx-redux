@@ -186,3 +186,28 @@ function TestFile:test_readWhole_stream_reads_from_the_cursor_to_the_end()
     lu.assertEquals(tostring(slice), text:sub(4))
     lu.assertEquals(stream:readWhole().size, 0)
 end
+
+function TestFile:test_close_lands_the_writes()
+    -- The luacov line hook slows this loop enough to hide the race, so run it unhooked.
+    local hook, mask, count = debug.gethook()
+    debug.sethook()
+    local path = 'pcsx-redux-file-close-test.bin'
+    local chunk = string.rep('0123456789abcdef', 1024)
+    local expected = string.rep(chunk, 16)
+    local short = 0
+    local ok, err = pcall(function()
+        for i = 1, 50 do
+            local f = Support.File.open(path, 'TRUNCATE')
+            for k = 1, 16 do f:write(chunk) end
+            f:close()
+            local h = assert(io.open(path, 'rb'))
+            local got = h:read('*a')
+            h:close()
+            if got ~= expected then short = short + 1 end
+        end
+    end)
+    if hook then debug.sethook(hook, mask, count) end
+    os.remove(path)
+    if not ok then error(err, 0) end
+    lu.assertEquals(short, 0)
+end

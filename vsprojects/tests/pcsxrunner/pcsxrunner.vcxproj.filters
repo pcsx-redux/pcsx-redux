@@ -255,6 +255,9 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\stack-bounds.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\get-random.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\tapcard.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
