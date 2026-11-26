@@ -243,7 +243,10 @@ void doGetRandom(uint32_t structAddress, uint32_t declaredSize) {
         if (mem->msanInitialized()) {
             for (uint64_t address = *buffer; address < end; address++) {
                 if (!PCSX::Memory::inMsanRange(uint32_t(address))) continue;
-                if (mem->msanGetStatus(uint32_t(address), 1) == PCSX::MsanStatus::UNUSABLE) {
+                // Usability alone decides: a freed block keeps its initialized
+                // bits, so msanGetStatus would still call it OK.
+                uint32_t offset = uint32_t(address) - PCSX::Memory::c_msanStart;
+                if (!(mem->m_msanUsableBitmap[offset / 8] & (1 << (offset % 8)))) {
                     setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
                     return;
                 }
