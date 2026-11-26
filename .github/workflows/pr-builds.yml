@@ -77,9 +77,8 @@ jobs:
           # Artifacts lose the executable bit; restore it so the AppImage runs straight out of the zip.
           find build -name '*.AppImage' -exec chmod +x {} +
           (cd build && zip -r "../$name" .)
-          # Build ids are max+1 on the server and only checked once the upload ends, so PRs
-          # publishing to the same project at once collide; the loser retries with a fresh id
-          # after a jittered wait, so concurrent losers do not collide with each other again.
+          # The server reserves each id it hands out, but an upload can still be cut off
+          # mid-stream; retry with a fresh id after a jittered wait.
           for attempt in 1 2 3 4 5 6; do
             npx @appdistrib/cli buildid > buildid.json
             id=$(jq -r .buildid buildid.json)
