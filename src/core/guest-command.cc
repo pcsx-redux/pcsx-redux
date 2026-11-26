@@ -20,6 +20,7 @@
 #include "core/guest-command.h"
 
 #include <optional>
+#include <random>
 
 #include "core/alloc-tracker.h"
 #include "core/psxemulator.h"
@@ -69,7 +70,7 @@ void doQuery(uint32_t structAddress, uint32_t declaredSize) {
     // switch below: a bit set here is a promise the switch honors it.
     for (uint32_t op :
          {uint32_t(PCSX_CMD_QUERY), uint32_t(PCSX_CMD_REGISTER_ALLOCATOR), uint32_t(PCSX_CMD_ALLOC_REPORT),
-          uint32_t(PCSX_CMD_SET_STACK_BOUNDS), uint32_t(PCSX_CMD_REGISTER_PROFILER)}) {
+          uint32_t(PCSX_CMD_SET_STACK_BOUNDS), uint32_t(PCSX_CMD_REGISTER_PROFILER), uint32_t(PCSX_CMD_GET_RANDOM)}) {
         bitmap[op >> 5] |= 1u << (op & 31);
     }
     if (!poke(structAddress + c_headerSize + 0, PCSX_CMD_PROTOCOL_VERSION)) {
@@ -173,6 +174,51 @@ void doSetStackBounds(uint32_t structAddress, uint32_t declaredSize) {
     setStatus(structAddress, PCSX_CMDSTATUS_OK);
 }
 
+void doGetRandom(uint32_t structAddress, uint32_t declaredSize) {
+    // header(16) + buffer + length
+    constexpr uint32_t c_needed = c_headerSize + 8;
+    if (declaredSize < c_needed) {
+        setStatus(structAddress, PCSX_CMDSTATUS_SHORT_STRUCT);
+        return;
+    }
+    auto buffer = peek(structAddress + c_headerSize);
+    auto length = peek(structAddress + c_headerSize + 4);
+    if (!buffer || !length) {
+        setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
+        return;
+    }
+    if (*length == 0) {
+        setStatus(structAddress, PCSX_CMDSTATUS_OK);
+        return;
+    }
+    // The write LUT is what decides writability: the ROM is readable and must
+    // stay intact. Every page the range touches is checked before the first
+    // byte is written, so a refused range leaves memory as it was.
+    uint64_t end = uint64_t(*buffer) + *length;
+    if (end > 0x100000000ull) {
+        setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
+        return;
+    }
+    auto* writeLUT = PCSX::g_emulator->m_mem->m_writeLUT;
+    for (uint64_t page = *buffer >> 16; page <= (end - 1) >> 16; page++) {
+        if (!writeLUT[page]) {
+            setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
+            return;
+        }
+    }
+    static std::random_device s_device;
+    uint32_t bits = 0;
+    for (uint32_t i = 0; i < *length; i++) {
+        uint32_t address = *buffer + i;
+        if ((i & 3) == 0) bits = s_device();
+        writeLUT[address >> 16][address & 0xffff] = uint8_t(bits >> ((i & 3) * 8));
+    }
+    for (uint64_t word = *buffer & ~3u; word < end; word += 4) {
+        PCSX::g_emulator->m_cpu->ClearStore(uint32_t(word));
+    }
+    setStatus(structAddress, PCSX_CMDSTATUS_OK);
+}
+
 void doRegisterProfiler(uint32_t structAddress, uint32_t declaredSize) {
     // header(16) + profHeader
     constexpr uint32_t c_needed = c_headerSize + 4;
@@ -250,6 +296,9 @@ void PCSX::GuestCommand::dispatch(uint32_t structAddress) {
             break;
         case PCSX_CMD_REGISTER_PROFILER:
             doRegisterProfiler(structAddress, *size);
+            break;
+        case PCSX_CMD_GET_RANDOM:
+            doGetRandom(structAddress, *size);
             break;
         default:
             setStatus(structAddress, PCSX_CMDSTATUS_UNKNOWN_OP);

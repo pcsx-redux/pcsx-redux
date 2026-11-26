@@ -350,6 +350,7 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-cdrom-flags.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\sstate-pad.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\stack-bounds.cc" />
+    <ClCompile Include="..\..\..\tests\pcsxrunner\get-random.cc" />
     <ClCompile Include="..\..\..\tests\pcsxrunner\tapcard.cc" />
     <ClCompile Include="..\..\..\tests\spu\adsr.cc" />
     <ClCompile Include="..\..\..\tests\spu\reverbstate.cc" />
