@@ -578,7 +578,7 @@ runner.init({
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
         auto report = dir / (name + ".xml");
-        for (unsigned n = 2; std::filesystem::exists(report); n++) report = dir / fmt::format("{}.{}.xml", name, n);
+        for (unsigned n = 2; std::filesystem::exists(report, ec); n++) report = dir / fmt::format("{}.{}.xml", name, n);
         PCSX::GuestCommand::setReportPath(report);
     }
 
