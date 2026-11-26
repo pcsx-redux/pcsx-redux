@@ -19,8 +19,12 @@
 
 #include "core/guest-command.h"
 
+#include <algorithm>
+#include <cstring>
+#include <exception>
 #include <optional>
 #include <random>
+#include <vector>
 
 #include "core/alloc-tracker.h"
 #include "core/psxemulator.h"
@@ -174,6 +178,23 @@ void doSetStackBounds(uint32_t structAddress, uint32_t declaredSize) {
     setStatus(structAddress, PCSX_CMDSTATUS_OK);
 }
 
+// The bytes to write, or nothing when the host has no entropy to give.
+std::optional<std::vector<uint8_t>> randomBytes(uint32_t length) {
+    try {
+        static std::random_device s_device;
+        std::vector<uint8_t> bytes(length);
+        uint32_t bits = 0;
+        for (uint32_t i = 0; i < length; i++) {
+            if ((i & 3) == 0) bits = s_device();
+            bytes[i] = uint8_t(bits >> ((i & 3) * 8));
+        }
+        return bytes;
+    } catch (const std::exception& e) {
+        PCSX::g_system->printf(_("No host entropy for a guest random request: %s\n"), e.what());
+        return std::nullopt;
+    }
+}
+
 void doGetRandom(uint32_t structAddress, uint32_t declaredSize) {
     // header(16) + buffer + length
     constexpr uint32_t c_needed = c_headerSize + 8;
@@ -191,27 +212,65 @@ void doGetRandom(uint32_t structAddress, uint32_t declaredSize) {
         setStatus(structAddress, PCSX_CMDSTATUS_OK);
         return;
     }
-    // The write LUT is what decides writability: the ROM is readable and must
-    // stay intact. Every page the range touches is checked before the first
-    // byte is written, so a refused range leaves memory as it was.
     uint64_t end = uint64_t(*buffer) + *length;
     if (end > 0x100000000ull) {
         setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
         return;
     }
-    auto* writeLUT = PCSX::g_emulator->m_mem->m_writeLUT;
-    for (uint64_t page = *buffer >> 16; page <= (end - 1) >> 16; page++) {
-        if (!writeLUT[page]) {
+    auto* mem = PCSX::g_emulator->m_mem.get();
+
+    // The scratchpad sits outside the LUTs, on the same page as the hardware
+    // registers, so a range there has to stay inside its first 1KB.
+    uint8_t* scratchpad = nullptr;
+    uint32_t page = *buffer >> 16;
+    if (page == 0x1f80 || page == 0x9f80 || page == 0xbf80) {
+        uint32_t offset = *buffer & 0xffff;
+        if (uint64_t(offset) + *length > 0x400) {
             setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
             return;
         }
+        scratchpad = mem->m_hard + offset;
+    } else {
+        // The write LUT decides writability, so the ROM is refused. Every page,
+        // and every msan byte, is checked before the first byte is written, so
+        // a refused range leaves memory as it was.
+        for (uint64_t p = page; p <= (end - 1) >> 16; p++) {
+            if (!mem->m_writeLUT[p]) {
+                setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
+                return;
+            }
+        }
+        if (mem->msanInitialized()) {
+            for (uint64_t address = *buffer; address < end; address++) {
+                if (!PCSX::Memory::inMsanRange(uint32_t(address))) continue;
+                if (mem->msanGetStatus(uint32_t(address), 1) == PCSX::MsanStatus::UNUSABLE) {
+                    setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
+                    return;
+                }
+            }
+        }
     }
-    static std::random_device s_device;
-    uint32_t bits = 0;
+
+    // A host without entropy leaves the poisoned status in place, the same
+    // answer an emulator without this operation gives, and writes nothing.
+    auto bytes = randomBytes(*length);
+    if (!bytes) return;
+
+    if (scratchpad) {
+        memcpy(scratchpad, bytes->data(), *length);
+        setStatus(structAddress, PCSX_CMDSTATUS_OK);
+        return;
+    }
     for (uint32_t i = 0; i < *length; i++) {
         uint32_t address = *buffer + i;
-        if ((i & 3) == 0) bits = s_device();
-        writeLUT[address >> 16][address & 0xffff] = uint8_t(bits >> ((i & 3) * 8));
+        mem->m_writeLUT[address >> 16][address & 0xffff] = (*bytes)[i];
+    }
+    if (mem->msanInitialized() && *buffer < PCSX::Memory::c_msanEnd) {
+        uint64_t msanEnd = std::min(end, uint64_t(PCSX::Memory::c_msanEnd));
+        if (msanEnd > PCSX::Memory::c_msanStart) {
+            uint32_t from = std::max(*buffer, PCSX::Memory::c_msanStart);
+            mem->msanDmaWrite(from, uint32_t(msanEnd - from));
+        }
     }
     for (uint64_t word = *buffer & ~3u; word < end; word += 4) {
         PCSX::g_emulator->m_cpu->ClearStore(uint32_t(word));
