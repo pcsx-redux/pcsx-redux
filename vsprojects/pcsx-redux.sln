@@ -105,6 +105,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Lua", "Lua", "{394627A0-57E
 		..\tests\lua\assembler.lua = ..\tests\lua\assembler.lua
 		..\tests\lua\audioplayback.lua = ..\tests\lua\audioplayback.lua
 		..\tests\lua\basic.lua = ..\tests\lua\basic.lua
+		..\tests\lua\biucache.lua = ..\tests\lua\biucache.lua
 		..\tests\lua\binary.lua = ..\tests\lua\binary.lua
 		..\tests\lua\callguest.lua = ..\tests\lua\callguest.lua
 		..\tests\lua\cdrom-disc-boot.lua = ..\tests\lua\cdrom-disc-boot.lua

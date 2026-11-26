@@ -127,3 +127,32 @@ function TestBIUCache:test_tag_store_with_ds_set_skips_ram()
     lu.assertEquals(r.status, 'returned')
     lu.assertEquals(ram32(PROBE)[0], 0x11223344)
 end
+
+-- A save state keeps a written 0 apart from cold start.
+function TestBIUCache:test_save_state_keeps_explicit_zero()
+    if not interpreter() then lu.skip('needs the interpreter') end
+    assemble(CODE, [[
+        lui   $t1, 0xfffe
+        sw    $a0, 0x130($t1)
+        jr    $ra
+        nop
+    ]])
+    lu.assertEquals(PCSX.callGuest({ pc = UNCACHED, args = { 0 } }).status, 'returned')
+    local state = PCSX.createSaveState()
+    PCSX.loadSaveState(state)
+    ram32(PROBE)[0] = 0x11223344
+    assemble(CODE, [[
+        sw    $a2, 0($a3)
+        jr    $ra
+        nop
+    ]])
+    lu.assertEquals(PCSX.callGuest({ pc = UNCACHED, args = { 0, 0, 0xaabbccdd, PROBE } }).status, 'returned')
+    lu.assertEquals(ram32(PROBE)[0], 0xaabbccdd)
+    assemble(CODE, [[
+        lui   $t1, 0xfffe
+        sw    $a0, 0x130($t1)
+        jr    $ra
+        nop
+    ]])
+    lu.assertEquals(PCSX.callGuest({ pc = UNCACHED, args = { 0x1e988 } }).status, 'returned')
+end

@@ -355,10 +355,12 @@ class Memory {
     // some values, which a restore does by itself.
     void setBIU(uint32_t value) {
         m_BIU = value;
-        // A state does not record the first-write flag; a saved 0 reads as cold start.
+        // States without the first-write flag: a saved 0 reads as cold start.
         m_biuWritten = value != 0;
         setLuts();
     }
+    bool getBIUWritten() const { return m_biuWritten; }
+    void setBIUWritten(bool written) { m_biuWritten = written; }
 
   private:
     friend class MemoryAsFile;
