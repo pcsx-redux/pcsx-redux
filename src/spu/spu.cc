@@ -393,6 +393,8 @@ void PCSX::SPU::impl::synthesizeVoice(int ch, SPUCHAN *voice, int32_t &capVoice1
         const int32_t envelope = voice->adsr.step(stop, on, m_mixPos + ns);
         int32_t mixedSample = (envelope * rawSample) >> kAdsrEnvelopeShift;
         sval = mixedSample;
+        recordScope(ScopeRaw, ch, ns, rawSample);
+        recordScope(ScopeEnveloped, ch, ns, mixedSample);
 
         // The capture mirror holds the voice 1/3 sample after ADSR but before volume.
         mixedSample = std::clamp(mixedSample, kCaptureSampleMin, kCaptureSampleMax);
@@ -410,12 +412,17 @@ void PCSX::SPU::impl::synthesizeVoice(int ch, SPUCHAN *voice, int32_t &capVoice1
                 }
             }
             // Left/right sound volume (PSX volume goes from 0 to 0x3fff).
+            const int32_t left = (sval * voice->volume.left()) / kVoiceVolumeUnity;
+            const int32_t right = (sval * voice->volume.right()) / kVoiceVolumeUnity;
+            // The scope shows what the voice sends, whatever the debug mute says.
+            recordScope(ScopeLeft, ch, ns, left);
+            recordScope(ScopeRight, ch, ns, right);
             if (mute && !solo) {
                 // Debug mute.
                 sval = 0;
             } else {
-                SSumL[ns] += (sval * voice->volume.left()) / kVoiceVolumeUnity;
-                SSumR[ns] += (sval * voice->volume.right()) / kVoiceVolumeUnity;
+                SSumL[ns] += left;
+                SSumR[ns] += right;
             }
 
             // Store for reverb.
@@ -699,10 +706,24 @@ void PCSX::SPU::impl::mixChunk(int n) {
         noiseLevel[ns] = m_noise.getVal();
     }
 
+    // A voice that is silent for part of the chunk records nothing there, so the scope
+    // starts the chunk at zero.
+    // What the ring held before a gap in the recording, or before a jump of the sample clock,
+    // is not history any more.
+    const bool recorded = m_scopeChunk;
+    m_scopeChunk = m_scopeRecording.load(std::memory_order_relaxed);
+    if (m_scopeChunk) {
+        if (!recorded || m_scopeHead.load(std::memory_order_relaxed) != m_mixPos) {
+            m_scopeStart.store(m_mixPos, std::memory_order_relaxed);
+        }
+        clearScopeChunk(n);
+    }
+
     // Collect the chunk from every channel into the mix accumulators.
     for (ch = 0; ch < MAXCHAN; ch++) {
         synthesizeChannel(ch, &s_chan[ch], capVoice1Index, capVoice3Index, n);
     }
+    if (m_scopeChunk) m_scopeHead.store(m_mixPos + n, std::memory_order_release);
 
     // Write from our temporary capture buffer to the actual SPU RAM.
     writeCaptureBufferCD(n);

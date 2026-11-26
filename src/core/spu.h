@@ -106,6 +106,7 @@ class SPUInterface {
     virtual bool setWavDump(const std::filesystem::path &path) = 0;
 
     bool m_showDebug = false;
+    bool m_showScope = false;
     bool m_showCfg = false;
 
   protected:
