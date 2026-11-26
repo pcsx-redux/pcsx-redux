@@ -78,7 +78,15 @@ LuaFile* uvFifo(const char* address, int port) { return new LuaFile(new PCSX::Uv
 bool uvFifoIsConnecting(LuaFile* wrapper) { return wrapper->file.asA<PCSX::UvFifo>()->isConnecting(); }
 LuaFile* failedFile() { return new LuaFile(new PCSX::FailedFile()); }
 
-void closeFile(LuaFile* wrapper) { wrapper->file->close(); }
+// A UvFile's close() returns before its queued writes land, and a script that
+// reopens or mounts the file right after closing it would read it short.
+void closeFile(LuaFile* wrapper) {
+    if (wrapper->file.isA<PCSX::UvFile>()) {
+        wrapper->file.asA<PCSX::UvFile>()->closeAndWait();
+    } else {
+        wrapper->file->close();
+    }
+}
 
 uint64_t readFileRawPtr(LuaFile* wrapper, void* dst, uint64_t size) { return wrapper->file->read(dst, size); }
 uint64_t readFileBuffer(LuaFile* wrapper, void* buffer) {
