@@ -571,7 +571,8 @@ runner.init({
     // A test run with PCSX_TEST_REPORT_DIR set keeps what the guest writes through
     // PCSX_CMD_REPORT_WRITE, named after the executable and the CPU core.
     if (const char *reportDir = std::getenv("PCSX_TEST_REPORT_DIR"); reportDir && *reportDir && args.has("testmode")) {
-        std::filesystem::path exe = args.value("loadexe", args.value("exe", ""));
+        std::filesystem::path exe = args.value("loadexe", "");
+        if (exe.empty()) exe = args.value("exe", "");
         std::string name = exe.empty() ? "pcsx-redux" : exe.stem().string();
         name += emuSettings.get<PCSX::Emulator::SettingDynarec>() ? ".dynarec" : ".interpreter";
         std::filesystem::path dir = std::filesystem::path(reportDir) / "guest";

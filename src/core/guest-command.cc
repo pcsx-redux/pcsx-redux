@@ -242,8 +242,12 @@ void doReportWrite(uint32_t structAddress, uint32_t declaredSize) {
             PCSX::g_system->printf(_("Could not create the report file %s\n"), s_reportPath.string().c_str());
             s_reportPath.clear();
             collecting = false;
-        } else {
-            std::fwrite(first, 1, *length, s_report);
+        } else if (std::fwrite(first, 1, *length, s_report) != *length) {
+            PCSX::g_system->printf(_("Could not write the report file %s\n"), s_reportPath.string().c_str());
+            std::fclose(s_report);
+            s_report = nullptr;
+            s_reportPath.clear();
+            collecting = false;
         }
     }
     poke(structAddress + c_headerSize + 8, collecting ? 1 : 0);
@@ -258,7 +262,9 @@ void PCSX::GuestCommand::setReportPath(const std::filesystem::path& path) {
 }
 
 void PCSX::GuestCommand::closeReport() {
-    if (s_report) std::fclose(s_report);
+    if (s_report && std::fclose(s_report) != 0) {
+        g_system->printf(_("Could not close the report file %s\n"), s_reportPath.string().c_str());
+    }
     s_report = nullptr;
     s_reportPath.clear();
 }
