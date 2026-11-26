@@ -663,7 +663,8 @@ void DrawTrace(ImDrawList* drawList, const int16_t* samples, int count, const Im
 
 // Draws one or two traces of count samples. The second one, when there is one, is the right
 // channel of the after-volume tap, drawn under the left one in its own colour.
-void DrawScope(const int16_t* first, const int16_t* second, int count, float gain, bool on, int channel, float height) {
+void DrawScope(const int16_t* first, const int16_t* second, const bool* fullScale, int count, float gain, bool on,
+               int channel, float height) {
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const float width = ImGui::GetContentRegionAvail().x;
     ImGui::Dummy(ImVec2(width, height));
@@ -674,16 +675,13 @@ void DrawScope(const int16_t* first, const int16_t* second, int count, float gai
     const float middle = origin.y + height * 0.5f;
 
     bool clipped = false;
-    for (int i = 0; i < count; i++) {
-        if (first[i] == 32767 || first[i] == -32768) clipped = true;
-        if (second && (second[i] == 32767 || second[i] == -32768)) clipped = true;
-    }
+    for (int i = 0; i < count; i++) clipped = clipped || fullScale[i];
 
     drawList->PushClipRect(origin, end, true);
     drawList->AddRectFilled(origin, end, ImGui::GetColorU32(ImGuiCol_FrameBg));
     drawList->AddLine(ImVec2(origin.x, middle), ImVec2(end.x, middle), ImGui::GetColorU32(ImGuiCol_Separator));
+    const ImU32 right = on ? IM_COL32(230, 150, 60, 255) : ImGui::GetColorU32(ImGuiCol_TextDisabled);
     if (second) {
-        const ImU32 right = on ? IM_COL32(230, 150, 60, 255) : ImGui::GetColorU32(ImGuiCol_TextDisabled);
         DrawTrace(drawList, second, count, origin, width, height, gain, right);
     }
     const ImU32 left = second && on ? IM_COL32(90, 200, 230, 255)
@@ -693,6 +691,12 @@ void DrawScope(const int16_t* first, const int16_t* second, int count, float gai
     snprintf(label, sizeof(label), "%02i", channel);
     drawList->AddText(ImVec2(origin.x + 3.0f, origin.y + 1.0f),
                       ImGui::GetColorU32(on ? ImGuiCol_Text : ImGuiCol_TextDisabled), label);
+    if (second) {
+        // Legend for the split view, in the colours of the two traces.
+        const float letter = ImGui::CalcTextSize("L").x;
+        drawList->AddText(ImVec2(end.x - letter * 3.0f - 3.0f, origin.y + 1.0f), left, "L");
+        drawList->AddText(ImVec2(end.x - letter - 3.0f, origin.y + 1.0f), right, "R");
+    }
     drawList->PopClipRect();
     // A sample at full scale is usually a clipping encoder or a filter blowing up.
     drawList->AddRect(origin, end, clipped ? IM_COL32(230, 60, 60, 255) : ImGui::GetColorU32(ImGuiCol_Border));
@@ -738,9 +742,13 @@ void impl::drawScopes() {
             if (ImGui::MenuItem(_("After envelope"), nullptr, m_scopeTap == ScopeEnveloped)) {
                 m_scopeTap = ScopeEnveloped;
             }
-            if (ImGui::MenuItem(_("After volume (left and right)"), nullptr, m_scopeTap == ScopeLeft)) {
+            if (ImGui::MenuItem(_("After volume"), nullptr, m_scopeTap == ScopeLeft)) {
                 m_scopeTap = ScopeLeft;
             }
+            ImGui::Separator();
+            ImGui::BeginDisabled(m_scopeTap != ScopeLeft);
+            ImGui::MenuItem(_("Split left/right"), nullptr, &m_scopeSplit);
+            ImGui::EndDisabled();
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu(_("View"))) {
@@ -792,13 +800,15 @@ void impl::drawScopes() {
 
     const uint64_t head = m_scopeHead.load(std::memory_order_acquire);
     const uint64_t start = m_scopeStart.load(std::memory_order_relaxed);
-    const bool stereo = m_scopeTap == ScopeLeft;
+    // After the volume, one trace is the mean of both sides unless they are asked for apart.
+    const bool both = m_scopeTap == ScopeLeft;
+    const bool stereo = both && m_scopeSplit;
     int16_t samples[2][kHistory];
     int edges[kHistory];
     if (ImGui::BeginTable("##SpuScopes", m_scopeColumns, ImGuiTableFlags_SizingStretchSame)) {
         for (unsigned ch = 0; ch < MAXCHAN; ch++) {
             ImGui::TableNextColumn();
-            for (int trace = 0; trace < (stereo ? 2 : 1); trace++) {
+            for (int trace = 0; trace < (both ? 2 : 1); trace++) {
                 const auto& ring = m_scope[m_scopeTap + trace][ch];
                 // Samples from before this recording started read as silence.
                 for (int i = 0; i < kHistory; i++) {
@@ -808,7 +818,15 @@ void impl::drawScopes() {
                         recorded ? ring[(head - back) & (kScopeSamples - 1)].load(std::memory_order_relaxed) : 0;
                 }
             }
-            // The edges are taken from the left channel on the after-volume tap.
+            // A side at full scale is clipping even when the mean of the two is not.
+            bool clipped[kHistory] = {};
+            for (int i = 0; i < kHistory; i++) {
+                for (int trace = 0; trace < (both ? 2 : 1); trace++) {
+                    if (samples[trace][i] == 32767 || samples[trace][i] == -32768) clipped[i] = true;
+                }
+                if (both && !stereo) samples[0][i] = (samples[0][i] + samples[1][i]) / 2;
+            }
+            // The edges are taken from the left channel when the sides are split.
             const int count = FindRisingEdges(samples[0], kHistory, edges);
             int window = m_scopeWindow;
             if (m_scopeAutoWindow) {
@@ -829,7 +847,7 @@ void impl::drawScopes() {
                 }
             }
             ImGui::PushID(ch);
-            DrawScope(samples[0] + from, stereo ? samples[1] + from : nullptr, window, m_scopeGain,
+            DrawScope(samples[0] + from, stereo ? samples[1] + from : nullptr, clipped + from, window, m_scopeGain,
                       s_chan[ch].data.get<Chan::On>().value, ch, height);
             ImGui::PopID();
         }

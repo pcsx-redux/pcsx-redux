@@ -625,6 +625,7 @@ class impl final : public SPUInterface {
     // only shows as a glitch in one frame of the trace.
     std::atomic<int16_t> m_scope[ScopeTaps][MAXCHAN][kScopeSamples] = {};
     int m_scopeTap = ScopeEnveloped;
+    bool m_scopeSplit = false;
     bool m_scopeTrigger = true;
     bool m_scopeAutoWindow = true;
     int m_scopeWindow = 512;
