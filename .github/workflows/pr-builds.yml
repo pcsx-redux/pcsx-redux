@@ -81,11 +81,11 @@ jobs:
           # publishing to the same project at once collide; the loser retries with a fresh id
           # after a jittered wait, so concurrent losers do not collide with each other again.
           for attempt in 1 2 3 4 5 6; do
-            npx @appdistrib/cli buildid > buildid.json
+            .github/scripts/appdistrib.sh buildid > buildid.json
             id=$(jq -r .buildid buildid.json)
             jq -n --arg v "$short" --argjson b "$id" --arg c "$HEAD_SHA" --argjson t "$(date +%s)" --argjson pr "$PR" \
               '{version: $v, buildId: $b, changeset: $c, timestamp: $t, channel: "pr", pullRequest: $pr, updateInfo: []}' > manifest.json
-            if npx @appdistrib/cli -l buildId -m manifest.json upload "$name"; then break; fi
+            if .github/scripts/appdistrib.sh -l buildId -m manifest.json upload "$name"; then break; fi
             [ "$attempt" = 6 ] && exit 1
             sleep $((RANDOM % 90 + 30))
           done

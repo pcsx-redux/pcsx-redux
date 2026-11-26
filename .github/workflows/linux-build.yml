@@ -67,7 +67,7 @@ jobs:
           APPDISTRIB_ORGANIZATION: pcsx-redux
           APPDISTRIB_PROJECT: ${{ matrix.project }}
         run: |
-          npx @appdistrib/cli buildid > buildid.json
+          .github/scripts/appdistrib.sh buildid > buildid.json
           git config --global --add safe.directory /__w/pcsx-redux/pcsx-redux
           make install install-openbios DESTDIR=AppDir/usr
           sed -i s:/usr/bin/:: AppDir/usr/share/applications/pcsx-redux.desktop
@@ -138,4 +138,4 @@ jobs:
           git config --global --add safe.directory /__w/pcsx-redux/pcsx-redux
           export BUILD=`git rev-parse HEAD | cut -c 1-8`
           zip PCSX-Redux-$BUILD-linux-${{ matrix.arch }}.zip *.AppImage
-          npx @appdistrib/cli -l buildId -m version.json upload PCSX-Redux-$BUILD-linux-${{ matrix.arch }}.zip
+          .github/scripts/appdistrib.sh -l buildId -m version.json upload PCSX-Redux-$BUILD-linux-${{ matrix.arch }}.zip
