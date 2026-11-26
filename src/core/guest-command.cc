@@ -339,9 +339,19 @@ void doReportWrite(uint32_t structAddress, uint32_t declaredSize) {
     bool collecting = !s_reportPath.empty();
     if (collecting && *length) {
         auto& mem = *PCSX::g_emulator->m_mem;
-        auto* first = mem.getPointer<uint8_t>(*data);
-        auto* last = mem.getPointer<uint8_t>(*data + *length - 1);
-        if (!first || last != first + *length - 1) {
+        const uint8_t* first = nullptr;
+        // The scratchpad is outside the LUTs, like for GET_RANDOM: the range has
+        // to stay inside its first 1KB.
+        uint32_t page = *data >> 16;
+        if (page == 0x1f80 || page == 0x9f80 || page == 0xbf80) {
+            uint32_t offset = *data & 0xffff;
+            if (uint64_t(offset) + *length <= 0x400) first = mem.m_hard + offset;
+        } else {
+            first = mem.getPointer<uint8_t>(*data);
+            auto* last = mem.getPointer<uint8_t>(*data + *length - 1);
+            if (last != first + *length - 1) first = nullptr;
+        }
+        if (!first) {
             setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
             return;
         }
