@@ -888,8 +888,8 @@ PCSX::DCT::ContainerResult PCSX::DCT::toContainer(std::span<const uint16_t> rl, 
     //
     // A block is (q_scale << 10) | dc, then (run << 10) | level pairs, then 0xfe00.
     // Trailing 0xfe00 is pack()'s DMA padding to a 64-halfword boundary.
-    // ⚠ KNOWN AMBIGUITY, narrow and deliberate: a block with q_scale 63 and dc 0
-    // has 0xfe00 as its FIRST word, so a final such block carrying no ACs is
+    // ⚠ KNOWN AMBIGUITY, narrow and deliberate: a block with q_scale 63 and dc
+    // -512 (0x200) has 0xfe00 as its FIRST word, so a final such block carrying no ACs is
     // indistinguishable from padding. Callers that know their block count should
     // check `blocks` against it.
     int minQ = 64, maxQ = -1;

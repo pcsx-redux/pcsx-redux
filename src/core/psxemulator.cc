@@ -35,6 +35,7 @@
 #include "core/hwevents.h"
 #include "core/luaiso.h"
 #include "core/mdec.h"
+#include "core/mdeclua.h"
 #include "core/pad.h"
 #include "core/patchmanager.h"
 #include "core/pcsxlua.h"
@@ -194,6 +195,7 @@ void PCSX::Emulator::setLua() {
         L.load(html, "src:lua/html.lua");
     }
     LuaSupportPSX::open_adpcm(L);
+    LuaFFI::open_mdec(L);
     LuaSupportPSX::open_assembler(L);
     LuaSupportPSX::open_binaries(L);
 
