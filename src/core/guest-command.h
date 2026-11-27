@@ -21,6 +21,8 @@
 
 #include <stdint.h>
 
+#include <filesystem>
+
 namespace PCSX {
 
 /*
@@ -41,6 +43,12 @@ namespace GuestCommand {
 // pauses; a malformed command is reported by writing a status into the struct
 // when the struct itself is readable, and ignored when it is not.
 void dispatch(uint32_t structAddress);
+
+// Where PCSX_CMD_REPORT_WRITE puts what the guest writes. The file is created on
+// the first non-empty write, so a run whose guest writes nothing leaves none.
+// An empty path means this run collects no report.
+void setReportPath(const std::filesystem::path& path);
+void closeReport();
 
 }  // namespace GuestCommand
 

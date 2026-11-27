@@ -20,6 +20,7 @@
 #include "core/guest-command.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <exception>
 #include <optional>
@@ -74,7 +75,8 @@ void doQuery(uint32_t structAddress, uint32_t declaredSize) {
     // switch below: a bit set here is a promise the switch honors it.
     for (uint32_t op :
          {uint32_t(PCSX_CMD_QUERY), uint32_t(PCSX_CMD_REGISTER_ALLOCATOR), uint32_t(PCSX_CMD_ALLOC_REPORT),
-          uint32_t(PCSX_CMD_SET_STACK_BOUNDS), uint32_t(PCSX_CMD_REGISTER_PROFILER), uint32_t(PCSX_CMD_GET_RANDOM)}) {
+          uint32_t(PCSX_CMD_SET_STACK_BOUNDS), uint32_t(PCSX_CMD_REGISTER_PROFILER), uint32_t(PCSX_CMD_GET_RANDOM),
+          uint32_t(PCSX_CMD_REPORT_WRITE)}) {
         bitmap[op >> 5] |= 1u << (op & 31);
     }
     if (!poke(structAddress + c_headerSize + 0, PCSX_CMD_PROTOCOL_VERSION)) {
@@ -318,7 +320,77 @@ void doRegisterProfiler(uint32_t structAddress, uint32_t declaredSize) {
     setStatus(structAddress, PCSX_CMDSTATUS_OK);
 }
 
+std::filesystem::path s_reportPath;
+FILE* s_report = nullptr;
+
+void doReportWrite(uint32_t structAddress, uint32_t declaredSize) {
+    // header(16) + data + length + collecting
+    constexpr uint32_t c_needed = c_headerSize + 12;
+    if (declaredSize < c_needed) {
+        setStatus(structAddress, PCSX_CMDSTATUS_SHORT_STRUCT);
+        return;
+    }
+    auto data = peek(structAddress + c_headerSize);
+    auto length = peek(structAddress + c_headerSize + 4);
+    if (!data || !length) {
+        setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
+        return;
+    }
+    bool collecting = !s_reportPath.empty();
+    if (collecting && *length) {
+        auto& mem = *PCSX::g_emulator->m_mem;
+        const uint8_t* first = nullptr;
+        // The scratchpad is outside the LUTs, like for GET_RANDOM: the range has
+        // to stay inside its first 1KB.
+        uint32_t page = *data >> 16;
+        if (page == 0x1f80 || page == 0x9f80 || page == 0xbf80) {
+            uint32_t offset = *data & 0xffff;
+            if (uint64_t(offset) + *length <= 0x400) first = mem.m_hard + offset;
+        } else if (uint64_t(*data) + *length <= 0x100000000ull) {
+            first = mem.getPointer<uint8_t>(*data);
+            auto* last = mem.getPointer<uint8_t>(*data + *length - 1);
+            // Both ends mapped and contiguous, compared as integers so no host
+            // pointer is formed past the mapping.
+            if (!first || !last ||
+                reinterpret_cast<uintptr_t>(last) - reinterpret_cast<uintptr_t>(first) != *length - 1) {
+                first = nullptr;
+            }
+        }
+        if (!first) {
+            setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
+            return;
+        }
+        if (!s_report) s_report = std::fopen(s_reportPath.string().c_str(), "wb");
+        if (!s_report) {
+            PCSX::g_system->printf(_("Could not create the report file %s\n"), s_reportPath.string().c_str());
+            s_reportPath.clear();
+            collecting = false;
+        } else if (std::fwrite(first, 1, *length, s_report) != *length) {
+            PCSX::g_system->printf(_("Could not write the report file %s\n"), s_reportPath.string().c_str());
+            std::fclose(s_report);
+            s_report = nullptr;
+            s_reportPath.clear();
+            collecting = false;
+        }
+    }
+    poke(structAddress + c_headerSize + 8, collecting ? 1 : 0);
+    setStatus(structAddress, PCSX_CMDSTATUS_OK);
+}
+
 }  // namespace
+
+void PCSX::GuestCommand::setReportPath(const std::filesystem::path& path) {
+    closeReport();
+    s_reportPath = path;
+}
+
+void PCSX::GuestCommand::closeReport() {
+    if (s_report && std::fclose(s_report) != 0) {
+        g_system->printf(_("Could not close the report file %s\n"), s_reportPath.string().c_str());
+    }
+    s_report = nullptr;
+    s_reportPath.clear();
+}
 
 void PCSX::GuestCommand::dispatch(uint32_t structAddress) {
     auto magic = peek(structAddress + c_offMagic);
@@ -361,6 +433,9 @@ void PCSX::GuestCommand::dispatch(uint32_t structAddress) {
             break;
         case PCSX_CMD_GET_RANDOM:
             doGetRandom(structAddress, *size);
+            break;
+        case PCSX_CMD_REPORT_WRITE:
+            doReportWrite(structAddress, *size);
             break;
         default:
             setStatus(structAddress, PCSX_CMDSTATUS_UNKNOWN_OP);
