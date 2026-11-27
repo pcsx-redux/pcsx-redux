@@ -623,7 +623,9 @@ class impl final : public SPUInterface {
     bool m_scopeChunk = false;                   // mixer thread: recording this chunk
     // Relaxed atomics: the UI reads while the mixer writes, and a sample from the next pass
     // only shows as a glitch in one frame of the trace.
-    std::atomic<int16_t> m_scope[ScopeTaps][MAXCHAN][kScopeSamples] = {};
+    // No initializer: std::atomic's default constructor already zeroes each element, and MSVC
+    // runs out of heap expanding a brace initializer over the whole array.
+    std::atomic<int16_t> m_scope[ScopeTaps][MAXCHAN][kScopeSamples];
     int m_scopeTap = ScopeEnveloped;
     bool m_scopeSplit = false;
     bool m_scopeTrigger = true;
