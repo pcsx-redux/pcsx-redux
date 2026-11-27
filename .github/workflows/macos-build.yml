@@ -86,7 +86,7 @@ jobs:
         APPDISTRIB_ORGANIZATION: pcsx-redux
         APPDISTRIB_PROJECT: dev-macos-arm
       run: |
-        npx @appdistrib/cli buildid > buildid.json
+        .github/scripts/appdistrib.sh buildid > buildid.json
         echo '{' > version.json
         echo '  "version": "'`git rev-parse HEAD | cut -c 1-8`'",' >> version.json
         echo '  "buildId": '`jq -r .buildid buildid.json`',' >> version.json
@@ -171,4 +171,4 @@ jobs:
         APPDISTRIB_ORGANIZATION: pcsx-redux
         APPDISTRIB_PROJECT: dev-macos-arm
       run: |
-        npx @appdistrib/cli -l buildId -m version.json upload PCSX-Redux-$BUILD-Arm.dmg
+        .github/scripts/appdistrib.sh -l buildId -m version.json upload PCSX-Redux-$BUILD-Arm.dmg
