@@ -14,11 +14,9 @@
 --   along with this program; if not, write to the
 --   Free Software Foundation, Inc.,
 --   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 -- BIU_CONFIG (0xfffe0130) is decoded by its bits: IS1 (bit 11) with TAG (bit 2) set, or with DS
 -- (bit 7) clear, is a cache maintenance configuration, and while it is in place COP0 SR.IsC decides
 -- whether a store reaches RAM.
-
 local lu = require 'luaunit'
 local ffi = require 'ffi'
 
@@ -90,9 +88,7 @@ end
 function TestBIUCache:test_isolated_stores_skip_ram_with_ds_set()
     if not interpreter() then lu.skip('needs the interpreter') end
     for _, case in ipairs({
-        { 'sb    $a2, 0($a3)', PROBE },
-        { 'sh    $a2, 0($a3)', PROBE },
-        { 'sw    $a2, 0($a3)', PROBE + 0x20000000 },
+        { 'sb    $a2, 0($a3)', PROBE }, { 'sh    $a2, 0($a3)', PROBE }, { 'sw    $a2, 0($a3)', PROBE + 0x20000000 },
     }) do
         ram32(PROBE)[0] = 0x11223344
         isolatedStore(case[1])
