@@ -106,6 +106,8 @@ PCSX::SaveStates::SaveState PCSX::SaveStates::Access::constructSaveState() {
             SRAM{g_emulator->m_mem->m_sram},
             BIU{},
             HasBIU{},
+            BIUWritten{},
+            HasBIUWritten{},
         },
         Registers{
             GPR{g_emulator->m_cpu->m_regs.GPR.r},
@@ -359,6 +361,8 @@ std::string PCSX::SaveStates::save() {
 
     state.get<MemoryField>().get<BIU>().value = g_emulator->m_mem->getBIU();
     state.get<MemoryField>().get<HasBIU>().value = true;
+    state.get<MemoryField>().get<BIUWritten>().value = g_emulator->m_mem->getBIUWritten();
+    state.get<MemoryField>().get<HasBIUWritten>().value = true;
     state.get<RegistersField>().get<ICacheLineTags>().value = true;
     g_emulator->m_gpu->serialize(&wrapper);
     g_emulator->m_spu->save(state.get<SPUField>());
@@ -395,6 +399,8 @@ void PCSX::SaveStates::capture(SaveState& state) {
        separate layer on top. */
     state.get<MemoryField>().get<BIU>().value = g_emulator->m_mem->getBIU();
     state.get<MemoryField>().get<HasBIU>().value = true;
+    state.get<MemoryField>().get<BIUWritten>().value = g_emulator->m_mem->getBIUWritten();
+    state.get<MemoryField>().get<HasBIUWritten>().value = true;
     state.get<RegistersField>().get<ICacheLineTags>().value = true;
     g_emulator->m_gpu->serialize(&wrapper);
     g_emulator->m_spu->save(state.get<SPUField>());
@@ -439,6 +445,8 @@ void PCSX::SaveStates::restore(SaveState& state) {
     g_emulator->m_cpu->m_regs.pc.raw() &= ~3;
     if (state.get<MemoryField>().get<HasBIU>().value)
         g_emulator->m_mem->setBIU(state.get<MemoryField>().get<BIU>().value);
+    if (state.get<MemoryField>().get<HasBIUWritten>().value)
+        g_emulator->m_mem->setBIUWritten(state.get<MemoryField>().get<BIUWritten>().value);
     if (!state.get<RegistersField>().get<ICacheLineTags>().value) g_emulator->m_cpu->convertLegacyICache();
     g_emulator->m_gpu->deserialize(&wrapper);
     g_emulator->m_spu->load(state.get<SPUField>());
@@ -673,6 +681,8 @@ bool PCSX::SaveStates::load(std::string_view data) {
     if (g_emulator->m_cpu->m_gtePendingCount > 3) g_emulator->m_cpu->m_gtePendingCount = 0;
     if (state.get<MemoryField>().get<HasBIU>().value)
         g_emulator->m_mem->setBIU(state.get<MemoryField>().get<BIU>().value);
+    if (state.get<MemoryField>().get<HasBIUWritten>().value)
+        g_emulator->m_mem->setBIUWritten(state.get<MemoryField>().get<BIUWritten>().value);
     if (!state.get<RegistersField>().get<ICacheLineTags>().value) g_emulator->m_cpu->convertLegacyICache();
     g_emulator->m_gpu->deserialize(&wrapper);
     g_emulator->m_spu->load(state.get<SPUField>());

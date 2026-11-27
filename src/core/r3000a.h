@@ -720,7 +720,7 @@ Formula One 2001
     // A CPU store reached RAM. The i-cache ignores stores; a recompiler drops the blocks it built
     // from that word.
     virtual void ClearStore(uint32_t addr) { Clear(addr, 1); }
-    // The guest wrote one of the BIU_CONFIG values cache flush routines use. The recompilers do not
+    // The guest set BIU_CONFIG up for cache maintenance. The recompilers do not
     // run code through the i-cache model and drop all their blocks here instead.
     virtual void biuCacheFlush() { invalidateCache(); }
 
