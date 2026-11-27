@@ -346,10 +346,15 @@ void doReportWrite(uint32_t structAddress, uint32_t declaredSize) {
         if (page == 0x1f80 || page == 0x9f80 || page == 0xbf80) {
             uint32_t offset = *data & 0xffff;
             if (uint64_t(offset) + *length <= 0x400) first = mem.m_hard + offset;
-        } else {
+        } else if (uint64_t(*data) + *length <= 0x100000000ull) {
             first = mem.getPointer<uint8_t>(*data);
             auto* last = mem.getPointer<uint8_t>(*data + *length - 1);
-            if (last != first + *length - 1) first = nullptr;
+            // Both ends mapped and contiguous, compared as integers so no host
+            // pointer is formed past the mapping.
+            if (!first || !last ||
+                reinterpret_cast<uintptr_t>(last) - reinterpret_cast<uintptr_t>(first) != *length - 1) {
+                first = nullptr;
+            }
         }
         if (!first) {
             setStatus(structAddress, PCSX_CMDSTATUS_UNMAPPED);
