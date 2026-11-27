@@ -46,7 +46,7 @@ PCSX.MDEC.encodeBS(rgb, width, height, maxBytes)
 
 The encoder tries q_scale values from 1 upward, and keeps the lowest one for which the frame meets two limits:
 
-- It is at most `maxBytes` bytes long, header included. `maxBytes` of `nil` or 0 means no byte budget.
+- It is at most `maxBytes` bytes long, header included. `maxBytes` is an integer; `nil` or 0 means no byte budget.
 - Its run-level stays within 28672 halfwords, which is the default size of the buffer a psyqo `StrPlayer` holds. The run-level is counted as the BS header counts it, padded to a multiple of 64 halfwords.
 
 A lower q_scale means a higher quality and a larger frame.
@@ -59,7 +59,9 @@ On success it returns two values: the BS version 2 frame in a `LuaBuffer`, and t
 
 The run-level limit cannot be changed from Lua, and a larger `maxBytes` does not help with either of the last two: only a smaller picture decodes to less run-level.
 
-An argument of the wrong kind raises an error: `encodeBS: input must be a LuaBuffer or a string`, `encodeBS: width must be an integer in 1..65535` (and the same for `height`), `encodeBS: maxBytes must be nil or a number in 0..4294967295`, or `encodeBS: input too small, needs <n> bytes`.
+One frame BS cannot hold at all: when the budget forces q_scale 63 and the last block is flat with a DC of -512, that block's first word is 0xfe00, which a BS reader takes for padding. `encodeBS` then returns `nil` and `the BS stream holds <n> of the frame's <m> blocks: ...`; a larger `maxBytes` avoids it.
+
+An argument of the wrong kind raises an error: `encodeBS: input must be a LuaBuffer or a string`, `encodeBS: width must be an integer in 1..65535` (and the same for `height`), `encodeBS: maxBytes must be nil or an integer in 0..4294967295`, or `encodeBS: input too small, needs <n> bytes`.
 
 ## Worked example
 
