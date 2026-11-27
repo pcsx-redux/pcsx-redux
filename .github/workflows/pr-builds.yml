@@ -1,7 +1,8 @@
 # Publishes the test builds of a pull request to the pr-* AppDistrib projects and
 # links them on the PR. Runs from main with the base repo's secrets, after the PR's
-# own CI finished, so it never checks out or runs code from the PR: the build
-# artifact is only downloaded, zipped and uploaded.
+# own CI finished, so it never checks out or runs code from the PR: it checks out
+# main for the upload script, and the build artifact is only downloaded, zipped and
+# uploaded.
 name: PR builds
 
 on:
@@ -11,6 +12,7 @@ on:
 
 permissions:
   actions: read
+  contents: read
   pull-requests: write
 
 jobs:
@@ -39,6 +41,12 @@ jobs:
       HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
       HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
     steps:
+      # The default ref, never the PR head: this job holds the publishing secrets.
+      # Before the download, whose build/ a checkout would clean away.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
       - name: Find the pull request
         id: pr
         run: |
