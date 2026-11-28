@@ -25,6 +25,7 @@
 #include "core/system.h"
 #include "imgui.h"
 #include "support/file.h"
+#include "support/imgui-helpers.h"
 
 PCSX::Widgets::GPUDump::GPUDump(bool& show, std::vector<std::string>& favorites)
     : m_show(show),
@@ -174,7 +175,7 @@ void PCSX::Widgets::GPUDump::drawPlayer() {
     size.x *= m_zoom;
     size.y *= m_zoom;
     ImGui::BeginChild("vram", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
-    ImGui::Image((ImTextureID)(intptr_t)m_texture, size, uv0, uv1);
+    ImGuiHelpers::ImageNearest((ImTextureID)(intptr_t)m_texture, size, uv0, uv1);
     ImGui::EndChild();
 }
 

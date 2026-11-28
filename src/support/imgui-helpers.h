@@ -60,5 +60,15 @@ static void ShowHelpMarker(const char* desc) {
     }
 }
 
+// The OpenGL backend binds its own linear sampler object, which overrides the texture's filter
+// parameters, so an image meant to stay pixelated has to ask for nearest sampling around its draw.
+static void ImageNearest(ImTextureRef texture, const ImVec2& size, const ImVec2& uv0 = ImVec2(0, 0),
+                         const ImVec2& uv1 = ImVec2(1, 1)) {
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    drawList->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerNearest, nullptr);
+    ImGui::Image(texture, size, uv0, uv1);
+    drawList->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerLinear, nullptr);
+}
+
 }  // namespace ImGuiHelpers
 }  // namespace PCSX

@@ -310,6 +310,8 @@ void PCSX::Widgets::CDRomViewer::drawDisc(GUI *gui) {
     m_mousePos = ImGui::GetIO().MousePos;
 
     ImDrawList *drawList = ImGui::GetWindowDrawList();
+    // The OpenGL backend binds its own sampler object, which overrides the texture's filter parameters.
+    drawList->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerNearest, nullptr);
     drawList->AddCallback(
         [](const ImDrawList *parentList, const ImDrawCmd *cmd) {
             CDRomViewer *that = reinterpret_cast<CDRomViewer *>(cmd->UserCallbackData);
@@ -330,6 +332,8 @@ void PCSX::Widgets::CDRomViewer::drawDisc(GUI *gui) {
     bool hovered = m_hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_None);
 
     drawList->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
+    // Without sampler objects, the backend's filter mode survives the reset.
+    drawList->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerLinear, nullptr);
 
     const auto &io = ImGui::GetIO();
     ImVec2 texSpan = texBR - texTL;

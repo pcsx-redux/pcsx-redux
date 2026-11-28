@@ -25,6 +25,7 @@
 #include "core/system.h"
 #include "imgui.h"
 #include "pocketstation/pocketstation.h"
+#include "support/imgui-helpers.h"
 
 // Keyboard / gamepad -> PocketStation button map. The 5 buttons are INT_INPUT bits 0..4:
 //   bit 0 Fire   <- Z / Enter / gamepad A (face-down)
@@ -125,7 +126,7 @@ void PCSX::Widgets::PocketStationLCD::draw(MemoryCard* card, unsigned slot, cons
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 32, 32, GL_RGBA, GL_UNSIGNED_BYTE, m_pixels);
 
     const float scale = 6.0f;
-    ImGui::Image((ImTextureID)(intptr_t)m_texture, ImVec2(32 * scale, 32 * scale));
+    ImGuiHelpers::ImageNearest((ImTextureID)(intptr_t)m_texture, ImVec2(32 * scale, 32 * scale));
     ImGui::Text(_("LCD mode: %08X (%s%s)"), mode, enabled ? _("on") : _("off"), rotate ? _(", rotated") : "");
 
     ImGui::End();
