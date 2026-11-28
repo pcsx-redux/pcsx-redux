@@ -5773,7 +5773,7 @@ msgstr "Pixelrutnätets färgväljare"
 msgid "TPage Grid Color Picker"
 msgstr "Färgväljare för TPage-rutnät"
 
-#: src/main/main.cc:681
+#: src/main/main.cc:687
 msgid "Failed to load save state\n"
 msgstr "Kunde inte läsa in sparat tillstånd\n"
 

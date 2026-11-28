@@ -5606,7 +5606,7 @@ msgstr ""
 msgid "TPage Grid Color Picker"
 msgstr ""
 
-#: src/main/main.cc:681
+#: src/main/main.cc:687
 msgid "Failed to load save state\n"
 msgstr ""
 
