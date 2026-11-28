@@ -56,7 +56,7 @@ test('the real stakeholders file parses', () => {
     }
 });
 
-test('run sets statuses, comments on labeling, rewrites the index', async () => {
+test('run sets its own status, comments on labeling, rewrites the index', async () => {
     const calls = [];
     const prs = [
         { number: 37, title: 'monitor: protocol v3', labels: [{ name: 'rfc' }], head: { sha: 'aaa' }, user: { login: 'rixnobis' } },
@@ -94,7 +94,7 @@ test('run sets statuses, comments on labeling, rewrites the index', async () => 
     await rfc.run({ github, context, core, now: t0 + DAY, stakeholdersText: '* @nicolasnoble\nmonitor/ @spicyjpeg\n' });
 
     const statuses = calls.filter((c) => c[0] === 'status').map((c) => [c[1].sha, c[1].state]);
-    assert.deepStrictEqual(statuses, [['aaa', 'failure'], ['bbb', 'success']]);
+    assert.deepStrictEqual(statuses, [['aaa', 'failure']]);
     const comment = calls.find((c) => c[0] === 'comment')[1];
     assert.match(comment.body, /2026-09-08 12:00 UTC/);
     assert.match(comment.body, /@nicolasnoble @spicyjpeg/);

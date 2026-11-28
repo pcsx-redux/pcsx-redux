@@ -16,10 +16,16 @@ permissions:
   pull-requests: write
   statuses: write
 
-# A labeled run posts the announcement, so it gets its own group: a pending
-# run in a shared group is replaced by the next one and would be lost.
+# A group keeps one pending run and cancels the one it replaces. A labeled run
+# posts the announcement, so it gets a group of its own and is never lost.
+# Other pull request runs only write their own head commit's status, so they
+# group per pull request and never wait behind or cancel another one. The
+# hourly and manual runs write every status and stay serialized in 'rfc'.
 concurrency:
-  group: ${{ github.event.action == 'labeled' && format('rfc-labeled-{0}', github.run_id) || 'rfc' }}
+  group: >-
+    ${{ github.event.action == 'labeled' && format('rfc-labeled-{0}', github.run_id)
+    || github.event_name == 'pull_request_target' && format('rfc-pr-{0}', github.event.pull_request.number)
+    || 'rfc' }}
   cancel-in-progress: false
 
 jobs:
