@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <string>
 
+#include "bank-probe-strict.h"
 #include "gtest/gtest.h"
 #include "main/main.h"
 
@@ -32,19 +33,20 @@
 
 // bank-probe characterizes the GP1(09h) gate. It self-verifies that the lower
 // bank round-trips and that the gate flips the upper bank between mirror and
-// (real | open-bus); both 1MB and 2MB fitments are valid and pass.
+// (real | open-bus); both 1MB and 2MB fitments are valid and pass. The gtests
+// also hold each fitment to its one right decode: gate0=mirror gate1=open-bus
+// with 1MB, gate0=mirror gate1=real with 2MB.
 TEST(TwoMBVram, BankProbe1MB) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-loadexe", "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
-    int ret = invoker.invoke();
-    EXPECT_EQ(ret, 0);
+    MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
+                        "-interpreter", "-loadexe", "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
+    runBankProbeStrict(invoker, kBankProbe1MB);
 }
 
 TEST(TwoMBVram, BankProbe2MB) {
-    MainInvoker invoker("-no-ui", "-run", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
-                        "-2mbvram", "-loadexe", "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
-    int ret = invoker.invoke();
-    EXPECT_EQ(ret, 0);
+    MainInvoker invoker("-no-ui", "-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode",
+                        "-interpreter", "-2mbvram", "-loadexe",
+                        "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
+    runBankProbeStrict(invoker, kBankProbe2MB);
 }
 
 // clut-y-fold samples a 4bpp texture through CLUT word 0xF800 (CLUT Y 992) and
@@ -176,7 +178,10 @@ static int runOpenGLProbe(const char* name) {
 
 TEST(TwoMBVramOpenGL, BankProbe) {
     if (!haveDisplay()) GTEST_SKIP() << "no display";
-    EXPECT_EQ(runOpenGLProbe("bank-probe"), 0);
+    MainInvoker invoker("-run", "-stdout", "-bios", "src/mips/openbios/openbios.bin", "-testmode", "-interpreter",
+                        "-openglgpu", "-2mbvram", "-loadexe",
+                        "src/mips/tests/gpu/2mb-vram/bank-probe/bank-probe.ps-exe");
+    runBankProbeStrict(invoker, kBankProbe2MB);
 }
 
 TEST(TwoMBVramOpenGL, TexpageUpper) {
