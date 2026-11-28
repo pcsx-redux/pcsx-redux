@@ -427,6 +427,8 @@ void PCSX::Widgets::RAMViewer::drawRAM(GUI *gui) {
     }
 
     ImDrawList *drawList = ImGui::GetWindowDrawList();
+    // The OpenGL backend binds its own sampler object, which overrides the texture's filter parameters.
+    drawList->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerNearest, nullptr);
     drawList->AddCallback(
         [](const ImDrawList *parentList, const ImDrawCmd *cmd) {
             RAMViewer *that = reinterpret_cast<RAMViewer *>(cmd->UserCallbackData);
@@ -449,6 +451,8 @@ void PCSX::Widgets::RAMViewer::drawRAM(GUI *gui) {
     bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 
     drawList->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
+    // Without sampler objects, the backend's filter mode survives the reset.
+    drawList->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerLinear, nullptr);
 
     const auto &io = ImGui::GetIO();
 
