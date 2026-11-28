@@ -978,7 +978,41 @@ void PCSX::GUI::startFrame() {
     ZoneScoped;
     tick();
     SDL_Event event;
+    // A high-resolution wheel turns one notch into several SDL wheel events (1/8 of a notch each
+    // on Wayland with axis_value120). ImGui's input trickling stops draining its queue at the
+    // first mouse move that follows a wheel event, so fed one by one they get spread over many
+    // frames and a fast scroll keeps going long after the wheel stopped. Merge the wheel events
+    // of a frame into one, and hand it to ImGui before any other non-motion event so ordering
+    // against clicks and keys is kept.
+    SDL_Event pendingWheel;
+    bool hasPendingWheel = false;
+    auto flushWheel = [&]() {
+        if (!hasPendingWheel) return;
+        ImGui_ImplSDL3_ProcessEvent(&pendingWheel);
+        hasPendingWheel = false;
+    };
     while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+            if (hasPendingWheel && (pendingWheel.wheel.windowID != event.wheel.windowID ||
+                                    pendingWheel.wheel.which != event.wheel.which ||
+                                    pendingWheel.wheel.direction != event.wheel.direction)) {
+                flushWheel();
+            }
+            if (!hasPendingWheel) {
+                pendingWheel = event;
+                hasPendingWheel = true;
+            } else {
+                pendingWheel.wheel.x += event.wheel.x;
+                pendingWheel.wheel.y += event.wheel.y;
+                pendingWheel.wheel.integer_x += event.wheel.integer_x;
+                pendingWheel.wheel.integer_y += event.wheel.integer_y;
+                pendingWheel.wheel.mouse_x = event.wheel.mouse_x;
+                pendingWheel.wheel.mouse_y = event.wheel.mouse_y;
+                pendingWheel.wheel.timestamp = event.wheel.timestamp;
+            }
+            continue;
+        }
+        if (event.type != SDL_EVENT_MOUSE_MOTION) flushWheel();
         ImGui_ImplSDL3_ProcessEvent(&event);
         switch (event.type) {
             case SDL_EVENT_QUIT:
@@ -1033,6 +1067,7 @@ void PCSX::GUI::startFrame() {
                 break;
         }
     }
+    flushWheel();
 
     if (m_setupScreenSize) {
         const float renderRatio = settings.get<WidescreenRatio>() ? 9.0f / 16.0f : 3.0f / 4.0f;
