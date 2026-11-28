@@ -5764,7 +5764,7 @@ msgstr "Вибір кольору піксельної сітки"
 msgid "TPage Grid Color Picker"
 msgstr "Вибір кольору TPage-сітки"
 
-#: src/main/main.cc:681
+#: src/main/main.cc:687
 msgid "Failed to load save state\n"
 msgstr "Не вдалося завантажити стан збереження.\n"
 

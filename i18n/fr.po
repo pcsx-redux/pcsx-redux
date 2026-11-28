@@ -5806,7 +5806,7 @@ msgstr "Sélecteur de couleur de la grille des pixels"
 msgid "TPage Grid Color Picker"
 msgstr "Sélecteur de couleur de la grille des TPages"
 
-#: src/main/main.cc:681
+#: src/main/main.cc:687
 msgid "Failed to load save state\n"
 msgstr "Impossible de charger l'état sauvegardé\n"
 
