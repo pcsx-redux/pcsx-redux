@@ -138,6 +138,9 @@
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-polyline.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-texel16-semi.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\..\tests\pcsxrunner\gpu-vram-move.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
