@@ -36,6 +36,7 @@ int main(int argc, char** argv) {
     args::Flag rawFlag(parser, "raw", "", {"raw"});
     args::Flag bootyFlag(parser, "booty", "", {"booty"});
     args::Flag romFlag(parser, "rom", "", {"rom"});
+    args::Flag datelFlag(parser, "datel", "", {"datel"});
     args::Flag cpeFlag(parser, "cpe", "", {"cpe"});
     args::Flag nopadFlag(parser, "nopad", "", {"nopad"});
     args::Flag helpFlag(parser, "help", "", {"h"});
@@ -59,12 +60,13 @@ https://github.com/pcsx-redux/pcsx-redux/tree/main/tools/ps1-packer/
     const bool raw = args::get(rawFlag);
     const bool booty = args::get(bootyFlag);
     const bool rom = args::get(romFlag);
+    const bool datel = args::get(datelFlag);
     const bool cpe = args::get(cpeFlag);
     const bool nopad = args::get(nopadFlag);
-    const unsigned outputTypeCount = (raw ? 1 : 0) + (booty ? 1 : 0) + (rom ? 1 : 0) + (cpe ? 1 : 0);
+    const unsigned outputTypeCount = (raw ? 1 : 0) + (booty ? 1 : 0) + (rom ? 1 : 0) + (datel ? 1 : 0) + (cpe ? 1 : 0);
     if (asksForHelp || !oneInput || !hasOutput || (outputTypeCount > 1)) {
         fmt::print(R"(
-Usage: {} input.ps-exe [-h] [-tload addr] [-shell] [-nokernel] [-resetstack] [-raw | -booty | -rom | -cpe] -o output.ps-exe
+Usage: {} input.ps-exe [-h] [-tload addr] [-shell] [-nokernel] [-resetstack] [-raw | -booty | -rom | -datel | -cpe] -o output.ps-exe
   input.ps-exe      mandatory: specify the input binary file.
   -o output.ps-exe  mandatory: name of the output file.
   -h                displays this help information and exit.
@@ -78,6 +80,7 @@ These options control the output format, and are mutually exclusive:
   -raw              outputs a raw file.
   -booty            outputs a counter-booty payload.
   -rom              outputs a bootable rom, which can be used in a cheat cart.
+  -datel            same as -rom, split over the two flash windows of Datel carts.
   -cpe              outputs a CPE file instead of a ps-exe one.
 If none of these options is provided, a ps-exe file will be emitted by default.
 
@@ -112,10 +115,16 @@ Valid input binary files can be in the following formats:
         return -1;
     }
 
+    if (shell && (rom || datel)) {
+        fmt::print("-shell can't be used with -rom or -datel: its reboot runs the cart's boot hook again.\n");
+        return -1;
+    }
+
     PCSX::PS1Packer::Options options;
     options.booty = booty;
     options.raw = raw;
     options.rom = rom;
+    options.datel = datel;
     options.cpe = cpe;
     options.shell = shell;
     options.nokernel = nokernel;
@@ -136,6 +145,16 @@ File {} created. All done.
 )",
                input, info.pc.value_or(0), info.gp.value_or(0), info.sp.value_or(0), file->size(), out->size(),
                output.value());
+
+    if (rom && out->size() > 128 * 1024) {
+        fmt::print(R"(
+Warning: this rom is {} bytes, larger than 128KB. Datel carts (Action Replay,
+GameShark) only map their first 128KB of flash contiguously at 0x1f000000, and
+the bootstrap code sits at the end of the rom, so it will not boot on them.
+Use -datel instead for these carts.
+)",
+                   out->size());
+    }
 
     return 0;
 }
