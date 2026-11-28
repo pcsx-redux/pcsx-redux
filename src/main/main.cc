@@ -543,6 +543,12 @@ runner.init({
 
     // Starting up the whole emulator; we delay setting the GPU only now because why not.
     auto &emuSettings = emulator->settings;
+    // The OpenGL GPU draws through the GUI's GL context. The text UIs have none, and only the GUI
+    // saves settings, so they can run the soft GPU without changing the saved choice.
+    if (!dynamic_cast<PCSX::GUI *>(s_ui) && emuSettings.get<PCSX::Emulator::SettingHardwareRenderer>()) {
+        fmt::print(stderr, "The OpenGL GPU needs the graphical interface; using the software GPU.\n");
+        emuSettings.get<PCSX::Emulator::SettingHardwareRenderer>() = false;
+    }
     emulator->m_spu->open();
     emulator->init();
     emulator->m_gpu->init(s_ui);
