@@ -1,0 +1,1578 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://pcsx-redux.consoledev.net/Lua/mdec/">
+      
+      
+        <link rel="prev" href="../compression/">
+      
+      
+        <link rel="next" href="../sqlite/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>MDEC frames - PCSX-Redux</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#mdec-frames" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PCSX-Redux" class="md-header__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PCSX-Redux
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              MDEC frames
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PCSX-Redux" class="md-nav__button md-logo" aria-label="PCSX-Redux" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    PCSX-Redux
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/grumpycoders/pcsx-redux/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../menus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PCSX-Redux menus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../compiling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compiling PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli_flags/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Command Line Flags
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Debugging
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Debugging
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Debugging with PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gdb-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GDB server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/ghidra/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting Ghidra to PCSX-Redux
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/misc-features/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Misc Features
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/vram-viewer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    VRAM viewer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/gpu-logger/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GPU Logger
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/spu-samples/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPU samples and replacement packs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Debugging/dalos/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dalos
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mips_api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Mips API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../web_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Web server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sio1_networking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SIO1 networking
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Lua
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Lua
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../introduction/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../libraries/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Loaded libraries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../redux-basics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Redux basic API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rendering/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Rendering
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../file-api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    File API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../iso-builder/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Building ISO images
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ppf/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PPF patches
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Webserver Lua API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../html/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTML builder
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory-and-registers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Memory and registers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../expansion-carts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Expansion carts in Lua
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Events
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../breakpoints/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Breakpoints
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../assembler/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Inline assembler
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../binary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Handling of PSX binaries
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compression/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compression formats
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    MDEC frames
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    MDEC frames
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction-rationale" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction &amp; Rationale
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      Decoding
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      Encoding
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#worked-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Worked example
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sqlite/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SQLite
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../text-tables/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Text tables
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guest-calls/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Calling guest code
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../implot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Plots
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../case-studies/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Case studies
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playbook-scripted-session/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: scripting a game session
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playbook-localizing-bugs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Playbook: finding where a bug lives
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../openbios/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Openbios
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction-rationale" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction &amp; Rationale
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      Decoding
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      Encoding
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#worked-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Worked example
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="mdec-frames">MDEC frames</h1>
+<h2 id="introduction-rationale">Introduction &amp; Rationale</h2>
+<p><code>PCSX.MDEC</code> converts between the compressed video frames a PlayStation game feeds to its MDEC and plain 24-bit RGB. Games that play STR movies keep each frame as a BS frame: the MDEC run-level stream, VLC-coded, with an 8-byte header in front. The API has two functions. <code>decodeBS</code> turns one BS frame into a picture, and <code>encodeBS</code> turns a picture into one BS frame. Together they are enough to pull a frame out of a movie, edit it, and put it back.</p>
+<p>A BS frame is only the video payload. It is not the sector layout an STR movie is stored in on a disc, and <code>PCSX.MDEC</code> knows nothing about sectors, chunk headers or XA audio. Reading a frame's chunks off a disc and writing them back is the script's job, and the worked example below shows one way to do it.</p>
+<p><code>decodeBS</code> accepts BS versions 1, 2 and 3. Versions 1 and 2 store the DC of each block as a raw 10-bit value, and version 3 delta-codes it. Any other version number is refused. <code>encodeBS</code> always writes version 2.</p>
+<p>Decoding uses the standard quantization and scale tables, and macroblocks are taken column-major, which is how retail STR movies store them.</p>
+<h2 id="decoding">Decoding</h2>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="n">PCSX</span><span class="p">.</span><span class="n">MDEC</span><span class="p">.</span><span class="n">decodeBS</span><span class="p">(</span><span class="n">bs</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<p><code>bs</code> is one BS frame, as a <code>LuaBuffer</code> or a string, with the 8-byte header at the start. Bytes after the end of the frame's run-level are ignored, so a frame concatenated from whole chunks can be passed as it is. <code>width</code> and <code>height</code> are the picture size in pixels, integers from 1 to 65535. They are rounded up to multiples of 16, which is the size the frame is actually coded at.</p>
+<p>On success it returns three values:</p>
+<ul>
+<li><code>rgb</code>: a <code>LuaBuffer</code> of <code>paddedW * paddedH * 3</code> bytes, three bytes (R, G, B) per pixel, rows packed with no stride.</li>
+<li><code>paddedW</code>, <code>paddedH</code>: the rounded-up sizes, which are also the row length and row count of <code>rgb</code>.</li>
+</ul>
+<p>It returns <code>nil</code> and a message when the stream does not decode as a frame of that size. The messages include:</p>
+<ul>
+<li><code>shorter than a BS header</code></li>
+<li><code>not a BS stream: word 0 is not the MDEC decode command</code></li>
+<li><code>BS version out of range: expected 1, 2 or 3</code></li>
+<li><code>the stream's block count does not match the frame size</code></li>
+<li><code>the stream ends before the frame does</code></li>
+<li><code>a run goes past coefficient 63</code></li>
+</ul>
+<p>A frame decoded with a size other than the one it was encoded at fails on its block count, not with a wrong picture.</p>
+<p>An argument of the wrong kind raises an error instead: <code>bs</code> that is neither a <code>LuaBuffer</code> nor a string (<code>decodeBS: input must be a LuaBuffer or a string</code>), or a <code>width</code> or <code>height</code> that is not an integer in 1..65535 (<code>decodeBS: width must be an integer in 1..65535</code>).</p>
+<h2 id="encoding">Encoding</h2>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="n">PCSX</span><span class="p">.</span><span class="n">MDEC</span><span class="p">.</span><span class="n">encodeBS</span><span class="p">(</span><span class="n">rgb</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">maxBytes</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<p><code>rgb</code> is <code>width * height * 3</code> bytes of 24-bit RGB, rows packed, as a <code>LuaBuffer</code> or a string. Extra bytes at the end are ignored. The sides do not need to be multiples of 16: the last row and the last column are repeated to pad the picture to the next multiple of 16.</p>
+<p>The encoder tries q_scale values from 1 upward, and keeps the lowest one for which the frame meets two limits:</p>
+<ul>
+<li>It is at most <code>maxBytes</code> bytes long, header included. <code>maxBytes</code> is an integer; <code>nil</code> or 0 means no byte budget.</li>
+<li>Its run-level stays within 28672 halfwords, which is the default size of the buffer a psyqo <code>StrPlayer</code> holds. The run-level is counted as the BS header counts it, padded to a multiple of 64 halfwords.</li>
+</ul>
+<p>A lower q_scale means a higher quality and a larger frame.</p>
+<p>On success it returns two values: the BS version 2 frame in a <code>LuaBuffer</code>, and the q_scale it used. If no q_scale up to 63 meets the limits, it returns <code>nil</code> and a message. The messages are:</p>
+<ul>
+<li><code>does not fit &lt;maxBytes&gt; bytes even at q_scale 63</code></li>
+<li><code>decodes to &lt;n&gt; run-level halfwords even at q_scale 63, more than rlHalfwords (28672): lower the size, or raise rlHalfwords for a player with a larger buffer</code></li>
+<li><code>decodes to &lt;n&gt; run-level halfwords even at q_scale 63, more than a BS header counts (131070): lower the size</code></li>
+</ul>
+<p>The run-level limit cannot be changed from Lua, and a larger <code>maxBytes</code> does not help with either of the last two: only a smaller picture decodes to less run-level.</p>
+<p>One frame BS cannot hold at all: when the budget forces q_scale 63 and the last block is flat with a DC of -512, that block's first word is 0xfe00, which a BS reader takes for padding. <code>encodeBS</code> then returns <code>nil</code> and <code>the BS stream holds &lt;n&gt; of the frame's &lt;m&gt; blocks: ...</code>; a larger <code>maxBytes</code> avoids it.</p>
+<p>An argument of the wrong kind raises an error: <code>encodeBS: input must be a LuaBuffer or a string</code>, <code>encodeBS: width must be an integer in 1..65535</code> (and the same for <code>height</code>), <code>encodeBS: maxBytes must be nil or an integer in 0..4294967295</code>, or <code>encodeBS: input too small, needs &lt;n&gt; bytes</code>.</p>
+<h2 id="worked-example">Worked example</h2>
+<p>This reads one frame of an STR movie from a disc image, changes a few pixels and writes the frame back. The sector layout below comes from the STR format, not from <code>PCSX.MDEC</code>.</p>
+<p>An STR video sector is a Mode 2 Form 1 sector, so reading the movie through an <code>Iso</code> object in <code>'M2_FORM1'</code> mode (see the <a href="../file-api/">File API</a>) gives 2048 bytes per sector, and writing in that mode recomputes each sector's EDC and ECC. The 2048 bytes start with a 32-byte chunk header, and the first fields of it are:</p>
+<table>
+<thead>
+<tr>
+<th>Offset</th>
+<th>Size</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>u32</td>
+<td><code>0x80010160</code>, the STR video sector marker</td>
+</tr>
+<tr>
+<td>4</td>
+<td>u16</td>
+<td>chunk index within the frame</td>
+</tr>
+<tr>
+<td>6</td>
+<td>u16</td>
+<td>chunk count of the frame</td>
+</tr>
+<tr>
+<td>8</td>
+<td>u32</td>
+<td>frame number</td>
+</tr>
+<tr>
+<td>12</td>
+<td>u32</td>
+<td>frame size in bytes, rounded up to 4</td>
+</tr>
+<tr>
+<td>16</td>
+<td>u16</td>
+<td>picture width</td>
+</tr>
+<tr>
+<td>18</td>
+<td>u16</td>
+<td>picture height</td>
+</tr>
+</tbody>
+</table>
+<p>2016 bytes of frame data follow the header. A frame is the concatenation of the frame data of its chunks, in chunk order. XA audio sectors may be interleaved with the video ones, and are skipped here by checking the marker, the frame number and the chunk index.</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span>
+<span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span>
+<span class="normal">40</span>
+<span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">local</span> <span class="n">SECTOR</span><span class="p">,</span> <span class="n">PAYLOAD</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span> <span class="mi">2016</span>
+
+<span class="c1">-- lba is the first sector of a frame&#39;s chunk 0, and count a number of sectors</span>
+<span class="c1">-- that reaches past the frame&#39;s last chunk, with room for interleaved audio.</span>
+<span class="kd">local</span> <span class="n">iso</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">openIso</span><span class="p">(</span><span class="s1">&#39;movie.bin&#39;</span><span class="p">)</span>
+<span class="kd">local</span> <span class="n">f</span> <span class="o">=</span> <span class="n">iso</span><span class="p">:</span><span class="n">open</span><span class="p">(</span><span class="n">lba</span><span class="p">,</span> <span class="n">count</span> <span class="o">*</span> <span class="n">SECTOR</span><span class="p">,</span> <span class="s1">&#39;M2_FORM1&#39;</span><span class="p">)</span>
+
+<span class="kd">local</span> <span class="kr">function</span> <span class="nf">header</span><span class="p">(</span><span class="n">sector</span><span class="p">)</span>
+    <span class="kd">local</span> <span class="n">at</span> <span class="o">=</span> <span class="n">sector</span> <span class="o">*</span> <span class="n">SECTOR</span>
+    <span class="kr">return</span> <span class="n">f</span><span class="p">:</span><span class="n">readU32At</span><span class="p">(</span><span class="n">at</span><span class="p">),</span> <span class="n">f</span><span class="p">:</span><span class="n">readU16At</span><span class="p">(</span><span class="n">at</span> <span class="o">+</span> <span class="mi">4</span><span class="p">),</span> <span class="n">f</span><span class="p">:</span><span class="n">readU16At</span><span class="p">(</span><span class="n">at</span> <span class="o">+</span> <span class="mi">6</span><span class="p">),</span> <span class="n">f</span><span class="p">:</span><span class="n">readU32At</span><span class="p">(</span><span class="n">at</span> <span class="o">+</span> <span class="mi">8</span><span class="p">),</span>
+           <span class="n">f</span><span class="p">:</span><span class="n">readU16At</span><span class="p">(</span><span class="n">at</span> <span class="o">+</span> <span class="mi">16</span><span class="p">),</span> <span class="n">f</span><span class="p">:</span><span class="n">readU16At</span><span class="p">(</span><span class="n">at</span> <span class="o">+</span> <span class="mi">18</span><span class="p">)</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span> <span class="n">magic</span><span class="p">,</span> <span class="n">first</span><span class="p">,</span> <span class="n">chunks</span><span class="p">,</span> <span class="n">frameNo</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="n">header</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="nb">assert</span><span class="p">(</span><span class="n">magic</span> <span class="o">==</span> <span class="mh">0x80010160</span> <span class="ow">and</span> <span class="n">first</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;not the first chunk of a frame&#39;</span><span class="p">)</span>
+
+<span class="c1">-- Gather the frame&#39;s chunks, and remember which sector each one sits in.</span>
+<span class="kd">local</span> <span class="n">where</span><span class="p">,</span> <span class="n">parts</span> <span class="o">=</span> <span class="p">{},</span> <span class="p">{}</span>
+<span class="kr">for</span> <span class="n">sector</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">count</span> <span class="o">-</span> <span class="mi">1</span> <span class="kr">do</span>
+    <span class="kd">local</span> <span class="n">m</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">header</span><span class="p">(</span><span class="n">sector</span><span class="p">)</span>
+    <span class="kr">if</span> <span class="n">m</span> <span class="o">==</span> <span class="mh">0x80010160</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">==</span> <span class="n">frameNo</span> <span class="ow">and</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="n">chunks</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">where</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="kr">then</span>
+        <span class="n">where</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">sector</span>
+        <span class="n">parts</span><span class="p">[</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tostring</span><span class="p">(</span><span class="n">f</span><span class="p">:</span><span class="n">readAt</span><span class="p">(</span><span class="n">PAYLOAD</span><span class="p">,</span> <span class="n">sector</span> <span class="o">*</span> <span class="n">SECTOR</span> <span class="o">+</span> <span class="mi">32</span><span class="p">))</span>
+    <span class="kr">end</span>
+<span class="kr">end</span>
+<span class="nb">assert</span><span class="p">(</span><span class="o">#</span><span class="n">parts</span> <span class="o">==</span> <span class="n">chunks</span><span class="p">,</span> <span class="s1">&#39;the frame is not all in the sectors read&#39;</span><span class="p">)</span>
+<span class="kd">local</span> <span class="n">frame</span> <span class="o">=</span> <span class="nb">table.concat</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span>
+
+<span class="kd">local</span> <span class="n">rgb</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">MDEC</span><span class="p">.</span><span class="n">decodeBS</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">)</span>
+<span class="nb">assert</span><span class="p">(</span><span class="n">rgb</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+
+<span class="c1">-- Paint a 32x32 red square in the top left corner.</span>
+<span class="kr">for</span> <span class="n">y</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">31</span> <span class="kr">do</span>
+    <span class="kr">for</span> <span class="n">x</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">31</span> <span class="kr">do</span>
+        <span class="kd">local</span> <span class="n">i</span> <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">*</span> <span class="n">w</span> <span class="o">+</span> <span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span>
+        <span class="n">rgb</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">rgb</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">rgb</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="kr">end</span>
+<span class="kr">end</span>
+
+<span class="c1">-- The new frame has to fit the sectors the old one used.</span>
+<span class="kd">local</span> <span class="n">bs</span><span class="p">,</span> <span class="n">qScale</span> <span class="o">=</span> <span class="n">PCSX</span><span class="p">.</span><span class="n">MDEC</span><span class="p">.</span><span class="n">encodeBS</span><span class="p">(</span><span class="n">rgb</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">chunks</span> <span class="o">*</span> <span class="n">PAYLOAD</span><span class="p">)</span>
+<span class="nb">assert</span><span class="p">(</span><span class="n">bs</span><span class="p">,</span> <span class="n">qScale</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">((</span><span class="s1">&#39;re-encoded at q_scale %d, %d of %d bytes&#39;</span><span class="p">):</span><span class="n">format</span><span class="p">(</span><span class="n">qScale</span><span class="p">,</span> <span class="o">#</span><span class="n">bs</span><span class="p">,</span> <span class="n">chunks</span> <span class="o">*</span> <span class="n">PAYLOAD</span><span class="p">))</span>
+
+<span class="c1">-- Zero padding after a BS frame is ignored by the decoder. Each chunk header</span>
+<span class="c1">-- also carries the frame&#39;s size, rounded up to 4 bytes.</span>
+<span class="kd">local</span> <span class="n">padded</span> <span class="o">=</span> <span class="nb">tostring</span><span class="p">(</span><span class="n">bs</span><span class="p">)</span> <span class="o">..</span> <span class="nb">string.rep</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\0</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">chunks</span> <span class="o">*</span> <span class="n">PAYLOAD</span> <span class="o">-</span> <span class="o">#</span><span class="n">bs</span><span class="p">)</span>
+<span class="kr">for</span> <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">chunks</span> <span class="o">-</span> <span class="mi">1</span> <span class="kr">do</span>
+    <span class="kd">local</span> <span class="n">at</span> <span class="o">=</span> <span class="n">where</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">*</span> <span class="n">SECTOR</span>
+    <span class="n">f</span><span class="p">:</span><span class="n">writeU32At</span><span class="p">((</span><span class="o">#</span><span class="n">bs</span> <span class="o">+</span> <span class="mi">3</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="mi">3</span><span class="p">,</span> <span class="n">at</span> <span class="o">+</span> <span class="mi">12</span><span class="p">)</span>
+    <span class="n">f</span><span class="p">:</span><span class="n">writeAt</span><span class="p">(</span><span class="n">padded</span><span class="p">:</span><span class="n">sub</span><span class="p">(</span><span class="n">index</span> <span class="o">*</span> <span class="n">PAYLOAD</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">PAYLOAD</span><span class="p">),</span> <span class="n">at</span> <span class="o">+</span> <span class="mi">32</span><span class="p">)</span>
+<span class="kr">end</span>
+</code></pre></div></td></tr></table></div>
+<p>The write patches the image in memory, and <code>iso:savePPF()</code> saves it as a PPF file.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>
