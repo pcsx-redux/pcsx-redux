@@ -17,6 +17,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include <cmath>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -516,7 +517,9 @@ void PCSX::Widgets::VRAMViewer::drawVRAM(GUI *gui, GLuint textureID) {
             }
         } else {
             static const float increment = 1.2f;
-            const float step = io.MouseWheel > 0.0f ? increment * io.MouseWheel : -1.0f / (increment * io.MouseWheel);
+            // Exponential in the wheel delta, so fractional deltas from high-resolution
+            // wheels and touchpads (SDL3 on Wayland, axis_value120) zoom proportionally.
+            const float step = std::pow(increment, io.MouseWheel);
             zoom(step, m_mouseUV);
         }
     } else if (io.MouseDown[2] || (io.MouseDown[0] && io.MouseDown[1])) {

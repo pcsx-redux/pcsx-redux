@@ -20,6 +20,8 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "gui/widgets/zoomable-image.h"
 
+#include <cmath>
+
 #include "imgui.h"
 #include "imgui_internal.h"
 
@@ -45,7 +47,9 @@ void PCSX::Widgets::ZoomableImage::moveTo(ImVec2 pos) {
 void PCSX::Widgets::ZoomableImage::handlePanZoom(const ImGuiIO &io, ImVec2 dimensions) {
     if (io.MouseWheel != 0.0f) {
         static const float increment = 1.2f;
-        const float step = io.MouseWheel > 0.0f ? increment * io.MouseWheel : -1.0f / (increment * io.MouseWheel);
+        // Exponential in the wheel delta, so fractional deltas from high-resolution
+        // wheels and touchpads (SDL3 on Wayland, axis_value120) zoom proportionally.
+        const float step = std::pow(increment, io.MouseWheel);
         zoom(step, m_mouseUV);
     } else if (io.MouseDown[2] || (io.MouseDown[0] && io.MouseDown[1])) {
         m_cornerTL.x += io.MouseDelta.x;
