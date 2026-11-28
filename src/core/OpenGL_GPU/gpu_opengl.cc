@@ -1536,12 +1536,12 @@ void PCSX::OpenGL_GPU::write0(BlitVramVram *prim) {
     width = ((width - 1) & 0x3ff) + 1;
     height = ((height - 1) & 0x1ff) + 1;
 
-    // Source and destination Y each wrap per row through resolveVramY(), and rows landing on an
-    // unpopulated upper bank (open bus on a 1MB fitment) are dropped. A single blit only covers a copy
-    // that is contiguous on both ends.
+    // Source and destination X each wrap at 1024 and Y per row through resolveVramY(), and rows
+    // landing on an unpopulated upper bank (open bus on a 1MB fitment) are dropped. A single blit
+    // only covers a copy that is contiguous on both ends.
     const unsigned srcY0 = resolveVramY(srcY);
     const unsigned destY0 = resolveVramY(destY);
-    bool contiguous = true;
+    bool contiguous = (srcX + width <= unsigned(vramWidth)) && (destX + width <= unsigned(vramWidth));
     for (uint32_t j = 0; contiguous && (j < height); j++) {
         contiguous =
             !vramOpenBus(destY + j) && (resolveVramY(srcY + j) == srcY0 + j) && (resolveVramY(destY + j) == destY0 + j);

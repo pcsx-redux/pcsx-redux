@@ -36,6 +36,7 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
 
+#define GPUSTATUS_READYFORCOMMANDS 0x10000000  // GP0 FIFO empty
 #define GPUSTATUS_READYFORVRAM 0x08000000
 #define GPUSTATUS_IDLE 0x04000000  // CMD ready
 #define GPUSTATUS_MODE 0x02000000  // Data request mode
@@ -388,9 +389,20 @@ uint32_t PCSX::GPU::readStatus() {
     // GP0(C0h) until the last word of the readout has been read.
     if (!isIdle() || (m_readFifo->size() != 0)) ret &= ~GPUSTATUS_IDLE;
     if (m_irq1Flag) ret |= GPUSTATUS_IRQ1;
-    // Let's pretend our input fifo is always ready for more data.
-    if ((ret & 0x60000000) == 0x20000000) ret |= 0x02000000;
-    if (dmaBlockRequestLow()) ret &= ~0x12000000;
+    if (dmaBlockRequestLow()) ret &= ~GPUSTATUS_READYFORCOMMANDS;
+    // Bit 25 is the DMA request, picked by the GP1(04h) direction. With 1 it means the GP0 FIFO is not
+    // full, and Redux's FIFO never fills. With 2 it follows bit 28, so it is set whenever bit 28 is:
+    // after a command, during an unfinished GP0(A0h), and after a DMA2 list (SCPH-1001,
+    // gpu-transfer-edges).
+    switch ((ret >> 29) & 3) {
+        case 1:
+            ret |= GPUSTATUS_MODE;
+            break;
+        case 2:
+            ret &= ~GPUSTATUS_MODE;
+            if (ret & GPUSTATUS_READYFORCOMMANDS) ret |= GPUSTATUS_MODE;
+            break;
+    }
     return ret;
 }
 
@@ -1129,23 +1141,9 @@ void PCSX::GPU::BlitVramVram::processWrite(Buffer &buf, Logged::Origin origin, u
             // Xsiz_eff = ((Xsiz-1) AND 3FFh)+1, Ysiz_eff = ((Ysiz-1) AND 1FFh)+1.
             w = ((w - 1) & 0x3ff) + 1;
             h = ((h - 1) & 0x1ff) + 1;
-            // Clip against the full 1024x1024 physical buffer, not the retail
-            // 512 height: an upper-bank (Y>=512) source or destination must
-            // survive decode so the bank-aware copy in write0 (which routes
-            // every row through resolveVramY) can run. With the default
-            // hMax=512 a copy touching the upper bank had its height clamped
-            // to 0 and was silently dropped. Matches the upload/readback clip.
-            // Gate open: both source and destination Y wrap mod-1024 (silicon
-            // WRAP for copy, transfer-wrap-y 2026-06-15; psx-spx: src/dst may
-            // straddle the Y=512 bank boundary cleanly). Clamp X only and let
-            // write0 route every row through resolveVramY. Gate closed: retail.
-            if (m_gpu->vram2MBGateOpen()) {
-                clipped = GPU::clipX<unsigned, 1024>(sX, w);
-                clipped |= GPU::clipX<unsigned, 1024>(dX, w);
-            } else {
-                clipped = GPU::clip<unsigned, 1024, 1024>(sX, sY, w, h);
-                clipped |= GPU::clip<unsigned, 1024, 1024>(dX, dY, w, h);
-            }
+            // Source and destination wrap per pixel: X at 1024, Y through resolveVramY in write0.
+            clipped = GPU::wrapTransferOrigin(sX, sY, w);
+            clipped |= GPU::wrapTransferOrigin(dX, dY, w);
             m_state = READ_COMMAND;
             m_gpu->m_defaultProcessor.setActive();
             m_gpu->m_logger->addNode(*this, origin, origvalue, length);
@@ -1158,7 +1156,12 @@ void PCSX::GPU::BlitRamVram::writeRow(GPU *gpu, unsigned row, const uint16_t *sr
                                       PartialUpdateVram mode) {
     // Drop writes to an opened-but-unpopulated upper bank (1MB fitment): they hit floating bus and are lost.
     if (gpu->vramOpenBus(y + row)) return;
-    gpu->uploadVRAM(x, gpu->resolveVramY(y + row), count, 1, src + row * m_stride, mode);
+    const unsigned vramY = gpu->resolveVramY(y + row);
+    src += row * m_stride;
+    // Columns past 1023 wrap to the start of the same row.
+    const unsigned first = std::min(count, 1024 - x);
+    gpu->uploadVRAM(x, vramY, first, 1, src, mode);
+    if (first < count) gpu->uploadVRAM(0, vramY, count - first, 1, src + first, mode);
 }
 
 // A v2 GPU writes GP0(A0h) data to VRAM one complete row at a time, as each row completes, so an
@@ -1218,15 +1221,8 @@ void PCSX::GPU::BlitRamVram::processWrite(Buffer &buf, Logged::Origin origin, ui
             m_stride = w;
             size = (m_stride * h + 1) / 2;
             // raw.{x,y,w,h} keep the values the game actually sent, for the logger.
-            // Gate open: Y wraps mod-1024 per row via resolveVramY (silicon-
-            // measured WRAP, transfer-wrap-y 2026-06-15), so clamp X only and let
-            // the per-row loop run the full height. Gate closed: retail clip.
-            // Clipped here, before any pixel arrives, because rows land as they complete.
-            if (m_gpu->vram2MBGateOpen()) {
-                clipped = GPU::clipX<unsigned, 1024>(x, w);
-            } else {
-                clipped = GPU::clip<unsigned, 1024, 1024>(x, y, w, h);
-            }
+            // Wrapped here, before any pixel arrives, because rows land as they complete.
+            clipped = GPU::wrapTransferOrigin(x, y, w);
             m_rowsLanded = 0;
             m_data.clear();
             m_data.reserve(size * 4);
@@ -1293,13 +1289,7 @@ void PCSX::GPU::BlitVramRam::processWrite(Buffer &buf, Logged::Origin origin, ui
             // Xsiz_eff = ((Xsiz-1) AND 3FFh)+1, Ysiz_eff = ((Ysiz-1) AND 1FFh)+1.
             w = ((w - 1) & 0x3ff) + 1;
             h = ((h - 1) & 0x1ff) + 1;
-            // Gate open: Y wraps mod-1024 per row via resolveVramY (silicon
-            // WRAP, transfer-wrap-y 2026-06-15); clamp X only. Gate closed: retail.
-            if (m_gpu->vram2MBGateOpen()) {
-                clipped = GPU::clipX<unsigned, 1024>(x, w);
-            } else {
-                clipped = GPU::clip<unsigned, 1024, 1024>(x, y, w, h);
-            }
+            clipped = GPU::wrapTransferOrigin(x, y, w);
             m_state = READ_COMMAND;
             m_gpu->m_defaultProcessor.setActive();
             m_gpu->m_logger->addNode(*this, origin, origvalue, length);
@@ -1318,8 +1308,31 @@ void PCSX::GPU::BlitVramRam::processWrite(Buffer &buf, Logged::Origin origin, ui
                     m_gpu->m_readFifo->pushSlice(std::move(slice));
                     continue;
                 }
-                slice.borrow(m_gpu->m_vramReadSlice, (m_gpu->resolveVramY(l) * 1024 + x) * 2, w * 2);
+                // Columns past 1023 wrap to the start of the same row.
+                const size_t row = size_t(m_gpu->resolveVramY(l)) * 1024;
+                const unsigned first = std::min(w, 1024 - x);
+                slice.borrow(m_gpu->m_vramReadSlice, (row + x) * 2, first * 2);
                 m_gpu->m_readFifo->pushSlice(std::move(slice));
+                if (first < w) {
+                    Slice rest;
+                    rest.borrow(m_gpu->m_vramReadSlice, row * 2, (w - first) * 2);
+                    m_gpu->m_readFifo->pushSlice(std::move(rest));
+                }
+            }
+            // An odd pixel count still ends on a whole GPUREAD word. Its upper halfword is the next
+            // pixel of the last row, at column (x + w) & 1023 (SCPH-1001, gpu-transfer-edges and
+            // gpu-transfer-ffff).
+            if ((w * h) & 1) {
+                const unsigned l = y + h - 1;
+                Slice pad;
+                if (m_gpu->vramOpenBus(l)) {
+                    const uint16_t openBus = kVramOpenBusValue;
+                    pad.copy(&openBus, sizeof(openBus));
+                } else {
+                    const size_t at = size_t(m_gpu->resolveVramY(l)) * 1024 + ((x + w) & c_Coord10Mask);
+                    pad.borrow(m_gpu->m_vramReadSlice, at * 2, 2);
+                }
+                m_gpu->m_readFifo->pushSlice(std::move(pad));
             }
             return;
     }
@@ -1390,68 +1403,34 @@ PCSX::GPU::MaskBit::MaskBit(uint32_t value) {
 }
 
 void PCSX::GPU::write0(BlitVramVram *prim) {
-    auto inSlice = getVRAM();
-
-    auto sX = prim->sX;
-    auto sY = prim->sY;
-    auto dX = prim->dX;
-    auto dY = prim->dY;
-    auto w = prim->w;
-    auto h = prim->h;
-
-    if (m_vram2MBGateOpen) {
-        // Bank-aware copy: source and destination Y each wrap mod-1024 per row
-        // (resolveVramY), matching silicon (transfer-wrap-y verdict=WRAP for
-        // copy, 2026-06-15). X was clamped at decode (clipX on both sX and dX)
-        // and h was capped to <=512 by the COPY Ysiz mask, so no further
-        // clamping is needed here. Snapshot the whole source first so an
-        // overlapping src/dst copy stays correct, then write each destination
-        // row, dropping rows that hit an unpopulated upper bank (open bus on a
-        // 1MB fitment); source reads of an unpopulated upper bank land on the
-        // 0xFFFF prefill, so no explicit source guard is needed.
-        if ((w == 0) || (h == 0)) return;
-        std::vector<uint16_t> rect;
-        rect.resize((size_t)h * w);
-        for (unsigned l = 0; l < h; l++) {
-            Slice slice;
-            slice.borrow(inSlice, ((size_t)resolveVramY(sY + l) * 1024 + sX) * sizeof(uint16_t), w * sizeof(uint16_t));
-            memcpy(rect.data() + (size_t)l * w, slice.data(), slice.size());
-        }
-        for (unsigned l = 0; l < h; l++) {
-            if (vramOpenBus(dY + l)) continue;
-            partialUpdateVRAM(dX, resolveVramY(dY + l), w, 1, rect.data() + (size_t)l * w,
-                              PartialUpdateVram::Synchronous);
-        }
-        return;
-    }
-
-    if (sX > 1024) {
-        w -= sX - 1024;
-        sX = 1024;
-    }
-    if (sY > 512) {
-        h -= sY - 512;
-        sY = 512;
-    }
-    if (dX > 1024) {
-        w -= dX - 1024;
-        dX = 1024;
-    }
-    if (dY > 512) {
-        h -= dY - 512;
-        dY = 512;
-    }
-
+    const unsigned sX = prim->sX;
+    const unsigned sY = prim->sY;
+    const unsigned dX = prim->dX;
+    const unsigned dY = prim->dY;
+    const unsigned w = prim->w;
+    const unsigned h = prim->h;
     if ((w == 0) || (h == 0)) return;
 
-    std::vector<uint16_t> rect;
-    rect.resize(h * w);
+    // Every pixel wraps: X at 1024, and source and destination rows through resolveVramY
+    // (mod 1024 with the bank gate open, as measured on 573 silicon by transfer-wrap-y). The
+    // source is snapshotted first so an overlapping copy stays correct. Destination rows on an
+    // unpopulated upper bank (open bus on a 1MB fitment) are dropped; source reads there land
+    // on the 0xFFFF prefill.
+    auto inSlice = getVRAM();
+    const uint16_t *vram = inSlice.data<uint16_t>();
+    std::vector<uint16_t> rect((size_t)h * w);
     for (unsigned l = 0; l < h; l++) {
-        Slice slice;
-        slice.borrow(inSlice, ((l + sY) * 1024 + sX) * sizeof(uint16_t), w * sizeof(uint16_t));
-        memcpy(rect.data() + l * w, slice.data(), slice.size());
+        const uint16_t *row = vram + (size_t)resolveVramY(sY + l) * 1024;
+        for (unsigned i = 0; i < w; i++) rect[(size_t)l * w + i] = row[(sX + i) & c_Coord10Mask];
     }
-    partialUpdateVRAM(dX, dY, w, h, rect.data(), PartialUpdateVram::Synchronous);
+    const unsigned first = std::min(w, 1024 - dX);
+    for (unsigned l = 0; l < h; l++) {
+        if (vramOpenBus(dY + l)) continue;
+        const unsigned y = resolveVramY(dY + l);
+        const uint16_t *src = rect.data() + (size_t)l * w;
+        partialUpdateVRAM(dX, y, first, 1, src, PartialUpdateVram::Synchronous);
+        if (first < w) partialUpdateVRAM(0, y, w - first, 1, src + first, PartialUpdateVram::Synchronous);
+    }
 }
 
 // These technically belong to gpulogger.cc, but due to the template instanciation, they need to be here

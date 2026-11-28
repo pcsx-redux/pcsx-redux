@@ -449,50 +449,19 @@ class GPU {
     };
 
   public:
-    // X-only clip against the 1024-wide buffer. Used by the VRAM transfer
-    // paths when the bank gate is open: there the per-row Y counter WRAPS at
-    // the 10-bit boundary (resolveVramY -> y & 0x3ff) instead of clipping, so
-    // Y/h must be left untouched and only the X extent clamped. Hardware-
-    // measured on 573 silicon (transfer-wrap-y, 2026-06-15): a transfer that
-    // runs past Y=1023 wraps to Y=0 rather than dropping the overflow rows
-    // (verdict=WRAP for both upload and copy). psx-spx Wrapping note: Copy/Fill
-    // wrap to the opposite edge at the addressable VRAM size.
-    template <typename T, T wMax = 1024>
-    static bool clipX(T &x, T &w) {
-        bool clipped = false;
-        if (x >= wMax) {
-            x = wMax;
-            if (w != 0) {
-                w = 0;
-                return true;
-            }
-            return false;
-        }
-        if (x + w > wMax) {
-            clipped = true;
-            w = wMax - x;
-        }
-        return clipped;
+    // GP0(80h), A0h and C0h address every pixel modulo the VRAM size: the column wraps at 1024 and
+    // each row goes through resolveVramY, so a rectangle running past an edge carries on at the
+    // opposite one. Measured on v2 silicon (SCPH-1001, gpu-transfer-ffff): a 1024 wide upload at
+    // x=256 writes columns 256..1023 then 0..255 of the same rows. Returns whether the rectangle
+    // runs past the right edge.
+    static bool wrapTransferOrigin(unsigned &x, unsigned &y, unsigned w) {
+        x &= c_Coord10Mask;
+        y &= c_Coord10Mask;
+        return x + w > 1024;
     }
 
-    template <typename T, T wMax = 1024, T hMax = 512>
-    static bool clip(T &x, T &y, T &w, T &h) {
-        bool clipped = false;
-        x %= wMax;
-        y %= hMax;
-
-        if (x + w > wMax) {
-            x = 0;
-            clipped = true;
-        }
-
-        if (y + h > hMax) {
-            y = 0;
-            clipped = true;
-        }
-
-        return clipped;
-    }
+    // Whether column px lies in the w columns starting at x, counting the wrap at 1024.
+    static bool inTransferColumns(unsigned px, unsigned x, unsigned w) { return ((px - x) & c_Coord10Mask) < w; }
 
     enum class Shading { Flat, Gouraud };
     enum class Shape { Tri, Quad };
@@ -576,7 +545,7 @@ class GPU {
         void processWrite(Buffer &, Logged::Origin, uint32_t value, uint32_t length) override;
         void reset() override { m_state = READ_COMMAND; }
         bool isInside(unsigned x, unsigned y) override {
-            return (x >= this->dX) && (y >= this->dY) && (x < this->dX + this->w) && (y < this->dY + this->h);
+            return inTransferColumns(x, this->dX, this->w) && (y >= this->dY) && (y < this->dY + this->h);
         }
 
         unsigned sX, sY, dX, dY, w, h;
@@ -618,7 +587,7 @@ class GPU {
         // GP1(01h) during an unfinished upload: writes the partial row, then the upload ends.
         void flushHeldRow();
         bool isInside(unsigned x, unsigned y) override {
-            return (x >= this->x) && (y >= this->y) && (x < this->x + this->w) && (y < this->y + this->h);
+            return inTransferColumns(x, this->x, this->w) && (y >= this->y) && (y < this->y + this->h);
         }
 
         unsigned x, y, w, h;
