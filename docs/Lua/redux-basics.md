@@ -338,7 +338,8 @@ This allows distributing complex "mods" as zip files, which can be loaded and ex
 
 If two archives contain files with the same path, the one added last via either the CLI or `Support.extra.addArchive` will take precedence when using any of the functions provided by `Support.extra` to load files from archives.
 
-> Note that the `require` function does not automatically load files from archives added via `Support.extra.addArchive`. You need to use `Support.extra.dofile` to load Lua files from these archives. Support for `require`-style loading from archives is not yet provided.
+> [!NOTE]
+> The `require` function does not automatically load files from archives added via `Support.extra.addArchive`. You need to use `Support.extra.dofile` to load Lua files from these archives. Support for `require`-style loading from archives is not yet provided.
 
 ## Miscellaneous
 

@@ -1,3 +1,4 @@
 mkdocs-with-pdf
 mkdocs-simple-hooks
+markdown-callouts
 pyyaml
